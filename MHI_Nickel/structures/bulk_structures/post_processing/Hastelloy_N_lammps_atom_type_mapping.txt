@@ -1,0 +1,100 @@
+seed 7
+LAMMPS atom type mapping (alphabetical — ASE default):
+  Type   Element  Mass (g/mol)   Count
+--------------------------------------
+     1        Al       26.9815      10
+     2         B       10.8100      10
+     3         C       12.0110      10
+     4        Cr       51.9961      42
+     5        Fe       55.8450      18
+     6        Mo       95.9500      50
+     7        Ni       58.6934     360
+     8         H        1.0080  (future)  ← Notebooks 05–11
+
+─────────────────────────────────────────────────────────────────
+Required pair_coeff line in ALL LAMMPS scripts:
+  pair_coeff * * /path/to/mace_model.model Al B C Cr Fe Mo Ni H
+─────────────────────────────────────────────────────────────────
+⚠  The element order in pair_coeff must exactly match the type
+   numbering in the LAMMPS data file. Verify every new script.
+
+seed 42
+LAMMPS atom type mapping (alphabetical — ASE default):
+  Type   Element  Mass (g/mol)   Count
+--------------------------------------
+     1        Al       26.9815      10
+     2         B       10.8100      10
+     3         C       12.0110      10
+     4        Cr       51.9961      42
+     5        Fe       55.8450      18
+     6        Mo       95.9500      50
+     7        Ni       58.6934     360
+     8         H        1.0080  (future)  ← Notebooks 05–11
+
+─────────────────────────────────────────────────────────────────
+Required pair_coeff line in ALL LAMMPS scripts:
+  pair_coeff * * /path/to/mace_model.model Al B C Cr Fe Mo Ni H
+─────────────────────────────────────────────────────────────────
+⚠  The element order in pair_coeff must exactly match the type
+   numbering in the LAMMPS data file. Verify every new script.
+
+seed 111
+LAMMPS atom type mapping (alphabetical — ASE default):
+  Type   Element  Mass (g/mol)   Count
+--------------------------------------
+     1        Al       26.9815      10
+     2         B       10.8100      10
+     3         C       12.0110      10
+     4        Cr       51.9961      42
+     5        Fe       55.8450      18
+     6        Mo       95.9500      50
+     7        Ni       58.6934     360
+     8         H        1.0080  (future)  ← Notebooks 05–11
+
+─────────────────────────────────────────────────────────────────
+Required pair_coeff line in ALL LAMMPS scripts:
+  pair_coeff * * /path/to/mace_model.model Al B C Cr Fe Mo Ni H
+─────────────────────────────────────────────────────────────────
+⚠  The element order in pair_coeff must exactly match the type
+   numbering in the LAMMPS data file. Verify every new script.
+
+seed 1234
+LAMMPS atom type mapping (alphabetical — ASE default):
+  Type   Element  Mass (g/mol)   Count
+--------------------------------------
+     1        Al       26.9815      10
+     2         B       10.8100      10
+     3         C       12.0110      10
+     4        Cr       51.9961      42
+     5        Fe       55.8450      18
+     6        Mo       95.9500      50
+     7        Ni       58.6934     360
+     8         H        1.0080  (future)  ← Notebooks 05–11
+
+─────────────────────────────────────────────────────────────────
+Required pair_coeff line in ALL LAMMPS scripts:
+  pair_coeff * * /path/to/mace_model.model Al B C Cr Fe Mo Ni H
+─────────────────────────────────────────────────────────────────
+⚠  The element order in pair_coeff must exactly match the type
+   numbering in the LAMMPS data file. Verify every new script.
+
+seed 12345
+LAMMPS atom type mapping (alphabetical — ASE default):
+  Type   Element  Mass (g/mol)   Count
+--------------------------------------
+     1        Al       26.9815      10
+     2         B       10.8100      10
+     3         C       12.0110      10
+     4        Cr       51.9961      42
+     5        Fe       55.8450      18
+     6        Mo       95.9500      50
+     7        Ni       58.6934     360
+     8         H        1.0080  (future)  ← Notebooks 05–11
+
+─────────────────────────────────────────────────────────────────
+Required pair_coeff line in ALL LAMMPS scripts:
+  pair_coeff * * /path/to/mace_model.model Al B C Cr Fe Mo Ni H
+─────────────────────────────────────────────────────────────────
+⚠  The element order in pair_coeff must exactly match the type
+   numbering in the LAMMPS data file. Verify every new script.
+
