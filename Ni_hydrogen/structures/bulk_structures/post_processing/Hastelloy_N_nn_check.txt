@@ -1,0 +1,70 @@
+====================================================
+  NN CHECK — seed 7
+====================================================
+  Nearest-neighbour check (FCC: a₀/√2 ≈ 2.5251 Å):
+  Expected NN distance : 2.5251 Å
+  Minimum found        : 2.5251 Å
+  Deviation            : 0.0000 Å
+
+✓  Min distance 2.5251 Å is physically reasonable
+   (Slight deviation from ideal expected due to differing atomic radii)
+
+  First-shell coordination (cutoff 2.904 Å):
+    12 neighbours :  500 atoms ← expected FCC
+
+====================================================
+  NN CHECK — seed 42
+====================================================
+  Nearest-neighbour check (FCC: a₀/√2 ≈ 2.5251 Å):
+  Expected NN distance : 2.5251 Å
+  Minimum found        : 2.5251 Å
+  Deviation            : 0.0000 Å
+
+✓  Min distance 2.5251 Å is physically reasonable
+   (Slight deviation from ideal expected due to differing atomic radii)
+
+  First-shell coordination (cutoff 2.904 Å):
+    12 neighbours :  500 atoms ← expected FCC
+
+====================================================
+  NN CHECK — seed 111
+====================================================
+  Nearest-neighbour check (FCC: a₀/√2 ≈ 2.5251 Å):
+  Expected NN distance : 2.5251 Å
+  Minimum found        : 2.5251 Å
+  Deviation            : 0.0000 Å
+
+✓  Min distance 2.5251 Å is physically reasonable
+   (Slight deviation from ideal expected due to differing atomic radii)
+
+  First-shell coordination (cutoff 2.904 Å):
+    12 neighbours :  500 atoms ← expected FCC
+
+====================================================
+  NN CHECK — seed 1234
+====================================================
+  Nearest-neighbour check (FCC: a₀/√2 ≈ 2.5251 Å):
+  Expected NN distance : 2.5251 Å
+  Minimum found        : 2.5251 Å
+  Deviation            : 0.0000 Å
+
+✓  Min distance 2.5251 Å is physically reasonable
+   (Slight deviation from ideal expected due to differing atomic radii)
+
+  First-shell coordination (cutoff 2.904 Å):
+    12 neighbours :  500 atoms ← expected FCC
+
+====================================================
+  NN CHECK — seed 12345
+====================================================
+  Nearest-neighbour check (FCC: a₀/√2 ≈ 2.5251 Å):
+  Expected NN distance : 2.5251 Å
+  Minimum found        : 2.5251 Å
+  Deviation            : 0.0000 Å
+
+✓  Min distance 2.5251 Å is physically reasonable
+   (Slight deviation from ideal expected due to differing atomic radii)
+
+  First-shell coordination (cutoff 2.904 Å):
+    12 neighbours :  500 atoms ← expected FCC
+
