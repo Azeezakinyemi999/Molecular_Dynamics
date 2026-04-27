@@ -1,0 +1,62 @@
+# ════════════════════════════════════════════════════
+# LAMMPS NPT — Lattice Parameter at 300 K
+# Notebook 02 | Refs: [2,3,13,14,15,16]
+# ════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p p
+
+# ── Load minimized structure ──────────────────────────
+read_data      structures/02_bulk_energy_minimization/Hastelloy_N_12345_minimized.lammps
+
+# ── MACE-MP-0b2 via mliap unified ─────────────────────
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mp-0b2-medium.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+timestep       0.0005   # ps = 0.5 fs [your setup]
+
+# ── Initialize velocities (matches your production script) ─
+velocity       all create 300.0 12345 mom yes rot yes dist gaussian
+
+# ── Thermo output ─────────────────────────────────────
+thermo         200
+thermo_style   custom step time temp pe ke  press vol lx ly lz
+
+# ── Stage 1: Heat 10K → 300 K over 10 ps ──────
+# NPT with temperature ramp + isotropic barostat [13,14]
+# thermo_damp = 100.0 fs (matches your production value)
+# baro_damp   = 1000.0 fs = 10× thermo [13,14]
+fix            heat all npt temp 10.0 300.0 100.0 &
+               iso 0.0 0.0 1000.0
+run            20000   # 10000 ps
+unfix          heat
+print "### Heating complete ###"
+
+# ── Stage 2: NPT equilibration at 300 K ────────
+fix            npt_run all npt temp 300.0 300.0 100.0 &
+               iso 0.0 0.0 1000.0
+
+# Record box dimensions for lattice parameter analysis
+# fix            boxdump all ave/time 1 1 200 lx ly lz &
+#                file results/02_bulk_energy_minimization/Hastelloy_N_12345_npt_box.txt 
+
+variable       lx_val equal lx
+variable       ly_val equal ly
+variable       lz_val equal lz
+fix            boxdump all ave/time 1 1 200 v_lx_val v_ly_val v_lz_val &
+               file results/02_bulk_energy_minimization/Hastelloy_N_12345_npt_box.txt 
+
+
+run            200000   # 100000 ps NPT
+unfix          npt_run
+unfix          boxdump
+print "### NPT complete at 300 K ###"
+
+# ── Print final lattice parameter ─────────────────────
+variable       a0_npt equal lx/5.0
+print "NPT_RESULT: a0_at_300K = ${a0_npt} Angstrom"

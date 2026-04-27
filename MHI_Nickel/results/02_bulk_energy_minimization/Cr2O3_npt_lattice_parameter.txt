@@ -1,0 +1,7 @@
+NPT Lattice Parameter
+Temperature  : 300 K
+Ref a0       : 5.000000 Ang  [6]
+MACE a0 avg  : 8.144031 Ang
+MACE a0 std  : 0.011945 Ang
+Deviation    : +62.8806%
+Proceed      : False

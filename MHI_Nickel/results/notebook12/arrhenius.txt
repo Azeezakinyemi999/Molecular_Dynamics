@@ -1,0 +1,19 @@
+Hastelloy N H Diffusivity — Arrhenius Fit — NB12
+=======================================================
+Method   : Weighted linear fit ln(D) vs 1/T
+Input    : D(T) from NB11 MSD (4 temperatures)
+
+Ea_eV    = 0.417852
+Ea_err   = 0.070076
+D0_m2s   = 5.836445e-07
+D0_err   = 6.681326e-07
+
+D(T) from Arrhenius fit:
+   T_K           D_m2s
+-------------------------
+   300    5.578822e-14
+   400    3.172809e-12
+   500    3.584139e-11
+   600    1.804452e-10
+   700    5.724609e-10
+   800    1.360806e-09

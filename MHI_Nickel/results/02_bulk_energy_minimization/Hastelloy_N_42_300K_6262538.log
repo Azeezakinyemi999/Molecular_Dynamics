@@ -1,0 +1,10 @@
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+ERROR: Cannot open file structures/02_bulk_energy_minimization/Hastelloy_N_42_minimized.lammps: No such file or directory (src/read_data.cpp:380)
+Last input line: read_data structures/02_bulk_energy_minimization/Hastelloy_N_42_minimized.lammps 
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NPT at 300 K finished at: Mon Apr 20 09:51:26 PM EDT 2026
