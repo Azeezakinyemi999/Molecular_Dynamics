@@ -1,0 +1,164 @@
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+package kokkos
+package kokkos newton on neigh half
+# ════════════════════════════════════════════════════
+# LAMMPS Energy Minimization — Hastelloy N Bulk
+# Notebook 02 | pair_style: mliap unified
+# Refs: [2,3,4,5,6,15,16]
+# ════════════════════════════════════════════════════
+
+units          metal          # eV, Å, ps, bar [3]
+atom_style     atomic
+newton         on             # matches your production script
+boundary       p p p          # fully periodic — bulk [2,3]
+
+# ── Read structure from Notebook 01 ──────────────────
+read_data      structures/bulk_structures/Al_supercell.lammps
+Reading data file ...
+  orthogonal box = (0 0 0) to (20.2 20.2 20.2)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  500 atoms
+  read_data CPU = 0.012 seconds
+
+# ── MACE-MP-0b2 via mliap unified interface ───────────
+# Element order MUST match type numbers in data file [15,16]
+# Type 1=Al, 2=B, 3=C, 4=Cr, 5=Fe, 6=Mo, 7=Ni, 8=H (future)
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mp-0b2-medium.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+# ── Neighbor list ─────────────────────────────────────
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+# ── Thermo output (matches your script style) ─────────
+thermo         10
+thermo_style   custom step pe fmax fnorm press vol lx ly lz
+
+# ── Box relaxation: isotropic, target P=0 bar ─────────
+# Finds MACE equilibrium lattice parameter simultaneously [3,6]
+# vmax 0.001: conservative max box change per step
+fix            boxrelax all box/relax iso 0.0 vmax 0.001
+
+print "### Minimization ###"
+### Minimization ###
+
+# ── Conjugate Gradient minimization ──────────────────
+# etol=0  ftol=1e-08  maxiter=50000  maxeval=500000
+# Matches your production script values [4,5]
+minimize       0 1e-08 50000 500000
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- KOKKOS package: https://doi.org/10.1145/3731599.3767498
+
+@inproceedings{Johansson25,
+ author = {A. Johansson and E. Weinberg and C. Trott and M. McCarthy and S. Moore},
+ title = {{LAMMPS-KOKKOS}: {P}erformance Portable Molecular Dynamics Across Exascale Architectures},
+ year = 2025,
+ booktitle = {Proceedings of the SC '25 Workshops of the International Conference for High Performance Computing,
+  Networking, Storage and Analysis},
+ pages = {1217–1232},
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 7
+  ghost atom cutoff = 7
+  binsize = 7, bins = 3 3 3
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair mliap/kk, perpetual
+      attributes: full, newton on, kokkos_device
+      pair build: full/bin/kk/device
+      stencil: full/bin/3d
+      bin: kk/device
+WARNING: Energy due to 1 extra global DOFs will be included in minimizer energies
+ (src/KOKKOS/min_kokkos.cpp:94)
+WARNING: Fix MINIMIZE/kk not compatible with sending data in Kokkos communication (src/KOKKOS/comm_kokkos.cpp:842)
+WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
+WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 78.9 | 78.9 | 78.9 Mbytes
+   Step         PotEng          Fmax          Fnorm          Press          Volume           Lx             Ly             Lz      
+         0  -1854.9637      2.5061279e-14  2.2695775e-13  5328.0993      8242.408       20.2           20.2           20.2         
+         6  -1855.0866      3.1678936e-14  3.608947e-13  -1.1986039e-09  8316.9424      20.260706      20.260706      20.260706    
+Loop time of 1.17389 on 1 procs for 6 steps with 500 atoms
+
+94.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = force tolerance
+  Energy initial, next-to-last, final = 
+     -1854.96366963961   -1855.0866264335   -1855.0866264335
+  Force two-norm initial, final = 82.23133 1.8613529e-11
+  Force max component initial, final = 82.23133 1.861003e-11
+  Final line search alpha, max atom move = 1 1.861003e-11
+  Iterations, force evaluations = 6 9
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.1569     | 1.1569     | 1.1569     |   0.0 | 98.56
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00056082 | 0.00056082 | 0.00056082 |   0.0 |  0.05
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 0          | 0          | 0          |   0.0 |  0.00
+Other   |            | 0.0164     |            |       |  1.40
+
+Nlocal:            500 ave         500 max         500 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1956 ave        1956 max        1956 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:        43000 ave       43000 max       43000 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 43000
+Ave neighs/atom = 86
+Neighbor list builds = 0
+Dangerous builds = 0
+
+print "### Minimization complete ###"
+### Minimization complete ###
+
+unfix          boxrelax
+
+# # ── Extract and print key results — use pe (potential energy) during minimization [2,4]
+variable       pe_final equal pe
+variable       natoms   equal atoms
+variable       ecoh     equal -v_pe_final/v_natoms
+variable       a0_min   equal lx/5
+variable       fmax_f   equal fmax
+
+print "MINIMIZATION_RESULTS_START"
+MINIMIZATION_RESULTS_START
+print "  Total_energy_eV     : ${pe_final}"
+  Total_energy_eV     : -1855.0866264335
+print "  Natoms              : ${natoms}"
+  Natoms              : 500
+print "  Ecoh_eV_per_atom    : ${ecoh}"
+  Ecoh_eV_per_atom    : 3.710173252867
+print "  a0_Angstrom         : ${a0_min}"
+  a0_Angstrom         : 4.05214110877612
+print "  Fmax_eV_per_Ang     : ${fmax_f}"
+  Fmax_eV_per_Ang     : 3.16789356655548e-14
+print "MINIMIZATION_RESULTS_END"
+MINIMIZATION_RESULTS_END
+
+# ── Write minimized structure ──────────────────────────
+write_data     structures/02_bulk_energy_minimization/Pure_Aluminium/Al_minimized.lammps
+System init for write_data ...
+print "Minimized structure written to structures/02_bulk_energy_minimization/Pure_Aluminium/Al_minimized.lammps"
+Minimized structure written to structures/02_bulk_energy_minimization/Pure_Aluminium/Al_minimized.lammps
+Total wall time: 0:00:21
