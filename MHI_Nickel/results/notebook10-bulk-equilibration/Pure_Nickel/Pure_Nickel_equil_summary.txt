@@ -1,0 +1,10 @@
+Hastelloy N Bulk Equilibration — Notebook 10
+==================================================
+System   : 500 metal + 1 H (octahedral site)
+Protocol : 250 ps equil + 750 ps production
+
+   T_set    T_final        PE (eV) OK
+----------------------------------------
+     800      760.6     -2817.2021 yes
+    1000      966.6     -2805.2204 yes
+    1200     1134.2     -2791.4730 no
