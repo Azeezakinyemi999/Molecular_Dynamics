@@ -1,0 +1,4796 @@
+{
+  "seed": 7,
+  "adsorbate": "H2",
+  "n_sites": 171,
+  "best_is": "s_123",
+  "sites": {
+    "s_0": {
+      "site_id": "s_0",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1304,
+      "E_ads_eV": NaN,
+      "hh_distance": 0,
+      "status": "ambiguous",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.3415,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.6252,
+          "index": 328
+        },
+        {
+          "element": "B",
+          "distance": 2.4958,
+          "index": 358
+        }
+      ]
+    },
+    "s_1": {
+      "site_id": "s_1",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2093,
+      "E_ads_eV": -0.113404,
+      "hh_distance": 0.7608,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.7731,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.2518,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1175,
+          "index": 353
+        }
+      ]
+    },
+    "s_2": {
+      "site_id": "s_2",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1304,
+      "E_ads_eV": NaN,
+      "hh_distance": 0,
+      "status": "ambiguous",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.3416,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.6252,
+          "index": 328
+        },
+        {
+          "element": "B",
+          "distance": 2.4958,
+          "index": 358
+        }
+      ]
+    },
+    "s_3": {
+      "site_id": "s_3",
+      "true_label": "C_atop_physisorbed",
+      "composition": "C",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.8318,
+      "E_ads_eV": -0.154183,
+      "hh_distance": 0.7629,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "C",
+          "distance": 1.1766,
+          "index": 328
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4244,
+          "index": 324
+        },
+        {
+          "element": "B",
+          "distance": 2.0898,
+          "index": 358
+        }
+      ]
+    },
+    "s_4": {
+      "site_id": "s_4",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1304,
+      "E_ads_eV": -0.165912,
+      "hh_distance": 11.7618,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.0217,
+          "index": 356
+        },
+        {
+          "element": "Mo",
+          "distance": 1.5604,
+          "index": 357
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2428,
+          "index": 352
+        }
+      ]
+    },
+    "s_5": {
+      "site_id": "s_5",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2093,
+      "E_ads_eV": NaN,
+      "hh_distance": 0,
+      "status": "ambiguous",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.7731,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.2518,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1175,
+          "index": 353
+        }
+      ]
+    },
+    "s_6": {
+      "site_id": "s_6",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2093,
+      "E_ads_eV": -0.113404,
+      "hh_distance": 0.7608,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.7731,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.2518,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1175,
+          "index": 353
+        }
+      ]
+    },
+    "s_7": {
+      "site_id": "s_7",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2093,
+      "E_ads_eV": -0.113404,
+      "hh_distance": 0.7608,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.7731,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.2518,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1175,
+          "index": 353
+        }
+      ]
+    },
+    "s_8": {
+      "site_id": "s_8",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2048,
+      "E_ads_eV": -0.44174,
+      "hh_distance": 0.7608,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.7759,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.2489,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1157,
+          "index": 353
+        }
+      ]
+    },
+    "s_9": {
+      "site_id": "s_9",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2048,
+      "E_ads_eV": -0.44174,
+      "hh_distance": 0.7608,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.7759,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.2489,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1157,
+          "index": 353
+        }
+      ]
+    },
+    "s_10": {
+      "site_id": "s_10",
+      "true_label": "C_atop_physisorbed",
+      "composition": "C",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.8318,
+      "E_ads_eV": -0.154183,
+      "hh_distance": 0.7629,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "C",
+          "distance": 1.1766,
+          "index": 328
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4244,
+          "index": 324
+        },
+        {
+          "element": "B",
+          "distance": 2.0898,
+          "index": 358
+        }
+      ]
+    },
+    "s_11": {
+      "site_id": "s_11",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1304,
+      "E_ads_eV": -0.165912,
+      "hh_distance": 0.7607,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.3415,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.6252,
+          "index": 328
+        },
+        {
+          "element": "B",
+          "distance": 2.4958,
+          "index": 358
+        }
+      ]
+    },
+    "s_12": {
+      "site_id": "s_12",
+      "true_label": "C_atop_physisorbed",
+      "composition": "C",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.8272,
+      "E_ads_eV": -0.483326,
+      "hh_distance": 0.7629,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "C",
+          "distance": 1.1765,
+          "index": 328
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4231,
+          "index": 324
+        },
+        {
+          "element": "B",
+          "distance": 2.0896,
+          "index": 358
+        }
+      ]
+    },
+    "s_13": {
+      "site_id": "s_13",
+      "true_label": "Mo_near_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "near_atop",
+      "z_above_surface": 3.2238,
+      "E_ads_eV": -0.525335,
+      "hh_distance": 11.7773,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 2.3855,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 3.108,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 3.4418,
+          "index": 356
+        }
+      ]
+    },
+    "s_14": {
+      "site_id": "s_14",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2296,
+      "E_ads_eV": -0.196834,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.3779,
+          "index": 330
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2679,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4285,
+          "index": 331
+        }
+      ]
+    },
+    "s_15": {
+      "site_id": "s_15",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2296,
+      "E_ads_eV": -0.196834,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.3779,
+          "index": 330
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2679,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4285,
+          "index": 331
+        }
+      ]
+    },
+    "s_16": {
+      "site_id": "s_16",
+      "true_label": "MoNiNi_near_hollow_physisorbed",
+      "composition": "MoNiNi",
+      "mode": "physisorbed",
+      "site_type": "near_hollow",
+      "z_above_surface": 3.4089,
+      "E_ads_eV": -0.196834,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 4.492,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 4.6836,
+          "index": 350
+        },
+        {
+          "element": "Mo",
+          "distance": 5.1791,
+          "index": 351
+        }
+      ]
+    },
+    "s_17": {
+      "site_id": "s_17",
+      "true_label": "C_near_atop_physisorbed",
+      "composition": "C",
+      "mode": "physisorbed",
+      "site_type": "near_atop",
+      "z_above_surface": 3.1674,
+      "E_ads_eV": -1.160175,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "C",
+          "distance": 2.0046,
+          "index": 328
+        },
+        {
+          "element": "B",
+          "distance": 2.7115,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 3.3769,
+          "index": 324
+        }
+      ]
+    },
+    "s_18": {
+      "site_id": "s_18",
+      "true_label": "Fe_atop_physisorbed",
+      "composition": "Fe",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1714,
+      "E_ads_eV": -0.17979,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 0.5542,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1535,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3523,
+          "index": 338
+        }
+      ]
+    },
+    "s_19": {
+      "site_id": "s_19",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2296,
+      "E_ads_eV": -0.196834,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.3779,
+          "index": 330
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2679,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4285,
+          "index": 331
+        }
+      ]
+    },
+    "s_20": {
+      "site_id": "s_20",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4135,
+      "E_ads_eV": -0.511886,
+      "hh_distance": 11.7306,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.8113,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.655,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1709,
+          "index": 332
+        }
+      ]
+    },
+    "s_21": {
+      "site_id": "s_21",
+      "true_label": "Ni_near_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "near_atop",
+      "z_above_surface": 3.456,
+      "E_ads_eV": -0.183637,
+      "hh_distance": 0.7614,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.8815,
+          "index": 339
+        },
+        {
+          "element": "Fe",
+          "distance": 3.5736,
+          "index": 334
+        },
+        {
+          "element": "Cr",
+          "distance": 4.0321,
+          "index": 344
+        }
+      ]
+    },
+    "s_22": {
+      "site_id": "s_22",
+      "true_label": "MoNiNi_near_hollow_physisorbed",
+      "composition": "MoNiNi",
+      "mode": "physisorbed",
+      "site_type": "near_hollow",
+      "z_above_surface": 3.4089,
+      "E_ads_eV": -0.196834,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 4.492,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 4.6836,
+          "index": 350
+        },
+        {
+          "element": "Mo",
+          "distance": 5.1791,
+          "index": 351
+        }
+      ]
+    },
+    "s_23": {
+      "site_id": "s_23",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2813,
+      "E_ads_eV": -0.153446,
+      "hh_distance": 0.7592,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2659,
+          "index": 331
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1325,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3728,
+          "index": 330
+        }
+      ]
+    },
+    "s_24": {
+      "site_id": "s_24",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.279,
+      "E_ads_eV": -0.481508,
+      "hh_distance": 0.7592,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2658,
+          "index": 331
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1332,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3705,
+          "index": 330
+        }
+      ]
+    },
+    "s_25": {
+      "site_id": "s_25",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4559,
+      "E_ads_eV": -0.494887,
+      "hh_distance": 0.7607,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.47,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0737,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2185,
+          "index": 331
+        }
+      ]
+    },
+    "s_26": {
+      "site_id": "s_26",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.755,
+      "E_ads_eV": -0.469744,
+      "hh_distance": 0.7605,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.244,
+          "index": 356
+        },
+        {
+          "element": "Mo",
+          "distance": 3.3094,
+          "index": 357
+        },
+        {
+          "element": "Mo",
+          "distance": 3.3455,
+          "index": 351
+        }
+      ]
+    },
+    "s_27": {
+      "site_id": "s_27",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2813,
+      "E_ads_eV": -0.153446,
+      "hh_distance": 0.7592,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2659,
+          "index": 331
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1325,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3728,
+          "index": 330
+        }
+      ]
+    },
+    "s_28": {
+      "site_id": "s_28",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.625,
+      "E_ads_eV": -0.493794,
+      "hh_distance": 0.7617,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.1978,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 1.3522,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0175,
+          "index": 341
+        }
+      ]
+    },
+    "s_29": {
+      "site_id": "s_29",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4559,
+      "E_ads_eV": -0.494887,
+      "hh_distance": 0.7607,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.47,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0737,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2185,
+          "index": 331
+        }
+      ]
+    },
+    "s_30": {
+      "site_id": "s_30",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.755,
+      "E_ads_eV": -0.469744,
+      "hh_distance": 0.7605,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.244,
+          "index": 356
+        },
+        {
+          "element": "Mo",
+          "distance": 3.3094,
+          "index": 357
+        },
+        {
+          "element": "Mo",
+          "distance": 3.3455,
+          "index": 351
+        }
+      ]
+    },
+    "s_31": {
+      "site_id": "s_31",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.7554,
+      "E_ads_eV": -0.141731,
+      "hh_distance": 0.7605,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.2378,
+          "index": 356
+        },
+        {
+          "element": "Mo",
+          "distance": 3.3014,
+          "index": 357
+        },
+        {
+          "element": "Mo",
+          "distance": 3.3426,
+          "index": 351
+        }
+      ]
+    },
+    "s_32": {
+      "site_id": "s_32",
+      "true_label": "Ni_near_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "near_atop",
+      "z_above_surface": 3.36,
+      "E_ads_eV": -0.153446,
+      "hh_distance": 0.7592,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 2.8521,
+          "index": 356
+        },
+        {
+          "element": "Mo",
+          "distance": 4.5637,
+          "index": 351
+        },
+        {
+          "element": "Mo",
+          "distance": 4.7392,
+          "index": 357
+        }
+      ]
+    },
+    "s_33": {
+      "site_id": "s_33",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.393,
+      "E_ads_eV": -0.117302,
+      "hh_distance": 0.7587,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1344,
+          "index": 332
+        },
+        {
+          "element": "Ni",
+          "distance": 2.309,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4677,
+          "index": 337
+        }
+      ]
+    },
+    "s_34": {
+      "site_id": "s_34",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.6363,
+      "E_ads_eV": -0.472165,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.9581,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6659,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7497,
+          "index": 338
+        }
+      ]
+    },
+    "s_35": {
+      "site_id": "s_35",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.6411,
+      "E_ads_eV": -0.143934,
+      "hh_distance": 0.7611,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.9673,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6543,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7504,
+          "index": 338
+        }
+      ]
+    },
+    "s_36": {
+      "site_id": "s_36",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_37": {
+      "site_id": "s_37",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4441,
+      "E_ads_eV": -0.490049,
+      "hh_distance": 0.7611,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.6788,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0314,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1639,
+          "index": 337
+        }
+      ]
+    },
+    "s_38": {
+      "site_id": "s_38",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3635,
+      "E_ads_eV": -0.497508,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1932,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3136,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5009,
+          "index": 343
+        }
+      ]
+    },
+    "s_39": {
+      "site_id": "s_39",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3635,
+      "E_ads_eV": -0.497508,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1932,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3136,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5009,
+          "index": 343
+        }
+      ]
+    },
+    "s_40": {
+      "site_id": "s_40",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.755,
+      "E_ads_eV": -1.121726,
+      "hh_distance": 0.7605,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.2438,
+          "index": 356
+        },
+        {
+          "element": "Mo",
+          "distance": 3.3091,
+          "index": 357
+        },
+        {
+          "element": "Mo",
+          "distance": 3.345,
+          "index": 351
+        }
+      ]
+    },
+    "s_41": {
+      "site_id": "s_41",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3015,
+      "E_ads_eV": -0.157273,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1006,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2164,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3505,
+          "index": 353
+        }
+      ]
+    },
+    "s_42": {
+      "site_id": "s_42",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_43": {
+      "site_id": "s_43",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.6363,
+      "E_ads_eV": -0.472165,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.9581,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6659,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7497,
+          "index": 338
+        }
+      ]
+    },
+    "s_44": {
+      "site_id": "s_44",
+      "true_label": "Fe_atop_physisorbed",
+      "composition": "Fe",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1667,
+      "E_ads_eV": -0.508385,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 0.5566,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1514,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3538,
+          "index": 338
+        }
+      ]
+    },
+    "s_45": {
+      "site_id": "s_45",
+      "true_label": "Fe_atop_physisorbed",
+      "composition": "Fe",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1708,
+      "E_ads_eV": 0.157455,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 0.555,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1547,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3539,
+          "index": 338
+        }
+      ]
+    },
+    "s_46": {
+      "site_id": "s_46",
+      "true_label": "BCMo_near_hollow_physisorbed",
+      "composition": "BCMo",
+      "mode": "physisorbed",
+      "site_type": "near_hollow",
+      "z_above_surface": 3.7157,
+      "E_ads_eV": -0.472165,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "B",
+          "distance": 3.7117,
+          "index": 358
+        },
+        {
+          "element": "Mo",
+          "distance": 3.8821,
+          "index": 357
+        },
+        {
+          "element": "C",
+          "distance": 3.9304,
+          "index": 328
+        }
+      ]
+    },
+    "s_47": {
+      "site_id": "s_47",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.6363,
+      "E_ads_eV": -0.472165,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.9581,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6659,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7497,
+          "index": 338
+        }
+      ]
+    },
+    "s_48": {
+      "site_id": "s_48",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3664,
+      "E_ads_eV": -1.149306,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1914,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3168,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.505,
+          "index": 343
+        }
+      ]
+    },
+    "s_49": {
+      "site_id": "s_49",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.6363,
+      "E_ads_eV": -0.472165,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.9581,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6659,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7497,
+          "index": 338
+        }
+      ]
+    },
+    "s_50": {
+      "site_id": "s_50",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_51": {
+      "site_id": "s_51",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_52": {
+      "site_id": "s_52",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_53": {
+      "site_id": "s_53",
+      "true_label": "C_near_atop_physisorbed",
+      "composition": "C",
+      "mode": "physisorbed",
+      "site_type": "near_atop",
+      "z_above_surface": 3.1714,
+      "E_ads_eV": -0.17979,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "C",
+          "distance": 2.0078,
+          "index": 328
+        },
+        {
+          "element": "B",
+          "distance": 2.7131,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 3.3832,
+          "index": 324
+        }
+      ]
+    },
+    "s_54": {
+      "site_id": "s_54",
+      "true_label": "Fe_atop_physisorbed",
+      "composition": "Fe",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1667,
+      "E_ads_eV": -0.508385,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 0.5566,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1514,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3538,
+          "index": 338
+        }
+      ]
+    },
+    "s_55": {
+      "site_id": "s_55",
+      "true_label": "Fe_atop_physisorbed",
+      "composition": "Fe",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1667,
+      "E_ads_eV": -0.508385,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 0.5566,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1514,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3538,
+          "index": 338
+        }
+      ]
+    },
+    "s_56": {
+      "site_id": "s_56",
+      "true_label": "Fe_atop_physisorbed",
+      "composition": "Fe",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1667,
+      "E_ads_eV": -0.508385,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 0.5566,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1514,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3538,
+          "index": 338
+        }
+      ]
+    },
+    "s_57": {
+      "site_id": "s_57",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.8316,
+      "E_ads_eV": -0.481681,
+      "hh_distance": 0.7615,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.055,
+          "index": 324
+        },
+        {
+          "element": "C",
+          "distance": 1.3292,
+          "index": 328
+        },
+        {
+          "element": "B",
+          "distance": 2.1412,
+          "index": 358
+        }
+      ]
+    },
+    "s_58": {
+      "site_id": "s_58",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.291,
+      "E_ads_eV": -0.176539,
+      "hh_distance": 0.7603,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.257,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2043,
+          "index": 331
+        },
+        {
+          "element": "Ni",
+          "distance": 2.363,
+          "index": 330
+        }
+      ]
+    },
+    "s_59": {
+      "site_id": "s_59",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.6256,
+      "E_ads_eV": -0.165578,
+      "hh_distance": 0.7617,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.2017,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 1.3472,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0177,
+          "index": 341
+        }
+      ]
+    },
+    "s_60": {
+      "site_id": "s_60",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4287,
+      "E_ads_eV": -0.173998,
+      "hh_distance": 0.7615,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.4569,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0878,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2491,
+          "index": 341
+        }
+      ]
+    },
+    "s_61": {
+      "site_id": "s_61",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4135,
+      "E_ads_eV": -0.511886,
+      "hh_distance": 11.7306,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.8113,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.655,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1709,
+          "index": 332
+        }
+      ]
+    },
+    "s_62": {
+      "site_id": "s_62",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4135,
+      "E_ads_eV": -0.511886,
+      "hh_distance": 11.7306,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.8113,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.655,
+          "index": 333
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1709,
+          "index": 332
+        }
+      ]
+    },
+    "s_63": {
+      "site_id": "s_63",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2881,
+      "E_ads_eV": -0.5047,
+      "hh_distance": 0.7603,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2571,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2077,
+          "index": 331
+        },
+        {
+          "element": "Ni",
+          "distance": 2.36,
+          "index": 330
+        }
+      ]
+    },
+    "s_64": {
+      "site_id": "s_64",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.7003,
+      "E_ads_eV": -0.471344,
+      "hh_distance": 0.7602,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.0624,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4793,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8806,
+          "index": 335
+        }
+      ]
+    },
+    "s_65": {
+      "site_id": "s_65",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4287,
+      "E_ads_eV": -0.173998,
+      "hh_distance": 0.7615,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.4569,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0878,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2491,
+          "index": 341
+        }
+      ]
+    },
+    "s_66": {
+      "site_id": "s_66",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3536,
+      "E_ads_eV": -0.49664,
+      "hh_distance": 0.7604,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2253,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2517,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4457,
+          "index": 342
+        }
+      ]
+    },
+    "s_67": {
+      "site_id": "s_67",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3635,
+      "E_ads_eV": -0.497508,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1932,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3136,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5009,
+          "index": 343
+        }
+      ]
+    },
+    "s_68": {
+      "site_id": "s_68",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.6022,
+      "E_ads_eV": -0.479648,
+      "hh_distance": 0.7616,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.3008,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4676,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8397,
+          "index": 342
+        }
+      ]
+    },
+    "s_69": {
+      "site_id": "s_69",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3547,
+      "E_ads_eV": -0.168652,
+      "hh_distance": 0.7604,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.225,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2518,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4453,
+          "index": 342
+        }
+      ]
+    },
+    "s_70": {
+      "site_id": "s_70",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4441,
+      "E_ads_eV": -0.490049,
+      "hh_distance": 0.7611,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.6788,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0314,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1639,
+          "index": 337
+        }
+      ]
+    },
+    "s_71": {
+      "site_id": "s_71",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4452,
+      "E_ads_eV": -0.16193,
+      "hh_distance": 0.7611,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.6778,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.032,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1634,
+          "index": 337
+        }
+      ]
+    },
+    "s_72": {
+      "site_id": "s_72",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3624,
+      "E_ads_eV": -0.169223,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1944,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3133,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5024,
+          "index": 343
+        }
+      ]
+    },
+    "s_73": {
+      "site_id": "s_73",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3635,
+      "E_ads_eV": -0.497508,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1932,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3136,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5009,
+          "index": 343
+        }
+      ]
+    },
+    "s_74": {
+      "site_id": "s_74",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3635,
+      "E_ads_eV": -0.497508,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1932,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3136,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5009,
+          "index": 343
+        }
+      ]
+    },
+    "s_75": {
+      "site_id": "s_75",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3578,
+      "E_ads_eV": -0.497598,
+      "hh_distance": 0.7594,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2078,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2879,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.458,
+          "index": 343
+        }
+      ]
+    },
+    "s_76": {
+      "site_id": "s_76",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3595,
+      "E_ads_eV": -0.169296,
+      "hh_distance": 0.7594,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2083,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.288,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4602,
+          "index": 343
+        }
+      ]
+    },
+    "s_77": {
+      "site_id": "s_77",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3624,
+      "E_ads_eV": -0.169223,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1944,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3133,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5024,
+          "index": 343
+        }
+      ]
+    },
+    "s_78": {
+      "site_id": "s_78",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3189,
+      "E_ads_eV": -0.137185,
+      "hh_distance": 0.7605,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2118,
+          "index": 338
+        },
+        {
+          "element": "Cr",
+          "distance": 2.2805,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3349,
+          "index": 339
+        }
+      ]
+    },
+    "s_79": {
+      "site_id": "s_79",
+      "true_label": "Fe_atop_physisorbed",
+      "composition": "Fe",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1667,
+      "E_ads_eV": -0.508385,
+      "hh_distance": 0.762,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 0.5566,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1514,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3538,
+          "index": 338
+        }
+      ]
+    },
+    "s_80": {
+      "site_id": "s_80",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4612,
+      "E_ads_eV": -0.476107,
+      "hh_distance": 0.7625,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.6211,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8813,
+          "index": 338
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0216,
+          "index": 339
+        }
+      ]
+    },
+    "s_81": {
+      "site_id": "s_81",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3624,
+      "E_ads_eV": -0.169223,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1944,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3133,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5024,
+          "index": 343
+        }
+      ]
+    },
+    "s_82": {
+      "site_id": "s_82",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4673,
+      "E_ads_eV": -0.147151,
+      "hh_distance": 0.7625,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.623,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8789,
+          "index": 338
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0218,
+          "index": 339
+        }
+      ]
+    },
+    "s_83": {
+      "site_id": "s_83",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4673,
+      "E_ads_eV": -0.147151,
+      "hh_distance": 0.7625,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.623,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8789,
+          "index": 338
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0218,
+          "index": 339
+        }
+      ]
+    },
+    "s_84": {
+      "site_id": "s_84",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3247,
+      "E_ads_eV": -0.163565,
+      "hh_distance": 0.76,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.9756,
+          "index": 339
+        },
+        {
+          "element": "Fe",
+          "distance": 1.995,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6449,
+          "index": 338
+        }
+      ]
+    },
+    "s_85": {
+      "site_id": "s_85",
+      "true_label": "FeNi_near_bridge_physisorbed",
+      "composition": "FeNi",
+      "mode": "physisorbed",
+      "site_type": "near_bridge",
+      "z_above_surface": 3.2238,
+      "E_ads_eV": -0.525335,
+      "hh_distance": 0.761,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 2.2073,
+          "index": 339
+        },
+        {
+          "element": "Fe",
+          "distance": 2.614,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 3.9904,
+          "index": 338
+        }
+      ]
+    },
+    "s_86": {
+      "site_id": "s_86",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4612,
+      "E_ads_eV": -0.476107,
+      "hh_distance": 0.7625,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.6211,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8813,
+          "index": 338
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0216,
+          "index": 339
+        }
+      ]
+    },
+    "s_87": {
+      "site_id": "s_87",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4673,
+      "E_ads_eV": -0.147151,
+      "hh_distance": 0.7625,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.623,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8789,
+          "index": 338
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0218,
+          "index": 339
+        }
+      ]
+    },
+    "s_88": {
+      "site_id": "s_88",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4817,
+      "E_ads_eV": -0.453861,
+      "hh_distance": 11.9701,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.2901,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 1.325,
+          "index": 343
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8452,
+          "index": 337
+        }
+      ]
+    },
+    "s_89": {
+      "site_id": "s_89",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.702,
+      "E_ads_eV": -0.142822,
+      "hh_distance": 0.7602,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.0589,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4817,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8835,
+          "index": 335
+        }
+      ]
+    },
+    "s_90": {
+      "site_id": "s_90",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.7003,
+      "E_ads_eV": -0.471344,
+      "hh_distance": 0.7602,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.0624,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4793,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8806,
+          "index": 335
+        }
+      ]
+    },
+    "s_91": {
+      "site_id": "s_91",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3787,
+      "E_ads_eV": -0.526625,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2434,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8424,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2674,
+          "index": 348
+        }
+      ]
+    },
+    "s_92": {
+      "site_id": "s_92",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3845,
+      "E_ads_eV": -0.19811,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2383,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8427,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2756,
+          "index": 348
+        }
+      ]
+    },
+    "s_93": {
+      "site_id": "s_93",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.702,
+      "E_ads_eV": -0.142822,
+      "hh_distance": 0.7602,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.0589,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4817,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8835,
+          "index": 335
+        }
+      ]
+    },
+    "s_94": {
+      "site_id": "s_94",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2501,
+      "E_ads_eV": -0.323167,
+      "hh_distance": 11.9079,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 1.0324,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.5498,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8881,
+          "index": 343
+        }
+      ]
+    },
+    "s_95": {
+      "site_id": "s_95",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.409,
+      "E_ads_eV": -0.526625,
+      "hh_distance": 12.4592,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 1.3078,
+          "index": 346
+        },
+        {
+          "element": "Mo",
+          "distance": 1.4155,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.9742,
+          "index": 342
+        }
+      ]
+    },
+    "s_96": {
+      "site_id": "s_96",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4905,
+      "E_ads_eV": -0.143798,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.547,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.9704,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1706,
+          "index": 340
+        }
+      ]
+    },
+    "s_97": {
+      "site_id": "s_97",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3536,
+      "E_ads_eV": -0.49664,
+      "hh_distance": 0.7604,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2253,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2517,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4457,
+          "index": 342
+        }
+      ]
+    },
+    "s_98": {
+      "site_id": "s_98",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4258,
+      "E_ads_eV": -0.502155,
+      "hh_distance": 0.7615,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.4519,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0938,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2509,
+          "index": 341
+        }
+      ]
+    },
+    "s_99": {
+      "site_id": "s_99",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.7003,
+      "E_ads_eV": -0.471344,
+      "hh_distance": 0.7602,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.0624,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4793,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8806,
+          "index": 335
+        }
+      ]
+    },
+    "s_100": {
+      "site_id": "s_100",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.7003,
+      "E_ads_eV": -0.471344,
+      "hh_distance": 0.7602,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.0624,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.4793,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8806,
+          "index": 335
+        }
+      ]
+    },
+    "s_101": {
+      "site_id": "s_101",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4258,
+      "E_ads_eV": -0.502155,
+      "hh_distance": 0.7615,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.4519,
+          "index": 335
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0938,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2509,
+          "index": 341
+        }
+      ]
+    },
+    "s_102": {
+      "site_id": "s_102",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4452,
+      "E_ads_eV": -0.16193,
+      "hh_distance": 0.7611,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.6778,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 2.032,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1634,
+          "index": 337
+        }
+      ]
+    },
+    "s_103": {
+      "site_id": "s_103",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3635,
+      "E_ads_eV": -0.497508,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1932,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3136,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5009,
+          "index": 343
+        }
+      ]
+    },
+    "s_104": {
+      "site_id": "s_104",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1283,
+      "E_ads_eV": -0.453647,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1261,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.483,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5108,
+          "index": 353
+        }
+      ]
+    },
+    "s_105": {
+      "site_id": "s_105",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.8921,
+      "E_ads_eV": -0.073258,
+      "hh_distance": 0.758,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.409,
+          "index": 346
+        },
+        {
+          "element": "Mo",
+          "distance": 2.2848,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2896,
+          "index": 342
+        }
+      ]
+    },
+    "s_106": {
+      "site_id": "s_106",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1302,
+      "E_ads_eV": -0.125145,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1223,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4881,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5128,
+          "index": 353
+        }
+      ]
+    },
+    "s_107": {
+      "site_id": "s_107",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1283,
+      "E_ads_eV": -0.453647,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1261,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.483,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5108,
+          "index": 353
+        }
+      ]
+    },
+    "s_108": {
+      "site_id": "s_108",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3635,
+      "E_ads_eV": -0.497508,
+      "hh_distance": 0.7593,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.1932,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3136,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5009,
+          "index": 343
+        }
+      ]
+    },
+    "s_109": {
+      "site_id": "s_109",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.5068,
+      "E_ads_eV": -0.45665,
+      "hh_distance": 0.7616,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.7081,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6922,
+          "index": 343
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1756,
+          "index": 338
+        }
+      ]
+    },
+    "s_110": {
+      "site_id": "s_110",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.5068,
+      "E_ads_eV": -0.45665,
+      "hh_distance": 0.7616,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.7081,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6922,
+          "index": 343
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1756,
+          "index": 338
+        }
+      ]
+    },
+    "s_111": {
+      "site_id": "s_111",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1302,
+      "E_ads_eV": -0.125145,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1223,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4881,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5128,
+          "index": 353
+        }
+      ]
+    },
+    "s_112": {
+      "site_id": "s_112",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1302,
+      "E_ads_eV": -1.105733,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1292,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4822,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5076,
+          "index": 353
+        }
+      ]
+    },
+    "s_113": {
+      "site_id": "s_113",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.5131,
+      "E_ads_eV": -0.128028,
+      "hh_distance": 0.7616,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.7119,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6887,
+          "index": 343
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1726,
+          "index": 338
+        }
+      ]
+    },
+    "s_114": {
+      "site_id": "s_114",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4671,
+      "E_ads_eV": 0.190071,
+      "hh_distance": 0.7625,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.6211,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8814,
+          "index": 338
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0216,
+          "index": 339
+        }
+      ]
+    },
+    "s_115": {
+      "site_id": "s_115",
+      "true_label": "Cr_atop_physisorbed",
+      "composition": "Cr",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4673,
+      "E_ads_eV": -0.147151,
+      "hh_distance": 0.7625,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Cr",
+          "distance": 0.623,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8789,
+          "index": 338
+        },
+        {
+          "element": "Ni",
+          "distance": 2.0218,
+          "index": 339
+        }
+      ]
+    },
+    "s_116": {
+      "site_id": "s_116",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3794,
+      "E_ads_eV": -1.178612,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2459,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8398,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2663,
+          "index": 348
+        }
+      ]
+    },
+    "s_117": {
+      "site_id": "s_117",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3845,
+      "E_ads_eV": -0.19811,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2383,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8427,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2756,
+          "index": 348
+        }
+      ]
+    },
+    "s_118": {
+      "site_id": "s_118",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4419,
+      "E_ads_eV": -0.323167,
+      "hh_distance": 0.7617,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.0792,
+          "index": 345
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3415,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3739,
+          "index": 341
+        }
+      ]
+    },
+    "s_119": {
+      "site_id": "s_119",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.9596,
+      "E_ads_eV": -0.390165,
+      "hh_distance": 0.7566,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.3833,
+          "index": 346
+        },
+        {
+          "element": "Mo",
+          "distance": 2.2471,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2619,
+          "index": 345
+        }
+      ]
+    },
+    "s_120": {
+      "site_id": "s_120",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1488,
+      "E_ads_eV": -0.476117,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2528,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3595,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6414,
+          "index": 350
+        }
+      ]
+    },
+    "s_121": {
+      "site_id": "s_121",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2475,
+      "E_ads_eV": -0.633709,
+      "hh_distance": 11.9073,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 1.0253,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.5575,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8884,
+          "index": 343
+        }
+      ]
+    },
+    "s_122": {
+      "site_id": "s_122",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4152,
+      "E_ads_eV": -0.19811,
+      "hh_distance": 12.4598,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 1.3157,
+          "index": 346
+        },
+        {
+          "element": "Mo",
+          "distance": 1.4068,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.9755,
+          "index": 342
+        }
+      ]
+    },
+    "s_123": {
+      "site_id": "s_123",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.4402,
+      "E_ads_eV": -1.286553,
+      "hh_distance": 0.7617,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.0696,
+          "index": 345
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3386,
+          "index": 340
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3814,
+          "index": 341
+        }
+      ]
+    },
+    "s_124": {
+      "site_id": "s_124",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.0271,
+      "E_ads_eV": -0.543194,
+      "hh_distance": 0.7576,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 1.1883,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 1.6718,
+          "index": 350
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8604,
+          "index": 345
+        }
+      ]
+    },
+    "s_125": {
+      "site_id": "s_125",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1704,
+      "E_ads_eV": -0.60804,
+      "hh_distance": 0.7585,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.3535,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.1931,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5186,
+          "index": 352
+        }
+      ]
+    },
+    "s_126": {
+      "site_id": "s_126",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.5072,
+      "E_ads_eV": -0.389137,
+      "hh_distance": 0.7434,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1796,
+          "index": 346
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3257,
+          "index": 352
+        },
+        {
+          "element": "Mo",
+          "distance": 2.5355,
+          "index": 351
+        }
+      ]
+    },
+    "s_127": {
+      "site_id": "s_127",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1283,
+      "E_ads_eV": -0.453647,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1261,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.483,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5108,
+          "index": 353
+        }
+      ]
+    },
+    "s_128": {
+      "site_id": "s_128",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1302,
+      "E_ads_eV": -0.125145,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1223,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4881,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5128,
+          "index": 353
+        }
+      ]
+    },
+    "s_129": {
+      "site_id": "s_129",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1488,
+      "E_ads_eV": -0.476117,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2528,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3595,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6414,
+          "index": 350
+        }
+      ]
+    },
+    "s_130": {
+      "site_id": "s_130",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1488,
+      "E_ads_eV": -0.476117,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2528,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3595,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6414,
+          "index": 350
+        }
+      ]
+    },
+    "s_131": {
+      "site_id": "s_131",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 2.9596,
+      "E_ads_eV": -0.390165,
+      "hh_distance": 0.7566,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.3833,
+          "index": 346
+        },
+        {
+          "element": "Mo",
+          "distance": 2.2471,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2619,
+          "index": 345
+        }
+      ]
+    },
+    "s_132": {
+      "site_id": "s_132",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1283,
+      "E_ads_eV": -0.453647,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1261,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.483,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5108,
+          "index": 353
+        }
+      ]
+    },
+    "s_133": {
+      "site_id": "s_133",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1283,
+      "E_ads_eV": -0.453647,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1261,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.483,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5108,
+          "index": 353
+        }
+      ]
+    },
+    "s_134": {
+      "site_id": "s_134",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1302,
+      "E_ads_eV": -0.125145,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1223,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4881,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5128,
+          "index": 353
+        }
+      ]
+    },
+    "s_135": {
+      "site_id": "s_135",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1302,
+      "E_ads_eV": -0.125145,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1223,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4881,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5128,
+          "index": 353
+        }
+      ]
+    },
+    "s_136": {
+      "site_id": "s_136",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3232,
+      "E_ads_eV": -0.436369,
+      "hh_distance": 0.7592,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.7643,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8683,
+          "index": 353
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2802,
+          "index": 352
+        }
+      ]
+    },
+    "s_137": {
+      "site_id": "s_137",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3232,
+      "E_ads_eV": -0.436369,
+      "hh_distance": 0.7592,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.7643,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8683,
+          "index": 353
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2802,
+          "index": 352
+        }
+      ]
+    },
+    "s_138": {
+      "site_id": "s_138",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1283,
+      "E_ads_eV": -0.453647,
+      "hh_distance": 0.7612,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1261,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 2.483,
+          "index": 348
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5108,
+          "index": 353
+        }
+      ]
+    },
+    "s_139": {
+      "site_id": "s_139",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3845,
+      "E_ads_eV": -0.19811,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2383,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8427,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2756,
+          "index": 348
+        }
+      ]
+    },
+    "s_140": {
+      "site_id": "s_140",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3787,
+      "E_ads_eV": -0.526625,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2434,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8424,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2674,
+          "index": 348
+        }
+      ]
+    },
+    "s_141": {
+      "site_id": "s_141",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.7845,
+      "E_ads_eV": -0.400296,
+      "hh_distance": 0.7568,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.8986,
+          "index": 353
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7955,
+          "index": 348
+        },
+        {
+          "element": "C",
+          "distance": 1.9065,
+          "index": 354
+        }
+      ]
+    },
+    "s_142": {
+      "site_id": "s_142",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3787,
+      "E_ads_eV": -0.526625,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2434,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8424,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2674,
+          "index": 348
+        }
+      ]
+    },
+    "s_143": {
+      "site_id": "s_143",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3787,
+      "E_ads_eV": -0.526625,
+      "hh_distance": 0.7666,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.2434,
+          "index": 349
+        },
+        {
+          "element": "C",
+          "distance": 1.8424,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2674,
+          "index": 348
+        }
+      ]
+    },
+    "s_144": {
+      "site_id": "s_144",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.409,
+      "E_ads_eV": -0.526625,
+      "hh_distance": 12.4592,
+      "status": "dissociated",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 1.3078,
+          "index": 346
+        },
+        {
+          "element": "Mo",
+          "distance": 1.4155,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.9742,
+          "index": 342
+        }
+      ]
+    },
+    "s_145": {
+      "site_id": "s_145",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1488,
+      "E_ads_eV": -0.476117,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2528,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3595,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6414,
+          "index": 350
+        }
+      ]
+    },
+    "s_146": {
+      "site_id": "s_146",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1501,
+      "E_ads_eV": -0.147678,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2498,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3593,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6442,
+          "index": 350
+        }
+      ]
+    },
+    "s_147": {
+      "site_id": "s_147",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1501,
+      "E_ads_eV": -0.147678,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2498,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3593,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6442,
+          "index": 350
+        }
+      ]
+    },
+    "s_148": {
+      "site_id": "s_148",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1488,
+      "E_ads_eV": -0.476117,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2528,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3595,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6414,
+          "index": 350
+        }
+      ]
+    },
+    "s_149": {
+      "site_id": "s_149",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1501,
+      "E_ads_eV": -0.147678,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2498,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3593,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6442,
+          "index": 350
+        }
+      ]
+    },
+    "s_150": {
+      "site_id": "s_150",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3475,
+      "E_ads_eV": -0.435335,
+      "hh_distance": 0.7569,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.7233,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8106,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3067,
+          "index": 352
+        }
+      ]
+    },
+    "s_151": {
+      "site_id": "s_151",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3513,
+      "E_ads_eV": -0.107162,
+      "hh_distance": 0.7569,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.732,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8018,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2987,
+          "index": 352
+        }
+      ]
+    },
+    "s_152": {
+      "site_id": "s_152",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3897,
+      "E_ads_eV": -0.120143,
+      "hh_distance": 0.756,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.0537,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4185,
+          "index": 352
+        },
+        {
+          "element": "Mo",
+          "distance": 2.4995,
+          "index": 351
+        }
+      ]
+    },
+    "s_153": {
+      "site_id": "s_153",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.1501,
+      "E_ads_eV": -0.147678,
+      "hh_distance": 0.7606,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.2498,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3593,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.6442,
+          "index": 350
+        }
+      ]
+    },
+    "s_154": {
+      "site_id": "s_154",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_155": {
+      "site_id": "s_155",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.7147,
+      "E_ads_eV": -0.420544,
+      "hh_distance": 0.7561,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.3065,
+          "index": 353
+        },
+        {
+          "element": "Ni",
+          "distance": 1.5258,
+          "index": 352
+        },
+        {
+          "element": "Mo",
+          "distance": 2.0765,
+          "index": 347
+        }
+      ]
+    },
+    "s_156": {
+      "site_id": "s_156",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_157": {
+      "site_id": "s_157",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_158": {
+      "site_id": "s_158",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3015,
+      "E_ads_eV": -0.157273,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1006,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2164,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3505,
+          "index": 353
+        }
+      ]
+    },
+    "s_159": {
+      "site_id": "s_159",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_160": {
+      "site_id": "s_160",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3232,
+      "E_ads_eV": -0.436369,
+      "hh_distance": 0.7592,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.7643,
+          "index": 347
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8683,
+          "index": 353
+        },
+        {
+          "element": "Ni",
+          "distance": 2.2802,
+          "index": 352
+        }
+      ]
+    },
+    "s_161": {
+      "site_id": "s_161",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3015,
+      "E_ads_eV": -0.157273,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1006,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2164,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3505,
+          "index": 353
+        }
+      ]
+    },
+    "s_162": {
+      "site_id": "s_162",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3015,
+      "E_ads_eV": -0.157273,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1006,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2164,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3505,
+          "index": 353
+        }
+      ]
+    },
+    "s_163": {
+      "site_id": "s_163",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_164": {
+      "site_id": "s_164",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3897,
+      "E_ads_eV": -0.120143,
+      "hh_distance": 0.756,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.0537,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4185,
+          "index": 352
+        },
+        {
+          "element": "Mo",
+          "distance": 2.4995,
+          "index": 351
+        }
+      ]
+    },
+    "s_165": {
+      "site_id": "s_165",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_166": {
+      "site_id": "s_166",
+      "true_label": "Ni_atop_physisorbed",
+      "composition": "Ni",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.577,
+      "E_ads_eV": -0.465173,
+      "hh_distance": 0.7597,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 0.6283,
+          "index": 356
+        },
+        {
+          "element": "Mo",
+          "distance": 2.8659,
+          "index": 357
+        },
+        {
+          "element": "Mo",
+          "distance": 2.9383,
+          "index": 351
+        }
+      ]
+    },
+    "s_167": {
+      "site_id": "s_167",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_168": {
+      "site_id": "s_168",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.2994,
+      "E_ads_eV": -0.485373,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1019,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.2111,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3472,
+          "index": 353
+        }
+      ]
+    },
+    "s_169": {
+      "site_id": "s_169",
+      "true_label": "Mo_atop_physisorbed",
+      "composition": "Mo",
+      "mode": "physisorbed",
+      "site_type": "atop",
+      "z_above_surface": 3.3012,
+      "E_ads_eV": 0.17991,
+      "hh_distance": 0.7598,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 0.1007,
+          "index": 357
+        },
+        {
+          "element": "B",
+          "distance": 2.216,
+          "index": 358
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3504,
+          "index": 353
+        }
+      ]
+    },
+    "s_170": {
+      "site_id": "s_170",
+      "true_label": "MoNiNi_near_hollow_physisorbed",
+      "composition": "MoNiNi",
+      "mode": "physisorbed",
+      "site_type": "near_hollow",
+      "z_above_surface": 3.3464,
+      "E_ads_eV": -0.096088,
+      "hh_distance": 0.7568,
+      "status": "intact",
+      "neighbors": [
+        {
+          "element": "Mo",
+          "distance": 1.926,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 2.3174,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 2.5108,
+          "index": 350
+        }
+      ]
+    }
+  }
+}
