@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:a100:1
-#SBATCH --partition=gpu
+#SBATCH --partition=multigpu
 #SBATCH --time=02:00:00
 #SBATCH --output=results/notebook05-adsorption-energy/1234/slurm_fcc_hollow_%j.out
 
