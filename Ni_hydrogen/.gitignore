@@ -8,7 +8,7 @@
 *.log
 slurm_*.out
 *.out
-*.png
+*.png 
 *slurm_scripts/
 *lammps_scripts/
 
@@ -18,13 +18,14 @@ submit_new.log
 nb05b_submit.log
 nb06b_submit.log
 
+*.sh
+
 # Jupyter clutter
 .ipynb_checkpoints/
 
 # Test outputs
 test_outputs/
 test*
-
 # Temp/partial files
 *.zip
 zi*
