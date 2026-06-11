@@ -1,0 +1,25 @@
+*.restart.*
+*.png
+
+# Generated LAMMPS structure files
+*.lammps
+
+# LAMMPS and simulation logs
+*.log
+slurm_*.out
+*.out
+
+# Submit/run logs
+submit.log
+submit_new.log
+nb05b_submit.log
+nb06b_submit.log
+
+# Jupyter clutter
+.ipynb_checkpoints/
+
+# Test outputs
+test_outputs/
+
+# Partial zips
+*.zip
