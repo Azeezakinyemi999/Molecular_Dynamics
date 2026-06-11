@@ -19,6 +19,7 @@ nb05b_submit.log
 nb06b_submit.log
 
 *.sh
+*metadata/
 
 # Jupyter clutter
 .ipynb_checkpoints/
