@@ -71,42 +71,44 @@ WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on 
 Per MPI rank memory allocation (min/avg/max) = 61.2 | 61.2 | 61.2 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
          0  -2373.7571      2.3787331      17.573251      15513.744    
-        50  -2393.6135      0.12267523     0.23561786     8270.4452    
-       100  -2393.6385      0.019333955    0.050133406    8510.6006    
-       150  -2393.6408      0.027322883    0.048928061    8517.2565    
-       200  -2393.6473      0.048771315    0.14862941     8503.1524    
-       250  -2393.6615      0.037176932    0.10411514     8547.3669    
-       300  -2393.6756      0.021174554    0.040717491    8513.8527    
-       350  -2393.678       0.0022038075   0.0047768777   8504.7111    
-       400  -2393.6781      0.00047622408  0.0012000238   8502.2772    
-       450  -2393.6781      0.0002336711   0.00065660231  8502.4099    
-       500  -2393.6781      5.6474462e-05  0.00015349628  8502.4064    
-       550  -2393.6781      1.9710589e-05  5.0354387e-05  8502.3059    
-       600  -2393.6781      4.2523383e-06  1.5447948e-05  8502.294     
-       650  -2393.6781      1.2148697e-06  3.9804595e-06  8502.29      
-       694  -2393.6781      2.0133285e-07  9.2646963e-07  8502.2938    
-Loop time of 43.5054 on 1 procs for 694 steps with 362 atoms
+        50  -2393.6135      0.12267537     0.235618       8270.4451    
+       100  -2393.6387      0.029043524    0.052913888    8509.9021    
+       150  -2393.6409      0.014017971    0.04271886     8517.1097    
+       200  -2393.6479      0.04143868     0.088887421    8520.8188    
+       250  -2393.6611      0.041564328    0.071381214    8528.7715    
+       300  -2393.6734      0.034906632    0.053716866    8520.499     
+       350  -2393.6764      0.05631616     0.086338829    8503.2789    
+       400  -2393.6781      0.001730046    0.0031213568   8502.929     
+       450  -2393.6781      0.00013970603  0.00042633354  8502.2579    
+       500  -2393.6781      0.00020272705  0.00041922548  8502.5171    
+       550  -2393.6781      4.4662789e-05  0.00015786993  8502.4569    
+       600  -2393.6781      1.340964e-05   5.4208972e-05  8502.3252    
+       650  -2393.6781      4.2767356e-06  1.173265e-05   8502.3032    
+       700  -2393.6781      1.9957979e-06  3.7576352e-06  8502.2971    
+       750  -2393.6781      7.202959e-07   1.293857e-06   8502.2949    
+       752  -2393.6781      1.9021254e-07  9.2387348e-07  8502.295     
+Loop time of 47.3005 on 1 procs for 752 steps with 362 atoms
 
-98.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+98.2% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
   Stopping criterion = force tolerance
   Energy initial, next-to-last, final = 
      -2373.75710885758   -2393.6780648398   -2393.6780648398
-  Force two-norm initial, final = 17.573251 9.2646963e-07
-  Force max component initial, final = 2.3787331 2.0133285e-07
-  Final line search alpha, max atom move = 1 2.0133285e-07
-  Iterations, force evaluations = 694 1378
+  Force two-norm initial, final = 17.573251 9.2387348e-07
+  Force max component initial, final = 2.3787331 1.9021254e-07
+  Final line search alpha, max atom move = 1 1.9021254e-07
+  Iterations, force evaluations = 752 1492
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 43.295     | 43.295     | 43.295     |   0.0 | 99.52
-Neigh   | 0.0026003  | 0.0026003  | 0.0026003  |   0.0 |  0.01
-Comm    | 0.040423   | 0.040423   | 0.040423   |   0.0 |  0.09
-Output  | 0.00085343 | 0.00085343 | 0.00085343 |   0.0 |  0.00
+Pair    | 47.061     | 47.061     | 47.061     |   0.0 | 99.49
+Neigh   | 0.0022346  | 0.0022346  | 0.0022346  |   0.0 |  0.00
+Comm    | 0.044363   | 0.044363   | 0.044363   |   0.0 |  0.09
+Output  | 0.001341   | 0.001341   | 0.001341   |   0.0 |  0.00
 Modify  | 0          | 0          | 0          |   0.0 |  0.00
-Other   |            | 0.167      |            |       |  0.38
+Other   |            | 0.192      |            |       |  0.41
 
 Nlocal:            362 ave         362 max         362 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -114,11 +116,11 @@ Nghost:           1201 ave        1201 max        1201 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Neighs:              0 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-FullNghs:        43094 ave       43094 max       43094 min
+FullNghs:        43096 ave       43096 max       43096 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 43094
-Ave neighs/atom = 119.0442
+Total # of neighbors = 43096
+Ave neighs/atom = 119.04972
 Neighbor list builds = 4
 Dangerous builds = 0
 
@@ -133,7 +135,7 @@ print "  job_name         : fcc_hollow"
 print "  pe_final_eV      : ${pe_final}"
   pe_final_eV      : -2393.6780648398
 print "  fmax_eV_per_Ang  : ${fmax_f}"
-  fmax_eV_per_Ang  : 2.01332845464752e-07
+  fmax_eV_per_Ang  : 1.90212535758046e-07
 print "  natoms           : ${natoms}"
   natoms           : 362
 print "ENERGY_RESULTS_END"
@@ -143,4 +145,4 @@ write_data     structures/notebook05-adsorption-energy/111/ads_fcc_hollow_relaxe
 System init for write_data ...
 print "Written: structures/notebook05-adsorption-energy/111/ads_fcc_hollow_relaxed.lammps"
 Written: structures/notebook05-adsorption-energy/111/ads_fcc_hollow_relaxed.lammps
-Total wall time: 0:01:05
+Total wall time: 0:01:25

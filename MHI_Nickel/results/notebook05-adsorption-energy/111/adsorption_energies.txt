@@ -1,15 +1,15 @@
 Hastelloy N (111) H2 Adsorption Energies
-==================================================
+=================================================================
 E(H2 gas)     = -6.790499 eV
 E(clean slab) = -2386.723357 eV
 
-Site               E(slab+H2) eV     E_ads eV
-----------------------------------------------
-Bridge              -2393.710577      -0.1967
-Top-Cr              -2393.707663      -0.1938
-HCP Hollow          -2393.678499      -0.1646
-FCC Hollow          -2393.678065      -0.1642
-Top-C               -2393.668946      -0.1551
-Top-Ni              -2393.662009      -0.1482
-Top-Mo              -2393.644986      -0.1311
-Top-Fe              -2393.632977      -0.1191
+True Label                          E(slab+H2) eV     E_ads eV
+--------------------------------------------------------------
+Ni_atop_physisorbed                  -2393.710577      -0.1967
+Cr_atop_physisorbed                  -2393.707663      -0.1938
+Ni_atop_physisorbed                  -2393.678499      -0.1646
+Ni_atop_physisorbed                  -2393.678065      -0.1642
+Ni_atop_physisorbed                  -2393.668946      -0.1551
+Ni_atop_physisorbed                  -2393.662009      -0.1482
+Mo_atop_physisorbed                  -2393.644986      -0.1311
+Fe_atop_physisorbed                  -2393.632977      -0.1191
