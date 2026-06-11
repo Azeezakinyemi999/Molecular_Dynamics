@@ -1,0 +1,235 @@
+{
+  "seed": 42,
+  "adsorbate": "H",
+  "best1": "top_fe",
+  "best2": "top_ni",
+  "best1_true_label": "CrFeMo_hollow_4fold",
+  "best2_true_label": "MoNiNi_hollow_hcp",
+  "H_H_separation_A": 2.8706,
+  "sites": {
+    "top_ni": {
+      "nominal_label": "top_ni",
+      "true_label": "MoNiNi_hollow_hcp",
+      "composition": "MoNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.2691,
+      "E_ads_eV": -0.617727,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.7011,
+          "index": 357
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7432,
+          "index": 352
+        },
+        {
+          "element": "Mo",
+          "distance": 1.9485,
+          "index": 353
+        }
+      ]
+    },
+    "top_mo": {
+      "nominal_label": "top_mo",
+      "true_label": "MoNiNi_hollow_hcp",
+      "composition": "MoNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.2691,
+      "E_ads_eV": -0.617727,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.7011,
+          "index": 357
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7432,
+          "index": 352
+        },
+        {
+          "element": "Mo",
+          "distance": 1.9485,
+          "index": 353
+        }
+      ]
+    },
+    "top_cr": {
+      "nominal_label": "top_cr",
+      "true_label": "NiNiNi_bridge",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "bridge",
+      "hollow_type": "",
+      "subsurf_element": "",
+      "z_above_surface": 0.4877,
+      "E_ads_eV": -0.482606,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.7045,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7632,
+          "index": 357
+        },
+        {
+          "element": "Ni",
+          "distance": 3.0538,
+          "index": 352
+        }
+      ]
+    },
+    "top_fe": {
+      "nominal_label": "top_fe",
+      "true_label": "CrFeMo_hollow_4fold",
+      "composition": "CrFeMo",
+      "mode": "chemisorbed",
+      "site_type": "hollow_4fold",
+      "hollow_type": "",
+      "subsurf_element": "",
+      "z_above_surface": 0.2436,
+      "E_ads_eV": -0.680217,
+      "neighbors": [
+        {
+          "element": "Fe",
+          "distance": 1.8534,
+          "index": 347
+        },
+        {
+          "element": "Mo",
+          "distance": 1.9289,
+          "index": 353
+        },
+        {
+          "element": "Cr",
+          "distance": 1.9505,
+          "index": 348
+        }
+      ]
+    },
+    "top_c": {
+      "nominal_label": "top_c",
+      "true_label": "NiNiNi_hollow_hcp",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": -0.0338,
+      "E_ads_eV": -0.179307,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.6623,
+          "index": 341
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7334,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 1.747,
+          "index": 346
+        }
+      ]
+    },
+    "bridge": {
+      "nominal_label": "bridge",
+      "true_label": "NiNiNi_bridge",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "bridge",
+      "hollow_type": "",
+      "subsurf_element": "",
+      "z_above_surface": 0.8718,
+      "E_ads_eV": -0.202526,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.6536,
+          "index": 344
+        },
+        {
+          "element": "Ni",
+          "distance": 2.4939,
+          "index": 349
+        },
+        {
+          "element": "Ni",
+          "distance": 3.1058,
+          "index": 339
+        }
+      ]
+    },
+    "fcc_hollow": {
+      "nominal_label": "fcc_hollow",
+      "true_label": "NiNiNi_hollow_hcp",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.1522,
+      "E_ads_eV": -0.170696,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.6883,
+          "index": 356
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7393,
+          "index": 352
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7622,
+          "index": 351
+        }
+      ]
+    },
+    "hcp_hollow": {
+      "nominal_label": "hcp_hollow",
+      "true_label": "NiNiNi_hollow_hcp",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.0498,
+      "E_ads_eV": -0.157303,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.6901,
+          "index": 346
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7426,
+          "index": 351
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7761,
+          "index": 352
+        }
+      ]
+    }
+  }
+}

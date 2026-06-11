@@ -1,0 +1,207 @@
+{
+  "seed": 1234,
+  "adsorbate": "H",
+  "best1": "top_mo",
+  "best2": "top_ni",
+  "best1_true_label": "NiNiNi_atop",
+  "best2_true_label": "CrFeNi_hollow_hcp",
+  "H_H_separation_A": 9.4817,
+  "sites": {
+    "top_ni": {
+      "nominal_label": "top_ni",
+      "true_label": "CrFeNi_hollow_hcp",
+      "composition": "CrFeNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.5616,
+      "E_ads_eV": -0.413607,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.791,
+          "index": 342
+        },
+        {
+          "element": "Fe",
+          "distance": 1.8018,
+          "index": 341
+        },
+        {
+          "element": "Cr",
+          "distance": 1.8102,
+          "index": 346
+        }
+      ]
+    },
+    "top_mo": {
+      "nominal_label": "top_mo",
+      "true_label": "NiNiNi_atop",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "atop",
+      "hollow_type": "",
+      "subsurf_element": "",
+      "z_above_surface": 0.6312,
+      "E_ads_eV": -0.5015,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.7432,
+          "index": 339
+        },
+        {
+          "element": "Ni",
+          "distance": 3.169,
+          "index": 334
+        },
+        {
+          "element": "Ni",
+          "distance": 3.9643,
+          "index": 344
+        }
+      ]
+    },
+    "top_cr": {
+      "nominal_label": "top_cr",
+      "true_label": "CrFeNi_hollow_hcp",
+      "composition": "CrFeNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.5444,
+      "E_ads_eV": -0.359438,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.7549,
+          "index": 342
+        },
+        {
+          "element": "Fe",
+          "distance": 1.8182,
+          "index": 347
+        },
+        {
+          "element": "Cr",
+          "distance": 1.8718,
+          "index": 346
+        }
+      ]
+    },
+    "top_fe": {
+      "nominal_label": "top_fe",
+      "true_label": "CrFeNi_hollow_hcp",
+      "composition": "CrFeNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.5616,
+      "E_ads_eV": -0.413607,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.791,
+          "index": 342
+        },
+        {
+          "element": "Fe",
+          "distance": 1.8018,
+          "index": 341
+        },
+        {
+          "element": "Cr",
+          "distance": 1.8102,
+          "index": 346
+        }
+      ]
+    },
+    "bridge": {
+      "nominal_label": "bridge",
+      "true_label": "NiNiNi_hollow_hcp",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.2697,
+      "E_ads_eV": -0.248214,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.6559,
+          "index": 349
+        },
+        {
+          "element": "Ni",
+          "distance": 1.709,
+          "index": 354
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7928,
+          "index": 348
+        }
+      ]
+    },
+    "fcc_hollow": {
+      "nominal_label": "fcc_hollow",
+      "true_label": "NiNiNi_hollow_hcp",
+      "composition": "NiNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.4565,
+      "E_ads_eV": -0.177558,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.6599,
+          "index": 337
+        },
+        {
+          "element": "Ni",
+          "distance": 1.681,
+          "index": 336
+        },
+        {
+          "element": "Ni",
+          "distance": 1.7616,
+          "index": 342
+        }
+      ]
+    },
+    "hcp_hollow": {
+      "nominal_label": "hcp_hollow",
+      "true_label": "FeNiNi_hollow_hcp",
+      "composition": "FeNiNi",
+      "mode": "chemisorbed",
+      "site_type": "hollow",
+      "hollow_type": "hcp",
+      "subsurf_element": "Ni",
+      "z_above_surface": 0.5951,
+      "E_ads_eV": -0.136728,
+      "neighbors": [
+        {
+          "element": "Ni",
+          "distance": 1.7112,
+          "index": 342
+        },
+        {
+          "element": "Ni",
+          "distance": 1.8277,
+          "index": 336
+        },
+        {
+          "element": "Fe",
+          "distance": 1.8574,
+          "index": 341
+        }
+      ]
+    }
+  }
+}

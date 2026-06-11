@@ -1,0 +1,35 @@
+IS : H2* at top_b
+IS true label : Mo_atop_physisorbed
+FS : 2H* at top_cr + top_b
+FS true label 1 : CrNiNi_hollow_hcp
+FS true label 2 : BCMo_bridge
+Graph distance  : -1
+fmax_final  : 0.0496 eV/A
+Converged   : True
+
+E_IS    = -2398.201099 eV
+E_FS    = -2398.805198 eV
+E_a     = 0.7307 eV
+delta_E = -0.6041 eV
+
+Image energies:
+  IS    : -2398.201099 eV  (+0.0000 eV)
+  img_1 : -2398.061941 eV  (+0.1392 eV)
+  img_2 : -2397.890916 eV  (+0.3102 eV)
+  img_3 : -2397.665083 eV  (+0.5360 eV)
+  img_4 : -2397.470398 eV  (+0.7307 eV)
+  img_5 : -2397.477797 eV  (+0.7233 eV)
+  img_6 : -2397.497136 eV  (+0.7040 eV)
+  img_7 : -2397.520730 eV  (+0.6804 eV)
+  img_8 : -2397.540348 eV  (+0.6608 eV)
+  img_9 : -2397.551404 eV  (+0.6497 eV)
+  img_10: -2397.555763 eV  (+0.6453 eV)
+  img_11: -2397.545173 eV  (+0.6559 eV)
+  img_12: -2397.544736 eV  (+0.6564 eV)
+  img_13: -2397.563380 eV  (+0.6377 eV)
+  img_14: -2397.605529 eV  (+0.5956 eV)
+  img_15: -2397.722200 eV  (+0.4789 eV)
+  img_16: -2397.803654 eV  (+0.3974 eV)
+  img_17: -2397.995584 eV  (+0.2055 eV)
+  img_18: -2398.721717 eV  (-0.5206 eV)
+  FS    : -2398.805198 eV  (-0.6041 eV)

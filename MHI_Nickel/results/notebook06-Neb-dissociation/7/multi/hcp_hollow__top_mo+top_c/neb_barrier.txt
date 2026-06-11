@@ -1,0 +1,35 @@
+IS : H2* at hcp_hollow
+IS true label : Ni_atop_physisorbed
+FS : 2H* at top_mo + top_c
+FS true label 1 : MoMoNi_hollow_hcp
+FS true label 2 : CrNiNi_hollow_hcp
+Graph distance  : -1
+fmax_final  : 0.0485 eV/A
+Converged   : True
+
+E_IS    = -2397.885022 eV
+E_FS    = -2398.940635 eV
+E_a     = 0.5643 eV
+delta_E = -1.0556 eV
+
+Image energies:
+  IS    : -2397.885022 eV  (+0.0000 eV)
+  img_1 : -2397.807636 eV  (+0.0774 eV)
+  img_2 : -2397.719558 eV  (+0.1655 eV)
+  img_3 : -2397.600746 eV  (+0.2843 eV)
+  img_4 : -2397.446105 eV  (+0.4389 eV)
+  img_5 : -2397.374910 eV  (+0.5101 eV)
+  img_6 : -2397.342817 eV  (+0.5422 eV)
+  img_7 : -2397.320682 eV  (+0.5643 eV)
+  img_8 : -2397.338681 eV  (+0.5463 eV)
+  img_9 : -2397.393324 eV  (+0.4917 eV)
+  img_10: -2397.464027 eV  (+0.4210 eV)
+  img_11: -2397.518595 eV  (+0.3664 eV)
+  img_12: -2397.562094 eV  (+0.3229 eV)
+  img_13: -2397.605452 eV  (+0.2796 eV)
+  img_14: -2397.641079 eV  (+0.2439 eV)
+  img_15: -2397.628353 eV  (+0.2567 eV)
+  img_16: -2397.859097 eV  (+0.0259 eV)
+  img_17: -2398.269354 eV  (-0.3843 eV)
+  img_18: -2398.398562 eV  (-0.5135 eV)
+  FS    : -2398.940635 eV  (-1.0556 eV)

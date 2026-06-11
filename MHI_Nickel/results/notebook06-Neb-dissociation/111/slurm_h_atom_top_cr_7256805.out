@@ -1,0 +1,133 @@
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+Reading data file ...
+  orthogonal box = (0 0 0) to (12.447908 12.936245 52.360083)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  361 atoms
+  read_data CPU = 0.011 seconds
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/e3nn/o3/_wigner.py:10: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  _Jd, _W3j_flat, _W3j_indices = torch.load(os.path.join(os.path.dirname(__file__), 'constants.pt'))
+120 atoms in group frozen_atoms
+241 atoms in group free_atoms
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+- KOKKOS package: https://doi.org/10.1145/3731599.3767498
+The log file lists these citations in BibTeX format.
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 7
+  ghost atom cutoff = 7
+  binsize = 7, bins = 2 2 8
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair mliap/kk, perpetual
+      attributes: full, newton on, kokkos_device
+      pair build: full/bin/kk/device
+      stencil: full/bin/3d
+      bin: kk/device
+Setting up cg/kk style minimization ...
+  Unit style    : metal
+  Current step  : 0
+WARNING: Fix MINIMIZE/kk not compatible with sending data in Kokkos communication (src/KOKKOS/comm_kokkos.cpp:842)
+WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
+WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 60.27 | 60.27 | 60.27 Mbytes
+   Step         PotEng          Fmax     
+         0  -2388.9762      2.3518268    
+        50  -2390.6011      0.0037412676 
+       100  -2390.6012      5.6817152e-05
+       150  -2390.6012      5.8466556e-07
+       156  -2390.6012      1.7661929e-07
+Loop time of 11.6857 on 1 procs for 156 steps with 361 atoms
+
+98.6% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = force tolerance
+  Energy initial, next-to-last, final = 
+     -2388.97624771743  -2390.60121240606  -2390.60121240606
+  Force two-norm initial, final = 3.007866 8.5591425e-07
+  Force max component initial, final = 2.3518268 1.7661929e-07
+  Final line search alpha, max atom move = 1 1.7661929e-07
+  Iterations, force evaluations = 156 298
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 11.625     | 11.625     | 11.625     |   0.0 | 99.48
+Neigh   | 0.0012406  | 0.0012406  | 0.0012406  |   0.0 |  0.01
+Comm    | 0.0092469  | 0.0092469  | 0.0092469  |   0.0 |  0.08
+Output  | 0.00019421 | 0.00019421 | 0.00019421 |   0.0 |  0.00
+Modify  | 0.0079794  | 0.0079794  | 0.0079794  |   0.0 |  0.07
+Other   |            | 0.04185    |            |       |  0.36
+
+Nlocal:            361 ave         361 max         361 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1198 ave        1198 max        1198 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:        43072 ave       43072 max       43072 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 43072
+Ave neighs/atom = 119.31302
+Neighbor list builds = 2
+Dangerous builds = 0
+ENERGY_RESULTS_START
+  job_name         : h_atom_top_cr
+  pe_final_eV      : -2390.60121240606
+  fmax_eV_per_Ang  : 1.76619285790353e-07
+  natoms           : 361
+ENERGY_RESULTS_END
+System init for write_data ...
+Total wall time: 0:00:32
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/tempfile.py:934: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/tmp/tmpsrdmclqw'>
+  _warnings.warn(warn_message, ResourceWarning)
+[d1028:999570:0:999570] Caught signal 11 (Segmentation fault: address not mapped to object at address 0x4e)
+==== backtrace (tid: 999570) ====
+ 0  /shared/EL9/explorer/OpenMPI/4.1.6/lib/libucs.so.0(ucs_handle_error+0x294) [0x1522fbeeef64]
+ 1  /shared/EL9/explorer/OpenMPI/4.1.6/lib/libucs.so.0(+0x3011f) [0x1522fbeef11f]
+ 2  /shared/EL9/explorer/OpenMPI/4.1.6/lib/libucs.so.0(+0x303e6) [0x1522fbeef3e6]
+ 3  /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x63feda) [0x152164eeaeda]
+ 4  /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x640989) [0x152164eeb989]
+ 5  /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x6418b4) [0x152164eec8b4]
+ 6  /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x63beed) [0x152164ee6eed]
+ 7  /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x639409) [0x152164ee4409]
+ 8  /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x6463a5) [0x152164ef13a5]
+ 9  /lib64/libc.so.6(+0x41e7d) [0x152305c41e7d]
+10  /lib64/libc.so.6(+0x41fd0) [0x152305c41fd0]
+11  /lib64/libc.so.6(+0x2a617) [0x152305c2a617]
+12  /lib64/libc.so.6(__libc_start_main+0x80) [0x152305c2a6c0]
+13  /projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap/lmp() [0x404f65]
+=================================
+[d1028:999570] *** Process received signal ***
+[d1028:999570] Signal: Segmentation fault (11)
+[d1028:999570] Signal code:  (-6)
+[d1028:999570] Failing at address: 0x16a5a000f4092
+[d1028:999570] [ 0] /lib64/libc.so.6(+0x3fc30)[0x152305c3fc30]
+[d1028:999570] [ 1] /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x63feda)[0x152164eeaeda]
+[d1028:999570] [ 2] /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x640989)[0x152164eeb989]
+[d1028:999570] [ 3] /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x6418b4)[0x152164eec8b4]
+[d1028:999570] [ 4] /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x63beed)[0x152164ee6eed]
+[d1028:999570] [ 5] /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x639409)[0x152164ee4409]
+[d1028:999570] [ 6] /shared/EL9/explorer/cuda/12.3.0/lib64/libnvrtc.so.12(+0x6463a5)[0x152164ef13a5]
+[d1028:999570] [ 7] /lib64/libc.so.6(+0x41e7d)[0x152305c41e7d]
+[d1028:999570] [ 8] /lib64/libc.so.6(+0x41fd0)[0x152305c41fd0]
+[d1028:999570] [ 9] /lib64/libc.so.6(+0x2a617)[0x152305c2a617]
+[d1028:999570] [10] /lib64/libc.so.6(__libc_start_main+0x80)[0x152305c2a6c0]
+[d1028:999570] [11] /projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap/lmp[0x404f65]
+[d1028:999570] *** End of error message ***
+/var/spool/slurmd/job7256805/slurm_script: line 17: 999570 Segmentation fault      (core dumped) /projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap/lmp -k on g 1 -sf kk -pk kokkos newton on neigh half -in lammps_scripts/notebook06-Neb-dissociation/111/min_h_atom_top_cr.lammps -log results/notebook06-Neb-dissociation/111/h_atom_top_cr.log
+h_atom_top_cr done: Fri May 29 06:02:52 PM EDT 2026

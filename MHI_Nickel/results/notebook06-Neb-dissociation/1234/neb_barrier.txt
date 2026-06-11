@@ -1,0 +1,33 @@
+IS : H2* at ads_top_b.log
+FS : 2H* at top_mo + top_ni
+Interpolation: IDPP
+N images    : 20 (18 intermediate + IS + FS)
+fmax_final  : 0.0499 eV/A
+Converged   : True
+
+E_IS    = -2397.622067 eV
+E_FS    = -2398.810560 eV
+E_a     = 0.4874 eV
+delta_E = -1.1885 eV
+
+Image energies:
+  IS    : -2397.622067 eV  (+0.0000 eV)
+  img_1 : -2397.568485 eV  (+0.0536 eV)
+  img_2 : -2397.432198 eV  (+0.1899 eV)
+  img_3 : -2397.307892 eV  (+0.3142 eV)
+  img_4 : -2397.195682 eV  (+0.4264 eV)
+  img_5 : -2397.142349 eV  (+0.4797 eV)
+  img_6 : -2397.134649 eV  (+0.4874 eV)
+  img_7 : -2397.181153 eV  (+0.4409 eV)
+  img_8 : -2397.342429 eV  (+0.2796 eV)
+  img_9 : -2397.492173 eV  (+0.1299 eV)
+  img_10: -2397.696435 eV  (-0.0744 eV)
+  img_11: -2397.914782 eV  (-0.2927 eV)
+  img_12: -2398.126501 eV  (-0.5044 eV)
+  img_13: -2398.245747 eV  (-0.6237 eV)
+  img_14: -2398.286551 eV  (-0.6645 eV)
+  img_15: -2398.224724 eV  (-0.6027 eV)
+  img_16: -2398.406326 eV  (-0.7843 eV)
+  img_17: -2398.474672 eV  (-0.8526 eV)
+  img_18: -2398.766726 eV  (-1.1447 eV)
+  FS    : -2398.810560 eV  (-1.1885 eV)
