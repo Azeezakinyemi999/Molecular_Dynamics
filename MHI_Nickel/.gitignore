@@ -1,5 +1,8 @@
-# Generated LAMMPS structure files
+# LAMMPS restart/trajectory files
+*.restart.*
+*.restart
 *.lammps
+*.lammpstrj
 
 # Simulation and SLURM logs
 *.log
@@ -18,6 +21,6 @@ nb06b_submit.log
 # Test outputs
 test_outputs/
 
-# Partial/temp files
+# Temp/partial files
 *.zip
 zi*
