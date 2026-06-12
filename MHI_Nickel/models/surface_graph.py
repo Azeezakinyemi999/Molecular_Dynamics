@@ -4,6 +4,30 @@ surface_graph.py
 ────────────────
 Project 2 — Graph-based surface site mapping for Hastelloy N.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MODULE ROLE
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 in the Project 2 pipeline.
+#
+# Builds the surface representation: identifies all adsorption sites on the
+# top layer of the slab using ACAT, constructs a NetworkX graph of top-layer
+# atoms and site nodes with atom-atom / site-atom / site-site edges, and
+# saves the full Level 1/2/3 site environment to surface_sites.json.
+#
+# OUTPUT:  results/<seed>/surface_sites.json
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# HOW IT LINKS TO THE OTHER MODULES
+# ─────────────────────────────────────────────────────────────────────────────
+# → subsurface_graph.py  reads surface_sites.json produced here to connect
+#                        layer-11 interstitial sites to the surface sites
+#                        directly above them.
+#
+# → site_identifier.py   is independent of this module; it operates on
+#                        relaxed slab+adsorbate structures AFTER MD/DFT and
+#                        does not require surface_sites.json.
+# ─────────────────────────────────────────────────────────────────────────────
+
 Steps:
   1. Build augmented NetworkX graph (top-layer atom nodes + site nodes + edges)
   2. Neighbor traversal (1st and 2nd shell around any site)
@@ -78,11 +102,40 @@ _DEFAULT_SEED      = 7
 def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
                         top_layer_tol=1.8, n_layers=3, acat_tol=0.5):
     """
-    Build augmented NetworkX graph.
+    Build the augmented NetworkX surface graph.
 
-    Atom nodes  — top layer only (layer=0)
-    Site nodes  — all ACAT sites on the surface
-    Edges       — atom-atom, site-atom, site-site
+    Nodes: top-layer atom nodes (``node_type='atom'``) and ACAT adsorption
+    site nodes (``node_type='site'``).  Edges: ``'atom-atom'``,
+    ``'site-atom'``, ``'site-site'``.
+
+    Parameters
+    ----------
+    slab_path : str
+        Path to the clean slab LAMMPS data file.
+    seed : int, optional
+        Identifier stored in the graph metadata.  Default 7.
+    bond_cutoff : float, optional
+        Max interatomic distance (Å) for atom-atom and site-atom edges.
+        Default 3.2.
+    top_layer_tol : float, optional
+        Thickness (Å) of the surface layer selected for atom nodes.
+        Default 1.8.
+    n_layers : int, optional
+        Initial ``n_layers`` hint passed to ACAT; auto-incremented until
+        at least 20 hollow sites are found.  Default 3.
+    acat_tol : float, optional
+        ACAT site-merging tolerance.  Default 0.5.
+
+    Returns
+    -------
+    G : networkx.Graph
+        Augmented surface graph with all node and edge attributes.
+    slab : ase.Atoms
+        Full slab.
+    top3_slab : ase.Atoms
+        Top-3-layer sub-slab passed to ACAT.
+    sites : list of dict
+        Raw ACAT site dicts (filtered for valid composition and position).
     """
     print('Reading slab...')
     slab  = ase_read(slab_path, format='lammps-data', atom_style='atomic')
@@ -276,22 +329,33 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
 def _get_atom_neighbors(atom_idx, G, pos, syms, cell,
                         bond_cutoff=3.2, exclude_indices=None):
     """
-    Get surface atom neighbors of a given atom up to shell 2.
+    Return shell-1 and shell-2 surface atom neighbors of a given atom.
 
     Parameters
     ----------
-    atom_idx        : int — full slab index of the atom
-    G               : nx.Graph — surface graph (has atom-atom edges)
-    pos             : (N,3) array — full slab positions
-    syms            : (N,) array — full slab elements
-    cell            : (3,) array — periodic cell dimensions
-    bond_cutoff     : float — bond distance cutoff (A)
-    exclude_indices : set — atom indices to exclude (e.g. other site atoms)
+    atom_idx : int
+        Full-slab index of the atom.
+    G : networkx.Graph
+        Surface graph containing ``'atom-atom'`` edges.
+    pos : ndarray, shape (N, 3)
+        Full-slab Cartesian positions.
+    syms : ndarray of str, shape (N,)
+        Full-slab element symbols.
+    cell : ndarray, shape (3,)
+        Periodic cell dimensions in Å.
+    bond_cutoff : float, optional
+        Bond distance cutoff in Å.  Default 3.2.
+    exclude_indices : set of int, optional
+        Atom indices to exclude from neighbor lists (e.g. other constituent
+        atoms of the same adsorption site).  Default ``None``.
 
     Returns
     -------
-    shell1 : list of dicts  — immediate neighbors
-    shell2 : list of dicts  — neighbors of neighbors (excluding shell1)
+    shell1 : list of dict
+        Immediate neighbors; each dict has keys ``index``, ``element``,
+        ``distance``, ``shell``.
+    shell2 : list of dict
+        Neighbors of neighbors (excluding shell 1); same keys as above.
     """
     if exclude_indices is None:
         exclude_indices = set()
@@ -355,28 +419,37 @@ def _get_atom_neighbors(atom_idx, G, pos, syms, cell,
 
 def build_site_environment(G, slab, bond_cutoff=3.2):
     """
-    Build full Level 1 + 2 + 3 environment for every site node in G.
+    Build the Level 1 / 2 / 3 chemical environment for every site node.
 
-    Level 1 — site itself (already in G node attributes)
-    Level 2 — for each constituent atom, shell1 and shell2 neighbors
-              (excluding the other constituent atoms of the same site)
-    Level 3 — neighboring sites (sites sharing at least one atom)
-              with shared atom info
+    Level 1 — site metadata (type, composition, position, constituent atoms).
+    Level 2 — for each constituent atom: shell-1 and shell-2 surface
+               neighbors, excluding the other site atoms.
+    Level 3 — neighboring sites that share at least one constituent atom.
 
     Parameters
     ----------
-    G          : nx.Graph — from build_surface_graph()
-    slab       : ase.Atoms — full slab
-    bond_cutoff: float — bond distance cutoff (A)
+    G : networkx.Graph
+        Surface graph from :func:`build_surface_graph`.
+    slab : ase.Atoms
+        Full slab.
+    bond_cutoff : float, optional
+        Bond distance cutoff in Å for shell traversal.  Default 3.2.
 
     Returns
     -------
     environments : dict
-        {site_node_id: {
-            'level1': {...},
-            'level2': {atom_idx: {'shell1': [...], 'shell2': [...]}},
-            'level3': [{'site_id':..., 'label':..., 'shared_atoms':...}]
-        }}
+        Keyed by site node ID (e.g. ``'s_0'``).  Each value is a dict with
+        keys ``'level1'``, ``'level2'``, and ``'level3'``.
+
+        ``level1`` : dict
+            Site identity: ``site_id``, ``site_type``, ``composition``,
+            ``full_label``, ``position``, ``constituent_atoms``, etc.
+        ``level2`` : dict of dict
+            Keyed by constituent atom index (str).  Each sub-dict has
+            ``element``, ``shell1``, ``shell2``, ``n_shell1``, ``n_shell2``.
+        ``level3`` : list of dict
+            Neighboring sites; each dict has ``site_id``, ``full_label``,
+            ``site_type``, ``composition``, ``position``, ``shared_atoms``.
     """
     pos  = slab.get_positions()
     syms = np.array(slab.get_chemical_symbols())
@@ -489,15 +562,25 @@ def build_site_environment(G, slab, bond_cutoff=3.2):
 
 def save_surface_sites(G, environments, slab, save_path, seed):
     """
-    Save the full surface site list with Level 1 + 2 + 3 to JSON.
+    Save the complete surface site list (Levels 1–3) to a JSON file.
 
     Parameters
     ----------
-    G            : nx.Graph — from build_surface_graph()
-    environments : dict — from build_site_environment()
-    slab         : ase.Atoms — full slab
-    save_path    : str — output JSON file path
-    seed         : int — random seed identifier
+    G : networkx.Graph
+        Surface graph from :func:`build_surface_graph`.
+    environments : dict
+        Site environments from :func:`build_site_environment`.
+    slab : ase.Atoms
+        Full slab.
+    save_path : str
+        Output JSON file path.
+    seed : int
+        Seed identifier stored in the file metadata.
+
+    Returns
+    -------
+    output : dict
+        The serialised JSON payload (also written to ``save_path``).
     """
     import json
     from collections import Counter
@@ -576,7 +659,24 @@ def save_surface_sites(G, environments, slab, save_path, seed):
 # ══════════════════════════════════════════════════════════════
 
 def get_site_neighbors(G, site_node, shell=1):
-    """Return site nodes within `shell` hops via site-site edges."""
+    """
+    Return site nodes within ``shell`` hops via ``'site-site'`` edges.
+
+    Parameters
+    ----------
+    G : networkx.Graph
+        Surface graph from :func:`build_surface_graph`.
+    site_node : str
+        Node ID of the query site (e.g. ``'s_42'``).
+    shell : int, optional
+        Number of hops to traverse.  Default 1.
+
+    Returns
+    -------
+    list of str
+        Node IDs of neighboring sites within ``shell`` hops, excluding the
+        query site itself.
+    """
     site_graph = nx.Graph()
     for u, v, d in G.edges(data=True):
         if d['edge_type'] == 'site-site':
@@ -596,7 +696,18 @@ def get_site_neighbors(G, site_node, shell=1):
 
 
 def describe_local_environment(G, site_node, shell=2):
-    """Print local chemical environment around a site node."""
+    """
+    Print the local chemical environment around a site node.
+
+    Parameters
+    ----------
+    G : networkx.Graph
+        Surface graph from :func:`build_surface_graph`.
+    site_node : str
+        Node ID of the query site (e.g. ``'s_0'``).
+    shell : int, optional
+        Number of neighbor shells to report.  Default 2.
+    """
     d = G.nodes[site_node]
     print(f'Site : {site_node}')
     print(f'  Label      : {d["label"]}')
@@ -634,10 +745,31 @@ def visualize_surface_graph(G, slab, selected_site=None,
                             save_path='surface_graph.png',
                             seed=None):
     """
-    Three-panel figure:
-      Panel 1 — Top-layer surface atoms colored by element with labels
-      Panel 2 — Full graph overlay (sites + site-site edges only)
-      Panel 3 — Local environment of selected site (2 shells, clean labels)
+    Generate a three-panel surface graph figure and save to disk.
+
+    Panel 1 — Top-layer atoms colored by element with labels.
+    Panel 2 — Full graph overlay: atoms, sites, and site-site edges.
+    Panel 3 — Local environment of ``selected_site`` (2 shells).
+
+    Parameters
+    ----------
+    G : networkx.Graph
+        Surface graph from :func:`build_surface_graph`.
+    slab : ase.Atoms
+        Full slab (used for cell dimensions).
+    selected_site : str or None, optional
+        Node ID of the site to highlight in Panel 3.  Auto-selects the
+        first hollow site when ``None``.  Default ``None``.
+    save_path : str, optional
+        Output image file path.  Default ``'surface_graph.png'``.
+    seed : int or None, optional
+        Seed label shown in the figure title.  Falls back to
+        ``G.graph['seed']`` when ``None``.  Default ``None``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The three-panel figure object.
     """
     cell  = np.array(G.graph['cell'])
     z_max = G.graph['z_max']
