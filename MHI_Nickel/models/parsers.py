@@ -226,6 +226,36 @@ def parse_equil_log(logfile: str) -> dict | None:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# Standalone — energy log reader
+# ════════════════════════════════════════════════════════════════════════════
+def parse_energy_log(logfile):
+    """Parse a LAMMPS energy log for final PE, fmax, and atom count.
+
+    Parameters
+    ----------
+    logfile : str
+        Path to the log file written by the LAMMPS run script.
+
+    Returns
+    -------
+    dict or None
+        Keys: ``pe_final_eV``, ``fmax_eV_per_Ang``, ``natoms``.
+        Returns ``None`` if the file does not exist or no keys are found.
+    """
+    results = {}
+    if not os.path.exists(logfile):
+        return None
+    with open(logfile) as f:
+        for line in f:
+            line = line.strip()
+            for key in ('pe_final_eV', 'fmax_eV_per_Ang', 'natoms'):
+                if key in line and ':' in line:
+                    try:
+                        results[key] = float(line.split(':')[1].strip())
+                    except ValueError:
+                        pass
+    return results if results else None
+# ════════════════════════════════════════════════════════════════════════════
 # Standalone — thermo column reader
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -293,6 +323,8 @@ def parse_lammps_dump(
     Parse a LAMMPS custom dump file and extract H-atom positions (NB11).
 
     Expects columns ``id type x y z`` (additional columns are ignored).
+    Collects **all** H atoms per frame, so the returned array supports both
+    the dilute-limit case (1 H atom) and multi-H simulations.
 
     Parameters
     ----------
@@ -308,12 +340,12 @@ def parse_lammps_dump(
     -------
     t_arr   : ndarray, shape (N_frames,)
         Frame times in ps.
-    pos_arr : ndarray, shape (N_frames, 3)
-        H-atom x, y, z coordinates in Å.  ``NaN`` for frames where no H
-        atom of ``h_type`` was found.
+    pos_arr : ndarray, shape (N_frames, N_H, 3)
+        H-atom x, y, z coordinates in Å for all N_H hydrogen atoms.
+        Rows with no H found are filled with ``NaN``.
     box_arr : ndarray, shape (N_frames, 3)
         Box edge lengths Lx, Ly, Lz in Å.
-    
+
     Returns ``(None, None, None)`` if the file does not exist or is empty.
     """
     if not os.path.exists(traj_file):
@@ -322,9 +354,10 @@ def parse_lammps_dump(
     with open(traj_file) as f:
         lines = f.readlines()
 
-    timesteps: list[int]         = []
-    h_positions: list[list[float]] = []
-    box_lengths: list[list[float]] = []
+    timesteps:  list[int]              = []
+    # per-frame list of H positions: each entry is a list of [x,y,z] per H atom
+    h_positions: list[list[list[float]]] = []
+    box_lengths: list[list[float]]     = []
 
     i = 0
     while i < len(lines):
@@ -357,7 +390,7 @@ def parse_lammps_dump(
         while j < len(lines) and 'ITEM: ATOMS' not in lines[j]:
             j += 1
         if j >= len(lines):
-            h_positions.append([np.nan, np.nan, np.nan])
+            h_positions.append([[np.nan, np.nan, np.nan]])
             i = j
             continue
 
@@ -371,30 +404,32 @@ def parse_lammps_dump(
             type_col, x_col, y_col, z_col = 1, 2, 3, 4
 
         j += 1
-        h_found = False
+        frame_h: list[list[float]] = []
         for k in range(j, j + n_atoms):
             if k >= len(lines):
                 break
             parts = lines[k].split()
             if len(parts) > max(type_col, x_col, y_col, z_col):
                 if int(parts[type_col]) == h_type:
-                    h_positions.append([
+                    frame_h.append([
                         float(parts[x_col]),
                         float(parts[y_col]),
                         float(parts[z_col]),
                     ])
-                    h_found = True
-                    break
-        if not h_found:
-            h_positions.append([np.nan, np.nan, np.nan])
 
+        h_positions.append(frame_h if frame_h else [[np.nan, np.nan, np.nan]])
         i = j + n_atoms
 
     if not timesteps:
         return None, None, None
 
     t_arr   = np.array(timesteps, dtype=float) * timestep
-    pos_arr = np.array(h_positions)
+    # Pad frames to the same N_H (in case a frame is missing an atom)
+    n_h_max = max(len(f) for f in h_positions)
+    pos_arr = np.full((len(timesteps), n_h_max, 3), np.nan)
+    for fi, frame_h in enumerate(h_positions):
+        for hi, xyz in enumerate(frame_h):
+            pos_arr[fi, hi] = xyz
     box_arr = np.array(box_lengths)
     return t_arr, pos_arr, box_arr
 
@@ -462,3 +497,106 @@ def parse_diffusivity_file(
         np.array(Derr_vals),
         np.array(R2_vals),
     )
+
+
+def parse_barrier_file(barrier_file: str) -> dict:
+    """Parse a NEB barrier summary file (``neb_barrier.txt``).
+
+    The file is expected to contain ``key: value`` or ``key = value`` lines
+    with the following keys: ``E_IS``, ``E_FS``, ``E_abs``, ``E_des``,
+    ``delta_E``, ``fmax_final``, ``converged``.
+
+    Parameters
+    ----------
+    barrier_file : str
+        Path to the barrier summary file written by a NEB job script.
+
+    Returns
+    -------
+    dict
+        Keys: ``E_IS``, ``E_FS``, ``E_abs``, ``E_des``, ``delta_E``
+        (all ``float``, eV), ``fmax_final`` (``float``, eV/Å),
+        ``converged`` (``bool``).  Missing keys are omitted.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``barrier_file`` does not exist.
+    """
+    if not os.path.exists(barrier_file):
+        raise FileNotFoundError(
+            f'{barrier_file} not found. Check NEB job output.'
+        )
+
+    _FLOAT_KEYS = {'E_IS', 'E_FS', 'E_abs', 'E_des', 'delta_E', 'fmax_final'}
+    # Older notebook scripts write 'E_a' instead of 'E_abs' — normalise on read
+    _KEY_ALIASES = {'E_a': 'E_abs'}
+    result = {}
+
+    with open(barrier_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            # Accept both "key: value" and "key = value"
+            for sep in (':', '='):
+                if sep in line:
+                    key, _, val = line.partition(sep)
+                    key = key.strip()
+                    val = val.strip()
+                    key = _KEY_ALIASES.get(key, key)  # normalise aliases
+                    if key in _FLOAT_KEYS:
+                        try:
+                            result[key] = float(val)
+                        except ValueError:
+                            pass
+                    elif key == 'converged':
+                        result['converged'] = val.lower() in ('true', '1', 'yes')
+                    break
+
+    return result
+
+
+def parse_neb_path(path_file: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Read a 3-column NEB path data file (``neb_path.dat``).
+
+    Expected columns: ``image_fraction  E_eV  dE_from_IS_eV``
+
+    Parameters
+    ----------
+    path_file : str
+        Path to the MEP data file written by the NEB job script.
+
+    Returns
+    -------
+    frac_arr  : ndarray   Reaction coordinate, 0 → 1 (image fraction)
+    E_arr     : ndarray   Absolute energy of each image (eV)
+    dE_arr    : ndarray   Energy relative to initial state (eV)
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``path_file`` does not exist.
+    """
+    if not os.path.exists(path_file):
+        raise FileNotFoundError(
+            f'{path_file} not found. Check NEB job output.'
+        )
+
+    frac, E_abs_vals, dE_vals = [], [], []
+
+    with open(path_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            parts = line.split()
+            if len(parts) >= 3:
+                try:
+                    frac.append(float(parts[0]))
+                    E_abs_vals.append(float(parts[1]))
+                    dE_vals.append(float(parts[2]))
+                except ValueError:
+                    pass
+
+    return np.array(frac), np.array(E_abs_vals), np.array(dE_vals)
