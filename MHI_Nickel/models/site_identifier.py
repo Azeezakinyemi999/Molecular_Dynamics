@@ -2,6 +2,29 @@
 """
 site_identifier.py
 ──────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# MODULE ROLE
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3 in the Project 2 pipeline  (post-relaxation, standalone).
+#
+# Given a relaxed slab+adsorbate LAMMPS structure, identifies which
+# adsorption site type the adsorbate actually occupies after relaxation:
+# atop / bridge / hollow-FCC / hollow-HCP / hollow-4fold for chemisorbed
+# species, or near-atop / near-bridge / near-hollow for physisorbed species.
+# Supports any adsorbate registered in ADSORBATE_REGISTRY (H, H2, CO, OH ...).
+#
+# INPUT:   relaxed slab + adsorbate LAMMPS data file (one per configuration)
+# OUTPUT:  list of dicts with site_type, composition, label, neighbors, etc.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# HOW IT LINKS TO THE OTHER MODULES
+# ─────────────────────────────────────────────────────────────────────────────
+# This module is INDEPENDENT of surface_graph.py and subsurface_graph.py.
+# It does not read surface_sites.json or subsurface_sites.json.
+# It is called directly from notebooks NB05 (adsorption energy) and
+# NB06 / NB06b (NEB dissociation) to label each relaxed structure.
+# ─────────────────────────────────────────────────────────────────────────────
+
 Generalized adsorption site identification for Hastelloy N surfaces.
 Supports atomic (H) and molecular (H2) adsorbates in both
 chemisorbed and physisorbed modes.
@@ -128,12 +151,34 @@ def _find_binding_atom(ads_indices, pos, syms, surf_mask, reg, dmax=2.8):
 def _physisorbed_site(bind_pos, surf_pos, surf_syms, surf_idx,
                       n_neighbors=3, phys_xy_tol=1.8):
     """
-    Identify physisorption site using xy proximity to surface atoms.
-    Reports which surface atom(s) the adsorbate hovers over.
+    Identify physisorption site from xy proximity to surface atoms.
 
-    Site type logic (xy distance from centroid to nearest surface atom):
-      < phys_xy_tol       → atop (hovering over one atom)
-      else nearest 2-3     → bridge or hollow based on xy distances
+    Parameters
+    ----------
+    bind_pos : ndarray, shape (3,)
+        Cartesian position of the binding (or centroid) atom.
+    surf_pos : ndarray, shape (N, 3)
+        Cartesian positions of surface atoms.
+    surf_syms : ndarray of str, shape (N,)
+        Element symbols of surface atoms.
+    surf_idx : ndarray of int, shape (N,)
+        Full-slab indices of surface atoms.
+    n_neighbors : int, optional
+        Number of nearby surface atoms to inspect.  Default 3.
+    phys_xy_tol : float, optional
+        Max xy distance (Å) to nearest surface atom for atop classification.
+        Default 1.8.
+
+    Returns
+    -------
+    site_type : str
+        ``'atop'``, ``'near_bridge'``, ``'near_hollow'``, or ``'near_atop'``.
+    comp : str
+        Concatenated element symbols of the relevant surface atoms.
+    label : str
+        Full site label, e.g. ``'Ni_atop_physisorbed'``.
+    neighbors : list of tuple
+        ``(element, xy_distance_Å, slab_index)`` for the nearest atoms.
     """
     # xy distances from binding atom to all surface atoms
     xy_dists = np.sqrt(np.sum(
@@ -188,37 +233,65 @@ def identify_adsorption_site(
 
     Parameters
     ----------
-    struct         : str or ase.Atoms — relaxed slab + adsorbate
-    adsorbate      : str ('H','H2','CO' etc.) or list of atom indices
-    mode           : 'auto'         — detect chemi vs physisorbed automatically
-                     'chemisorbed'  — force chemisorbed classification
-                     'physisorbed'  — force physisorbed classification
-    binding_atom   : str or None — override registry binding element
-    n_neighbors    : int — surface neighbors to report
-    z_surf_tol     : float — surface layer thickness (A)
-    dmax           : float — chemisorption bond cutoff (A)
-    sub_depth      : float — subsurface layer depth for FCC/HCP (A)
-    hcp_cutoff     : float — xy cutoff for HCP detection (A)
-    phys_z_thresh  : float — if binding atom is > phys_z_thresh above
-                             surface, treat as physisorbed (A)
-    phys_xy_tol    : float — xy distance threshold for atop in physisorbed (A)
+    struct : str or ase.Atoms
+        Relaxed slab with adsorbate — LAMMPS data file path or ASE Atoms.
+    adsorbate : str or list of int
+        Adsorbate key from ``ADSORBATE_REGISTRY`` (e.g. ``'H'``, ``'H2'``,
+        ``'CO'``), or an explicit list of atom indices.
+    mode : {'auto', 'chemisorbed', 'physisorbed'}, optional
+        Classification mode.  ``'auto'`` detects chemi vs physisorbed from
+        the binding-atom height above the surface.  Default ``'auto'``.
+    binding_atom : str or None, optional
+        Override the registry binding element (e.g. ``'O'`` for CO).
+        Default ``None``.
+    n_neighbors : int, optional
+        Number of surface neighbors to include in the output.  Default 3.
+    z_surf_tol : float, optional
+        Surface layer thickness in Å.  Default 2.0.
+    dmax : float, optional
+        Chemisorption bond cutoff in Å.  Default 2.8.
+    sub_depth : float, optional
+        Subsurface layer depth for FCC/HCP discrimination in Å.  Default 2.5.
+    hcp_cutoff : float, optional
+        Max xy distance to a subsurface atom for HCP classification in Å.
+        Default 1.5.
+    phys_z_thresh : float, optional
+        Height above the surface (Å) above which the site is physisorbed.
+        Default 2.5.
+    phys_xy_tol : float, optional
+        xy distance threshold for atop classification in physisorbed mode
+        in Å.  Default 1.8.
 
     Returns
     -------
-    list of dicts, one per binding atom:
-    {
-        'binding_atom_idx'  : int
-        'binding_atom_elem' : str
-        'binding_atom_pos'  : array
-        'mode'              : 'chemisorbed' or 'physisorbed'
-        'site_type'         : str
-        'hollow_type'       : str or None  ('fcc'/'hcp')
-        'composition'       : str
-        'label'             : str
-        'neighbors'         : [(elem, dist, slab_idx), ...]
-        'n_bonded'          : int
-        'subsurf_element'   : str or None
-    }
+    list of dict
+        One dict per binding atom.  Keys:
+
+        ``binding_atom_idx`` : int
+            Full-slab index of the binding atom.
+        ``binding_atom_elem`` : str
+            Element symbol of the binding atom.
+        ``binding_atom_pos`` : ndarray, shape (3,)
+            Cartesian position of the binding atom.
+        ``mode`` : str
+            ``'chemisorbed'`` or ``'physisorbed'``.
+        ``site_type`` : str
+            ``'atop'``, ``'bridge'``, ``'hollow'``, ``'hollow_4fold'``,
+            or a physisorbed variant.
+        ``hollow_type`` : str or None
+            ``'fcc'`` or ``'hcp'`` for hollow sites; ``None`` otherwise.
+        ``composition`` : str
+            Concatenated element symbols of coordinating surface atoms.
+        ``label`` : str
+            Full site label, e.g. ``'NiCrFe_hollow_fcc'``.
+        ``neighbors`` : list of tuple
+            ``(element, distance_Å, slab_index)`` for each nearby atom.
+        ``n_bonded`` : int
+            Number of surface atoms within ``dmax``.
+        ``subsurf_element`` : str or None
+            Element of the subsurface atom beneath an HCP hollow site.
+        ``z_above_surface`` : float
+            Height of the binding atom above z_max in Å.
     """
     atoms = _load_struct(struct)
     pos   = atoms.get_positions()
@@ -347,7 +420,16 @@ def identify_adsorption_site(
 
 
 def print_site_result(result, adsorbate_name=''):
-    """Pretty-print identify_adsorption_site output."""
+    """
+    Pretty-print the output of :func:`identify_adsorption_site`.
+
+    Parameters
+    ----------
+    result : list of dict
+        Return value of ``identify_adsorption_site()``.
+    adsorbate_name : str, optional
+        Display label for the adsorbate.  Default ``''``.
+    """
     print(f'Adsorbate : {adsorbate_name}')
     for i, s in enumerate(result):
         print(f'  Binding atom : {s["binding_atom_elem"]} '
