@@ -2,6 +2,32 @@
 subsurface_graph.py
 ====================
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MODULE ROLE
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 in the Project 2 pipeline.
+#
+# Builds the subsurface representation: locates octahedral and tetrahedral
+# interstitial sites in subsurface layers (10, 11) via scipy Voronoi
+# tessellation, randomly samples bulk-reference sites from interior layers
+# (5-9), classifies each site by coordination geometry and local composition,
+# connects layer-11 sites to the surface sites above them, and saves the
+# result to subsurface_sites.json.
+#
+# INPUT:   clean slab LAMMPS data file
+#          surface_sites.json  (produced by surface_graph.py)
+# OUTPUT:  results/<seed>/subsurface_sites.json
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# HOW IT LINKS TO THE OTHER MODULES
+# ─────────────────────────────────────────────────────────────────────────────
+# ← surface_graph.py     must run first; its surface_sites.json is loaded
+#                        here to build surface-subsurface edges.
+#
+# → site_identifier.py   is independent of this module; it runs after
+#                        relaxation and does not use subsurface_sites.json.
+# ─────────────────────────────────────────────────────────────────────────────
+
 Module for identifying and labeling subsurface octahedral and tetrahedral
 interstitial sites in a Hastelloy N slab.
 
@@ -66,19 +92,20 @@ def _identify_layers(positions, n_layers=12, z_tol=None):
 
     Parameters
     ----------
-    positions : (N, 3) array
+    positions : ndarray, shape (N, 3)
         Cartesian atom positions.
     n_layers : int
         Expected number of layers in the slab.
-    z_tol : float or None
-        Kept for backward compatibility but ignored.
+    z_tol : float or None, optional
+        Kept for backward compatibility; ignored.  Default ``None``.
 
     Returns
     -------
-    layer_map : dict {atom_index: layer_number}
-        Layer number, 1-indexed (1 = bottom, n_layers = top).
-    layer_z : dict {layer_number: mean_z}
-        Mean z-coordinate of each layer.
+    layer_map : dict
+        Maps atom index (int) → layer number (int, 1-indexed;
+        1 = bottom, ``n_layers`` = top).
+    layer_z : dict
+        Maps layer number (int) → mean z-coordinate (float) in Å.
     """
     positions = np.asarray(positions)
     z = positions[:, 2]
@@ -140,26 +167,29 @@ def find_voronoi_sites(slab_path,
                       clustering_tol=CLUSTERING_TOL_DEFAULT,
                       min_dist=MIN_DIST_DEFAULT):
     """
-    Find interstitial sites using scipy.spatial.Voronoi with PBC handling.
+    Find interstitial sites using ``scipy.spatial.Voronoi`` with PBC handling.
 
-    The slab is replicated 3x3 in xy (not in z) to handle periodic boundaries.
-    Voronoi vertices in the central cell are kept after filtering.
+    The slab is replicated 3 × 3 in xy (not z) before tessellation.
+    Voronoi vertices are filtered to the central cell, deduplicated, and
+    pruned of any vertex too close to an atom.
 
     Parameters
     ----------
     slab_path : str
         Path to the LAMMPS data file.
-    clustering_tol : float
-        Merge Voronoi vertices within this distance (A).
-    min_dist : float
-        Discard vertices within this distance of any atom (A).
+    clustering_tol : float, optional
+        Merge Voronoi vertices within this distance in Å.
+        Default ``CLUSTERING_TOL_DEFAULT`` (0.75).
+    min_dist : float, optional
+        Discard vertices within this distance of any atom in Å.
+        Default ``MIN_DIST_DEFAULT`` (0.5).
 
     Returns
     -------
-    sites_cart : (M, 3) array
+    sites_cart : ndarray, shape (M, 3)
         Cartesian coordinates of unique interstitial sites in the central cell.
     structure : None
-        Returned for API compatibility (not used in scipy path).
+        Returned for API compatibility (not used in the scipy path).
     atoms : ase.Atoms
         The slab as ASE Atoms.
     """
@@ -238,25 +268,26 @@ def find_voronoi_sites(slab_path,
 def _find_coordinating_atoms(site_pos, atom_positions, atom_elements,
                               cell, cutoff=COORD_CUTOFF_DEFAULT):
     """
-    Find all metal atoms within `cutoff` of `site_pos`, using PBC in x and y.
+    Find all metal atoms within ``cutoff`` of ``site_pos`` using xy PBC.
 
     Parameters
     ----------
-    site_pos : (3,) array
+    site_pos : ndarray, shape (3,)
         Cartesian position of the interstitial site.
-    atom_positions : (N, 3) array
+    atom_positions : ndarray, shape (N, 3)
         Cartesian positions of all metal atoms in the slab.
-    atom_elements : (N,) array of str
+    atom_elements : ndarray of str, shape (N,)
         Element symbols.
-    cell : (3,) array
-        Cell dimensions [Lx, Ly, Lz] (assumes orthorhombic).
-    cutoff : float
-        Distance cutoff for "coordinating".
+    cell : ndarray, shape (3,)
+        Orthorhombic cell dimensions ``[Lx, Ly, Lz]`` in Å.
+    cutoff : float, optional
+        Distance cutoff in Å.  Default ``COORD_CUTOFF_DEFAULT`` (2.2).
 
     Returns
     -------
-    coord_list : list of dicts
-        Each dict has: atom_index, element, distance.
+    coord_list : list of dict
+        Sorted by distance ascending.  Each dict has keys
+        ``atom_index`` (int), ``element`` (str), ``distance`` (float).
     """
     coord_list = []
     for i, (pos, el) in enumerate(zip(atom_positions, atom_elements)):
@@ -284,22 +315,21 @@ def _find_coordinating_atoms(site_pos, atom_positions, atom_elements,
 
 def _composition_label(coord_list, site_type):
     """
-    Generate a composition label like 'Ni3MoCrFe_oct' or 'Ni2Mo2_tet'.
+    Generate a composition label such as ``'Ni3MoCrFe_oct'``.
 
-    Counts elements among coordinating atoms, sorts by count descending,
-    then alphabetically for ties.
+    Elements are sorted by count descending, then alphabetically for ties.
 
     Parameters
     ----------
-    coord_list : list of dicts
-        Output from _find_coordinating_atoms.
+    coord_list : list of dict
+        Output from :func:`_find_coordinating_atoms`.
     site_type : str
-        'oct' or 'tet'.
+        ``'oct'`` or ``'tet'``.
 
     Returns
     -------
     label : str
-        Composition label.
+        Composition label, e.g. ``'Ni3MoCrFe_oct'`` or ``'Ni2Mo2_tet'``.
     """
     elements = [c["element"] for c in coord_list]
     counts = Counter(elements)
@@ -320,37 +350,46 @@ def _composition_label(coord_list, site_type):
 def classify_site(site_pos, atom_positions, atom_elements, cell,
                   cutoff=COORD_CUTOFF_DEFAULT):
     """
-    Classify a Voronoi vertex as oct, tet, or distorted.
+    Classify a Voronoi vertex as octahedral, tetrahedral, or unknown.
 
-    Uses loose classification with a distortion score:
-      - 6 NN -> oct (perfect)
-      - 5, 7 NN -> distorted oct
-      - 4 NN -> tet (perfect)
-      - 3 NN -> distorted tet
-      - other -> 'unknown'
+    Coordination-number rules:
+
+    - 6 NN → ``'oct'`` (perfect)
+    - 5 or 7 NN → ``'oct'`` (distorted)
+    - 4 NN → ``'tet'`` (perfect)
+    - 3 NN → ``'tet'`` (distorted)
+    - other → ``'unknown'``
 
     Parameters
     ----------
-    site_pos : (3,) array
+    site_pos : ndarray, shape (3,)
         Cartesian position of the site.
-    atom_positions : (N, 3) array
+    atom_positions : ndarray, shape (N, 3)
         Metal atom positions.
-    atom_elements : (N,) array of str
+    atom_elements : ndarray of str, shape (N,)
         Element symbols.
-    cell : (3,) array
-        Cell dimensions.
-    cutoff : float
-        Coordination cutoff.
+    cell : ndarray, shape (3,)
+        Orthorhombic cell dimensions in Å.
+    cutoff : float, optional
+        Coordination cutoff in Å.  Default ``COORD_CUTOFF_DEFAULT`` (2.2).
 
     Returns
     -------
-    dict with keys:
-        site_type           : 'oct', 'tet', or 'unknown'
-        coord_count         : number of coordinating atoms
-        coord_list          : list of coordinating atom info
-        composition_label   : e.g. 'Ni3MoCrFe_oct'
-        distortion_score    : (max_d - min_d) / mean_d among coordinators
-        is_distorted        : bool (True if not exact 4 or 6)
+    dict
+        Keys:
+
+        ``site_type`` : str
+            ``'oct'``, ``'tet'``, or ``'unknown'``.
+        ``coord_count`` : int
+            Number of coordinating atoms.
+        ``coord_list`` : list of dict
+            Coordinating atom details (see :func:`_find_coordinating_atoms`).
+        ``composition_label`` : str
+            E.g. ``'Ni3MoCrFe_oct'``.
+        ``distortion_score`` : float
+            ``(max_d − min_d) / mean_d`` among the coordinating atoms.
+        ``is_distorted`` : bool
+            ``True`` when coordination number is not exactly 4 or 6.
     """
     coord_list = _find_coordinating_atoms(
         site_pos, atom_positions, atom_elements, cell, cutoff=cutoff
@@ -436,23 +475,27 @@ def _get_surface_site_position(surf_site):
 def connect_to_surface(subsurface_sites, surface_sites_data, cell,
                         xy_tol=XY_TOL_DEFAULT):
     """
-    For each layer-11 subsurface site, find the surface site directly above it.
+    Connect each layer-11 subsurface site to the surface site directly above.
 
     Parameters
     ----------
-    subsurface_sites : list of dicts
-        Each dict has 'site_id', 'layer_classification', 'position', etc.
+    subsurface_sites : list of dict
+        Classified subsurface sites; each dict must have ``'site_id'``,
+        ``'layer_classification'``, and ``'position'``.
     surface_sites_data : dict
-        Loaded from surface_sites.json. Has key 'sites' with site_id,
-        position is at site['level1']['position'].
-    cell : (3,) array
-        Cell dimensions.
-    xy_tol : float
-        Max xy distance for "directly above/below".
+        Parsed ``surface_sites.json``; must have a ``'sites'`` key, with
+        positions at ``site['level1']['position']``.
+    cell : ndarray, shape (3,)
+        Orthorhombic cell dimensions in Å.
+    xy_tol : float, optional
+        Max xy distance (Å) for a site to be considered directly above/below.
+        Default ``XY_TOL_DEFAULT`` (1.5).
 
     Returns
     -------
-    connections : list of tuples (subsurf_site_id, surface_site_id, xy_dist)
+    connections : list of tuple
+        Each entry is ``(subsurf_site_id, surface_site_id, xy_dist)`` where
+        ``xy_dist`` is the periodic xy distance in Å.
     """
     surface_sites_list = surface_sites_data["sites"]
 
@@ -490,23 +533,24 @@ def connect_to_surface(subsurface_sites, surface_sites_data, cell,
 
 def sample_bulk_sites(all_sites, bulk_layer_range, n_samples, seed):
     """
-    Randomly sample N sites from the bulk-like layers.
+    Randomly sample ``n_samples`` sites from bulk-like layers.
 
     Parameters
     ----------
-    all_sites : list of dicts
-        All classified sites (from layers 5-11).
+    all_sites : list of dict
+        All classified sites (typically from layers 5–11).
     bulk_layer_range : iterable of int
-        Layer numbers to sample from (e.g. [5, 6, 7, 8, 9]).
+        Layer numbers to sample from, e.g. ``[5, 6, 7, 8, 9]``.
     n_samples : int
-        Number of sites to sample.
+        Number of sites to sample.  Capped at available candidates.
     seed : int
         Random seed for reproducibility.
 
     Returns
     -------
-    sampled : list of dicts
-        Sampled bulk sites with their site_type indicating bulk.
+    sampled : list of dict
+        Shallow copies of the sampled sites with
+        ``layer_classification`` set to ``'bulk_sample'``.
     """
     bulk_layers_set = set(bulk_layer_range)
     bulk_candidates = [
@@ -566,34 +610,42 @@ def build_subsurface_graph(
     Parameters
     ----------
     slab_path : str
-        Path to clean_slab_reminimized.lammps.
+        Path to ``clean_slab_reminimized.lammps``.
     surface_sites_json_path : str
-        Path to surface_sites.json from NB04b.
+        Path to ``surface_sites.json`` produced by NB04b.
     seed : int
-        Random seed (used for bulk sampling reproducibility).
-    n_layers_total : int
-        Expected number of layers in the slab.
-    subsurface_layers : tuple of int
-        Layers to enumerate fully (default: 10, 11).
-    bulk_sample_layers : tuple of int
-        Layers to randomly sample from.
-    n_bulk_samples : int
-        Number of bulk samples.
-    clustering_tol, min_dist : float
-        Pymatgen Voronoi parameters.
-    coord_cutoff : float
-        Coordination cutoff for oct/tet classification.
-    xy_tol : float
-        Tolerance for surface-subsurface connection.
-    z_tol : float
-        Tolerance for layer identification.
+        Random seed for bulk-site sampling reproducibility.
+    n_layers_total : int, optional
+        Expected total number of layers in the slab.  Default 12.
+    subsurface_layers : tuple of int, optional
+        Layers to enumerate fully.  Default ``(10, 11)``.
+    bulk_sample_layers : tuple of int, optional
+        Layers to randomly sample from.  Default ``(5, 6, 7, 8, 9)``.
+    n_bulk_samples : int, optional
+        Number of bulk reference sites to sample.  Default 15.
+    clustering_tol : float, optional
+        Voronoi vertex clustering tolerance in Å.
+        Default ``CLUSTERING_TOL_DEFAULT`` (0.75).
+    min_dist : float, optional
+        Minimum allowed distance from a Voronoi vertex to any atom in Å.
+        Default ``MIN_DIST_DEFAULT`` (0.5).
+    coord_cutoff : float, optional
+        Coordination cutoff for oct/tet classification in Å.
+        Default ``COORD_CUTOFF_DEFAULT`` (2.2).
+    xy_tol : float, optional
+        Tolerance for surface–subsurface xy connection in Å.
+        Default ``XY_TOL_DEFAULT`` (1.5).
+    z_tol : float, optional
+        Tolerance for layer identification (kept for compatibility).
+        Default 0.5.
 
     Returns
     -------
     G : networkx.Graph
-        Augmented graph with surface and subsurface site nodes plus edges.
-    subsurface_sites : list of dicts
-        All classified subsurface and bulk sample sites with metadata.
+        Augmented graph containing surface site nodes (from JSON), subsurface
+        site nodes, and ``'surface-subsurface'`` edges.
+    subsurface_sites : list of dict
+        All classified subsurface and bulk-sample sites with full metadata.
     """
     print(f"=" * 70)
     print(f"  Building subsurface graph for seed {seed}")
@@ -751,18 +803,20 @@ def build_subsurface_graph(
 def save_subsurface_sites(subsurface_sites, output_path, seed,
                            metadata=None):
     """
-    Save subsurface sites to a JSON file in the same style as surface_sites.json.
+    Save subsurface sites to a JSON file mirroring the ``surface_sites.json`` schema.
 
     Parameters
     ----------
-    subsurface_sites : list of dicts
-        Output from build_subsurface_graph.
+    subsurface_sites : list of dict
+        Output from :func:`build_subsurface_graph`.
     output_path : str
-        Path to write subsurface_sites.json.
+        Destination path for ``subsurface_sites.json``.  Parent directories
+        are created if they do not exist.
     seed : int
-        Seed used for the run.
+        Seed used for the run; stored in the file metadata.
     metadata : dict, optional
-        Additional metadata to include.
+        Additional key-value pairs to include in the metadata section.
+        Default ``None``.
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
