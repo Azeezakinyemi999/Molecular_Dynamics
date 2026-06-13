@@ -705,3 +705,347 @@ write_data     {out_file}
     with open(out_path, 'w') as f:
         f.write(script)
     return out_path
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. NVT BULK RESTART  (NB10 — continuation legs for chained SLURM jobs)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def write_nvt_bulk_restart_script(
+    restart_file,
+    traj_file,
+    out_file,
+    msd_file,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    temperature,
+    h_type=9,
+    timestep=0.0005,
+    tau_t=0.1,
+    n_equil=500000,
+    n_prod=1500000,
+    thermo_every=1000,
+    dump_every=1000,
+    restart_dir=None,
+    restart_every=10000,
+):
+    """
+    Write a NVT bulk continuation script that resumes from a LAMMPS
+    binary restart file.
+
+    Mirrors :func:`write_nvt_bulk_script` exactly with three differences:
+
+    1. ``read_restart`` replaces ``read_data`` — velocities and thermostat
+       state are restored from the checkpoint; no ``velocity`` command.
+    2. ``dump_modify append yes`` — trajectory frames are appended to the
+       existing ``.lammpstrj`` rather than overwriting it.
+    3. ``fix ave/time ... append yes`` — MSD rows continue from where the
+       previous leg stopped, giving a seamless time series for NB11.
+
+    Intended as the ``restart_commands`` LAMMPS input for
+    :func:`~models.create_slurm.write_chained_slurm_job`.
+
+    Parameters
+    ----------
+    restart_file : str
+        Glob-style path to the LAMMPS binary restart file, e.g.
+        ``'results/500K/nvt_500K.*.restart'``.  LAMMPS picks the most
+        recent matching file automatically.
+    traj_file : str
+        Path to the existing production trajectory (``.lammpstrj``).
+        Opened with ``append yes``.
+    out_file : str
+        Path where the final structure is written (``write_data``).
+    msd_file : str
+        Path to the existing MSD time series.  Opened with ``append yes``.
+    out_path : str
+        Destination path for the ``.lammps`` input script.
+    pair_style : str
+        LAMMPS ``pair_style`` keyword.
+    mace_model : str
+        Full path to the MACE ``.pt`` model file.
+    pair_suffix : str
+        Suffix for ``pair_style``.
+    elem_str : str
+        Element string for ``pair_coeff * *``.
+    temperature : float
+        NVT temperature in K.
+    h_type : int, optional
+        LAMMPS atom type number for H. Default ``9``.
+    timestep : float, optional
+        MD timestep in ps. Default ``0.0005`` (0.5 fs).
+    tau_t : float, optional
+        Nose-Hoover thermostat damping time in ps. Default ``0.1``.
+    n_equil : int, optional
+        Equilibration steps. Default ``500000``.
+    n_prod : int, optional
+        Production steps. Default ``1500000``.
+    thermo_every : int, optional
+        Thermo output frequency. Default ``1000``.
+    dump_every : int, optional
+        Trajectory dump frequency. Default ``1000``.
+    restart_dir : str or None, optional
+        Directory for periodic restart files. Default ``None``.
+    restart_every : int, optional
+        Steps between periodic restart writes. Default ``10000``.
+
+    Returns
+    -------
+    out_path : str
+        Path to the written ``.lammps`` script.
+    """
+    pair      = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh     = _neighbor_block()
+    restart   = _restart_line(restart_dir, restart_every,
+                               label=f'nvt_{temperature}K')
+    tau_t_fs  = tau_t * 1000
+    equil_ps  = n_equil * timestep
+    prod_ps   = n_prod  * timestep
+    stem      = _stem(out_file)
+
+    phase1_data    = f'{stem}_phase1_equil.lammps'
+    phase1_restart = f'{stem}_phase1_equil.restart'
+    phase2_restart = f'{stem}_phase2_prod.restart'
+
+    script = f"""# LAMMPS NVT bulk RESTART -- Hastelloy N + H
+# T = {temperature} K | Notebook 10 (continuation leg)
+# Phase 1: {equil_ps:.0f} ps equilibration  (resumed from checkpoint)
+# Phase 2: {prod_ps:.0f} ps production       (trajectory appended)
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p p
+
+# Velocities and thermostat state are restored from the checkpoint.
+# No velocity command needed.
+read_restart   {restart_file}
+
+{restart}
+
+{pair}
+
+{neigh}
+
+group          H_atom  type {h_type}
+group          metal   subtract all H_atom
+
+thermo         {thermo_every}
+thermo_style   custom step temp pe ke etotal press vol
+
+timestep       {timestep}
+
+# === PHASE 1: Equilibration ({equil_ps:.0f} ps) ===
+fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}
+print "### Phase 1: Equilibration {equil_ps:.0f} ps at {temperature} K (restart) ###"
+run            {n_equil}
+unfix          nvt_equil
+print "### Phase 1 complete ###"
+
+write_restart  {phase1_restart}
+write_data     {phase1_data}
+
+# === PHASE 2: Production ({prod_ps:.0f} ps) ===
+# append yes -- frames added after those from the previous leg
+dump           prod_dump  all  custom  {dump_every}  {traj_file} &
+               id type x y z
+dump_modify    prod_dump  sort id  append yes
+
+fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}
+
+compute        msd_H    H_atom  msd
+# append yes -- MSD rows continue from where the previous leg left off
+fix            msd_out  all  ave/time  1  1  {thermo_every} &
+               c_msd_H[4]  file  {msd_file}  mode scalar  append yes
+
+print "### Phase 2: Production {prod_ps:.0f} ps at {temperature} K (restart) ###"
+run            {n_prod}
+print "### Phase 2 complete ###"
+
+variable  pe_final   equal  pe
+variable  temp_fin   equal  temp
+variable  press_fin  equal  press
+
+print "EQUIL_RESULTS_START"
+print "  T_K          : {temperature}"
+print "  pe_final_eV  : ${{pe_final}}"
+print "  temp_final_K : ${{temp_fin}}"
+print "  press_final  : ${{press_fin}}"
+print "EQUIL_RESULTS_END"
+
+write_restart  {phase2_restart}
+write_data     {out_file}
+"""
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. NVT BULK RESTART  (NB10 — continuation legs for chained jobs)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def write_nvt_bulk_restart_script(
+    restart_file,
+    traj_file,
+    out_file,
+    msd_file,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    temperature,
+    h_type=9,
+    timestep=0.0005,
+    tau_t=0.1,
+    n_equil=500000,
+    n_prod=1500000,
+    thermo_every=1000,
+    dump_every=1000,
+    restart_dir=None,
+    restart_every=10000,
+):
+    """
+    Write a NVT bulk continuation script that resumes from a LAMMPS
+    binary restart file.
+
+    Mirrors write_nvt_bulk_script exactly, with three differences:
+    1. read_restart instead of read_data (velocities restored from checkpoint).
+    2. dump_modify append yes  — trajectory frames appended, not overwritten.
+    3. fix ave/time append yes — MSD rows appended, not overwritten.
+
+    Use this as the restart_commands leg in write_chained_slurm_job.
+
+    Parameters
+    ----------
+    restart_file : str
+        Glob path to the LAMMPS binary restart, e.g.
+        'results/500K/nvt_500K.*.restart'.
+    traj_file : str
+        Path to the existing .lammpstrj; opened with append yes.
+    out_file : str
+        Path where the final structure is written (write_data).
+    msd_file : str
+        Path to the existing MSD time series; opened with append yes.
+    out_path : str
+        Destination path for the .lammps script.
+    pair_style, mace_model, pair_suffix, elem_str : str
+        Same as write_nvt_bulk_script.
+    temperature : float
+        NVT temperature in K.
+    h_type : int, optional
+        LAMMPS atom type number for H. Default 9.
+    timestep : float, optional
+        MD timestep in ps. Default 0.0005.
+    tau_t : float, optional
+        Nose-Hoover damping time in ps. Default 0.1.
+    n_equil : int, optional
+        Equilibration steps. Default 500000.
+    n_prod : int, optional
+        Production steps. Default 1500000.
+    thermo_every : int, optional
+        Thermo output frequency. Default 1000.
+    dump_every : int, optional
+        Trajectory dump frequency. Default 1000.
+    restart_dir : str or None, optional
+        Directory for periodic restart files. Default None.
+    restart_every : int, optional
+        Steps between periodic restart writes. Default 10000.
+
+    Returns
+    -------
+    out_path : str
+    """
+    pair      = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh     = _neighbor_block()
+    restart   = _restart_line(restart_dir, restart_every,
+                               label=f'nvt_{temperature}K')
+    tau_t_fs  = tau_t * 1000
+    equil_ps  = n_equil * timestep
+    prod_ps   = n_prod  * timestep
+    stem      = _stem(out_file)
+
+    phase1_data    = f'{stem}_phase1_equil.lammps'
+    phase1_restart = f'{stem}_phase1_equil.restart'
+    phase2_restart = f'{stem}_phase2_prod.restart'
+
+    script = (
+        "# LAMMPS NVT bulk RESTART — Hastelloy N + H\n"
+        f"# T = {temperature} K | Notebook 10 (continuation leg)\n"
+        f"# Phase 1: {equil_ps:.0f} ps equilibration (resumed from checkpoint)\n"
+        f"# Phase 2: {prod_ps:.0f} ps production   (trajectory appended)\n"
+        "\n"
+        "units          metal\n"
+        "atom_style     atomic\n"
+        "newton         on\n"
+        "boundary       p p p\n"
+        "\n"
+        "# Resume from most recent checkpoint.\n"
+        "# Velocities and thermostat state restored; no velocity command needed.\n"
+        f"read_restart   {restart_file}\n"
+        "\n"
+        f"{restart}\n"
+        "\n"
+        f"{pair}\n"
+        "\n"
+        f"{neigh}\n"
+        "\n"
+        f"group          H_atom  type {h_type}\n"
+        "group          metal   subtract all H_atom\n"
+        "\n"
+        f"thermo         {thermo_every}\n"
+        "thermo_style   custom step temp pe ke etotal press vol\n"
+        "\n"
+        f"timestep       {timestep}\n"
+        "\n"
+        f"# === PHASE 1: Equilibration ({equil_ps:.0f} ps) ===\n"
+        f"fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}\n"
+        f'print "### Phase 1: Equilibration {equil_ps:.0f} ps at {temperature} K (restart) ###"\n'
+        f"run            {n_equil}\n"
+        "unfix          nvt_equil\n"
+        'print "### Phase 1 complete ###"\n'
+        "\n"
+        f"write_restart  {phase1_restart}\n"
+        f"write_data     {phase1_data}\n"
+        "\n"
+        f"# === PHASE 2: Production ({prod_ps:.0f} ps) ===\n"
+        "# append yes — frames added after those from the previous leg\n"
+        f"dump           prod_dump  all  custom  {dump_every}  {traj_file} &\n"
+        "               id type x y z\n"
+        "dump_modify    prod_dump  sort id  append yes\n"
+        "\n"
+        f"fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}\n"
+        "\n"
+        "compute        msd_H    H_atom  msd\n"
+        "# append yes — MSD rows continue from where the previous leg left off\n"
+        f"fix            msd_out  all  ave/time  1  1  {thermo_every} &\n"
+        f"               c_msd_H[4]  file  {msd_file}  mode scalar  append yes\n"
+        "\n"
+        f'print "### Phase 2: Production {prod_ps:.0f} ps at {temperature} K (restart) ###"\n'
+        f"run            {n_prod}\n"
+        'print "### Phase 2 complete ###"\n'
+        "\n"
+        "variable  pe_final   equal  pe\n"
+        "variable  temp_fin   equal  temp\n"
+        "variable  press_fin  equal  press\n"
+        "\n"
+        'print "EQUIL_RESULTS_START"\n'
+        f'print "  T_K          : {temperature}"\n'
+        'print "  pe_final_eV  : ${pe_final}"\n'
+        'print "  temp_final_K : ${temp_fin}"\n'
+        'print "  press_final  : ${press_fin}"\n'
+        'print "EQUIL_RESULTS_END"\n'
+        "\n"
+        f"write_restart  {phase2_restart}\n"
+        f"write_data     {out_file}\n"
+    )
+
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
