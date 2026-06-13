@@ -30,3 +30,4 @@ test*
 # Temp/partial files
 *.zip
 zi*
+*.pyc
