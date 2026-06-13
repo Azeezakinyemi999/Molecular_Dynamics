@@ -1,0 +1,97 @@
+Task 121: s_121
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/e3nn/o3/_wigner.py:10: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  _Jd, _W3j_flat, _W3j_indices = torch.load(os.path.join(os.path.dirname(__file__), 'constants.pt'))
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/tempfile.py:934: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/tmp/tmp0g3xdcns'>
+  _warnings.warn(warn_message, ResourceWarning)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+Reading data file ...
+  orthogonal box = (0 0 0) to (12.447908 12.936245 52.360083)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  361 atoms
+  read_data CPU = 0.016 seconds
+119 atoms in group frozen_atoms
+242 atoms in group free_atoms
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+- KOKKOS package: https://doi.org/10.1145/3731599.3767498
+The log file lists these citations in BibTeX format.
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 7
+  ghost atom cutoff = 7
+  binsize = 7, bins = 2 2 8
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair mliap/kk, perpetual
+      attributes: full, newton on, kokkos_device
+      pair build: full/bin/kk/device
+      stencil: full/bin/3d
+      bin: kk/device
+Setting up cg/kk style minimization ...
+  Unit style    : metal
+  Current step  : 0
+WARNING: Fix MINIMIZE/kk not compatible with sending data in Kokkos communication (src/KOKKOS/comm_kokkos.cpp:842)
+WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
+WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 60.34 | 60.34 | 60.34 Mbytes
+   Step         PotEng          Fmax     
+         0  -2393.2567      1.6759878    
+        50  -2394.5718      0.0020555814 
+       100  -2394.5718      0.00012942537
+       143  -2394.5718      2.9593979e-07
+Loop time of 10.8395 on 1 procs for 143 steps with 361 atoms
+
+98.4% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = force tolerance
+  Energy initial, next-to-last, final = 
+     -2393.25667077649  -2394.57182264038  -2394.57182264038
+  Force two-norm initial, final = 2.5427471 9.0294083e-07
+  Force max component initial, final = 1.6759878 2.9593979e-07
+  Final line search alpha, max atom move = 1 2.9593979e-07
+  Iterations, force evaluations = 143 278
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 10.776     | 10.776     | 10.776     |   0.0 | 99.41
+Neigh   | 0.00083364 | 0.00083364 | 0.00083364 |   0.0 |  0.01
+Comm    | 0.010744   | 0.010744   | 0.010744   |   0.0 |  0.10
+Output  | 0.00011073 | 0.00011073 | 0.00011073 |   0.0 |  0.00
+Modify  | 0.0080331  | 0.0080331  | 0.0080331  |   0.0 |  0.07
+Other   |            | 0.04421    |            |       |  0.41
+
+Nlocal:            361 ave         361 max         361 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1213 ave        1213 max        1213 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:        42998 ave       42998 max       42998 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 42998
+Ave neighs/atom = 119.10803
+Neighbor list builds = 1
+Dangerous builds = 0
+ENERGY_RESULTS_START
+  job_name         : h_atom_s_121
+  pe_final_eV      : -2394.57182264038
+  fmax_eV_per_Ang  : 2.95939785796041e-07
+ENERGY_RESULTS_END
+System init for write_data ...
+Total wall time: 0:00:35
+Done: s_121 Sat Jun  6 08:08:04 PM EDT 2026
