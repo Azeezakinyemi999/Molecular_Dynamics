@@ -44,7 +44,7 @@ import numpy as np
 # Section 1 — Calculator helpers
 # ---------------------------------------------------------------------------
 
-def make_mace_calc(model_path: str, device: str = 'cuda',
+def make_mace_calc(model_path: str, device: str = 'cpu',
                    dtype: str = 'float64'):
     """Return a fresh ``MACECalculator`` instance.
 
@@ -53,8 +53,8 @@ def make_mace_calc(model_path: str, device: str = 'cuda',
     model_path : str
         Path to the ``.model`` file (ASE-compatible MACE variant).
     device : str
-        PyTorch device string — ``'cuda'`` or ``'cpu'``.
-        Defaults to ``'cuda'``; pass ``'cpu'`` for CPU-only partitions.
+        PyTorch device string — ``'cpu'`` or ``'cpu'``.
+        Defaults to ``'cpu'``; pass ``'cpu'`` for CPU-only partitions.
     dtype : str
         Floating-point precision.  ``'float64'`` (default) is required for
         NEB accuracy.
@@ -72,7 +72,7 @@ def make_mace_calc(model_path: str, device: str = 'cuda',
 
 
 def make_frozen_calc(model_path: str, z_freeze_cutoff: float,
-                     device: str = 'cuda', dtype: str = 'float64'):
+                     device: str = 'cpu', dtype: str = 'float64'):
     """Return a ``MACECalculator`` subclass that zeroes forces on frozen atoms.
 
     Atoms with z-coordinate < ``z_freeze_cutoff`` receive zero force,
@@ -85,7 +85,7 @@ def make_frozen_calc(model_path: str, z_freeze_cutoff: float,
     z_freeze_cutoff : float
         z-coordinate threshold in Å.  Atoms below this value are frozen.
     device : str
-        PyTorch device string (``'cuda'`` or ``'cpu'``).
+        PyTorch device string (``'cpu'`` or ``'cpu'``).
     dtype : str
         Floating-point precision.
 
@@ -198,7 +198,7 @@ def build_neb_images(
 def run_cineb(
     images: list,
     calc_fn,
-    spring_const: float = 2.0,
+    spring_const: float = 1.0,
     neb_ftol: float = 0.05,
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
@@ -443,7 +443,7 @@ def write_ase_neb_script(
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
-    device: str = 'cuda',
+    device: str = 'cpu',
     label_is: str = 'IS',
     label_fs: str = 'FS',
     out_path: str = 'run_neb.py',
@@ -486,7 +486,7 @@ def write_ase_neb_script(
     z_freeze_cutoff : float
         Frozen-layer z threshold in Å.
     device : str
-        PyTorch device (``'cuda'`` or ``'cpu'``).
+        PyTorch device (``'cpu'`` or ``'cpu'``).
     label_is : str
         Descriptive label for IS (written to barrier file header).
     label_fs : str
@@ -510,7 +510,7 @@ def write_ase_neb_script(
         import os, sys
         import numpy as np
 
-        # Strip CUDA stubs from LD_LIBRARY_PATH — causes segfault on some nodes
+        # Strip cpu stubs from LD_LIBRARY_PATH — causes segfault on some nodes
         _ld = os.environ.get("LD_LIBRARY_PATH", "")
         os.environ["LD_LIBRARY_PATH"] = ":".join(
             p for p in _ld.split(":") if "stubs" not in p)
@@ -694,7 +694,7 @@ def run_neb_pipeline(
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
-    device: str = 'cuda',
+    device: str = 'cpu',
     label_is: str = 'IS',
     label_fs: str = 'FS',
 ) -> str:
@@ -743,7 +743,7 @@ def run_neb_pipeline(
     z_freeze_cutoff : float
         Frozen-layer z threshold in Å (default 22.115).
     device : str
-        PyTorch device — ``'cuda'`` (default) or ``'cpu'`` for CPU partitions.
+        PyTorch device — ``'cpu'`` (default) or ``'cpu'`` for CPU partitions.
     label_is : str
         Human-readable label for IS written to the barrier file header.
     label_fs : str
@@ -770,7 +770,7 @@ def run_neb_pipeline(
     ...     job_name='neb06',
     ...     n_images=N_REPLICAS, spring_const=SPRING_CONST,
     ...     neb_ftol=NEB_FTOL, z_freeze_cutoff=Z_FREEZE_CUTOFF,
-    ...     device='cuda',
+    ...     device='cpu',
     ... )
     >>> # Then submit: submit_slurm_job(write_slurm_job(..., script_body=f'python {script}'))
     """

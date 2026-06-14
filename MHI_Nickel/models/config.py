@@ -130,5 +130,5 @@ FTOL       = 1e-6   # eV/Å — force convergence tolerance (minimisation)
 
 # --- NEB ---
 N_REPLICAS   = 18    # intermediate images
-SPRING_CONST = 2.0   # eV/Å²
+SPRING_CONST = 1.0   # eV/Å²
 NEB_FTOL     = 0.05  # eV/Å — NEB force convergence
