@@ -69,6 +69,8 @@ def write_minimization_script(
     thermo_every=10,
     restart_dir=None,
     restart_every=10000,
+    traj_file=None,
+    dump_every=10,
 ):
     """
     Write a LAMMPS conjugate-gradient minimization script with isotropic
@@ -119,6 +121,12 @@ def write_minimization_script(
     pair    = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
     neigh   = _neighbor_block()
     restart = _restart_line(restart_dir, restart_every, label='min')
+    if traj_file:
+        dump_block   = (f'dump           min_traj  all  custom  {dump_every}  {traj_file}'
+                        f'  id type x y z\ndump_modify    min_traj  sort id\n\n')
+        undump_block = 'undump         min_traj\n\n'
+    else:
+        dump_block = undump_block = ''
 
     script = f"""# ════════════════════════════════════════════════════
 # LAMMPS Energy Minimization — Hastelloy N Bulk
@@ -143,12 +151,12 @@ thermo_style   custom step pe fmax fnorm press vol lx ly lz
 
 fix            boxrelax all box/relax iso 0.0 vmax 0.001
 
-print "### Minimization ###"
+{dump_block}print "### Minimization ###"
 
 minimize       {etol} {ftol} {maxiter} {maxeval}
 
 print "### Minimization complete ###"
-
+{undump_block}
 unfix          boxrelax
 
 variable       pe_final  equal  pe
@@ -197,6 +205,7 @@ def write_npt_script(
     supercell_reps=5,
     restart_dir=None,
     restart_every=10000,
+    traj_file=None,
 ):
     """
     Write a two-stage NPT script: temperature ramp followed by
@@ -251,6 +260,12 @@ def write_npt_script(
     pair          = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
     neigh         = _neighbor_block()
     restart       = _restart_line(restart_dir, restart_every, label=f'npt_{target_t}K')
+    if traj_file:
+        traj_open  = (f'dump           npt_traj  all  custom  {dump_every}  {traj_file}'
+                      f'  id type x y z\ndump_modify    npt_traj  sort id\n\n')
+        traj_close = 'undump         npt_traj\n'
+    else:
+        traj_open = traj_close = ''
     thermo_damp_fs = thermo_damp * 1000
     baro_damp_fs   = baro_damp  * 1000
     heat_ps        = heat_steps * timestep
@@ -281,7 +296,7 @@ velocity       all create {target_t}.0 12345 mom yes rot yes dist gaussian
 thermo         {dump_every}
 thermo_style   custom step time temp pe ke press vol lx ly lz
 
-# ── Stage 1: Heat 10 K → {target_t} K over {heat_ps:.0f} ps ──────────────
+{traj_open}# ── Stage 1: Heat 10 K → {target_t} K over {heat_ps:.0f} ps ──────────────
 fix            heat all npt temp 10.0 {target_t}.0 {thermo_damp_fs:.1f} &
                iso 0.0 0.0 {baro_damp_fs:.1f}
 run            {heat_steps}
@@ -302,6 +317,7 @@ fix            boxdump all ave/time 1 1 {dump_every} v_lx_val v_ly_val v_lz_val 
                file {npt_dump}
 
 run            {npt_steps}
+{traj_close}
 unfix          npt_run
 unfix          boxdump
 print "### NPT complete at {target_t} K ###"
@@ -425,6 +441,9 @@ def write_surface_relaxation_script(
     phase2_data    = f'{stem}_phase2_heat.lammps'
     phase2_restart = f'{stem}_phase2_heat.restart'
     phase3_restart = f'{stem}_phase3_nvt.restart'
+    traj_file      = f'{stem}_nvt_traj.lammpstrj'
+    min_traj_file  = f'{stem}_min_traj.lammpstrj'
+    heat_traj_file = f'{stem}_heat_traj.lammpstrj'
 
     script = f"""# ═══════════════════════════════════════════════════════
 # LAMMPS Surface Relaxation — Hastelloy N
@@ -465,7 +484,12 @@ print "### Phase 1: Surface minimization ###"
 variable       z_top_before  equal  bound(free_atoms,zmax)
 print "  Top layer z BEFORE minimize: ${{z_top_before}} Ang"
 
+dump           min_traj  free_atoms  custom  {thermo_freq}  {min_traj_file}  id type x y z
+dump_modify    min_traj  sort id
+
 minimize       {etol}  {ftol}  {maxiter}  {maxeval}
+
+undump         min_traj
 
 variable       z_top_after_min  equal  bound(free_atoms,zmax)
 variable       dz_min           equal  v_z_top_before - v_z_top_after_min
@@ -489,7 +513,12 @@ thermo_modify  temp  surf_temp_heat
 
 fix            nve_heat   free_atoms  nve
 fix            rescale    free_atoms  temp/rescale  10  {target_t}.0  {target_t}.0  10.0  1.0
+
+dump           heat_traj  free_atoms  custom  {thermo_freq}  {heat_traj_file}  id type x y z
+dump_modify    heat_traj  sort id
+
 run            {heat_steps}
+undump         heat_traj
 unfix          rescale
 unfix          nve_heat
 uncompute      surf_temp_heat
@@ -508,9 +537,13 @@ fix            thermo_out  all  ave/time  1  1  {thermo_freq}  &
                c_surf_temp  &
                file  {relax_thermo}  mode scalar
 
+dump           surf_traj  free_atoms  custom  {thermo_freq}  {traj_file}  id type x y z
+dump_modify    surf_traj  sort id
+
 fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_fs:.1f}
 run            {nvt_steps}
 unfix          nvt_equil
+undump         surf_traj
 unfix          thermo_out
 print "### Phase 3 complete ###"
 
@@ -633,6 +666,7 @@ def write_nvt_bulk_script(
     phase1_data    = f'{stem}_phase1_equil.lammps'
     phase1_restart = f'{stem}_phase1_equil.restart'
     phase2_restart = f'{stem}_phase2_prod.restart'
+    equil_traj     = f'{stem}_phase1_equil.lammpstrj'
 
     script = f"""# LAMMPS NVT bulk equilibration — Hastelloy N + H
 # T = {temperature} K | Notebook 10
@@ -664,8 +698,13 @@ velocity       all create {temperature}.0 {velocity_seed} mom yes rot yes dist g
 
 # ═══ PHASE 1: Equilibration ({equil_ps:.0f} ps) ═══════════════════════════
 fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}
+
+dump           equil_dump  all  custom  {dump_every}  {equil_traj}  id type x y z
+dump_modify    equil_dump  sort id
+
 print "### Phase 1: Equilibration {equil_ps:.0f} ps at {temperature} K ###"
 run            {n_equil}
+undump         equil_dump
 unfix          nvt_equil
 print "### Phase 1 complete ###"
 
@@ -973,6 +1012,7 @@ def write_nvt_bulk_restart_script(
     phase1_data    = f'{stem}_phase1_equil.lammps'
     phase1_restart = f'{stem}_phase1_equil.restart'
     phase2_restart = f'{stem}_phase2_prod.restart'
+    equil_traj     = f'{stem}_phase1_equil.lammpstrj'
 
     script = (
         "# LAMMPS NVT bulk RESTART — Hastelloy N + H\n"
@@ -1005,8 +1045,13 @@ def write_nvt_bulk_restart_script(
         "\n"
         f"# === PHASE 1: Equilibration ({equil_ps:.0f} ps) ===\n"
         f"fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}\n"
+        "\n"
+        f"dump           equil_dump  all  custom  {dump_every}  {equil_traj}  id type x y z\n"
+        "dump_modify    equil_dump  sort id  append yes\n"
+        "\n"
         f'print "### Phase 1: Equilibration {equil_ps:.0f} ps at {temperature} K (restart) ###"\n'
         f"run            {n_equil}\n"
+        "undump         equil_dump\n"
         "unfix          nvt_equil\n"
         'print "### Phase 1 complete ###"\n'
         "\n"
@@ -1045,6 +1090,137 @@ def write_nvt_bulk_restart_script(
         f"write_data     {out_file}\n"
     )
 
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. ADSORBATE CG MINIMIZATION  (NB05, NB06)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def write_adsorbate_min_script(
+    slab_ads_input,
+    ads_output,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    z_freeze_cutoff,
+    etol=0.0,
+    ftol=1e-6,
+    maxiter=10000,
+    maxeval=100000,
+    thermo_freq=100,
+    traj_file=None,
+):
+    """
+    Write a fixed-box CG minimization script for a slab + adsorbate system.
+
+    Unlike ``write_minimization_script`` (which relaxes the box with
+    ``fix box/relax``) and ``write_surface_relaxation_script`` (which runs
+    3-phase MD), this function minimizes atomic positions only in a fixed
+    periodic-in-xy, free-in-z slab geometry.  Bottom layers are frozen
+    via ``fix setforce 0.0 0.0 0.0``.
+
+    Used in NB05 (H2*) and NB06 (H*) to compute adsorption energies for
+    every site enumerated in Section A Phase 3.
+
+    Parameters
+    ----------
+    slab_ads_input : str
+        LAMMPS data file containing the slab with the adsorbate placed above
+        a site (written by ``structure.add_adsorbate``).
+    ads_output : str
+        Path where the CG-relaxed slab+adsorbate structure is written.
+    out_path : str
+        Destination path for the ``.in`` LAMMPS input script.
+    pair_style : str
+        LAMMPS ``pair_style`` keyword, e.g. ``'mliap unified'``.
+    mace_model : str
+        Full path to the MACE ``.pt`` model file.
+    pair_suffix : str
+        Suffix for ``pair_style``, e.g. ``'0'``.
+    elem_str : str
+        Space-separated element string for ``pair_coeff * *``.
+    z_freeze_cutoff : float
+        Atoms with z ≤ this value (Å) are frozen with
+        ``fix setforce 0.0 0.0 0.0``.  Should match the value used in
+        surface relaxation (e.g. ``Z_FREEZE_CUTOFF = 22.115`` Å).
+    etol : float, optional
+        Energy tolerance for ``minimize``. Default ``0.0``.
+    ftol : float, optional
+        Force tolerance (eV/Å) for ``minimize``. Default ``1e-6``.
+    maxiter : int, optional
+        Maximum minimization iterations. Default ``10000``.
+    maxeval : int, optional
+        Maximum force evaluations. Default ``100000``.
+    thermo_freq : int, optional
+        Thermo output frequency (steps). Default ``100``.
+
+    Returns
+    -------
+    out_path : str
+        Path to the written ``.in`` script.
+    """
+    pair  = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh = _neighbor_block()
+    z_cut = z_freeze_cutoff
+    if traj_file:
+        dump_block   = (f'dump           ads_traj  all  custom  {thermo_freq}  {traj_file}'
+                        f'  id type x y z\ndump_modify    ads_traj  sort id\n\n')
+        undump_block = 'undump         ads_traj\n\n'
+    else:
+        dump_block = undump_block = ''
+
+    script = f"""# ═══════════════════════════════════════════════════════
+# LAMMPS Adsorbate CG Minimization — Hastelloy N Slab
+# Section B (NB05/NB06) | fixed box | boundary p p f
+# pair_style: mliap unified
+# ═══════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p f
+
+read_data      {slab_ads_input}
+
+{pair}
+
+{neigh}
+
+# ── Freeze bottom layers (z ≤ {z_cut} Å) ─────────────────────────────
+region         frozen_reg   block  INF INF  INF INF  EDGE  {z_cut}
+group          frozen_atoms region frozen_reg
+group          free_atoms   subtract all frozen_atoms
+
+fix            freeze  frozen_atoms  setforce  0.0  0.0  0.0
+
+thermo         {thermo_freq}
+thermo_style   custom  step  pe  fmax  fnorm  press
+
+print "### Adsorbate minimization ###"
+
+{dump_block}minimize       {etol}  {ftol}  {maxiter}  {maxeval}
+
+print "### Minimization complete ###"
+{undump_block}
+
+variable       pe_final  equal  pe
+variable       fmax_f    equal  fmax
+variable       natoms    equal  atoms
+
+print "  pe_final_eV     : ${{pe_final}}"
+print "  fmax_eV_per_Ang : ${{fmax_f}}"
+print "  natoms          : ${{natoms}}"
+
+unfix          freeze
+write_data     {ads_output}
+print "Relaxed adsorbate structure written to {ads_output}"
+"""
     os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
     with open(out_path, 'w') as f:
         f.write(script)

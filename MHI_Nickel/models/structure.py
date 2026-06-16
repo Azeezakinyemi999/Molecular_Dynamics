@@ -380,6 +380,7 @@ def build_slab(
     out_path: str,
     supercell_reps: tuple[int, int, int] = (5, 5, 5),
     lateral_repeat: tuple[int, int] = (1, 1),
+    seed: int = 42,
 ) -> tuple[str, float]:
     """Construct a surface slab from a minimized bulk structure.
 
@@ -409,6 +410,9 @@ def build_slab(
     lateral_repeat : tuple of int, optional
         (p, q) tiling of the slab unit cell in the x–y plane.
         Default ``(1, 1)`` — no lateral tiling.
+    seed : int, optional
+        Random seed used to shuffle slab site composition.
+        Default ``42``.
 
     Returns
     -------
@@ -450,7 +454,7 @@ def build_slab(
     symbols_arr = np.concatenate([
         np.full(c, el) for el, c in zip(elements, counts)
     ])
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng(seed)
     rng.shuffle(symbols_arr)
 
     positions    = unit_slab.get_positions()
@@ -485,13 +489,19 @@ def add_adsorbate(
     out_path: str,
     height: float | None = None,
     h2_bond: float | None = None,
+    h2_orientation: str = 'parallel',
 ) -> str:
     """Place a single H atom or H₂ molecule above a surface site.
 
     The adsorbate is placed at ``[site_x, site_y, z_top + height]`` where
-    ``z_top`` is the maximum z-coordinate of the slab surface atoms.  For
-    H₂ the two atoms are placed symmetrically about the site position,
-    oriented vertically (along z).
+    ``z_top`` is the maximum z-coordinate of the slab surface atoms.
+
+    For H₂, two orientations are supported:
+    - ``'parallel'`` (default): both H atoms at the same height above the
+      surface, offset ±h2_bond/2 along x.  Matches the standard initial
+      geometry used in adsorption energy surveys (NB05b).
+    - ``'vertical'``: H atoms placed symmetrically about z_ads along z,
+      i.e. stacked perpendicular to the surface.
 
     Parameters
     ----------
@@ -514,6 +524,9 @@ def add_adsorbate(
     h2_bond : float, optional
         H–H bond length in Å for H₂ placement.
         Defaults to ``config.H2_BOND`` (0.741 Å).
+    h2_orientation : {'parallel', 'vertical'}, optional
+        Orientation of the H₂ molecule relative to the surface.
+        Default ``'parallel'``.
 
     Returns
     -------
@@ -525,7 +538,8 @@ def add_adsorbate(
     FileNotFoundError
         If ``slab_path`` does not exist.
     ValueError
-        If ``species`` is not ``'H'`` or ``'H2'``.
+        If ``species`` is not ``'H'`` or ``'H2'``, or ``h2_orientation``
+        is not ``'parallel'`` or ``'vertical'``.
     """
     from models.config import H2_HEIGHT, H2_BOND
 
@@ -536,6 +550,10 @@ def add_adsorbate(
 
     if species not in ('H', 'H2'):
         raise ValueError(f"species must be 'H' or 'H2', got '{species}'.")
+    if h2_orientation not in ('parallel', 'vertical'):
+        raise ValueError(
+            f"h2_orientation must be 'parallel' or 'vertical', got '{h2_orientation}'."
+        )
 
     if not os.path.exists(slab_path):
         raise FileNotFoundError(f'{slab_path} not found.')
@@ -554,7 +572,15 @@ def add_adsorbate(
     if species == 'H':
         new_syms = ['H']
         new_pos  = np.array([[x_site, y_site, z_ads]])
-    else:  # H2 — vertical orientation, symmetric about z_ads
+    elif h2_orientation == 'parallel':
+        # Both H atoms at the same z, offset ±h2_bond/2 along x — parallel to surface
+        dxy = h2_bond / 2.0
+        new_syms = ['H', 'H']
+        new_pos  = np.array([
+            [x_site - dxy, y_site, z_ads],
+            [x_site + dxy, y_site, z_ads],
+        ])
+    else:  # vertical — symmetric about z_ads along z
         dz = h2_bond / 2.0
         new_syms = ['H', 'H']
         new_pos  = np.array([
@@ -576,4 +602,88 @@ def add_adsorbate(
         e2t=e2t,
         out_path=out_path,
         comment=f'{species} adsorbed at ({x_site:.3f}, {y_site:.3f})',
+    )
+
+
+def build_fs_raw_structure(
+    is_lammps: str,
+    fs_xy1: tuple[float, float],
+    fs_xy2: tuple[float, float],
+    masses: dict,
+    e2t: dict,
+    out_path: str,
+    h_height: float = 1.5,
+) -> str:
+    """Build the NEB final-state (FS) raw structure for H2 dissociation.
+
+    Takes the IS slab (slab + intact H2), strips both H atoms, then places
+    two independent H atoms at the relaxed XY coordinates of the two chosen
+    FS sites at z = max_metal_z + h_height.  XY coordinates are PBC-wrapped
+    to lie within the simulation cell before writing.
+
+    This matches the NB06b2 Cell D1 construction exactly:
+        metal_pos  = IS positions where sym != 'H'
+        z_fs       = metal_pos[:, 2].max() + h_height   (1.5 Å default)
+        h1 / h2    = (x % cell_x, y % cell_y, z_fs)
+
+    The returned structure is a *raw* FS that must be LAMMPS-minimized before
+    use as a NEB endpoint.
+
+    Parameters
+    ----------
+    is_lammps : str
+        Path to the IS LAMMPS data file (slab + H2 molecule, i.e. neb_initial.lammps).
+    fs_xy1 : (float, float)
+        (x, y) of first FS H atom — from NB06b relaxed h_atom structure.
+    fs_xy2 : (float, float)
+        (x, y) of second FS H atom.
+    masses : dict
+        ``{atom_type: (mass_amu, element_symbol)}``.
+    e2t : dict
+        ``{element_symbol: atom_type}``.
+    out_path : str
+        Destination path for the raw FS LAMMPS data file.
+    h_height : float
+        Height above top metal atom in Å. Default 1.5 Å (matches NB06b2).
+
+    Returns
+    -------
+    str
+        Absolute path to the written LAMMPS data file.
+    """
+    if not os.path.exists(is_lammps):
+        raise FileNotFoundError(f'{is_lammps} not found.')
+
+    slab     = read(is_lammps, format='lammps-data', style='atomic')
+    pos      = slab.get_positions()
+    syms     = np.array(slab.get_chemical_symbols())
+    cell     = slab.cell.lengths()
+
+    metal_mask = syms != 'H'
+    metal_pos  = pos[metal_mask]
+    metal_syms = list(syms[metal_mask])
+
+    z_fs = float(metal_pos[:, 2].max()) + h_height
+
+    x1, y1 = float(fs_xy1[0]) % cell[0], float(fs_xy1[1]) % cell[1]
+    x2, y2 = float(fs_xy2[0]) % cell[0], float(fs_xy2[1]) % cell[1]
+
+    h1_pos = np.array([[x1, y1, z_fs]])
+    h2_pos = np.array([[x2, y2, z_fs]])
+
+    all_syms = metal_syms + ['H', 'H']
+    all_pos  = np.vstack([metal_pos, h1_pos, h2_pos])
+
+    print(f'[build_fs_raw_structure] z_fs = {z_fs:.3f} Å  (metal max + {h_height} Å)')
+    print(f'  H1: ({x1:.3f}, {y1:.3f}, {z_fs:.3f})')
+    print(f'  H2: ({x2:.3f}, {y2:.3f}, {z_fs:.3f})')
+
+    return write_lammps_data(
+        symbols=all_syms,
+        positions=all_pos,
+        cell_lengths=cell,
+        masses=masses,
+        e2t=e2t,
+        out_path=out_path,
+        comment='NEB FS raw: metal slab + 2 H at relaxed site coords',
     )
