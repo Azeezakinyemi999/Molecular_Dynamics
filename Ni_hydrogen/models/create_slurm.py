@@ -147,18 +147,21 @@ def write_slurm_job(
     else:
         exec_line = f'python {script_path}'
 
+    gpu_line   = f'#SBATCH --gres=gpu:{sc["gpu"]}' if sc.get('gpu') else ''
+    cuda_line  = f'module load cuda/{sc["cuda_version"]}' if sc.get('cuda_version') else ''
+
     script = f"""#!/bin/bash
 #SBATCH --job-name={job_name}
 #SBATCH --ntasks={sc['ntasks']}
 #SBATCH --cpus-per-task={sc['cpus_per_task']}
-#SBATCH --gres=gpu:{sc['gpu']}
+{gpu_line}
 #SBATCH --partition={sc['partition']}
 #SBATCH --time={sc['time']}
 #SBATCH --output={output_log}
 {array_line}
 
 module load OpenMPI/{sc['openmpi_ver']}
-module load cuda/{sc['cuda_version']}
+{cuda_line}
 source ~/miniforge3/etc/profile.d/conda.sh
 conda activate {sc['conda_env']}
 {ld_lines}
