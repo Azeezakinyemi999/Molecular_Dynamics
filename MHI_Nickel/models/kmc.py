@@ -56,6 +56,8 @@ k_drain is not stored here — it is computed from ``drain_rate(D_m2s, a0_m)``
 inside ``build_event_list``.
 """
 
+from __future__ import annotations
+
 import math
 
 import numpy as np
