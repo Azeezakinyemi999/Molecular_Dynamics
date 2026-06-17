@@ -13,7 +13,7 @@ parse_lammps_dump           NB11 — .lammpstrj trajectory
 parse_diffusivity_file      NB12 — tabular D(T) results file
 """
 
-#from __future__ import annotations
+from __future__ import annotations
 
 import os
 import re
