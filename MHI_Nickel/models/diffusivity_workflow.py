@@ -84,6 +84,7 @@ RESTART_EVERY    = {restart_every!r}
     _body = r"""
 import os
 import sys
+import json as _json_lat
 sys.path.insert(0, WORK_DIR)
 
 from models.config import (
@@ -213,9 +214,11 @@ for struct_path in INPUT_STRUCTURES:
 
         min_h_job_ids = {}
         T_to_bulk_h   = {}
+        _a0_by_T      = {}   # collect a0(T) in Å for each temperature
 
         for T in TEMPERATURES:
             a0_T = get_lattice_parameter(npt_final_paths[T])
+            _a0_by_T[T] = a0_T
             print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å  →  inserting {n_h} H atom(s)')
 
             bulk_h_path_T, _, _ = insert_hydrogen(
@@ -255,6 +258,14 @@ for struct_path in INPUT_STRUCTURES:
         print(f'  Waiting for {len(min_h_job_ids)} bulk+H minimisation jobs ...')
         wait_for_jobs(min_h_job_ids)
         print('  All bulk+H minimisations done.')
+
+        # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
+        _lat_out = os.path.join(WORK_DIR, 'results', 'lattice_params_vs_T.json')
+        os.makedirs(os.path.dirname(_lat_out), exist_ok=True)
+        with open(_lat_out, 'w') as _f:
+            _json_lat.dump({'temperatures': list(_a0_by_T.keys()),
+                            'a0_m': [v * 1e-10 for v in _a0_by_T.values()]}, _f, indent=2)
+        print(f'  Saved lattice_params_vs_T.json → {_lat_out}')
 
         # ── Phase 2 ──────────────────────────────────────────────────────────
         print('\n--- Phase 2: NVT MD ---')
@@ -351,6 +362,14 @@ for struct_path in INPUT_STRUCTURES:
             outdir=analysis_dir,
         )
         print(f'  Ea = {arr["Ea"]:.4f} eV   D0 = {arr["D0"]:.4e} m2/s')
+
+        # Save Arrhenius params so Part 2 (permeation_run.py) can load them
+        _arr_out = os.path.join(WORK_DIR, 'results', 'diffusivity_arrhenius.json')
+        with open(_arr_out, 'w') as _f:
+            _json_lat.dump({'D0_m2s': arr['D0'], 'E_D_eV': arr['Ea'],
+                            'D0_err': arr['D0_err'], 'E_D_err_eV': arr['Ea_err'],
+                            'R2_fit': arr['R2']}, _f, indent=2)
+        print(f'  Saved diffusivity_arrhenius.json → {_arr_out}')
 
 print('\n=== All structures and H concentrations complete ===')
 """
