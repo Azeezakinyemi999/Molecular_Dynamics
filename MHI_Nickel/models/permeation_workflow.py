@@ -1,0 +1,841 @@
+"""
+models/permeation_workflow.py
+==============================
+Script generator + local analysis functions backing calculation/permeation.ipynb.
+
+Part 2 of the three-part multiscale H permeation pipeline:
+  Part 1 — Surface NEB          (neb_calculation.ipynb  / neb_workflow.py)
+  Part 2 — Surface→Subsurface   (permeation.ipynb       / this module)   ← HERE
+  Part 3 — Bulk diffusivity     (diffusivity.ipynb      / diffusivity_workflow.py)
+
+Section A — Script generation
+    generate_permeation_scripts(...)  →  permeation_run.py
+    generate_permeation_sh(...)       →  permeation_run.sh
+
+Section B — Local analysis (Phase 4 cells in permeation.ipynb)
+    load_barrier_summary, load_rate_summary, load_kmc_sweeps,
+    load_permeability_results,
+    plot_barrier_overview, plot_mep_overlay, plot_kmc_sieverts,
+    plot_permeability_vs_T, plot_arrhenius_S0, plot_bottleneck
+"""
+
+import os
+import json
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+try:
+    from IPython.display import display as _display
+except ImportError:
+    _display = print
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Section A — Script generation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Raw orchestrator body injected verbatim into permeation_run.py.
+# All ALL_CAPS variables are defined in the f-string header written by
+# generate_permeation_scripts().
+_PERMEATION_BODY = r"""
+# ── Runtime imports ────────────────────────────────────────────────────────────
+import os
+import sys
+import json
+import glob
+import numpy as np
+from ase.io import read as _ase_read
+
+from models.config import MASSES_7, E2T_7, MACE_MODEL_ASE
+from models.subsurface_graph import build_subsurface_graph, connect_to_surface
+from models.neb_subsurface import orchestrate_hopa_neb, orchestrate_hopb_neb
+from models.vibrations import collect_is_ts_paths, orchestrate_vibrations
+from models.tst_rates import (
+    collect_neb_results,
+    split_vib_results,
+    build_rate_dict,
+    rates_to_json,
+)
+from models.permeation import (
+    sweep_pressure,
+    arrhenius_diffusivity,
+    fit_solubility_from_kmc,
+    lattice_site_S0,
+    solubility_from_rates,
+    sieverts_solubility,
+    permeability,
+    richardson_flux,
+)
+from models.parsers import parse_barrier_file
+from models.create_slurm import submit_slurm_job, wait_for_jobs
+
+os.makedirs(RESULTS_DIR, exist_ok=True)
+os.makedirs(SUB_NEB_DIR, exist_ok=True)
+os.makedirs(VIB_DIR, exist_ok=True)
+
+_KB_EV = 8.617333262e-5   # eV/K
+
+# ── Build subsurface graph ─────────────────────────────────────────────────────
+print('Building subsurface graph …')
+with open(SURFACE_SITES_JSON) as _f:
+    _surf_data = json.load(_f)
+G, subsurface_sites = build_subsurface_graph(RELAXED_SLAB_PATH, SURFACE_SITES_JSON)
+_slab_atoms = _ase_read(RELAXED_SLAB_PATH, format='lammps-data', atom_style='atomic')
+_cell = _slab_atoms.get_cell()
+surface_connections = connect_to_surface(subsurface_sites, _surf_data, _cell)
+_sub1_n = sum(1 for s in subsurface_sites if s.get('layer_classification') == 'subsurface_1')
+print(f'  subsurface-1 sites : {_sub1_n}')
+print(f'  surface connections: {len(surface_connections)}')
+
+# ── Collect dedup IS labels ────────────────────────────────────────────────────
+dedup_is_labels = [
+    (os.path.basename(p).replace('h_atom_', '').replace('_relaxed.lammps', ''), p)
+    for p in sorted(glob.glob(os.path.join(PHASE2_H_DIR, 'h_atom_*_relaxed.lammps')))
+]
+print(f'Dedup IS labels: {len(dedup_is_labels)}')
+if not dedup_is_labels:
+    raise FileNotFoundError(
+        f'No h_atom_*_relaxed.lammps found in {PHASE2_H_DIR}. '
+        'Run Part 1 (neb_calculation.ipynb) first.'
+    )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 1 — Hop A NEB: surface H* → subsurface-1 oct
+# ══════════════════════════════════════════════════════════════════════════════
+print('\n── Phase 1: Hop A NEB ──────────────────────────────────────────────────')
+hopa_out = orchestrate_hopa_neb(
+    dedup_is_labels    = dedup_is_labels,
+    subsurface_graph   = (G, subsurface_sites),
+    surface_connections= surface_connections,
+    outdir             = os.path.join(SUB_NEB_DIR, 'hopa'),
+    masses             = MASSES_7,
+    e2t                = E2T_7,
+    slurm_opts         = GPU_SLURM_CFG,
+    neb_slurm_opts     = NEB_SLURM_CFG,
+    n_images           = N_IMAGES,
+    spring_const       = SPRING_K,
+    neb_ftol           = NEB_FTOL_VAL,
+    dry_run            = False,
+)
+hopa_jobs = hopa_out['jobs']
+print(f'  Hop A: {hopa_out["n_jobs"]} jobs  fsmin_array={hopa_out["fsmin_array"]}')
+
+print('  Submitting Hop A FS-min …')
+_jid_hopa_fsmin = submit_slurm_job(hopa_out['fsmin_array'])
+wait_for_jobs({'hopa_fsmin': _jid_hopa_fsmin})
+print('  Hop A FS-min done.')
+
+print('  Submitting Hop A NEB …')
+_jid_hopa_neb = submit_slurm_job(hopa_out['neb_array'])
+wait_for_jobs({'hopa_neb': _jid_hopa_neb})
+print('  Hop A NEB done.')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 2 — Hop B NEB: subsurface-1 → subsurface-2 oct
+# ══════════════════════════════════════════════════════════════════════════════
+print('\n── Phase 2: Hop B NEB ──────────────────────────────────────────────────')
+hopb_out = orchestrate_hopb_neb(
+    hopa_jobs          = hopa_jobs,
+    hopa_outdir        = os.path.join(SUB_NEB_DIR, 'hopa'),
+    subsurface_graph   = (G, subsurface_sites),
+    outdir             = os.path.join(SUB_NEB_DIR, 'hopb'),
+    masses             = MASSES_7,
+    e2t                = E2T_7,
+    slurm_opts         = GPU_SLURM_CFG,
+    neb_slurm_opts     = NEB_SLURM_CFG,
+    n_images           = N_IMAGES,
+    spring_const       = SPRING_K,
+    neb_ftol           = NEB_FTOL_VAL,
+    dry_run            = False,
+)
+hopb_jobs = hopb_out['jobs']
+print(f'  Hop B: {hopb_out["n_jobs"]} jobs  fsmin_array={hopb_out["fsmin_array"]}')
+
+print('  Submitting Hop B FS-min …')
+_jid_hopb_fsmin = submit_slurm_job(hopb_out['fsmin_array'])
+wait_for_jobs({'hopb_fsmin': _jid_hopb_fsmin})
+print('  Hop B FS-min done.')
+
+print('  Submitting Hop B NEB …')
+_jid_hopb_neb = submit_slurm_job(hopb_out['neb_array'])
+wait_for_jobs({'hopb_neb': _jid_hopb_neb})
+print('  Hop B NEB done.')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 3 — Vibrational frequencies (IS + TS, both hops)
+# ══════════════════════════════════════════════════════════════════════════════
+print('\n── Phase 3: Vibrational frequencies ────────────────────────────────────')
+_pairs_a = collect_is_ts_paths(hopa_jobs, hop='hopa', is_key='is_path')
+_pairs_b = collect_is_ts_paths(hopb_jobs, hop='hopb', is_key='hopb_is')
+_all_pairs = _pairs_a + _pairs_b
+print(f'  Structures: {len(_all_pairs)} (IS + TS for both hops)')
+
+vib_out = orchestrate_vibrations(
+    structure_paths = _all_pairs,
+    outdir          = VIB_DIR,
+    mace_model_path = MACE_MODEL_ASE,
+    slurm_opts      = VIB_SLURM_CFG,
+    delta           = 0.01,
+    device          = 'cpu',
+    dry_run         = False,
+)
+
+_vib_jids = {}
+for _lbl, _info in vib_out.items():
+    if _info.get('slurm'):
+        _vib_jids[_lbl] = submit_slurm_job(_info['slurm'])
+print(f'  Submitted {len(_vib_jids)} vibration jobs.')
+wait_for_jobs(_vib_jids)
+print('  Vibrations done.')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 4 — TST rate constants at each temperature
+# ══════════════════════════════════════════════════════════════════════════════
+print('\n── Phase 4: TST rate constants ──────────────────────────────────────────')
+_neb_res_a = collect_neb_results(hopa_jobs, hop='hopa')
+_neb_res_b = collect_neb_results(hopb_jobs, hop='hopb')
+_neb_results = {**_neb_res_a, **_neb_res_b}
+_vib_is, _vib_ts = split_vib_results(vib_out)
+print(f'  NEB results: {len(_neb_results)} labels  IS: {len(_vib_is)}  TS: {len(_vib_ts)}')
+
+for _T in TEMPERATURES:
+    _rd = build_rate_dict(_neb_results, _vib_is, _vib_ts, T_K=_T, apply_zpe=True)
+    _out_json = rates_to_json(_rd, os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json'))
+    print(f'  T={_T:4.0f} K: {len(_rd)} rates → {_out_json}')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 5 — KMC pressure sweeps
+# ══════════════════════════════════════════════════════════════════════════════
+print('\n── Phase 5: KMC pressure sweeps ──────────────────────────────────────────')
+_DISS_JSON = os.path.join(WORK_DIR, 'neb', 'diss_jobs.json')
+_NU_DISS   = 1e13   # s⁻¹
+
+for _T in TEMPERATURES:
+    with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
+        _tst = json.load(_f)
+
+    _kBT = _KB_EV * _T
+    _k_diss, _k_des, _k_entry, _k_exit = {}, {}, {}, {}
+
+    for _lbl, _r in _tst.items():
+        if _lbl.startswith('hopa_'):
+            _sid = _lbl[len('hopa_'):]
+            for _el in ('Ni', 'Mo', 'Cr', 'Fe'):
+                if _el in _sid:
+                    _k_entry[_el] = _r['k_forward']
+                    _k_exit[_el]  = _r['k_reverse']
+                    break
+
+    if os.path.exists(_DISS_JSON):
+        with open(_DISS_JSON) as _f:
+            _diss = json.load(_f)
+        for _job in _diss:
+            _bf = _job.get('barrier_file', '')
+            if not os.path.exists(_bf):
+                continue
+            _bd   = parse_barrier_file(_bf)
+            _pair = tuple(sorted(_job['sid'].replace('-', '').split('_')[:2]))
+            _k_diss[_pair] = np.exp(-_bd['E_abs'] / _kBT)
+            _k_des[_pair]  = _NU_DISS * np.exp(-_bd['E_des'] / _kBT)
+    else:
+        print(f'  WARNING: {_DISS_JSON} not found — using placeholder diss/des rates.')
+        for _pair in [('Ni', 'Ni'), ('Mo', 'Ni'), ('Cr', 'Ni'), ('Fe', 'Ni'),
+                      ('Mo', 'Mo'), ('Cr', 'Mo'), ('Fe', 'Mo'),
+                      ('Cr', 'Cr'), ('Fe', 'Cr'), ('Fe', 'Fe')]:
+            _k_diss[_pair] = np.exp(-0.5  / _kBT)
+            _k_des[_pair]  = _NU_DISS * np.exp(-1.2 / _kBT)
+
+    _rate_dict = {'k_diss': _k_diss, 'k_des': _k_des,
+                  'k_entry': _k_entry, 'k_exit': _k_exit}
+    _D_T = arrhenius_diffusivity(D0_M2S, E_D_EV, _T)
+    np.random.seed(SEED)
+    _sweep = sweep_pressure(
+        P_vals_Pa  = P_VALS_PA,
+        rate_dict  = _rate_dict,
+        D_m2s      = _D_T,
+        L_m        = L_M,
+        T_K        = _T,
+        a0_m       = A0_M,
+        nx         = NX,
+        ny         = NY,
+        seed       = SEED,
+        kmc_kwargs = {'window': 2000, 'rtol': 0.02, 'max_steps': KMC_MAX_STEPS},
+    )
+    _sweep['T_K']   = _T
+    _sweep['D_m2s'] = _D_T
+    _out = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
+    with open(_out, 'w') as _f:
+        json.dump(_sweep, _f, indent=2)
+    _conv = sum(1 for c in _sweep.get('converged', []) if c)
+    print(f'  T={_T:4.0f} K  D={_D_T:.2e} m²/s  {_conv}/{len(P_VALS_PA)} converged → {_out}')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase 6 — Richardson-Sieverts permeability (all three S₀ options)
+# ══════════════════════════════════════════════════════════════════════════════
+print('\n── Phase 6: Richardson-Sieverts permeability ────────────────────────────')
+
+if DH_DISS_EV is None or DH_ENTRY_EV is None:
+    print('WARNING: DH_DISS_EV or DH_ENTRY_EV is None — skipping Phase 6.')
+    print('  Fill these values in permeation.ipynb Cell 2 and regenerate scripts.')
+else:
+    _DH_SOL = DH_DISS_EV / 2.0 + DH_ENTRY_EV
+    _S0_lat = lattice_site_S0(A0_M)
+    _P_HIGH = max(P_VALS_PA)
+
+    for _T in TEMPERATURES:
+        with open(os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')) as _f:
+            _sw = json.load(_f)
+        _D_T = arrhenius_diffusivity(D0_M2S, E_D_EV, _T)
+
+        # Option 1 — lattice site density
+        _S1   = sieverts_solubility(_DH_SOL, _S0_lat, _T)
+        _Phi1 = permeability(_D_T, _S1)
+        _J1   = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
+
+        # Option 2 — TST detailed balance (first Hop A rate as representative)
+        with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
+            _rd2 = json.load(_f)
+        _repr_entry, _repr_exit = 1e9, 1e8
+        for _lbl, _r in _rd2.items():
+            if _lbl.startswith('hopa_'):
+                _repr_entry, _repr_exit = _r['k_forward'], _r['k_reverse']
+                break
+        _repr_diss = np.exp(-0.5  / (_KB_EV * _T))
+        _repr_des  = _NU_DISS * np.exp(-1.2 / (_KB_EV * _T))
+        _S2   = solubility_from_rates(_repr_diss, _repr_des, _repr_entry, _repr_exit, A0_M, _T)
+        _Phi2 = permeability(_D_T, _S2)
+        _J2   = richardson_flux(_Phi2, _P_HIGH, 0.0, L_M)
+
+        # Option 3 — KMC empirical Sieverts fit
+        _kmc_sol = fit_solubility_from_kmc(_sw)
+        _S3   = _kmc_sol['S_mean']
+        _Phi3 = permeability(_D_T, _S3)
+        _J3   = richardson_flux(_Phi3, _P_HIGH, 0.0, L_M)
+
+        _perm_f = os.path.join(RESULTS_DIR, f'permeability_T{int(_T)}K.json')
+        with open(_perm_f, 'w') as _f:
+            json.dump({
+                'T_K': _T, 'D0_m2s': D0_M2S, 'E_D_eV': E_D_EV,
+                'dH_sol_eV': _DH_SOL,
+                'dH_diss_eV': DH_DISS_EV, 'dH_entry_eV': DH_ENTRY_EV,
+                'option1': {'S': _S1, 'Phi': _Phi1, 'J': _J1},
+                'option2': {'S': _S2, 'Phi': _Phi2, 'J': _J2},
+                'option3': {'S': _S3, 'Phi': _Phi3, 'J': _J3,
+                            'S_std':       _kmc_sol['S_std'],
+                            'n_converged': _kmc_sol['n_converged']},
+                'P_high_Pa': _P_HIGH, 'L_m': L_M,
+            }, _f, indent=2)
+        print(f'  T={_T:4.0f} K  Φ(opt3)={_Phi3:.3e}  J(opt3)={_J3:.3e}')
+
+    # Multi-T Arrhenius S₀ fit from KMC
+    _S_arr, _T_arr = [], []
+    for _T in TEMPERATURES:
+        _sw_f = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
+        if not os.path.exists(_sw_f):
+            continue
+        with open(_sw_f) as _f:
+            _sw = json.load(_f)
+        _sol = fit_solubility_from_kmc(_sw)
+        if _sol['n_converged'] > 0:
+            _S_arr.append(_sol['S_mean'])
+            _T_arr.append(float(_T))
+
+    if len(_S_arr) >= 2:
+        _S_np    = np.array(_S_arr)
+        _T_np    = np.array(_T_arr)
+        _slope, _inter = np.polyfit(1.0 / _T_np, np.log(_S_np), 1)
+        _dH_kmc  = -_slope * _KB_EV
+        _S0_kmc  = np.exp(_inter)
+        _log_pred = _slope / _T_np + _inter
+        _ss_res  = np.sum((np.log(_S_np) - _log_pred) ** 2)
+        _ss_tot  = np.sum((np.log(_S_np) - np.mean(np.log(_S_np))) ** 2)
+        _r2      = 1.0 - _ss_res / _ss_tot if _ss_tot > 0.0 else 1.0
+        _sol_out = os.path.join(RESULTS_DIR, 'solubility_arrhenius_kmc.json')
+        with open(_sol_out, 'w') as _f:
+            json.dump({'T_K_arr':       _T_arr,
+                       'S_mean_arr':    _S_arr,
+                       'S0_kmc':        _S0_kmc,
+                       'dH_sol_kmc_eV': _dH_kmc,
+                       'r2_fit':        _r2,
+                       'D0_m2s':        D0_M2S,
+                       'E_D_eV':        E_D_EV}, _f, indent=2)
+        print(f'\nArrhenius  S0={_S0_kmc:.3e}  dH_sol={_dH_kmc:.3f} eV  R²={_r2:.4f} → {_sol_out}')
+    else:
+        print('WARNING: fewer than 2 valid temperatures — Arrhenius S₀ fit skipped.')
+
+# Save Arrhenius diffusivity params so kmc_calculation.ipynb Cell 1 can load them
+_diff_out = os.path.join(RESULTS_DIR, 'diffusivity_arrhenius.json')
+with open(_diff_out, 'w') as _f:
+    json.dump({'D0_m2s': D0_M2S, 'E_D_eV': E_D_EV}, _f, indent=2)
+print(f'\nSaved diffusivity Arrhenius params → {_diff_out}')
+print('=== permeation_run.py complete ===')
+"""
+
+
+def generate_permeation_scripts(
+    work_dir,
+    relaxed_slab_path,
+    surface_sites_json,
+    phase2_h_dir,
+    sub_neb_dir,
+    vib_dir,
+    results_dir,
+    temperatures,
+    p_vals_pa,
+    a0_m,
+    l_m,
+    d0_m2s,
+    e_d_ev,
+    dh_diss_ev,
+    dh_entry_ev,
+    nx,
+    ny,
+    seed,
+    kmc_max_steps,
+    gpu_slurm_cfg,
+    neb_slurm_cfg,
+    vib_slurm_cfg,
+    n_images,
+    spring_const,
+    neb_ftol,
+    out_py,
+):
+    """Write permeation_run.py with embedded config. Returns the output path."""
+    _parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    _header = f'''#!/usr/bin/env python3
+"""
+permeation_run.py
+==================
+Standalone H permeation workflow orchestrator (Part 2).
+Submitted via permeation_run.sh (SLURM wrapper generated by permeation.ipynb).
+
+Phases:
+  1 — Hop A NEB  (surface H* → subsurface-1 oct)
+  2 — Hop B NEB  (subsurface-1 → subsurface-2 oct)
+  3 — Vibrational frequencies (IS + TS, both hops)
+  4 — TST rate constants at each temperature
+  5 — KMC pressure sweeps at each temperature
+  6 — Richardson-Sieverts permeability (all three S0 options)
+
+Generated by calculation/permeation.ipynb — do not edit by hand.
+"""
+
+# ── Injected configuration ────────────────────────────────────────────────────
+import os
+import sys
+
+_parent = {_parent!r}
+if _parent not in sys.path:
+    sys.path.insert(0, _parent)
+
+WORK_DIR           = {work_dir!r}
+RELAXED_SLAB_PATH  = {relaxed_slab_path!r}
+SURFACE_SITES_JSON = {surface_sites_json!r}
+PHASE2_H_DIR       = {phase2_h_dir!r}
+SUB_NEB_DIR        = {sub_neb_dir!r}
+VIB_DIR            = {vib_dir!r}
+RESULTS_DIR        = {results_dir!r}
+
+TEMPERATURES   = {temperatures!r}
+P_VALS_PA      = {p_vals_pa!r}
+A0_M           = {a0_m!r}
+L_M            = {l_m!r}
+
+D0_M2S         = {d0_m2s!r}    # m²/s — Arrhenius pre-exponential
+E_D_EV         = {e_d_ev!r}    # eV   — diffusion activation energy
+DH_DISS_EV     = {dh_diss_ev!r}   # eV  — dissociation NEB delta_E (fill after NEB)
+DH_ENTRY_EV    = {dh_entry_ev!r}  # eV  — Hop A delta_E (fill after NEB)
+
+NX             = {nx!r}
+NY             = {ny!r}
+SEED           = {seed!r}
+KMC_MAX_STEPS  = {kmc_max_steps!r}
+
+N_IMAGES       = {n_images!r}
+SPRING_K       = {spring_const!r}
+NEB_FTOL_VAL   = {neb_ftol!r}
+
+GPU_SLURM_CFG  = {gpu_slurm_cfg!r}
+NEB_SLURM_CFG  = {neb_slurm_cfg!r}
+VIB_SLURM_CFG  = {vib_slurm_cfg!r}
+
+'''
+
+    content = _header + _PERMEATION_BODY
+    with open(out_py, 'w') as f:
+        f.write(content)
+    print(f'Written: {out_py}')
+    return out_py
+
+
+def generate_permeation_sh(
+    orch_job_name,
+    orch_partition,
+    orch_cpus_per_task,
+    orch_mem,
+    orch_time,
+    orch_openmpi_ver,
+    orch_cuda_version,
+    orch_conda_env,
+    orch_ld_paths,
+    work_dir,
+    out_py,
+    out_sh,
+):
+    """Write permeation_run.sh — the SLURM wrapper for the orchestrator."""
+    lines = ['#!/bin/bash\n']
+    lines.append(f'#SBATCH --job-name={orch_job_name}\n')
+    lines.append(f'#SBATCH --partition={orch_partition}\n')
+    lines.append(f'#SBATCH --cpus-per-task={orch_cpus_per_task}\n')
+    if orch_mem:
+        lines.append(f'#SBATCH --mem={orch_mem}\n')
+    if orch_time:
+        lines.append(f'#SBATCH --time={orch_time}\n')
+    lines.append('#SBATCH --output=permeation_orch_%j.out\n')
+    lines.append('\n')
+    if orch_openmpi_ver:
+        lines.append(f'module load openmpi/{orch_openmpi_ver}\n')
+    if orch_cuda_version:
+        lines.append(f'module load cuda/{orch_cuda_version}\n')
+    if orch_ld_paths:
+        for p in orch_ld_paths:
+            lines.append(f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH\n')
+    lines.append('\n')
+    lines.append(f'conda activate {orch_conda_env}\n')
+    lines.append('\n')
+    lines.append(f'cd {work_dir}\n')
+    lines.append(f'python {out_py}\n')
+
+    with open(out_sh, 'w') as f:
+        f.writelines(lines)
+    print(f'Written: {out_sh}')
+    return out_sh
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Section B — Local analysis functions (Phase 4 cells in permeation.ipynb)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def load_barrier_summary(sub_neb_dir):
+    """Return a DataFrame of Hop A + Hop B NEB barriers from jobs JSONs."""
+    from models.parsers import parse_barrier_file
+
+    rows = []
+    for hop in ('hopa', 'hopb'):
+        jobs_json = os.path.join(sub_neb_dir, hop, f'{hop}_jobs.json')
+        if not os.path.exists(jobs_json):
+            continue
+        with open(jobs_json) as f:
+            jobs = json.load(f)
+        for job in jobs:
+            bf = job.get('barrier_file', '')
+            if not os.path.exists(bf):
+                continue
+            d = parse_barrier_file(bf)
+            d['sid'] = job['sid']
+            d['hop'] = hop
+            rows.append(d)
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)
+
+
+def load_rate_summary(results_dir, temperatures):
+    """Return a DataFrame of TST rate constants across temperatures."""
+    rows = []
+    for T in temperatures:
+        json_path = os.path.join(results_dir, f'rate_dict_T{int(T)}K.json')
+        if not os.path.exists(json_path):
+            continue
+        with open(json_path) as f:
+            rd = json.load(f)
+        for label, r in rd.items():
+            rows.append({
+                'label':     label,
+                'T_K':       T,
+                'k_forward': r.get('k_forward', 0.0),
+                'k_reverse': r.get('k_reverse', 0.0),
+                'Ea_zpe':    r.get('Ea_zpe', r.get('Ea_raw', 0.0)),
+                'nu':        r.get('nu', 0.0),
+            })
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
+def load_kmc_sweeps(results_dir, temperatures):
+    """Return dict {T_K: sweep_dict} for converged sweep JSONs."""
+    out = {}
+    for T in temperatures:
+        p = os.path.join(results_dir, f'permeation_sweep_T{int(T)}K.json')
+        if os.path.exists(p):
+            with open(p) as f:
+                out[T] = json.load(f)
+    return out
+
+
+def load_permeability_results(results_dir, temperatures):
+    """Return dict {T_K: perm_dict} for permeability JSONs."""
+    out = {}
+    for T in temperatures:
+        p = os.path.join(results_dir, f'permeability_T{int(T)}K.json')
+        if os.path.exists(p):
+            with open(p) as f:
+                out[T] = json.load(f)
+    return out
+
+
+def plot_barrier_overview(df, out_dir):
+    """Histogram of Ea for Hop A and Hop B. Saves barriers_overview.png."""
+    if df.empty:
+        print('[plot_barrier_overview] No barrier data found — skipping.')
+        return None
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    for ax, (hop, color) in zip(axes, [('hopa', 'steelblue'), ('hopb', 'coral')]):
+        sub = df[df['hop'] == hop]
+        if sub.empty:
+            ax.set_title(f'{hop.upper()}: no data')
+            continue
+        if 'converged' in sub.columns:
+            sub = sub[sub['converged']]
+        ax.hist(sub['E_abs'], bins=max(5, len(sub) // 3),
+                color=color, edgecolor='white', alpha=0.85)
+        ax.axvline(sub['E_abs'].mean(), color='k', ls='--', lw=1.2,
+                   label=f'mean = {sub["E_abs"].mean():.3f} eV')
+        ax.set_xlabel('$E_a$  [eV]')
+        ax.set_ylabel('Count')
+        hop_label = 'Hop A  (surface → sub1)' if hop == 'hopa' else 'Hop B  (sub1 → sub2)'
+        ax.set_title(f'{hop_label}  (n = {len(sub)})')
+        ax.legend(fontsize=8)
+
+    plt.tight_layout()
+    out_png = os.path.join(out_dir, 'barriers_overview.png')
+    plt.savefig(out_png, dpi=150)
+    plt.show()
+    print(f'Saved: {out_png}')
+    return out_png
+
+
+def plot_mep_overlay(sub_neb_dir):
+    """Overlay all MEP curves for Hop A and Hop B. Saves mep_overlay.png."""
+    from models.parsers import parse_neb_path
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=False)
+    for ax, (hop, color) in zip(axes, [('hopa', 'steelblue'), ('hopb', 'coral')]):
+        jobs_json = os.path.join(sub_neb_dir, hop, f'{hop}_jobs.json')
+        if not os.path.exists(jobs_json):
+            ax.set_title(f'{hop.upper()}: no data')
+            continue
+        with open(jobs_json) as f:
+            jobs = json.load(f)
+        _plotted = 0
+        for job in jobs:
+            pf = job.get('path_file', '')
+            if not os.path.exists(pf):
+                continue
+            frac, _, dE = parse_neb_path(pf)
+            ax.plot(frac, dE, color=color, alpha=0.4, lw=1.2)
+            _plotted += 1
+        ax.axhline(0, color='k', lw=0.8, ls='--')
+        ax.set_xlabel('Reaction coordinate')
+        ax.set_ylabel('$\\Delta E$  [eV]')
+        hop_label = 'Hop A  (surface → sub1)' if hop == 'hopa' else 'Hop B  (sub1 → sub2)'
+        ax.set_title(f'{hop_label}  ({_plotted} MEPs)')
+
+    plt.tight_layout()
+    out_png = os.path.join(sub_neb_dir, 'mep_overlay.png')
+    plt.savefig(out_png, dpi=150)
+    plt.show()
+    print(f'Saved: {out_png}')
+    return out_png
+
+
+def plot_kmc_sieverts(results_dir, temperatures):
+    """J vs √P at each temperature. Saves sieverts_check.png."""
+    sweeps = load_kmc_sweeps(results_dir, temperatures)
+    if not sweeps:
+        print('[plot_kmc_sieverts] No sweep data found — skipping.')
+        return None
+
+    cmap = plt.cm.viridis
+    fig, ax = plt.subplots(figsize=(8, 5))
+    _items = sorted(sweeps.items())
+
+    for i, (T, sw) in enumerate(_items):
+        P_vals = sw.get('P_vals', [])
+        J_vals = sw.get('J_vals', [])
+        conv   = sw.get('converged', [True] * len(P_vals))
+        sqrt_P = [p ** 0.5 for p, ok in zip(P_vals, conv) if ok]
+        J_conv = [j for j, ok in zip(J_vals, conv) if ok]
+        color  = cmap(i / max(len(_items) - 1, 1))
+        ax.scatter(sqrt_P, J_conv, color=color, zorder=5, label=f'T = {T:.0f} K')
+        if len(sqrt_P) >= 2:
+            slope, intercept = np.polyfit(sqrt_P, J_conv, 1)
+            x_fit = np.linspace(0, max(sqrt_P) * 1.05, 100)
+            ax.plot(x_fit, slope * x_fit + intercept, color=color, lw=1.2, alpha=0.7)
+
+    ax.set_xlabel('$\\sqrt{P}$  [Pa$^{1/2}$]')
+    ax.set_ylabel('J  [atoms m$^{-2}$ s$^{-1}$]')
+    ax.set_title("Sieverts' law check: J vs $\\sqrt{P}$")
+    ax.set_xlim(left=0)
+    ax.legend(fontsize=8, ncol=2)
+    plt.tight_layout()
+    out_png = os.path.join(results_dir, 'sieverts_check.png')
+    plt.savefig(out_png, dpi=150)
+    plt.show()
+    print(f'Saved: {out_png}')
+    return out_png
+
+
+def plot_permeability_vs_T(results_dir, temperatures):
+    """Φ(T) linear + Arrhenius plot for all three S0 options. Saves permeability_vs_T.png."""
+    perms = load_permeability_results(results_dir, temperatures)
+    if not perms:
+        print('[plot_permeability_vs_T] No permeability data found — skipping.')
+        return None
+
+    T_arr   = sorted(perms.keys())
+    Phi1    = [perms[T]['option1']['Phi'] for T in T_arr]
+    Phi2    = [perms[T]['option2']['Phi'] for T in T_arr]
+    Phi3    = [perms[T]['option3']['Phi'] for T in T_arr]
+    inv_T   = [1000.0 / T for T in T_arr]
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    ax0 = axes[0]
+    ax0.plot(T_arr, Phi1, 'o-', color='steelblue', lw=1.6, label='Option 1 (lattice S₀)')
+    ax0.plot(T_arr, Phi2, 's-', color='coral',     lw=1.6, label='Option 2 (TST rates)')
+    ax0.plot(T_arr, Phi3, '^-', color='seagreen',  lw=1.6, label='Option 3 (KMC fit)')
+    ax0.set_xlabel('Temperature  [K]')
+    ax0.set_ylabel('$\\Phi$  [atoms m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
+    ax0.set_title('Permeability $\\Phi(T)$')
+    ax0.legend(fontsize=8)
+
+    ax1 = axes[1]
+    ax1.plot(inv_T, np.log10(Phi1), 'o-', color='steelblue', lw=1.6, label='Option 1')
+    ax1.plot(inv_T, np.log10(Phi2), 's-', color='coral',     lw=1.6, label='Option 2')
+    ax1.plot(inv_T, np.log10(Phi3), '^-', color='seagreen',  lw=1.6, label='Option 3')
+    ax1.set_xlabel('1000 / T  [K$^{-1}$]')
+    ax1.set_ylabel('$\\log_{10}(\\Phi)$')
+    ax1.set_title('Arrhenius plot of $\\Phi(T)$')
+    ax1.invert_xaxis()
+    ax1.legend(fontsize=8)
+
+    plt.tight_layout()
+    out_png = os.path.join(results_dir, 'permeability_vs_T.png')
+    plt.savefig(out_png, dpi=150)
+    plt.show()
+    print(f'Saved: {out_png}')
+    return out_png
+
+
+def plot_arrhenius_S0(results_dir):
+    """Multi-T ln(S) vs 1/T Arrhenius fit overlay. Saves solubility_arrhenius.png."""
+    sol_json = os.path.join(results_dir, 'solubility_arrhenius_kmc.json')
+    if not os.path.exists(sol_json):
+        print(f'[plot_arrhenius_S0] {sol_json} not found — skipping.')
+        return None
+
+    with open(sol_json) as f:
+        data = json.load(f)
+
+    T_arr  = np.array(data['T_K_arr'])
+    S_arr  = np.array(data['S_mean_arr'])
+    S0     = data['S0_kmc']
+    dH_sol = data['dH_sol_kmc_eV']
+    r2     = data['r2_fit']
+    D0     = data.get('D0_m2s', 1.0)
+    E_D    = data.get('E_D_eV', 0.0)
+    KB_EV  = 8.617333262e-5
+
+    T_plot  = np.linspace(T_arr.min() * 0.92, T_arr.max() * 1.08, 200)
+    S_fit   = S0 * np.exp(-dH_sol / (KB_EV * T_plot))
+    D_plot  = D0 * np.exp(-E_D / (KB_EV * T_plot))
+    D_pts   = D0 * np.exp(-E_D / (KB_EV * T_arr))
+    Phi_fit = D_plot * S_fit
+    Phi_pts = D_pts * S_arr
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    ax0 = axes[0]
+    ax0.plot(T_plot, Phi_fit, color='purple', lw=2.0, label='Arrhenius fit')
+    ax0.scatter(T_arr, Phi_pts, color='purple', zorder=5, label='KMC data points')
+    ax0.set_xlabel('Temperature  [K]')
+    ax0.set_ylabel('$\\Phi = D \\times S$  [atoms m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
+    ax0.set_title('Option 3 — $\\Phi(T)$ from KMC Arrhenius $S_0$')
+    ax0.legend(fontsize=8)
+
+    ax1 = axes[1]
+    ax1.plot(1000.0 / T_plot, np.log10(Phi_fit), color='purple', lw=2.0, label='Arrhenius fit')
+    ax1.scatter(1000.0 / T_arr, np.log10(Phi_pts), color='purple', zorder=5)
+    ax1.set_xlabel('1000 / T  [K$^{-1}$]')
+    ax1.set_ylabel('$\\log_{10}(\\Phi)$')
+    ax1.set_title(f'$\\Delta H_{{sol}}^{{KMC}}$ = {dH_sol:.3f} eV   $R^2$ = {r2:.3f}')
+    ax1.invert_xaxis()
+    ax1.legend(fontsize=8)
+
+    plt.tight_layout()
+    out_png = os.path.join(results_dir, 'solubility_arrhenius.png')
+    plt.savefig(out_png, dpi=150)
+    plt.show()
+    print(f'Saved: {out_png}')
+    return out_png
+
+
+def plot_bottleneck(results_dir, temperatures):
+    """R² vs T bar chart showing whether transport is bulk- or surface-limited.
+
+    R² ≥ 0.98 in J vs √P → Sieverts' law holds → bulk diffusion is rate-limiting.
+    R² < 0.98 → surface kinetics (dissociation / recombination) are the bottleneck.
+    Saves bottleneck.png.
+    """
+    from models.permeation import check_sieverts_law
+
+    sweeps = load_kmc_sweeps(results_dir, temperatures)
+    if not sweeps:
+        print('[plot_bottleneck] No sweep data found — skipping.')
+        return None
+
+    T_vals, r2_vals, is_sieverts = [], [], []
+    for T in sorted(sweeps.keys()):
+        sw = sweeps[T]
+        P_vals = sw.get('P_vals', [])
+        J_vals = sw.get('J_vals', [])
+        conv   = sw.get('converged', [True] * len(P_vals))
+        P_use  = [p for p, ok in zip(P_vals, conv) if ok]
+        J_use  = [j for j, ok in zip(J_vals, conv) if ok]
+        if len(P_use) < 2:
+            continue
+        res = check_sieverts_law(P_use, J_use, plot=False)
+        T_vals.append(T)
+        r2_vals.append(res['r_squared'])
+        is_sieverts.append(res['is_sieverts'])
+
+    if not T_vals:
+        print('[plot_bottleneck] Not enough converged data — skipping.')
+        return None
+
+    colors = ['steelblue' if ok else 'coral' for ok in is_sieverts]
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar([str(T) for T in T_vals], r2_vals, color=colors, edgecolor='white')
+    ax.axhline(0.98, color='k', ls='--', lw=1.0)
+    ax.set_xlabel('Temperature  [K]')
+    ax.set_ylabel('$R^2$  (J vs $\\sqrt{P}$)')
+    ax.set_title('Transport bottleneck: $R^2 \\geq 0.98$ → bulk-diffusion limited')
+    ax.set_ylim(0, 1.05)
+    from matplotlib.patches import Patch
+    from matplotlib.lines import Line2D
+    ax.legend(handles=[
+        Patch(color='steelblue', label='Bulk-diffusion limited'),
+        Patch(color='coral',     label='Surface kinetics limited'),
+        Line2D([0], [0], color='k', ls='--', lw=1.0, label='$R^2$ = 0.98 threshold'),
+    ], fontsize=8)
+    plt.tight_layout()
+    out_png = os.path.join(results_dir, 'bottleneck.png')
+    plt.savefig(out_png, dpi=150)
+    plt.show()
+    print(f'Saved: {out_png}')
+    return out_png
