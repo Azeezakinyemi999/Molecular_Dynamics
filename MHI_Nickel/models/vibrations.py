@@ -15,6 +15,8 @@ Workflow
 5. ``orchestrate_vibrations``  — write + (optionally submit) SLURM jobs for a batch
 """
 
+from __future__ import annotations
+
 import json
 import os
 import textwrap
