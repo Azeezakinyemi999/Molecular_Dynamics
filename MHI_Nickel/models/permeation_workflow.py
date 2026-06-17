@@ -81,7 +81,7 @@ _KB_EV = 8.617333262e-5   # eV/K
 print('Building subsurface graph …')
 with open(SURFACE_SITES_JSON) as _f:
     _surf_data = json.load(_f)
-G, subsurface_sites = build_subsurface_graph(RELAXED_SLAB_PATH, SURFACE_SITES_JSON)
+G, subsurface_sites = build_subsurface_graph(RELAXED_SLAB_PATH, SURFACE_SITES_JSON, seed=42)
 _slab_atoms = _ase_read(RELAXED_SLAB_PATH, format='lammps-data', atom_style='atomic')
 _cell = _slab_atoms.get_cell()
 surface_connections = connect_to_surface(subsurface_sites, _surf_data, _cell)
@@ -91,7 +91,7 @@ print(f'  surface connections: {len(surface_connections)}')
 
 # ── Collect dedup IS labels ────────────────────────────────────────────────────
 dedup_is_labels = [
-    (os.path.basename(p).replace('h_atom_', '').replace('_relaxed.lammps', ''), p)
+    (os.path.basename(p).replace('h_atom_', '').replace('_relaxed.lammps', ''), p, 0.0)
     for p in sorted(glob.glob(os.path.join(PHASE2_H_DIR, 'h_atom_*_relaxed.lammps')))
 ]
 print(f'Dedup IS labels: {len(dedup_is_labels)}')
@@ -109,7 +109,7 @@ hopa_out = orchestrate_hopa_neb(
     dedup_is_labels    = dedup_is_labels,
     subsurface_graph   = (G, subsurface_sites),
     surface_connections= surface_connections,
-    outdir             = os.path.join(SUB_NEB_DIR, 'hopa'),
+    outdir             = SUB_NEB_DIR,
     masses             = MASSES_7,
     e2t                = E2T_7,
     slurm_opts         = GPU_SLURM_CFG,
@@ -140,7 +140,7 @@ hopb_out = orchestrate_hopb_neb(
     hopa_jobs          = hopa_jobs,
     hopa_outdir        = os.path.join(SUB_NEB_DIR, 'hopa'),
     subsurface_graph   = (G, subsurface_sites),
-    outdir             = os.path.join(SUB_NEB_DIR, 'hopb'),
+    outdir             = SUB_NEB_DIR,
     masses             = MASSES_7,
     e2t                = E2T_7,
     slurm_opts         = GPU_SLURM_CFG,
@@ -179,7 +179,7 @@ vib_out = orchestrate_vibrations(
     slurm_opts      = VIB_SLURM_CFG,
     delta           = 0.01,
     device          = 'cpu',
-    dry_run         = False,
+    dry_run         = True,
 )
 
 _vib_jids = {}
@@ -210,13 +210,41 @@ for _T in TEMPERATURES:
 # ══════════════════════════════════════════════════════════════════════════════
 print('\n── Phase 5: KMC pressure sweeps ──────────────────────────────────────────')
 _DISS_JSON = os.path.join(WORK_DIR, 'neb', 'diss_jobs.json')
-_NU_DISS   = 1e13   # s⁻¹
+_NU_DISS   = 1e13   # s⁻¹ — fallback prefactor when ZPE rates unavailable
+
+# T-dependent lattice parameter from Part 3 NPT MD
+_LAT_JSON_5 = os.path.join(RESULTS_DIR, 'lattice_params_vs_T.json')
+if os.path.exists(_LAT_JSON_5):
+    with open(_LAT_JSON_5) as _f:
+        _lat5 = json.load(_f)
+    _a0_dict = dict(zip(_lat5['temperatures'], _lat5['a0_m']))
+    print(f'  Loaded lattice_params_vs_T.json: {len(_a0_dict)} temperatures')
+else:
+    _a0_dict = {}
+    print(f'  WARNING: lattice_params_vs_T.json not found — using fixed A0_M={A0_M} m')
+
+# ZPE-corrected dissociation rates from Part 1 Phase E
+_DISS_VIB_JSON = os.path.join(WORK_DIR, 'neb', 'diss_vib_rates.json')
+_diss_vib = {}   # {tuple(pair): {Ea_zpe, Ed_zpe, nu}}
+if os.path.exists(_DISS_VIB_JSON):
+    with open(_DISS_VIB_JSON) as _f:
+        _dv_raw = json.load(_f)
+    for _dv_lbl, _dv in _dv_raw.items():
+        _pkey = tuple(_dv['pair'])
+        if _pkey not in _diss_vib or _dv.get('Ea_zpe', 9e9) < _diss_vib[_pkey]['Ea_zpe']:
+            _diss_vib[_pkey] = {'Ea_zpe': _dv['Ea_zpe'],
+                                 'Ed_zpe': _dv['Ed_zpe'],
+                                 'nu':     _dv['nu']}
+    print(f'  Loaded diss_vib_rates.json: {len(_diss_vib)} element pairs (ZPE-corrected)')
+else:
+    print(f'  WARNING: diss_vib_rates.json not found — using raw barriers for diss/des rates')
 
 for _T in TEMPERATURES:
     with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
         _tst = json.load(_f)
 
     _kBT = _KB_EV * _T
+    _a0_T = _a0_dict.get(_T, A0_M)
     _k_diss, _k_des, _k_entry, _k_exit = {}, {}, {}, {}
 
     for _lbl, _r in _tst.items():
@@ -228,7 +256,11 @@ for _T in TEMPERATURES:
                     _k_exit[_el]  = _r['k_reverse']
                     break
 
-    if os.path.exists(_DISS_JSON):
+    if _diss_vib:
+        for _pkey5, _dv5 in _diss_vib.items():
+            _k_diss[_pkey5] = np.exp(-_dv5['Ea_zpe'] / _kBT)
+            _k_des[_pkey5]  = _dv5['nu'] * np.exp(-_dv5['Ed_zpe'] / _kBT)
+    elif os.path.exists(_DISS_JSON):
         with open(_DISS_JSON) as _f:
             _diss = json.load(_f)
         for _job in _diss:
@@ -240,7 +272,7 @@ for _T in TEMPERATURES:
             _k_diss[_pair] = np.exp(-_bd['E_abs'] / _kBT)
             _k_des[_pair]  = _NU_DISS * np.exp(-_bd['E_des'] / _kBT)
     else:
-        print(f'  WARNING: {_DISS_JSON} not found — using placeholder diss/des rates.')
+        print(f'  WARNING: no diss rate source found — using placeholders at T={_T} K')
         for _pair in [('Ni', 'Ni'), ('Mo', 'Ni'), ('Cr', 'Ni'), ('Fe', 'Ni'),
                       ('Mo', 'Mo'), ('Cr', 'Mo'), ('Fe', 'Mo'),
                       ('Cr', 'Cr'), ('Fe', 'Cr'), ('Fe', 'Fe')]:
@@ -257,7 +289,7 @@ for _T in TEMPERATURES:
         D_m2s      = _D_T,
         L_m        = L_M,
         T_K        = _T,
-        a0_m       = A0_M,
+        a0_m       = _a0_T,
         nx         = NX,
         ny         = NY,
         seed       = SEED,
@@ -265,34 +297,64 @@ for _T in TEMPERATURES:
     )
     _sweep['T_K']   = _T
     _sweep['D_m2s'] = _D_T
+    _sweep['a0_m']  = _a0_T
     _out = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
     with open(_out, 'w') as _f:
         json.dump(_sweep, _f, indent=2)
     _conv = sum(1 for c in _sweep.get('converged', []) if c)
-    print(f'  T={_T:4.0f} K  D={_D_T:.2e} m²/s  {_conv}/{len(P_VALS_PA)} converged → {_out}')
+    print(f'  T={_T:4.0f} K  a0={_a0_T:.4e} m  D={_D_T:.2e} m²/s  '
+          f'{_conv}/{len(P_VALS_PA)} converged → {_out}')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Phase 6 — Richardson-Sieverts permeability (all three S₀ options)
 # ══════════════════════════════════════════════════════════════════════════════
 print('\n── Phase 6: Richardson-Sieverts permeability ────────────────────────────')
 
-if DH_DISS_EV is None or DH_ENTRY_EV is None:
-    print('WARNING: DH_DISS_EV or DH_ENTRY_EV is None — skipping Phase 6.')
-    print('  Fill these values in permeation.ipynb Cell 2 and regenerate scripts.')
+# Auto-extract DH values from NEB results if not set manually
+_DH_DISS_USED  = DH_DISS_EV
+_DH_ENTRY_USED = DH_ENTRY_EV
+
+if _DH_ENTRY_USED is None:
+    _fst_rd_f = os.path.join(RESULTS_DIR, f'rate_dict_T{int(TEMPERATURES[0])}K.json')
+    if os.path.exists(_fst_rd_f):
+        with open(_fst_rd_f) as _f: _fst_rd = json.load(_f)
+        _hopa_de = [_r.get('delta_e', 0.0) for _lbl, _r in _fst_rd.items()
+                    if _lbl.startswith('hopa_')]
+        if _hopa_de:
+            _DH_ENTRY_USED = float(np.mean(_hopa_de))
+            print(f'  Auto-extracted DH_ENTRY_EV = {_DH_ENTRY_USED:.4f} eV '
+                  f'(mean of {len(_hopa_de)} Hop A barriers)')
+
+if _DH_DISS_USED is None:
+    _ranked6_f = os.path.join(WORK_DIR, 'neb', 'ranked_barriers.json')
+    if os.path.exists(_ranked6_f):
+        with open(_ranked6_f) as _f: _ranked6 = json.load(_f)
+        _diss_de6 = [_r.get('delta_E', 0.0) for _r in _ranked6
+                     if _r.get('converged', False)]
+        if _diss_de6:
+            _DH_DISS_USED = float(np.mean(_diss_de6))
+            print(f'  Auto-extracted DH_DISS_EV  = {_DH_DISS_USED:.4f} eV '
+                  f'(mean of {len(_diss_de6)} converged diss barriers)')
+
+if _DH_DISS_USED is None or _DH_ENTRY_USED is None:
+    print('WARNING: DH_DISS_EV or DH_ENTRY_EV could not be determined — skipping Phase 6.')
+    print('  Fill DH_DISS_EV and DH_ENTRY_EV in permeation.ipynb Cell 2 and regenerate.')
 else:
-    _DH_SOL = DH_DISS_EV / 2.0 + DH_ENTRY_EV
-    _S0_lat = lattice_site_S0(A0_M)
+    _DH_SOL = _DH_DISS_USED / 2.0 + _DH_ENTRY_USED
     _P_HIGH = max(P_VALS_PA)
 
     for _T in TEMPERATURES:
         with open(os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')) as _f:
             _sw = json.load(_f)
-        _D_T = arrhenius_diffusivity(D0_M2S, E_D_EV, _T)
+        _D_T  = arrhenius_diffusivity(D0_M2S, E_D_EV, _T)
+        _a0_T6 = _a0_dict.get(_T, A0_M)
+        _kBT6  = _KB_EV * _T
 
-        # Option 1 — lattice site density
-        _S1   = sieverts_solubility(_DH_SOL, _S0_lat, _T)
-        _Phi1 = permeability(_D_T, _S1)
-        _J1   = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
+        # Option 1 — lattice site density (per-T a₀)
+        _S0_lat6 = lattice_site_S0(_a0_T6)
+        _S1      = sieverts_solubility(_DH_SOL, _S0_lat6, _T)
+        _Phi1    = permeability(_D_T, _S1)
+        _J1      = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
 
         # Option 2 — TST detailed balance (first Hop A rate as representative)
         with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
@@ -302,9 +364,15 @@ else:
             if _lbl.startswith('hopa_'):
                 _repr_entry, _repr_exit = _r['k_forward'], _r['k_reverse']
                 break
-        _repr_diss = np.exp(-0.5  / (_KB_EV * _T))
-        _repr_des  = _NU_DISS * np.exp(-1.2 / (_KB_EV * _T))
-        _S2   = solubility_from_rates(_repr_diss, _repr_des, _repr_entry, _repr_exit, A0_M, _T)
+        if _diss_vib:
+            _dv0_t = next(iter(_diss_vib.values()))
+            _repr_diss = np.exp(-_dv0_t['Ea_zpe'] / _kBT6)
+            _repr_des  = _dv0_t['nu'] * np.exp(-_dv0_t['Ed_zpe'] / _kBT6)
+        else:
+            _repr_diss = np.exp(-0.5  / _kBT6)
+            _repr_des  = _NU_DISS * np.exp(-1.2 / _kBT6)
+        _S2   = solubility_from_rates(_repr_diss, _repr_des, _repr_entry, _repr_exit,
+                                      _a0_T6, _T)
         _Phi2 = permeability(_D_T, _S2)
         _J2   = richardson_flux(_Phi2, _P_HIGH, 0.0, L_M)
 
@@ -318,8 +386,8 @@ else:
         with open(_perm_f, 'w') as _f:
             json.dump({
                 'T_K': _T, 'D0_m2s': D0_M2S, 'E_D_eV': E_D_EV,
-                'dH_sol_eV': _DH_SOL,
-                'dH_diss_eV': DH_DISS_EV, 'dH_entry_eV': DH_ENTRY_EV,
+                'dH_sol_eV': _DH_SOL, 'a0_m': _a0_T6,
+                'dH_diss_eV': _DH_DISS_USED, 'dH_entry_eV': _DH_ENTRY_USED,
                 'option1': {'S': _S1, 'Phi': _Phi1, 'J': _J1},
                 'option2': {'S': _S2, 'Phi': _Phi2, 'J': _J2},
                 'option3': {'S': _S3, 'Phi': _Phi3, 'J': _J3,
@@ -327,7 +395,7 @@ else:
                             'n_converged': _kmc_sol['n_converged']},
                 'P_high_Pa': _P_HIGH, 'L_m': L_M,
             }, _f, indent=2)
-        print(f'  T={_T:4.0f} K  Φ(opt3)={_Phi3:.3e}  J(opt3)={_J3:.3e}')
+        print(f'  T={_T:4.0f} K  a0={_a0_T6:.4e} m  Φ(opt3)={_Phi3:.3e}  J(opt3)={_J3:.3e}')
 
     # Multi-T Arrhenius S₀ fit from KMC
     _S_arr, _T_arr = [], []
