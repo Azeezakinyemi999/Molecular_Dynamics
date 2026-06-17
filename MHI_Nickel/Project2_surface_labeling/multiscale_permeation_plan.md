@@ -819,3 +819,891 @@ the NEB barriers are needed.
 Option 3 will match Option 2 in the Sieverts regime (R² ≥ 0.98) and diverge
 from it when surface kinetics limit transport — this divergence is itself
 diagnostic: if S_KMC < S_rates, the surface is the bottleneck.
+
+
+
+# Plan: Part 2 Pipeline — `permeation_workflow.py` + `permeation.ipynb`
+
+## Context
+
+The full H permeation system has three parts:
+
+| Part | Notebook | Workflow module | Status |
+|---|---|---|---|
+| 1 — Surface NEB | `neb_calculation.ipynb` | `models/neb_workflow.py` | ✅ Done |
+| 3 — Bulk diffusivity | `diffusivity.ipynb` | `models/diffusivity_workflow.py` | ✅ Done |
+| 2 — Surface→Subsurface→Permeation | *(missing)* | *(missing)* | ❌ To build |
+
+Parts 1 and 3 follow the same architecture:
+- The **notebook** is a thin **script generator + local analyser**. It writes a standalone Python orchestrator (`*_run.py`) and a SLURM wrapper (`*_run.sh`), then has Phase 4 analysis cells that run after the cluster jobs complete.
+- The **workflow module** holds all the heavy logic: `generate_*_scripts()`, `generate_*_sh()`, and analysis functions (`load_*`, `plot_*`, `qc_*`).
+
+Currently Part 2 has three *execution* notebooks (`subsurface_neb_calculation.ipynb`, `tst_calculation.ipynb`, `kmc_calculation.ipynb`) and five physics modules, but **no script-generator notebook** and **no workflow orchestration module**. This plan builds those two missing artefacts so Part 2 matches the architecture of Parts 1 and 3.
+
+---
+
+## What to Build
+
+### 1. `models/permeation_workflow.py`
+
+Mirrors `models/diffusivity_workflow.py` and `models/neb_workflow.py` in structure.
+
+#### Section A — Script generation
+
+```python
+def generate_permeation_scripts(
+    work_dir, relaxed_slab_path, surface_sites_json, phase2_h_dir,
+    sub_neb_dir, vib_dir, results_dir,
+    temperatures, p_vals_pa, a0_m, l_m,
+    d0_m2s, e_d_ev,                       # from diffusivity_arrhenius.json
+    dh_diss_ev, dh_entry_ev,              # from NEB delta_E (user fills)
+    nx, ny, seed, kmc_max_steps,
+    gpu_slurm_cfg, neb_slurm_cfg,
+    vib_slurm_cfg,
+    n_images, spring_const, neb_ftol,
+    out_py,
+) -> str
+```
+
+Uses identical **f-string header + raw r-string body** pattern as `diffusivity_workflow.py`.  
+Header injects all config literals; body is the fixed orchestrator logic.  
+Returns path to written `permeation_run.py`.
+
+```python
+def generate_permeation_sh(
+    orch_job_name, orch_partition, orch_cpus_per_task, orch_mem, orch_time,
+    orch_openmpi_ver, orch_cuda_version, orch_conda_env, orch_ld_paths,
+    work_dir, out_py, out_sh,
+) -> str
+```
+
+Writes SLURM wrapper. Returns path to `permeation_run.sh`.
+
+#### Section B — Analysis functions (Phase 4, run locally)
+
+| Function | Reads | Returns |
+|---|---|---|
+| `load_barrier_summary(sub_neb_dir)` | `hopa_jobs.json`, `hopb_jobs.json`, `neb_barrier.txt` per job | `pd.DataFrame` (sid, hop, E_abs, E_des, delta_E, converged) |
+| `load_rate_summary(results_dir, temperatures)` | `rate_dict_T{T}K.json` | `pd.DataFrame` (label, T_K, k_forward, k_reverse, Ea_zpe, nu) |
+| `load_kmc_sweeps(results_dir, temperatures)` | `permeation_sweep_T{T}K.json` | `dict[T → sweep_dict]` |
+| `load_permeability_results(results_dir, temperatures)` | `permeability_T{T}K.json` | `dict[T → perm_dict]` |
+| `plot_barrier_overview(df, sub_neb_dir)` | barrier DataFrame | bar chart Ea distribution (Hop A/B), saves `barriers_overview.png` |
+| `plot_mep_overlay(sub_neb_dir)` | NEB path files | MEP overlay per hop, saves `mep_hopA.png`, `mep_hopB.png` |
+| `plot_kmc_sieverts(results_dir, temperatures)` | sweep JSONs | J vs √P for each T, saves `sieverts_check.png` |
+| `plot_permeability_vs_T(results_dir, temperatures)` | permeability JSONs | Φ(T) linear + Arrhenius (all 3 options), saves `permeability_vs_T.png` |
+| `plot_arrhenius_S0(results_dir)` | `solubility_arrhenius_kmc.json` | Multi-T ln(S) vs 1/T fit overlay, saves `solubility_arrhenius.png` |
+| `plot_bottleneck(results_dir, temperatures)` | sweep + Sieverts JSONs | R² vs T bar chart (1 = bulk-limited, <0.98 = surface-limited), saves `bottleneck.png` |
+
+---
+
+### 2. `calculation/permeation.ipynb`
+
+Thin notebook — no heavy computation inline. Mirrors `neb_calculation.ipynb` and `diffusivity.ipynb`.
+
+#### Script-generation cells
+
+| Cell | Purpose |
+|---|---|
+| Cell 1 | `import os, sys, json` + `sys.path` setup |
+| Cell 2 | All config vars (paths, temperatures, pressures, lattice, KMC params, SLURM configs) |
+| Cell 3 | Call `generate_permeation_scripts(...)` → writes `permeation_run.py` |
+| Cell 4 | Call `generate_permeation_sh(...)` + `submit_slurm_job(dry_run=True)` |
+
+#### Phase 4 — Local analysis cells (run after cluster jobs)
+
+| Phase | Cell function called |
+|---|---|
+| 4a. Barrier overview | `load_barrier_summary()`, `plot_barrier_overview()` |
+| 4b. MEP overlay | `plot_mep_overlay()` |
+| 4c. TST rate summary | `load_rate_summary()`, rate vs T plot |
+| 4d. KMC Sieverts check | `load_kmc_sweeps()`, `plot_kmc_sieverts()` |
+| 4e. Φ(T) plot | `load_permeability_results()`, `plot_permeability_vs_T()` |
+| 4f. Arrhenius S₀ | `plot_arrhenius_S0()` |
+| 4g. Bottleneck diagnosis | `plot_bottleneck()` |
+
+---
+
+## Generated `permeation_run.py` — Phases and Execution Order
+
+```
+Phase 1a — Hop A FS-min  (GPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 1b — Hop A NEB     (CPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 2a — Hop B FS-min  (GPU SLURM array, parallel; IS = Hop A relaxed sub1)
+    ↓ wait_for_jobs
+Phase 2b — Hop B NEB     (CPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 3  — Vibrations    (CPU SLURM array; IS + TS for both hops, all parallel)
+    ↓ wait_for_jobs
+Phase 4  — TST rates     (local inside orchestrator; fast; one rate_dict_T{T}K.json per T)
+Phase 5  — KMC sweeps    (local inside orchestrator; sweep_pressure() at each T)
+Phase 6  — Permeability  (local; all 3 S₀ options; Arrhenius fit; save all JSONs)
+```
+
+Phases 1–3 use `submit_slurm_job()` + `wait_for_jobs()` (same pattern as `neb_run.py`).  
+Phases 4–6 run inside the orchestrator process (no additional SLURM jobs needed for the default grid size NX=NY=20).
+
+---
+
+## Reused Functions (no reimplementation needed)
+
+| Function | Module |
+|---|---|
+| `orchestrate_hopa_neb(...)` | `models/neb_subsurface.py` |
+| `orchestrate_hopb_neb(...)` | `models/neb_subsurface.py` |
+| `collect_is_ts_paths(...)` | `models/vibrations.py` |
+| `orchestrate_vibrations(...)` | `models/vibrations.py` |
+| `collect_neb_results(...)` | `models/tst_rates.py` |
+| `split_vib_results(...)` | `models/tst_rates.py` |
+| `build_rate_dict(...)` | `models/tst_rates.py` |
+| `rates_to_json(...)` | `models/tst_rates.py` |
+| `sweep_pressure(...)` | `models/permeation.py` |
+| `fit_solubility_from_kmc(...)` | `models/permeation.py` |
+| `arrhenius_diffusivity(...)` | `models/permeation.py` |
+| `permeability(...)`, `richardson_flux(...)` | `models/permeation.py` |
+| `submit_slurm_job(...)`, `wait_for_jobs(...)` | `models/create_slurm.py` |
+| `parse_barrier_file(...)` | `models/parsers.py` |
+
+---
+
+## Inputs Required (from Parts 1 and 3)
+
+| Variable | Source |
+|---|---|
+| `RELAXED_SLAB_PATH` | Part 1 — `calculation/slabs/slab_relaxed.lammps` |
+| `SURFACE_SITES_JSON` | Part 1 — `calculation/slabs/surface_sites.json` |
+| `PHASE2_H_DIR` | Part 1 — `calculation/adsorption/h_atom/` (dedup IS `.lammps` files) |
+| `D0_M2S`, `E_D_EV` | Part 3 — `results/diffusivity_arrhenius.json` (loaded in Cell 2 if present) |
+| `DH_DISS_EV`, `DH_ENTRY_EV` | User fills from NEB `delta_E` values after cluster run |
+
+---
+
+## Key Config Variables (Cell 2 of notebook)
+
+```python
+# Paths
+WORK_DIR            = os.path.join(BASE_DIR, 'calculation')
+RELAXED_SLAB_PATH   = os.path.join(WORK_DIR, 'slabs', 'slab_relaxed.lammps')
+SURFACE_SITES_JSON  = os.path.join(WORK_DIR, 'slabs', 'surface_sites.json')
+PHASE2_H_DIR        = os.path.join(WORK_DIR, 'adsorption', 'h_atom')
+SUB_NEB_DIR         = os.path.join(WORK_DIR, 'neb_subsurface')
+VIB_DIR             = os.path.join(WORK_DIR, 'vibrations')
+RESULTS_DIR         = os.path.join(WORK_DIR, 'results')
+
+# Physical parameters
+TEMPERATURES   = [500, 600, 700, 800, 900]   # K
+P_VALS_PA      = [1e3, 1e4, 1e5, 5e5, 1e6]  # Pa
+A0_M           = 3.52e-10   # m
+L_M            = 1e-3       # m
+
+# Diffusivity — loaded from Part 3 output if available
+D0_M2S = 1.5e-7    # placeholder
+E_D_EV = 0.40      # placeholder
+
+# NEB thermodynamics — user fills after NEB jobs complete
+DH_DISS_EV  = None   # eV (dissociation NEB delta_E)
+DH_ENTRY_EV = None   # eV (Hop A delta_E)
+
+# KMC
+NX, NY      = 20, 20
+SEED        = 42
+KMC_MAX_STEPS = 500_000
+
+# SLURM
+GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition='multigpu', time='04:00:00')
+NEB_SLURM_CFG = dict(SLURM_DEFAULTS, partition='short', gpu=None, cpus_per_task=16, time='12:00:00')
+VIB_SLURM_CFG = dict(SLURM_DEFAULTS, partition='short', gpu=None, cpus_per_task=8,  time='06:00:00')
+
+# NEB
+N_IMAGES    = N_REPLICAS
+SPRING_CONST = SPRING_CONST
+NEB_FTOL    = NEB_FTOL
+```
+
+---
+
+## Verification
+
+1. **Script generation**: Run Cells 1–4 with `dry_run=True` → `permeation_run.py` and `permeation_run.sh` are written, no SLURM jobs submitted. Check that the injected config matches the notebook variables.
+2. **Orchestrator structure**: Open `permeation_run.py` and verify 6 phases are present and functions are correctly called.
+3. **Phase 4 analysis cells**: Run each analysis cell with mock JSON files (or real output from a dry-run test at one temperature) → plots saved without error.
+4. **End-to-end**: After a cluster run at one temperature (T=700K), run all Phase 4 cells — barrier DataFrame has at least one row, Sieverts R² prints, Φ(T) plot saves.
+
+---
+
+## Files to Create
+
+| File | Action |
+|---|---|
+| `models/permeation_workflow.py` | New file — ~500 lines |
+| `calculation/permeation.ipynb` | New notebook — Cells 1–4 (script gen) + Phase 4 analysis cells |
+
+The three existing notebooks (`subsurface_neb_calculation.ipynb`, `tst_calculation.ipynb`, `kmc_calculation.ipynb`) remain valid for interactive step-by-step use. `permeation.ipynb` is the canonical automated entry point.
+
+
+
+
+
+# Plan: Full Pipeline Automation — ZPE, a₀(T), and Master Orchestrator
+
+## Context
+
+The three-part pipeline is structurally complete (`permeation_workflow.py` + `permeation.ipynb` were built in the previous session). Two physics gaps and one architectural gap remain before the pipeline is fully automated:
+
+1. **ZPE missing for dissociation NEB (Part 1)** — `neb_workflow.py` runs the H₂* → 2H* NEB but never computes vibrational frequencies at IS or TS. `k_diss` and `k_des` in the KMC engine therefore use raw barriers, inconsistent with the Vineyard+ZPE treatment for Hop A/B in Part 2.
+
+2. **a₀(T) not saved (Part 3)** — `diffusivity_run.py` computes temperature-dependent lattice parameter from NPT MD (`get_lattice_parameter()`) but discards it. Part 2 KMC uses a fixed `A0_M = 3.52e-10 m` at all temperatures, ignoring thermal expansion.
+
+3. **No master orchestrator** — Parts 1, 2, 3 are run independently with manual handoffs for `DH_DISS_EV`, `DH_ENTRY_EV`, `D0_M2S`, `E_D_EV`. The goal is full automation: one command starts everything, values flow automatically from outputs of earlier parts into later parts.
+
+---
+
+## Current status of three parts
+
+| Part | Notebook | Workflow module | Status |
+|---|---|---|---|
+| 1 — Surface NEB | `neb_calculation.ipynb` | `models/neb_workflow.py` | ✅ Done (missing diss vib) |
+| 3 — Bulk diffusivity | `diffusivity.ipynb` | `models/diffusivity_workflow.py` | ✅ Done (missing a₀ save) |
+| 2 — Surface→Subsurface | `permeation.ipynb` | `models/permeation_workflow.py` | ✅ Done (missing T-dep a₀, ZPE diss) |
+
+---
+
+## What to Change
+
+### Fix 1 — Save a₀(T) in Part 3 (`models/diffusivity_workflow.py`)
+
+In the raw `_body` r-string, inside the NPT loop where `a0_T = get_lattice_parameter(...)` is computed (Phase 1b), collect all T→a₀ pairs and after the loop write:
+
+```
+{RESULTS_DIR}/lattice_params_vs_T.json
+→ {"temperatures": [T1, T2, ...], "a0_m": [a0_1, a0_2, ...]}
+```
+
+This is a 5-line addition to the existing body — no structural changes.
+
+---
+
+### Fix 2 — Add ZPE to dissociation NEB in Part 1 (`models/neb_workflow.py`)
+
+The dissociation NEB orchestrator (`generate_neb_scripts()` → `neb_run.py` body) currently has two phases: FS-min SLURM array → NEB SLURM array. Add **Phase 3: vibrations for dissociation IS + TS**.
+
+**How:**
+- The NEB run script already saves `neb_initial.lammps` (IS = H₂* structure).
+- Need to also save `ts_image.lammps` (peak-energy NEB image). Add a post-step inside `run_neb.py` body: after CINEB converges, identify the image index with maximum ΔE, write it as `ts_image.lammps` using `ase.io.write`.
+- After NEB SLURM array finishes: collect `('{label}_is', 'neb_initial.lammps')` and `('{label}_ts', 'ts_image.lammps')` pairs → call `orchestrate_vibrations()` → submit vib SLURM array → wait.
+- After vib finishes: call `build_rate_dict()` (already in `tst_rates.py`) per-pair, save `diss_vib_rates.json`:
+
+```json
+{"Ni-Ni": {"Ea_zpe": 0.51, "Ed_zpe": 1.18, "nu_diss": 1.2e13, "nu_des": 9.8e12}, ...}
+```
+
+The pair key comes from the site labels (same logic already used in `kmc_calculation.ipynb` Cell 2 for building `k_diss`/`k_des` lookup).
+
+**Files changed:**
+- `models/neb_workflow.py` — (a) add TS extraction to `run_neb.py` body; (b) add Phase 3 to the `neb_run.py` body r-string after NEB wait
+- `neb_calculation.ipynb` — no cell changes needed (Phase 3 runs automatically inside `neb_run.py`)
+
+---
+
+### Fix 3 — Use a₀(T) + ZPE diss rates in Part 2 (`models/permeation_workflow.py`)
+
+In `_PERMEATION_BODY`, Phase 5 (KMC loop), replace fixed `A0_M` per temperature:
+
+```python
+# Load lattice_params_vs_T.json if available
+_LAT_JSON = os.path.join(RESULTS_DIR, 'lattice_params_vs_T.json')
+if os.path.exists(_LAT_JSON):
+    with open(_LAT_JSON) as _f: _lat = json.load(_f)
+    _a0_dict = dict(zip(_lat['temperatures'], _lat['a0_m']))
+else:
+    _a0_dict = {}
+
+# In per-T loop:
+_a0_T = _a0_dict.get(_T, A0_M)   # falls back to notebook constant if Part 3 not run
+```
+
+Replace raw-barrier `k_diss`/`k_des` with ZPE-corrected rates when `diss_vib_rates.json` exists:
+
+```python
+_DISS_VIB_JSON = os.path.join(WORK_DIR, 'neb', 'diss_vib_rates.json')
+if os.path.exists(_DISS_VIB_JSON):
+    # use nu * exp(-Ea_zpe / kBT) per pair
+else:
+    # fallback: existing diss_jobs.json / placeholder logic (unchanged)
+```
+
+Auto-extract `DH_ENTRY_EV` inside Phase 6 from Hop A barrier results instead of requiring `DH_ENTRY_EV is not None`:
+
+```python
+# After Phase 1 Hop A NEB completes, collect mean converged delta_E:
+_dh_entry = np.mean([job['delta_E'] for job in hopa_jobs if job.get('converged')])
+```
+
+Auto-extract `DH_DISS_EV` from `ranked_barriers.json` (mean of converged delta_E values):
+
+```python
+_ranked = os.path.join(WORK_DIR, 'neb', 'ranked_barriers.json')
+if os.path.exists(_ranked):
+    with open(_ranked) as _f: _rb = json.load(_f)
+    _dh_diss = np.mean([r['delta_E'] for r in _rb if r.get('converged')])
+```
+
+When both are auto-extracted, Phase 6 runs unconditionally (removes the `if DH_DISS_EV is None` guard).
+
+**Also fix bug in `permeation.ipynb` Cell 2:** `SLURM_DEFAULTS.get('cuda_ver', '')` → `SLURM_DEFAULTS.get('cuda_version', '')` (key mismatch with actual config).
+
+---
+
+### Fix 4 — Master pipeline notebook (NEW)
+
+**New files:**
+- `models/pipeline_workflow.py` — `generate_pipeline_scripts()`, `generate_pipeline_sh()`
+- `calculation/pipeline.ipynb` — master notebook
+
+**Architecture:**
+
+```
+pipeline_run.py
+    ├── subprocess.Popen(neb_run.py)        ← Part 1
+    ├── subprocess.Popen(diffusivity_run.py) ← Part 3  (in parallel with Part 1)
+    ├── p1.wait() + p3.wait()
+    └── subprocess.run(permeation_run.py)   ← Part 2  (after both complete)
+```
+
+Both Part 1 and Part 3 are independent and can run in parallel. Part 2 depends on both (needs `ranked_barriers.json` + `adsorption/h_atom/` from Part 1; `diffusivity_arrhenius.json` + `lattice_params_vs_T.json` from Part 3).
+
+The `pipeline_run.sh` SLURM wrapper submits this as a single long-running orchestrator job.
+
+`pipeline.ipynb` cells:
+1. Shared config (superset of all three parts' configs)
+2. Generate all three run scripts (calls `generate_neb_scripts()`, `generate_diffusivity_scripts()`, `generate_permeation_scripts()`)
+3. Generate `pipeline_run.py` + `pipeline_run.sh`, submit with `dry_run=True`
+
+**Note:** The three individual notebooks remain valid for partial re-runs or debug.
+
+---
+
+## Data flow diagram
+
+```
+Part 1 (neb_run.py)                    Part 3 (diffusivity_run.py)
+  └─ ranked_barriers.json ─────────┐     └─ diffusivity_arrhenius.json ─┐
+  └─ diss_vib_rates.json ──────────┤     └─ lattice_params_vs_T.json ───┤
+  └─ adsorption/h_atom/ ───────────┤                                     │
+                                   ▼                                     ▼
+                           Part 2 (permeation_run.py)
+                             auto-reads all ↑ at runtime
+                             no manual filling needed
+```
+
+---
+
+## Files to change / create
+
+| File | Change |
+|---|---|
+| `models/diffusivity_workflow.py` | Add a₀(T) JSON save to `_body` (~5 lines) |
+| `models/neb_workflow.py` | Add TS extraction to NEB body; add Phase 3 (diss vib) to neb_run.py body |
+| `models/permeation_workflow.py` | Update `_PERMEATION_BODY`: T-dep a₀, ZPE diss rates, auto DH values |
+| `calculation/permeation.ipynb` | Fix `cuda_ver` → `cuda_version` key bug in Cell 2 |
+| `models/pipeline_workflow.py` | NEW — `generate_pipeline_scripts()`, `generate_pipeline_sh()` |
+| `calculation/pipeline.ipynb` | NEW — master generator notebook |
+
+---
+
+## Verification
+
+1. `diffusivity_run.py` writes `lattice_params_vs_T.json` with one entry per temperature.
+2. `permeation_run.py` prints `a0(T)` per temperature from the JSON (not the fixed constant).
+3. After Part 1, `diss_vib_rates.json` exists with ZPE-corrected rates per element pair.
+4. Phase 6 of `permeation_run.py` runs without requiring manual `DH_DISS_EV`/`DH_ENTRY_EV`.
+5. `pipeline.ipynb` Cell 3 generates `pipeline_run.py`; opening it shows Part 1 + Part 3 started in parallel then Part 2 after both complete.
+
+---
+
+## Previous plan content (already implemented)
+
+Parts 1 and 3 follow the same architecture:
+- The **notebook** is a thin **script generator + local analyser**. It writes a standalone Python orchestrator (`*_run.py`) and a SLURM wrapper (`*_run.sh`), then has Phase 4 analysis cells that run after the cluster jobs complete.
+- The **workflow module** holds all the heavy logic: `generate_*_scripts()`, `generate_*_sh()`, and analysis functions (`load_*`, `plot_*`, `qc_*`).
+
+Currently Part 2 has three *execution* notebooks (`subsurface_neb_calculation.ipynb`, `tst_calculation.ipynb`, `kmc_calculation.ipynb`) and five physics modules, but **no script-generator notebook** and **no workflow orchestration module**. This plan builds those two missing artefacts so Part 2 matches the architecture of Parts 1 and 3.
+
+---
+
+## What to Build
+
+### 1. `models/permeation_workflow.py`
+
+Mirrors `models/diffusivity_workflow.py` and `models/neb_workflow.py` in structure.
+
+#### Section A — Script generation
+
+```python
+def generate_permeation_scripts(
+    work_dir, relaxed_slab_path, surface_sites_json, phase2_h_dir,
+    sub_neb_dir, vib_dir, results_dir,
+    temperatures, p_vals_pa, a0_m, l_m,
+    d0_m2s, e_d_ev,                       # from diffusivity_arrhenius.json
+    dh_diss_ev, dh_entry_ev,              # from NEB delta_E (user fills)
+    nx, ny, seed, kmc_max_steps,
+    gpu_slurm_cfg, neb_slurm_cfg,
+    vib_slurm_cfg,
+    n_images, spring_const, neb_ftol,
+    out_py,
+) -> str
+```
+
+Uses identical **f-string header + raw r-string body** pattern as `diffusivity_workflow.py`.  
+Header injects all config literals; body is the fixed orchestrator logic.  
+Returns path to written `permeation_run.py`.
+
+```python
+def generate_permeation_sh(
+    orch_job_name, orch_partition, orch_cpus_per_task, orch_mem, orch_time,
+    orch_openmpi_ver, orch_cuda_version, orch_conda_env, orch_ld_paths,
+    work_dir, out_py, out_sh,
+) -> str
+```
+
+Writes SLURM wrapper. Returns path to `permeation_run.sh`.
+
+#### Section B — Analysis functions (Phase 4, run locally)
+
+| Function | Reads | Returns |
+|---|---|---|
+| `load_barrier_summary(sub_neb_dir)` | `hopa_jobs.json`, `hopb_jobs.json`, `neb_barrier.txt` per job | `pd.DataFrame` (sid, hop, E_abs, E_des, delta_E, converged) |
+| `load_rate_summary(results_dir, temperatures)` | `rate_dict_T{T}K.json` | `pd.DataFrame` (label, T_K, k_forward, k_reverse, Ea_zpe, nu) |
+| `load_kmc_sweeps(results_dir, temperatures)` | `permeation_sweep_T{T}K.json` | `dict[T → sweep_dict]` |
+| `load_permeability_results(results_dir, temperatures)` | `permeability_T{T}K.json` | `dict[T → perm_dict]` |
+| `plot_barrier_overview(df, sub_neb_dir)` | barrier DataFrame | bar chart Ea distribution (Hop A/B), saves `barriers_overview.png` |
+| `plot_mep_overlay(sub_neb_dir)` | NEB path files | MEP overlay per hop, saves `mep_hopA.png`, `mep_hopB.png` |
+| `plot_kmc_sieverts(results_dir, temperatures)` | sweep JSONs | J vs √P for each T, saves `sieverts_check.png` |
+| `plot_permeability_vs_T(results_dir, temperatures)` | permeability JSONs | Φ(T) linear + Arrhenius (all 3 options), saves `permeability_vs_T.png` |
+| `plot_arrhenius_S0(results_dir)` | `solubility_arrhenius_kmc.json` | Multi-T ln(S) vs 1/T fit overlay, saves `solubility_arrhenius.png` |
+| `plot_bottleneck(results_dir, temperatures)` | sweep + Sieverts JSONs | R² vs T bar chart (1 = bulk-limited, <0.98 = surface-limited), saves `bottleneck.png` |
+
+---
+
+### 2. `calculation/permeation.ipynb`
+
+Thin notebook — no heavy computation inline. Mirrors `neb_calculation.ipynb` and `diffusivity.ipynb`.
+
+#### Script-generation cells
+
+| Cell | Purpose |
+|---|---|
+| Cell 1 | `import os, sys, json` + `sys.path` setup |
+| Cell 2 | All config vars (paths, temperatures, pressures, lattice, KMC params, SLURM configs) |
+| Cell 3 | Call `generate_permeation_scripts(...)` → writes `permeation_run.py` |
+| Cell 4 | Call `generate_permeation_sh(...)` + `submit_slurm_job(dry_run=True)` |
+
+#### Phase 4 — Local analysis cells (run after cluster jobs)
+
+| Phase | Cell function called |
+|---|---|
+| 4a. Barrier overview | `load_barrier_summary()`, `plot_barrier_overview()` |
+| 4b. MEP overlay | `plot_mep_overlay()` |
+| 4c. TST rate summary | `load_rate_summary()`, rate vs T plot |
+| 4d. KMC Sieverts check | `load_kmc_sweeps()`, `plot_kmc_sieverts()` |
+| 4e. Φ(T) plot | `load_permeability_results()`, `plot_permeability_vs_T()` |
+| 4f. Arrhenius S₀ | `plot_arrhenius_S0()` |
+| 4g. Bottleneck diagnosis | `plot_bottleneck()` |
+
+---
+
+## Generated `permeation_run.py` — Phases and Execution Order
+
+```
+Phase 1a — Hop A FS-min  (GPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 1b — Hop A NEB     (CPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 2a — Hop B FS-min  (GPU SLURM array, parallel; IS = Hop A relaxed sub1)
+    ↓ wait_for_jobs
+Phase 2b — Hop B NEB     (CPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 3  — Vibrations    (CPU SLURM array; IS + TS for both hops, all parallel)
+    ↓ wait_for_jobs
+Phase 4  — TST rates     (local inside orchestrator; fast; one rate_dict_T{T}K.json per T)
+Phase 5  — KMC sweeps    (local inside orchestrator; sweep_pressure() at each T)
+Phase 6  — Permeability  (local; all 3 S₀ options; Arrhenius fit; save all JSONs)
+```
+
+Phases 1–3 use `submit_slurm_job()` + `wait_for_jobs()` (same pattern as `neb_run.py`).  
+Phases 4–6 run inside the orchestrator process (no additional SLURM jobs needed for the default grid size NX=NY=20).
+
+---
+
+## Reused Functions (no reimplementation needed)
+
+| Function | Module |
+|---|---|
+| `orchestrate_hopa_neb(...)` | `models/neb_subsurface.py` |
+| `orchestrate_hopb_neb(...)` | `models/neb_subsurface.py` |
+| `collect_is_ts_paths(...)` | `models/vibrations.py` |
+| `orchestrate_vibrations(...)` | `models/vibrations.py` |
+| `collect_neb_results(...)` | `models/tst_rates.py` |
+| `split_vib_results(...)` | `models/tst_rates.py` |
+| `build_rate_dict(...)` | `models/tst_rates.py` |
+| `rates_to_json(...)` | `models/tst_rates.py` |
+| `sweep_pressure(...)` | `models/permeation.py` |
+| `fit_solubility_from_kmc(...)` | `models/permeation.py` |
+| `arrhenius_diffusivity(...)` | `models/permeation.py` |
+| `permeability(...)`, `richardson_flux(...)` | `models/permeation.py` |
+| `submit_slurm_job(...)`, `wait_for_jobs(...)` | `models/create_slurm.py` |
+| `parse_barrier_file(...)` | `models/parsers.py` |
+
+---
+
+## Inputs Required (from Parts 1 and 3)
+
+| Variable | Source |
+|---|---|
+| `RELAXED_SLAB_PATH` | Part 1 — `calculation/slabs/slab_relaxed.lammps` |
+| `SURFACE_SITES_JSON` | Part 1 — `calculation/slabs/surface_sites.json` |
+| `PHASE2_H_DIR` | Part 1 — `calculation/adsorption/h_atom/` (dedup IS `.lammps` files) |
+| `D0_M2S`, `E_D_EV` | Part 3 — `results/diffusivity_arrhenius.json` (loaded in Cell 2 if present) |
+| `DH_DISS_EV`, `DH_ENTRY_EV` | User fills from NEB `delta_E` values after cluster run |
+
+---
+
+## Key Config Variables (Cell 2 of notebook)
+
+```python
+# Paths
+WORK_DIR            = os.path.join(BASE_DIR, 'calculation')
+RELAXED_SLAB_PATH   = os.path.join(WORK_DIR, 'slabs', 'slab_relaxed.lammps')
+SURFACE_SITES_JSON  = os.path.join(WORK_DIR, 'slabs', 'surface_sites.json')
+PHASE2_H_DIR        = os.path.join(WORK_DIR, 'adsorption', 'h_atom')
+SUB_NEB_DIR         = os.path.join(WORK_DIR, 'neb_subsurface')
+VIB_DIR             = os.path.join(WORK_DIR, 'vibrations')
+RESULTS_DIR         = os.path.join(WORK_DIR, 'results')
+
+# Physical parameters
+TEMPERATURES   = [500, 600, 700, 800, 900]   # K
+P_VALS_PA      = [1e3, 1e4, 1e5, 5e5, 1e6]  # Pa
+A0_M           = 3.52e-10   # m
+L_M            = 1e-3       # m
+
+# Diffusivity — loaded from Part 3 output if available
+D0_M2S = 1.5e-7    # placeholder
+E_D_EV = 0.40      # placeholder
+
+# NEB thermodynamics — user fills after NEB jobs complete
+DH_DISS_EV  = None   # eV (dissociation NEB delta_E)
+DH_ENTRY_EV = None   # eV (Hop A delta_E)
+
+# KMC
+NX, NY      = 20, 20
+SEED        = 42
+KMC_MAX_STEPS = 500_000
+
+# SLURM
+GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition='multigpu', time='04:00:00')
+NEB_SLURM_CFG = dict(SLURM_DEFAULTS, partition='short', gpu=None, cpus_per_task=16, time='12:00:00')
+VIB_SLURM_CFG = dict(SLURM_DEFAULTS, partition='short', gpu=None, cpus_per_task=8,  time='06:00:00')
+
+# NEB
+N_IMAGES    = N_REPLICAS
+SPRING_CONST = SPRING_CONST
+NEB_FTOL    = NEB_FTOL
+```
+
+---
+
+## Verification
+
+1. **Script generation**: Run Cells 1–4 with `dry_run=True` → `permeation_run.py` and `permeation_run.sh` are written, no SLURM jobs submitted. Check that the injected config matches the notebook variables.
+2. **Orchestrator structure**: Open `permeation_run.py` and verify 6 phases are present and functions are correctly called.
+3. **Phase 4 analysis cells**: Run each analysis cell with mock JSON files (or real output from a dry-run test at one temperature) → plots saved without error.
+4. **End-to-end**: After a cluster run at one temperature (T=700K), run all Phase 4 cells — barrier DataFrame has at least one row, Sieverts R² prints, Φ(T) plot saves.
+
+---
+
+## Files to Create
+
+| File | Action |
+|---|---|
+| `models/permeation_workflow.py` | New file — ~500 lines |
+| `calculation/permeation.ipynb` | New notebook — Cells 1–4 (script gen) + Phase 4 analysis cells |
+
+The three existing notebooks (`subsurface_neb_calculation.ipynb`, `tst_calculation.ipynb`, `kmc_calculation.ipynb`) remain valid for interactive step-by-step use. `permeation.ipynb` is the canonical automated entry point.
+
+
+
+Ready for review
+Select text to add comments on the plan
+Plan: Full Pipeline Automation — ZPE, a₀(T), and Master Orchestrator
+Context
+The three-part pipeline is structurally complete (permeation_workflow.py + permeation.ipynb were built in the previous session). Two physics gaps and one architectural gap remain before the pipeline is fully automated:
+
+ZPE missing for dissociation NEB (Part 1) — neb_workflow.py runs the H₂* → 2H* NEB but never computes vibrational frequencies at IS or TS. k_diss and k_des in the KMC engine therefore use raw barriers, inconsistent with the Vineyard+ZPE treatment for Hop A/B in Part 2.
+
+a₀(T) not saved (Part 3) — diffusivity_run.py computes temperature-dependent lattice parameter from NPT MD (get_lattice_parameter()) but discards it. Part 2 KMC uses a fixed A0_M = 3.52e-10 m at all temperatures, ignoring thermal expansion.
+
+No master orchestrator — Parts 1, 2, 3 are run independently with manual handoffs for DH_DISS_EV, DH_ENTRY_EV, D0_M2S, E_D_EV. The goal is full automation: one command starts everything, values flow automatically from outputs of earlier parts into later parts.
+
+Current status of three parts
+Part	Notebook	Workflow module	Status
+1 — Surface NEB	neb_calculation.ipynb	models/neb_workflow.py	✅ Done (missing diss vib)
+3 — Bulk diffusivity	diffusivity.ipynb	models/diffusivity_workflow.py	✅ Done (missing a₀ save)
+2 — Surface→Subsurface	permeation.ipynb	models/permeation_workflow.py	✅ Done (missing T-dep a₀, ZPE diss)
+What to Change
+Fix 1 — Save a₀(T) in Part 3 (models/diffusivity_workflow.py)
+In the raw _body r-string, inside the NPT loop where a0_T = get_lattice_parameter(...) is computed (Phase 1b), collect all T→a₀ pairs and after the loop write:
+
+{RESULTS_DIR}/lattice_params_vs_T.json
+→ {"temperatures": [T1, T2, ...], "a0_m": [a0_1, a0_2, ...]}
+This is a 5-line addition to the existing body — no structural changes.
+
+Fix 2 — Add ZPE to dissociation NEB in Part 1 (models/neb_workflow.py)
+The dissociation NEB orchestrator (generate_neb_scripts() → neb_run.py body) currently has two phases: FS-min SLURM array → NEB SLURM array. Add Phase 3: vibrations for dissociation IS + TS.
+
+How:
+
+The NEB run script already saves neb_initial.lammps (IS = H₂* structure).
+Need to also save ts_image.lammps (peak-energy NEB image). Add a post-step inside run_neb.py body: after CINEB converges, identify the image index with maximum ΔE, write it as ts_image.lammps using ase.io.write.
+After NEB SLURM array finishes: collect ('{label}_is', 'neb_initial.lammps') and ('{label}_ts', 'ts_image.lammps') pairs → call orchestrate_vibrations() → submit vib SLURM array → wait.
+After vib finishes: call build_rate_dict() (already in tst_rates.py) per-pair, save diss_vib_rates.json:
+{"Ni-Ni": {"Ea_zpe": 0.51, "Ed_zpe": 1.18, "nu_diss": 1.2e13, "nu_des": 9.8e12}, ...}
+The pair key comes from the site labels (same logic already used in kmc_calculation.ipynb Cell 2 for building k_diss/k_des lookup).
+
+Files changed:
+
+models/neb_workflow.py — (a) add TS extraction to run_neb.py body; (b) add Phase 3 to the neb_run.py body r-string after NEB wait
+neb_calculation.ipynb — no cell changes needed (Phase 3 runs automatically inside neb_run.py)
+Fix 3 — Use a₀(T) + ZPE diss rates in Part 2 (models/permeation_workflow.py)
+In _PERMEATION_BODY, Phase 5 (KMC loop), replace fixed A0_M per temperature:
+
+# Load lattice_params_vs_T.json if available
+_LAT_JSON = os.path.join(RESULTS_DIR, 'lattice_params_vs_T.json')
+if os.path.exists(_LAT_JSON):
+    with open(_LAT_JSON) as _f: _lat = json.load(_f)
+    _a0_dict = dict(zip(_lat['temperatures'], _lat['a0_m']))
+else:
+    _a0_dict = {}
+
+# In per-T loop:
+_a0_T = _a0_dict.get(_T, A0_M)   # falls back to notebook constant if Part 3 not run
+Replace raw-barrier k_diss/k_des with ZPE-corrected rates when diss_vib_rates.json exists:
+
+_DISS_VIB_JSON = os.path.join(WORK_DIR, 'neb', 'diss_vib_rates.json')
+if os.path.exists(_DISS_VIB_JSON):
+    # use nu * exp(-Ea_zpe / kBT) per pair
+else:
+    # fallback: existing diss_jobs.json / placeholder logic (unchanged)
+Auto-extract DH_ENTRY_EV inside Phase 6 from Hop A barrier results instead of requiring DH_ENTRY_EV is not None:
+
+# After Phase 1 Hop A NEB completes, collect mean converged delta_E:
+_dh_entry = np.mean([job['delta_E'] for job in hopa_jobs if job.get('converged')])
+Auto-extract DH_DISS_EV from ranked_barriers.json (mean of converged delta_E values):
+
+_ranked = os.path.join(WORK_DIR, 'neb', 'ranked_barriers.json')
+if os.path.exists(_ranked):
+    with open(_ranked) as _f: _rb = json.load(_f)
+    _dh_diss = np.mean([r['delta_E'] for r in _rb if r.get('converged')])
+When both are auto-extracted, Phase 6 runs unconditionally (removes the if DH_DISS_EV is None guard).
+
+Also fix bug in permeation.ipynb Cell 2: SLURM_DEFAULTS.get('cuda_ver', '') → SLURM_DEFAULTS.get('cuda_version', '') (key mismatch with actual config).
+
+Fix 4 — Master pipeline notebook (NEW)
+New files:
+
+models/pipeline_workflow.py — generate_pipeline_scripts(), generate_pipeline_sh()
+calculation/pipeline.ipynb — master notebook
+Architecture:
+
+pipeline_run.py
+    ├── subprocess.Popen(neb_run.py)        ← Part 1
+    ├── subprocess.Popen(diffusivity_run.py) ← Part 3  (in parallel with Part 1)
+    ├── p1.wait() + p3.wait()
+    └── subprocess.run(permeation_run.py)   ← Part 2  (after both complete)
+Both Part 1 and Part 3 are independent and can run in parallel. Part 2 depends on both (needs ranked_barriers.json + adsorption/h_atom/ from Part 1; diffusivity_arrhenius.json + lattice_params_vs_T.json from Part 3).
+
+The pipeline_run.sh SLURM wrapper submits this as a single long-running orchestrator job.
+
+pipeline.ipynb cells:
+
+Shared config (superset of all three parts' configs)
+Generate all three run scripts (calls generate_neb_scripts(), generate_diffusivity_scripts(), generate_permeation_scripts())
+Generate pipeline_run.py + pipeline_run.sh, submit with dry_run=True
+Note: The three individual notebooks remain valid for partial re-runs or debug.
+
+Data flow diagram
+Part 1 (neb_run.py)                    Part 3 (diffusivity_run.py)
+  └─ ranked_barriers.json ─────────┐     └─ diffusivity_arrhenius.json ─┐
+  └─ diss_vib_rates.json ──────────┤     └─ lattice_params_vs_T.json ───┤
+  └─ adsorption/h_atom/ ───────────┤                                     │
+                                   ▼                                     ▼
+                           Part 2 (permeation_run.py)
+                             auto-reads all ↑ at runtime
+                             no manual filling needed
+Files to change / create
+File	Change
+models/diffusivity_workflow.py	Add a₀(T) JSON save to _body (~5 lines)
+models/neb_workflow.py	Add TS extraction to NEB body; add Phase 3 (diss vib) to neb_run.py body
+models/permeation_workflow.py	Update _PERMEATION_BODY: T-dep a₀, ZPE diss rates, auto DH values
+calculation/permeation.ipynb	Fix cuda_ver → cuda_version key bug in Cell 2
+models/pipeline_workflow.py	NEW — generate_pipeline_scripts(), generate_pipeline_sh()
+calculation/pipeline.ipynb	NEW — master generator notebook
+Verification
+diffusivity_run.py writes lattice_params_vs_T.json with one entry per temperature.
+permeation_run.py prints a0(T) per temperature from the JSON (not the fixed constant).
+After Part 1, diss_vib_rates.json exists with ZPE-corrected rates per element pair.
+Phase 6 of permeation_run.py runs without requiring manual DH_DISS_EV/DH_ENTRY_EV.
+pipeline.ipynb Cell 3 generates pipeline_run.py; opening it shows Part 1 + Part 3 started in parallel then Part 2 after both complete.
+Previous plan content (already implemented)
+Parts 1 and 3 follow the same architecture:
+
+The notebook is a thin script generator + local analyser. It writes a standalone Python orchestrator (*_run.py) and a SLURM wrapper (*_run.sh), then has Phase 4 analysis cells that run after the cluster jobs complete.
+The workflow module holds all the heavy logic: generate_*_scripts(), generate_*_sh(), and analysis functions (load_*, plot_*, qc_*).
+Currently Part 2 has three execution notebooks (subsurface_neb_calculation.ipynb, tst_calculation.ipynb, kmc_calculation.ipynb) and five physics modules, but no script-generator notebook and no workflow orchestration module. This plan builds those two missing artefacts so Part 2 matches the architecture of Parts 1 and 3.
+
+What to Build
+1. models/permeation_workflow.py
+Mirrors models/diffusivity_workflow.py and models/neb_workflow.py in structure.
+
+Section A — Script generation
+def generate_permeation_scripts(
+    work_dir, relaxed_slab_path, surface_sites_json, phase2_h_dir,
+    sub_neb_dir, vib_dir, results_dir,
+    temperatures, p_vals_pa, a0_m, l_m,
+    d0_m2s, e_d_ev,                       # from diffusivity_arrhenius.json
+    dh_diss_ev, dh_entry_ev,              # from NEB delta_E (user fills)
+    nx, ny, seed, kmc_max_steps,
+    gpu_slurm_cfg, neb_slurm_cfg,
+    vib_slurm_cfg,
+    n_images, spring_const, neb_ftol,
+    out_py,
+) -> str
+Uses identical f-string header + raw r-string body pattern as diffusivity_workflow.py.
+Header injects all config literals; body is the fixed orchestrator logic.
+Returns path to written permeation_run.py.
+
+def generate_permeation_sh(
+    orch_job_name, orch_partition, orch_cpus_per_task, orch_mem, orch_time,
+    orch_openmpi_ver, orch_cuda_version, orch_conda_env, orch_ld_paths,
+    work_dir, out_py, out_sh,
+) -> str
+Writes SLURM wrapper. Returns path to permeation_run.sh.
+
+Section B — Analysis functions (Phase 4, run locally)
+Function	Reads	Returns
+load_barrier_summary(sub_neb_dir)	hopa_jobs.json, hopb_jobs.json, neb_barrier.txt per job	pd.DataFrame (sid, hop, E_abs, E_des, delta_E, converged)
+load_rate_summary(results_dir, temperatures)	rate_dict_T{T}K.json	pd.DataFrame (label, T_K, k_forward, k_reverse, Ea_zpe, nu)
+load_kmc_sweeps(results_dir, temperatures)	permeation_sweep_T{T}K.json	dict[T → sweep_dict]
+load_permeability_results(results_dir, temperatures)	permeability_T{T}K.json	dict[T → perm_dict]
+plot_barrier_overview(df, sub_neb_dir)	barrier DataFrame	bar chart Ea distribution (Hop A/B), saves barriers_overview.png
+plot_mep_overlay(sub_neb_dir)	NEB path files	MEP overlay per hop, saves mep_hopA.png, mep_hopB.png
+plot_kmc_sieverts(results_dir, temperatures)	sweep JSONs	J vs √P for each T, saves sieverts_check.png
+plot_permeability_vs_T(results_dir, temperatures)	permeability JSONs	Φ(T) linear + Arrhenius (all 3 options), saves permeability_vs_T.png
+plot_arrhenius_S0(results_dir)	solubility_arrhenius_kmc.json	Multi-T ln(S) vs 1/T fit overlay, saves solubility_arrhenius.png
+plot_bottleneck(results_dir, temperatures)	sweep + Sieverts JSONs	R² vs T bar chart (1 = bulk-limited, <0.98 = surface-limited), saves bottleneck.png
+2. calculation/permeation.ipynb
+Thin notebook — no heavy computation inline. Mirrors neb_calculation.ipynb and diffusivity.ipynb.
+
+Script-generation cells
+Cell	Purpose
+Cell 1	import os, sys, json + sys.path setup
+Cell 2	All config vars (paths, temperatures, pressures, lattice, KMC params, SLURM configs)
+Cell 3	Call generate_permeation_scripts(...) → writes permeation_run.py
+Cell 4	Call generate_permeation_sh(...) + submit_slurm_job(dry_run=True)
+Phase 4 — Local analysis cells (run after cluster jobs)
+Phase	Cell function called
+4a. Barrier overview	load_barrier_summary(), plot_barrier_overview()
+4b. MEP overlay	plot_mep_overlay()
+4c. TST rate summary	load_rate_summary(), rate vs T plot
+4d. KMC Sieverts check	load_kmc_sweeps(), plot_kmc_sieverts()
+4e. Φ(T) plot	load_permeability_results(), plot_permeability_vs_T()
+4f. Arrhenius S₀	plot_arrhenius_S0()
+4g. Bottleneck diagnosis	plot_bottleneck()
+Generated permeation_run.py — Phases and Execution Order
+Phase 1a — Hop A FS-min  (GPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 1b — Hop A NEB     (CPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 2a — Hop B FS-min  (GPU SLURM array, parallel; IS = Hop A relaxed sub1)
+    ↓ wait_for_jobs
+Phase 2b — Hop B NEB     (CPU SLURM array, parallel per IS site)
+    ↓ wait_for_jobs
+Phase 3  — Vibrations    (CPU SLURM array; IS + TS for both hops, all parallel)
+    ↓ wait_for_jobs
+Phase 4  — TST rates     (local inside orchestrator; fast; one rate_dict_T{T}K.json per T)
+Phase 5  — KMC sweeps    (local inside orchestrator; sweep_pressure() at each T)
+Phase 6  — Permeability  (local; all 3 S₀ options; Arrhenius fit; save all JSONs)
+Phases 1–3 use submit_slurm_job() + wait_for_jobs() (same pattern as neb_run.py).
+Phases 4–6 run inside the orchestrator process (no additional SLURM jobs needed for the default grid size NX=NY=20).
+
+Reused Functions (no reimplementation needed)
+Function	Module
+orchestrate_hopa_neb(...)	models/neb_subsurface.py
+orchestrate_hopb_neb(...)	models/neb_subsurface.py
+collect_is_ts_paths(...)	models/vibrations.py
+orchestrate_vibrations(...)	models/vibrations.py
+collect_neb_results(...)	models/tst_rates.py
+split_vib_results(...)	models/tst_rates.py
+build_rate_dict(...)	models/tst_rates.py
+rates_to_json(...)	models/tst_rates.py
+sweep_pressure(...)	models/permeation.py
+fit_solubility_from_kmc(...)	models/permeation.py
+arrhenius_diffusivity(...)	models/permeation.py
+permeability(...), richardson_flux(...)	models/permeation.py
+submit_slurm_job(...), wait_for_jobs(...)	models/create_slurm.py
+parse_barrier_file(...)	models/parsers.py
+Inputs Required (from Parts 1 and 3)
+Variable	Source
+RELAXED_SLAB_PATH	Part 1 — calculation/slabs/slab_relaxed.lammps
+SURFACE_SITES_JSON	Part 1 — calculation/slabs/surface_sites.json
+PHASE2_H_DIR	Part 1 — calculation/adsorption/h_atom/ (dedup IS .lammps files)
+D0_M2S, E_D_EV	Part 3 — results/diffusivity_arrhenius.json (loaded in Cell 2 if present)
+DH_DISS_EV, DH_ENTRY_EV	User fills from NEB delta_E values after cluster run
+Key Config Variables (Cell 2 of notebook)
+# Paths
+WORK_DIR            = os.path.join(BASE_DIR, 'calculation')
+RELAXED_SLAB_PATH   = os.path.join(WORK_DIR, 'slabs', 'slab_relaxed.lammps')
+SURFACE_SITES_JSON  = os.path.join(WORK_DIR, 'slabs', 'surface_sites.json')
+PHASE2_H_DIR        = os.path.join(WORK_DIR, 'adsorption', 'h_atom')
+SUB_NEB_DIR         = os.path.join(WORK_DIR, 'neb_subsurface')
+VIB_DIR             = os.path.join(WORK_DIR, 'vibrations')
+RESULTS_DIR         = os.path.join(WORK_DIR, 'results')
+
+# Physical parameters
+TEMPERATURES   = [500, 600, 700, 800, 900]   # K
+P_VALS_PA      = [1e3, 1e4, 1e5, 5e5, 1e6]  # Pa
+A0_M           = 3.52e-10   # m
+L_M            = 1e-3       # m
+
+# Diffusivity — loaded from Part 3 output if available
+D0_M2S = 1.5e-7    # placeholder
+E_D_EV = 0.40      # placeholder
+
+# NEB thermodynamics — user fills after NEB jobs complete
+DH_DISS_EV  = None   # eV (dissociation NEB delta_E)
+DH_ENTRY_EV = None   # eV (Hop A delta_E)
+
+# KMC
+NX, NY      = 20, 20
+SEED        = 42
+KMC_MAX_STEPS = 500_000
+
+# SLURM
+GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition='multigpu', time='04:00:00')
+NEB_SLURM_CFG = dict(SLURM_DEFAULTS, partition='short', gpu=None, cpus_per_task=16, time='12:00:00')
+VIB_SLURM_CFG = dict(SLURM_DEFAULTS, partition='short', gpu=None, cpus_per_task=8,  time='06:00:00')
+
+# NEB
+N_IMAGES    = N_REPLICAS
+SPRING_CONST = SPRING_CONST
+NEB_FTOL    = NEB_FTOL
+Verification
+Script generation: Run Cells 1–4 with dry_run=True → permeation_run.py and permeation_run.sh are written, no SLURM jobs submitted. Check that the injected config matches the notebook variables.
+Orchestrator structure: Open permeation_run.py and verify 6 phases are present and functions are correctly called.
+Phase 4 analysis cells: Run each analysis cell with mock JSON files (or real output from a dry-run test at one temperature) → plots saved without error.
+End-to-end: After a cluster run at one temperature (T=700K), run all Phase 4 cells — barrier DataFrame has at least one row, Sieverts R² prints, Φ(T) plot saves.
+Files to Create
+File	Action
+models/permeation_workflow.py	New file — ~500 lines
+calculation/permeation.ipynb	New notebook — Cells 1–4 (script gen) + Phase 4 analysis cells
+The three existing notebooks (subsurface_neb_calculation.ipynb, tst_calculation.ipynb, kmc_calculation.ipynb) remain valid for interactive step-by-step use. permeation.ipynb is the canonical automated entry point.
