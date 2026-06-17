@@ -42,6 +42,8 @@ k_diss is dimensionless (Boltzmann sticking, same convention as the KMC engine).
 k_des, k_entry, k_exit are full TST rates in s⁻¹.
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 from models.kmc import make_grid, run_kmc_to_steady_state
