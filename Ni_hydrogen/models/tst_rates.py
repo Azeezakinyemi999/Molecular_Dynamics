@@ -27,6 +27,8 @@ reasonable for hops between similar octahedral sites; it breaks down for large
 IS/FS asymmetry.  Pass ``apply_zpe=False`` to disable.
 """
 
+from __future__ import annotations
+
 import json
 import math
 import os
