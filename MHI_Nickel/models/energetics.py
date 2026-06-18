@@ -274,7 +274,11 @@ def best_n_sites(
     ranked = rank_sites(energy_dict)
 
     if min_separation is None or site_coords is None:
-        return ranked[:n]
+        _sel = ranked[:n]
+        for _i, (_lbl, _e) in enumerate(_sel):
+            print(f'  [site {_i+1}] {_lbl:<18s}  E_bind={_e:.4f} eV')
+        print(f'[best_sites] {len(_sel)}/{n} selected')
+        return _sel
 
     selected: list[tuple[str, float]] = []
     for label, energy in ranked:
@@ -290,6 +294,9 @@ def best_n_sites(
         if len(selected) == n:
             break
 
+    for _i, (_lbl, _e) in enumerate(selected):
+        print(f'  [site {_i+1}] {_lbl:<18s}  E_bind={_e:.4f} eV')
+    print(f'[best_sites] {len(selected)}/{n} selected  (sep≥{min_separation:.2f} Å)')
     return selected
 
 
@@ -336,6 +343,10 @@ def summarise_neb(
     rxn_coord = path[0] if path is not None else None
     energies  = path[1] if path is not None else None
 
+    _Ea   = barrier.get('E_abs',    float('nan'))
+    _Ed   = barrier.get('E_des',    float('nan'))
+    _conv = barrier.get('converged', None)
+    print(f'[summarise_neb] Ea={_Ea:.3f} eV  E_des={_Ed:.3f} eV  converged={_conv}')
     return {
         'Ea':         barrier.get('E_abs'),
         'E_des':      barrier.get('E_des'),

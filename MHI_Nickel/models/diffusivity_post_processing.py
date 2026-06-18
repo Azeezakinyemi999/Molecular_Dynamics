@@ -89,6 +89,7 @@ def unwrap_trajectory(
         dr -= box_lengths * np.round(dr / box_lengths)
         unwrapped[t] = unwrapped[t - 1] + dr
 
+    print(f'[unwrap] {n_atoms} atoms  {n_frames} frames  box={box_lengths[0]:.2f}×{box_lengths[1]:.2f}×{box_lengths[2]:.2f} Å')
     return unwrapped
 
 
@@ -138,6 +139,8 @@ def compute_msd(
         sq   = np.sum(disp ** 2, axis=-1)           # (n_origins,) or (n_origins, n_atoms)
         msd_arr[lag - 1] = float(np.mean(sq))
 
+    n_origins = n_frames - max_lag
+    print(f'[MSD] {n_origins} origins  {max_lag} lags  MSD_max={msd_arr[-1]:.3f} Å²')
     return lag_frames, msd_arr
 
 
@@ -198,6 +201,7 @@ def fit_diffusivity(
     D       = (slope  / 6.0) * ANG2_PS_TO_M2S
     sigma_D = (stderr / 6.0) * ANG2_PS_TO_M2S
 
+    print(f'[D fit] D={D:.4e} m²/s  σ={sigma_D:.2e} m²/s  R²={R2:.4f}')
     return D, sigma_D, R2
 
 

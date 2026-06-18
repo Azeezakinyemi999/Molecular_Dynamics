@@ -62,6 +62,7 @@ def find_sub2_neighbor(G, ss1_id: str, subsurface_sites: list) -> str:
             f'No subsurface_2 neighbor found for {ss1_id}. '
             f'Check that build_subsurface_graph included subsurface_layers=(10, 11).'
         )
+    print(f'[sub2 neighbor] {ss1_id} → {best_id}  dz={best_dz:.3f} Å')
     return best_id
 
 

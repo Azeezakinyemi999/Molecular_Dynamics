@@ -164,7 +164,7 @@ for struct_path in INPUT_STRUCTURES:
         )
         jid = submit_slurm_job(min_bare_sh)
         wait_for_jobs({'min_bare': jid})
-        print('  [1a] Bare bulk minimisation done.')
+        print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
 
         # ── Phase 1b — Step A: NPT at every T in parallel ────────────────────
         print('\n--- Phase 1b: NPT equilibration at each temperature ---')
@@ -221,7 +221,7 @@ for struct_path in INPUT_STRUCTURES:
             _a0_by_T[T] = a0_T
             print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å  →  inserting {n_h} H atom(s)')
 
-            bulk_h_path_T, _, _ = insert_hydrogen(
+            bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
                 bulk_min_path=npt_final_paths[T],
                 n_h=n_h,
                 masses=MASSES_7,
@@ -229,6 +229,7 @@ for struct_path in INPUT_STRUCTURES:
                 out_dir=os.path.join(dirs['structures'], f'{T}K'),
                 a0=a0_T,
             )
+            print(f'  [1b] T={T}K  inserted {n_h} H  min_H-metal={_min_hm_T:.3f} Å  → {bulk_h_path_T}')
 
             min_h_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
             min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
@@ -357,11 +358,12 @@ for struct_path in INPUT_STRUCTURES:
         table_path = os.path.join(analysis_dir, 'diffusivity_table.txt')
         save_diffusivity_table(TEMPERATURES, D_vals, D_errs, R2_vals, table_path)
 
+        print(f'  D(T) summary: {" | ".join(f"{T:.0f}K:{D:.2e}" for T, D in zip(TEMPERATURES, D_vals))}')
         arr = run_arrhenius_pipeline(
             diffusivity_file=table_path,
             outdir=analysis_dir,
         )
-        print(f'  Ea = {arr["Ea"]:.4f} eV   D0 = {arr["D0"]:.4e} m2/s')
+        print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
 
         # Save Arrhenius params so Part 2 (permeation_run.py) can load them
         _arr_out = os.path.join(WORK_DIR, 'results', 'diffusivity_arrhenius.json')

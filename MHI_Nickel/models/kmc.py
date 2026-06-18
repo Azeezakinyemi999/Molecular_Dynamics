@@ -459,12 +459,15 @@ def run_kmc(
     th_arr[0] = surface_coverage(grid)
     ns_arr[0] = subsurface_population(grid)
 
+    _print_every = max(1, n_steps // 10)
     for step in range(n_steps):
         events       = build_event_list(grid, rate_dict, P_Pa, T_K, D_m2s, a0_m)
         t           += kmc_step(grid, events)
         t_arr[step + 1]  = t
         th_arr[step + 1] = surface_coverage(grid)
         ns_arr[step + 1] = subsurface_population(grid)
+        if (step + 1) % _print_every == 0:
+            print(f'  [KMC] step {step+1:>8d}/{n_steps}  t={t:.3e} s  θ={th_arr[step+1]:.4f}  n_sub={int(ns_arr[step+1])}')
 
     return {'t_arr': t_arr, 'theta_arr': th_arr, 'n_sub_arr': ns_arr}
 
@@ -526,6 +529,9 @@ def run_kmc_to_steady_state(
             th_ok = abs(th_now - th_prev) <= rtol * (th_prev + 1e-12)
             ns_ok = abs(ns_now - ns_prev) <= rtol * (ns_prev + 1e-12)
 
+            if (step // window) % 50 == 0:
+                print(f'  [KMC] step={step:>7d}  t={t:.3e} s  θ={th_now:.4f}  n_sub={ns_now:.1f}  Δθ={abs(th_now-th_prev):.4f}')
+
             if th_ok and ns_ok:
                 converged = True
                 break
@@ -533,6 +539,7 @@ def run_kmc_to_steady_state(
     theta_ss = float(np.mean(th_hist[-window:])) if len(th_hist) >= window else float(np.mean(th_hist))
     C0       = subsurface_concentration(grid, a0_m)
 
+    print(f'[KMC] converged={converged}  steps={step}  t={t:.3e} s  θ={theta_ss:.4f}  C0={C0:.3e} atoms/m³')
     return {
         't_total':  t,
         'theta_ss': theta_ss,
