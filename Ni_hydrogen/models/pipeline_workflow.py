@@ -65,12 +65,14 @@ print('=' * 70)
 
 _python = sys.executable
 
+_log1 = os.path.join(WORK_DIR, 'neb_run.log')
+_log3 = os.path.join(WORK_DIR, 'diffusivity_run.log')
 p1 = subprocess.Popen([_python, NEB_RUN_PY],
-                      stdout=None, stderr=None)
+                      stdout=open(_log1, 'w'), stderr=subprocess.STDOUT)
 p3 = subprocess.Popen([_python, DIFFUSIVITY_RUN_PY],
-                      stdout=None, stderr=None)
-print(f'  Part 1 PID: {p1.pid}  ({NEB_RUN_PY})')
-print(f'  Part 3 PID: {p3.pid}  ({DIFFUSIVITY_RUN_PY})')
+                      stdout=open(_log3, 'w'), stderr=subprocess.STDOUT)
+print(f'  Part 1 PID: {p1.pid}  log: {_log1}')
+print(f'  Part 3 PID: {p3.pid}  log: {_log3}')
 
 rc1 = p1.wait()
 rc3 = p3.wait()
@@ -81,7 +83,8 @@ print(f'  Part 3 returned: {rc3}')
 
 if rc1 != 0 or rc3 != 0:
     print('ERROR: Part 1 and/or Part 3 failed — Part 2 will NOT be started.')
-    print('  Inspect Part 1 / Part 3 logs and re-run the failed part.')
+    print(f'  Part 1 log: {_log1}')
+    print(f'  Part 3 log: {_log3}')
     sys.exit(1)
 
 print('\n' + '=' * 70)

@@ -81,6 +81,7 @@ def collect_neb_results(neb_jobs: list, hop: str = 'hopa') -> dict:
         except Exception as exc:
             warnings.warn(f'[{label}] parse_barrier_file failed: {exc}; skipping.')
 
+    print(f'[NEB results] loaded {len(results)}/{len(neb_jobs)} jobs  (hop={hop})')
     return results
 
 
@@ -352,9 +353,11 @@ def build_rate_dict(
             Ea_use = Ea_raw
             Ed_use = Ed_raw
 
+        _k_fwd = arrhenius_rate(nu, Ea_use, T_K)
+        _k_rev = arrhenius_rate(nu, Ed_use, T_K)
         rate_dict[label] = {
-            'k_forward': arrhenius_rate(nu, Ea_use, T_K),
-            'k_reverse': arrhenius_rate(nu, Ed_use, T_K),
+            'k_forward': _k_fwd,
+            'k_reverse': _k_rev,
             'Ea_raw':    Ea_raw,
             'Ea_zpe':    Ea_use,
             'Ed_raw':    Ed_raw,
@@ -363,6 +366,7 @@ def build_rate_dict(
             'delta_e':   float(neb.get('delta_E', float('nan'))),
             'T_K':       T_K,
         }
+        print(f'  {label:<24s}  k_fwd={_k_fwd:.3e}  k_rev={_k_rev:.3e}  Ea_zpe={Ea_use:.3f} eV  ν={nu:.2e} s⁻¹')
 
     if skipped:
         warnings.warn(
@@ -370,6 +374,7 @@ def build_rate_dict(
             + '\n  '.join(skipped)
         )
 
+    print(f'[rate_dict] {len(rate_dict)} labels at T={T_K:.0f} K  (skipped={len(skipped)})')
     return rate_dict
 
 
