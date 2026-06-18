@@ -161,6 +161,9 @@ def parse_minimization_log(logfile: str) -> tuple[dict, dict]:
                 meta['stop_criterion'] = line.strip()
                 break
 
+    _E    = meta.get('Total_energy_eV', float('nan'))
+    _Fmax = meta.get('Fmax_eV_per_Ang', float('nan'))
+    print(f'[min_log] E={_E:.6f} eV  Fmax={_Fmax:.4f} eV/Å  ({os.path.basename(logfile)})')
     return thermo, meta
 
 
@@ -200,6 +203,9 @@ def parse_surface_relaxation_log(logfile: str) -> tuple[dict, dict]:
                     meta['free_count'] = int(m.group(1))
                 break
 
+    _contr = meta.get('surface_contraction', float('nan'))
+    _PE    = meta.get('pe_final_eV', float('nan'))
+    print(f'[surf_log] contraction={_contr:.3f} Å  PE={_PE:.4f} eV  ({os.path.basename(logfile)})')
     return thermo, meta
 
 
@@ -222,6 +228,10 @@ def parse_equil_log(logfile: str) -> dict | None:
         return None
     result_keys = ['T_K', 'pe_final_eV', 'temp_final_K', 'press_final']
     _, meta = _parse_lammps_log(logfile, 'EQUIL', result_keys)
+    if meta:
+        _T  = meta.get('temp_final_K', float('nan'))
+        _PE = meta.get('pe_final_eV', float('nan'))
+        print(f'[equil_log] T={_T:.1f} K  PE={_PE:.4f} eV  ({os.path.basename(logfile)})')
     return meta if meta else None
 
 
@@ -254,6 +264,10 @@ def parse_energy_log(logfile):
                         results[key] = float(line.split(':')[1].strip())
                     except ValueError:
                         pass
+    if results:
+        _PE   = results.get('pe_final_eV', float('nan'))
+        _Fmax = results.get('fmax_eV_per_Ang', float('nan'))
+        print(f'[energy_log] PE={_PE:.6f} eV  Fmax={_Fmax:.4f} eV/Å  ({os.path.basename(logfile)})')
     return results if results else None
 # ════════════════════════════════════════════════════════════════════════════
 # Standalone — thermo column reader
@@ -306,6 +320,7 @@ def parse_thermo_series(
                         pass
 
     if steps:
+        print(f'[thermo] {len(steps)} rows  ({os.path.basename(logfile)})')
         return np.array(steps), np.array(temps), np.array(pes)
     return None
 
@@ -431,6 +446,9 @@ def parse_lammps_dump(
         for hi, xyz in enumerate(frame_h):
             pos_arr[fi, hi] = xyz
     box_arr = np.array(box_lengths)
+    _box0   = box_arr[0] if len(box_arr) > 0 else [float('nan')] * 3
+    _n_h    = pos_arr.shape[1] if pos_arr.ndim == 3 else 0
+    print(f'[parse_dump] {len(timesteps)} frames  {_n_h} H atoms  box={_box0[0]:.2f}x{_box0[1]:.2f}x{_box0[2]:.2f} Å  ({os.path.basename(traj_file)})')
     return t_arr, pos_arr, box_arr
 
 
@@ -491,9 +509,13 @@ def parse_diffusivity_file(
                 except ValueError:
                     pass
 
+    _T_arr = np.array(T_vals)
+    _D_arr = np.array(D_vals)
+    if len(_D_arr) > 0:
+        print(f'[diff_file] {len(_T_arr)} T points  D={_D_arr.min():.2e}–{_D_arr.max():.2e} m²/s  ({os.path.basename(diff_file)})')
     return (
-        np.array(T_vals),
-        np.array(D_vals),
+        _T_arr,
+        _D_arr,
         np.array(Derr_vals),
         np.array(R2_vals),
     )
@@ -554,6 +576,11 @@ def parse_barrier_file(barrier_file: str) -> dict:
                         result['converged'] = val.lower() in ('true', '1', 'yes')
                     break
 
+    _Ea   = result.get('E_abs',   float('nan'))
+    _Ed   = result.get('E_des',   float('nan'))
+    _dE   = result.get('delta_E', float('nan'))
+    _conv = result.get('converged', None)
+    print(f'[barrier] Ea={_Ea:.3f} eV  E_des={_Ed:.3f} eV  dE={_dE:.3f} eV  converged={_conv}')
     return result
 
 
@@ -599,4 +626,7 @@ def parse_neb_path(path_file: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
                 except ValueError:
                     pass
 
-    return np.array(frac), np.array(E_abs_vals), np.array(dE_vals)
+    _dE_arr  = np.array(dE_vals)
+    _Ea_peak = float(_dE_arr.max()) if len(_dE_arr) > 0 else float('nan')
+    print(f'[neb_path] {len(frac)} images  Ea_peak={_Ea_peak:.3f} eV  ({os.path.basename(path_file)})')
+    return np.array(frac), np.array(E_abs_vals), _dE_arr

@@ -308,7 +308,9 @@ def lattice_site_S0(a0_m: float) -> float:
     float
         S₀ in atoms m⁻³ Pa^(−½).
     """
-    return 4.0 / (a0_m ** 3)
+    _S0 = 4.0 / (a0_m ** 3)
+    print(f'[S0 opt1] S0={_S0:.3e} atoms·m⁻³·Pa⁻⁰·⁵  (a0={a0_m*1e10:.4f} Å)')
+    return _S0
 
 
 def solubility_from_rates(
@@ -372,6 +374,7 @@ def solubility_from_rates(
     denom = k_des_s1 * np.sqrt(2.0 * np.pi * _M_H2_KG * _KB_J * T_K)
 
     S = rho_oct * (k_entry_s1 / k_exit_s1) * np.sqrt(k_diss * A_site / denom)
+    print(f'[S opt2] S(T={T_K:.0f}K)={S:.3e} atoms·m⁻³·Pa⁻⁰·⁵')
     return S
 
 
@@ -418,6 +421,7 @@ def fit_solubility_from_kmc(sweep_result: dict) -> dict:
     S_mean = float(np.mean(valid))              if valid            else 0.0
     S_std  = float(np.std(valid, ddof=1))       if len(valid) > 1  else 0.0
 
+    print(f'[S opt3] S_mean={S_mean:.3e}  S_std={S_std:.3e}  n_converged={len(valid)}')
     return {
         'S_vals':      S_vals,
         'P_vals':      list(P_vals),
@@ -453,7 +457,9 @@ def sieverts_solubility(dH_sol_eV: float, S0: float, T_K: float) -> float:
     """
     if T_K <= 0:
         raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
-    return S0 * np.exp(-dH_sol_eV / (_KB_EV * T_K))
+    _S = S0 * np.exp(-dH_sol_eV / (_KB_EV * T_K))
+    print(f'[Sieverts] S({T_K:.0f}K)={_S:.3e}  (S0={S0:.3e}  dH={dH_sol_eV:.3f} eV)')
+    return _S
 
 
 def permeability(D_m2s: float, S_m3_pasqrt: float) -> float:
@@ -476,7 +482,9 @@ def permeability(D_m2s: float, S_m3_pasqrt: float) -> float:
     float
         Permeability Φ in atoms·m⁻¹·s⁻¹·Pa^(−½).
     """
-    return D_m2s * S_m3_pasqrt
+    _Phi = D_m2s * S_m3_pasqrt
+    print(f'[Phi] Φ={_Phi:.3e} atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵')
+    return _Phi
 
 
 def richardson_flux(
@@ -509,4 +517,6 @@ def richardson_flux(
     """
     if L_m <= 0:
         raise ValueError(f'Membrane thickness must be positive; got L_m={L_m}.')
-    return Phi * (np.sqrt(P_high_Pa) - np.sqrt(max(P_low_Pa, 0.0))) / L_m
+    _J = Phi * (np.sqrt(P_high_Pa) - np.sqrt(max(P_low_Pa, 0.0))) / L_m
+    print(f'[Richardson] J={_J:.3e} atoms·m⁻²·s⁻¹  (P_high={P_high_Pa:.2e} Pa  L={L_m:.3e} m)')
+    return _J

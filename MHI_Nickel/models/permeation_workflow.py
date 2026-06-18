@@ -279,6 +279,8 @@ for _T in TEMPERATURES:
             _k_diss[_pair] = np.exp(-0.5  / _kBT)
             _k_des[_pair]  = _NU_DISS * np.exp(-1.2 / _kBT)
 
+    for _el, _ke in _k_entry.items():
+        print(f'  [{_T:.0f}K] k_entry({_el})={_ke:.3e} s⁻¹  k_exit({_el})={_k_exit.get(_el, float("nan")):.3e} s⁻¹')
     _rate_dict = {'k_diss': _k_diss, 'k_des': _k_des,
                   'k_entry': _k_entry, 'k_exit': _k_exit}
     _D_T = arrhenius_diffusivity(D0_M2S, E_D_EV, _T)
@@ -395,7 +397,9 @@ else:
                             'n_converged': _kmc_sol['n_converged']},
                 'P_high_Pa': _P_HIGH, 'L_m': L_M,
             }, _f, indent=2)
-        print(f'  T={_T:4.0f} K  a0={_a0_T6:.4e} m  Φ(opt3)={_Phi3:.3e}  J(opt3)={_J3:.3e}')
+        print(f'  T={_T:4.0f} K  Opt1(lattice):  S={_S1:.3e}  Phi={_Phi1:.3e}  J={_J1:.3e} atoms/m²/s')
+        print(f'  T={_T:4.0f} K  Opt2(TST):      S={_S2:.3e}  Phi={_Phi2:.3e}  J={_J2:.3e} atoms/m²/s')
+        print(f'  T={_T:4.0f} K  Opt3(KMC):      S={_S3:.3e}  Phi={_Phi3:.3e}  J={_J3:.3e} atoms/m²/s')
 
     # Multi-T Arrhenius S₀ fit from KMC
     _S_arr, _T_arr = [], []

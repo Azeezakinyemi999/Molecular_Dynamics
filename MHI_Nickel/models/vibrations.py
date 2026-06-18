@@ -98,6 +98,7 @@ def extract_ts_structure(job_dir: str) -> str:
             f'TS image file not found: {ts_file}\n'
             f'  ts_index={ts_index} from barrier file — check images/ directory.'
         )
+    print(f'[TS] image {ts_index}/{len(image_energies)+1}  E_max={image_energies[ts_index]:.4f} eV  → {ts_file}')
     return os.path.abspath(ts_file)
 
 
@@ -314,7 +315,11 @@ def load_vibration_results(vib_json_path: str) -> dict:
     if not os.path.exists(vib_json_path):
         raise FileNotFoundError(f'vib_frequencies.json not found: {vib_json_path}')
     with open(vib_json_path) as fh:
-        return json.load(fh)
+        _data = json.load(fh)
+    _n_real = len(_data.get('frequencies_real_cm1', []))
+    _n_imag = len(_data.get('frequencies_imag_cm1', []))
+    print(f'[vib] {_n_real} real modes  {_n_imag} imag modes  ({os.path.basename(vib_json_path)})')
+    return _data
 
 
 # ---------------------------------------------------------------------------
