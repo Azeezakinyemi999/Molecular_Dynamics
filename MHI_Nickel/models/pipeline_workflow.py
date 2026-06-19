@@ -141,8 +141,7 @@ def generate_pipeline_sh(
         #SBATCH --error={orch_job_name}_%j.err
 
         # ── environment ──────────────────────────────────────────────────────────
-        module load openmpi/{orch_openmpi_ver}
-        module load cuda/{orch_cuda_version}
+        source ~/miniforge3/etc/profile.d/conda.sh
         conda activate {orch_conda_env}
         {_ld_export}
         cd {os.path.dirname(out_py)}
