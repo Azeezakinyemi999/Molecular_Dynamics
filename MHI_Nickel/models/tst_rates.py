@@ -333,6 +333,13 @@ def build_rate_dict(
             skipped.append(f'{label} ({exc})')
             continue
 
+        is_imag = is_vib.get('frequencies_imag_cm1', [])
+        ts_imag = ts_vib.get('frequencies_imag_cm1', [])
+        if len(is_imag) != 0:
+            warnings.warn(f'[{label}] IS has {len(is_imag)} imaginary mode(s) — expected 0.')
+        if len(ts_imag) != 1:
+            warnings.warn(f'[{label}] TS has {len(ts_imag)} imaginary mode(s) — expected 1.')
+
         is_freqs = is_vib['frequencies_real_cm1']
         ts_freqs = ts_vib['frequencies_real_cm1']  # imaginary mode already excluded
 

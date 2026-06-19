@@ -231,7 +231,8 @@ def parse_equil_log(logfile: str) -> dict | None:
     if meta:
         _T  = meta.get('temp_final_K', float('nan'))
         _PE = meta.get('pe_final_eV', float('nan'))
-        print(f'[equil_log] T={_T:.1f} K  PE={_PE:.4f} eV  ({os.path.basename(logfile)})')
+        _Pf = meta.get('press_final', float('nan'))
+        print(f'[equil_log] T={_T:.1f} K  PE={_PE:.4f} eV  P={_Pf:.2f} bar  ({os.path.basename(logfile)})')
     return meta if meta else None
 
 
