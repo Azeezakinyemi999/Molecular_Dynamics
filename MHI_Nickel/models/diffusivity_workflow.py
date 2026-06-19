@@ -410,7 +410,7 @@ def generate_orchestrator_sh(
     """Write diffusivity_run.sh and chmod +x it. Returns the output path."""
 
     orch_time_line = f'#SBATCH --time={orch_time}' if orch_time else ''
-    _ld_lines = '\n'.join(
+    _ld_lines = ('\n        ').join(
         f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH'
         for p in orch_ld_paths
     )
