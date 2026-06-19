@@ -129,9 +129,9 @@ def generate_pipeline_sh(
 
     _time_line = f'#SBATCH --time={orch_time}' if orch_time else ''
 
-    _ld_export = ''
-    for p in orch_ld_paths:
-        _ld_export += f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH\n'
+    _ld_export = ('\n        ').join(
+        f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH' for p in orch_ld_paths
+    )
 
     _sh = dedent(f'''\
         #!/bin/bash

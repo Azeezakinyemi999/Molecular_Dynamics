@@ -18,7 +18,7 @@ submit_new.log
 nb05b_submit.log
 nb06b_submit.log
 
-*.sh
+#*.sh
 *metadata/
 
 # Jupyter clutter
