@@ -5,7 +5,7 @@
 
 #SBATCH --partition=short
 #SBATCH --time=48:00:00
-#SBATCH --output=/Users/akinyemi.az/Desktop/PhD_Folder/research/MHI/MD/Molecular_Dynamics/MHI_Nickel/calculation/neb_run_%j.out
+#SBATCH --output=neb_run_%j.out
 
 
 module load OpenMPI/4.1.6
