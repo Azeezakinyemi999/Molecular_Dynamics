@@ -26,11 +26,10 @@ LAMMPS_CMD = (
 )
 
 MACE_MODEL_LAMMPS = (
-    '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mp-0b2-medium.model-mliap_lammps.pt'
-)
+    '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt'
 
 MACE_MODEL_ASE = (
-    '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mp-0b2-medium.model'
+    '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model '
 )
 
 BASE_DIR = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel'
