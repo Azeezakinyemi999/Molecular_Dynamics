@@ -569,13 +569,14 @@ def generate_permeation_sh(
     lines.append('#SBATCH --output=permeation_orch_%j.out\n')
     lines.append('\n')
     if orch_openmpi_ver:
-        lines.append(f'module load openmpi/{orch_openmpi_ver}\n')
+        lines.append(f'module load OpenMPI/{orch_openmpi_ver}\n')
     if orch_cuda_version:
         lines.append(f'module load cuda/{orch_cuda_version}\n')
     if orch_ld_paths:
         for p in orch_ld_paths:
             lines.append(f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH\n')
     lines.append('\n')
+    lines.append('source ~/miniforge3/etc/profile.d/conda.sh\n')
     lines.append(f'conda activate {orch_conda_env}\n')
     lines.append('\n')
     lines.append(f'cd {work_dir}\n')
