@@ -64,13 +64,16 @@ print('  Pipeline start: Part 1 (NEB) + Part 3 (diffusivity) in parallel')
 print('=' * 70)
 
 _python = sys.executable
+_base_dir = os.path.dirname(WORK_DIR)
 
 _log1 = os.path.join(WORK_DIR, 'neb_run.log')
 _log3 = os.path.join(WORK_DIR, 'diffusivity_run.log')
 p1 = subprocess.Popen([_python, NEB_RUN_PY],
-                      stdout=open(_log1, 'w'), stderr=subprocess.STDOUT)
+                      stdout=open(_log1, 'w'), stderr=subprocess.STDOUT,
+                      cwd=_base_dir)
 p3 = subprocess.Popen([_python, DIFFUSIVITY_RUN_PY],
-                      stdout=open(_log3, 'w'), stderr=subprocess.STDOUT)
+                      stdout=open(_log3, 'w'), stderr=subprocess.STDOUT,
+                      cwd=_base_dir)
 print(f'  Part 1 PID: {p1.pid}  log: {_log1}')
 print(f'  Part 3 PID: {p3.pid}  log: {_log3}')
 
@@ -91,7 +94,7 @@ print('\n' + '=' * 70)
 print('  Part 1 and Part 3 complete.  Starting Part 2 (permeation)...')
 print('=' * 70)
 
-rc2 = subprocess.run([_python, PERMEATION_RUN_PY]).returncode
+rc2 = subprocess.run([_python, PERMEATION_RUN_PY], cwd=_base_dir).returncode
 
 print('\n' + '=' * 70)
 print(f'  Part 2 returned: {rc2}')
