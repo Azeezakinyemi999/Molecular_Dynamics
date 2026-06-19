@@ -146,6 +146,9 @@ def sweep_pressure(
     C0_out:      list[float] = []
     sqrtP_out:   list[float] = []
     conv_out:    list[bool]  = []
+    theta_out:   list[float] = []
+    t_total_out: list[float] = []
+    nsteps_out:  list[int]   = []
 
     for P in P_vals_Pa:
         grid = make_grid(nx, ny, composition=composition, seed=seed)
@@ -158,18 +161,24 @@ def sweep_pressure(
         C0_out.append(float(C0))
         sqrtP_out.append(float(np.sqrt(P)))
         conv_out.append(bool(ss['converged']))
+        theta_out.append(float(ss['theta_ss']))
+        t_total_out.append(float(ss['t_total']))
+        nsteps_out.append(int(ss['n_steps']))
 
         print(
-            f'  P={P:.2e} Pa | C0={C0:.3e} atoms/m³ | '
+            f'  P={P:.2e} Pa | θ={ss["theta_ss"]:.4f} | C0={C0:.3e} atoms/m³ | '
             f'J={J:.3e} atoms/m²/s | converged={ss["converged"]}'
         )
 
     return {
-        'P_vals':     P_out,
-        'J_vals':     J_out,
-        'C0_vals':    C0_out,
+        'P_vals':      P_out,
+        'J_vals':      J_out,
+        'C0_vals':     C0_out,
         'sqrt_P_vals': sqrtP_out,
-        'converged':  conv_out,
+        'converged':   conv_out,
+        'theta_vals':  theta_out,
+        't_total_vals': t_total_out,
+        'n_steps_vals': nsteps_out,
     }
 
 
@@ -403,16 +412,18 @@ def fit_solubility_from_kmc(sweep_result: dict) -> dict:
         Non-converged or zero-pressure points are excluded from statistics
         but appear as ``None`` in ``S_vals``.
     """
-    P_vals    = sweep_result['P_vals']
-    C0_vals   = sweep_result['C0_vals']
-    converged = sweep_result.get('converged', [True] * len(P_vals))
+    P_vals       = sweep_result['P_vals']
+    C0_vals      = sweep_result['C0_vals']
+    converged    = sweep_result.get('converged', [True] * len(P_vals))
+    sqrt_P_saved = sweep_result.get('sqrt_P_vals')
 
     S_vals: list = []
     valid:  list[float] = []
 
-    for P, C0, conv in zip(P_vals, C0_vals, converged):
+    for i, (P, C0, conv) in enumerate(zip(P_vals, C0_vals, converged)):
         if conv and P > 0:
-            s = float(C0) / np.sqrt(float(P))
+            sqrtP = sqrt_P_saved[i] if sqrt_P_saved else np.sqrt(float(P))
+            s = float(C0) / sqrtP
             S_vals.append(s)
             valid.append(s)
         else:

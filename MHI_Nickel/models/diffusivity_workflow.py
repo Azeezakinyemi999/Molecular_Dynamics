@@ -351,7 +351,7 @@ for struct_path in INPUT_STRUCTURES:
                 outdir=analysis_dir,
             )
             D_vals.append(result['D'])
-            D_errs.append(result['D_err'])
+            D_errs.append(result['sigma_D'])
             R2_vals.append(result['R2'])
             print(f'  T={T}K   D={result["D"]:.4e} m2/s   R2={result["R2"]:.4f}')
 
@@ -368,9 +368,16 @@ for struct_path in INPUT_STRUCTURES:
         # Save Arrhenius params so Part 2 (permeation_run.py) can load them
         _arr_out = os.path.join(WORK_DIR, 'results', 'diffusivity_arrhenius.json')
         with open(_arr_out, 'w') as _f:
-            _json_lat.dump({'D0_m2s': arr['D0'], 'E_D_eV': arr['Ea'],
-                            'D0_err': arr['D0_err'], 'E_D_err_eV': arr['Ea_err'],
-                            'R2_fit': arr['R2']}, _f, indent=2)
+            _json_lat.dump({
+                'D0_m2s':     arr['D0'],
+                'E_D_eV':     arr['Ea'],
+                'D0_err':     arr['D0_err'],
+                'E_D_err_eV': arr['Ea_err'],
+                'R2_fit':     arr['R2'],
+                'T_K_arr':    [float(t) for t in arr['T_arr']],
+                'D_arr':      [float(d) for d in arr['D_arr']],
+                'D_err_arr':  [float(e) for e in arr['D_err_arr']],
+            }, _f, indent=2)
         print(f'  Saved diffusivity_arrhenius.json → {_arr_out}')
 
 print('\n=== All structures and H concentrations complete ===')
