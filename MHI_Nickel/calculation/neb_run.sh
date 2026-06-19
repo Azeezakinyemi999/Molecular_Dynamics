@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 
-#SBATCH --partition=west
+#SBATCH --partition=short
 #SBATCH --time=48:00:00
 #SBATCH --output=/Users/akinyemi.az/Desktop/PhD_Folder/research/MHI/MD/Molecular_Dynamics/MHI_Nickel/calculation/neb_run_%j.out
 
