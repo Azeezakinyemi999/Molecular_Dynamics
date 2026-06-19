@@ -353,7 +353,7 @@ def orchestrate_hopa_neb(
         slurm_config=slurm_opts,
         out_path=fsmin_array,
         array_range=ar,
-        concurrent=50,
+        concurrent=4,
         commands=[
             f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
             f'bash {hopa_dir}/${{SID}}/slurm_fsmin_${{SID}}.sh',
@@ -617,7 +617,7 @@ def orchestrate_hopb_neb(
         slurm_config=slurm_opts,
         out_path=fsmin_array,
         array_range=ar,
-        concurrent=50,
+        concurrent=4,
         commands=[
             f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
             f'bash {hopb_dir}/${{SID}}/slurm_fsmin_${{SID}}.sh',
