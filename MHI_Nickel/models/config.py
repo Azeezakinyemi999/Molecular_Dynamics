@@ -3,7 +3,7 @@ models/config.py
 ================
 Project-wide constants for Hastelloy-N hydrogen diffusion MD simulations.
 
-All LAMMPS runs use the MACE-MP-0b2 ML potential on a single A100 GPU via
+All LAMMPS runs use the MACE-MH-1 ML potential on a single A100 GPU via
 SLURM (partition: multigpu).  Import what you need and override only the
 job-specific values (partition, time) in each notebook.
 
@@ -27,9 +27,9 @@ LAMMPS_CMD = (
 
 MACE_MODEL_LAMMPS = (
     '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt'
-
+)
 MACE_MODEL_ASE = (
-    '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model '
+    '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model'
 )
 
 BASE_DIR = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel'
