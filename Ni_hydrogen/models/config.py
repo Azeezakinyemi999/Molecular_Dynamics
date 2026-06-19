@@ -27,6 +27,7 @@ LAMMPS_CMD = (
 
 MACE_MODEL_LAMMPS = (
     '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt'
+) 
 
 MACE_MODEL_ASE = (
     '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model '
