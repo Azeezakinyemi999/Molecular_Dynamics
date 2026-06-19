@@ -2229,7 +2229,7 @@ VIB_SLURM_CFG  = {_vib_cfg!r}
     _body = r"""
 import os
 import sys
-sys.path.insert(0, WORK_DIR)
+sys.path.insert(0, os.path.dirname(WORK_DIR))
 
 from models.neb_workflow import orchestrate_full_neb_workflow
 from models.create_slurm import submit_slurm_job, wait_for_jobs
