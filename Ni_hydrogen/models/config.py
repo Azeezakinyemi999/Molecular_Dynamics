@@ -99,6 +99,7 @@ ELEM_STR_10 = 'Al B C Cr Fe Mo Ni O H'
 # Keys NOT included here (set per-notebook): 'partition', 'time'
 
 _LD_PATHS = [
+    '/shared/EL9/explorer/cuda/12.3.0/lib64',
     '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs',
     '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap',
     '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib',
