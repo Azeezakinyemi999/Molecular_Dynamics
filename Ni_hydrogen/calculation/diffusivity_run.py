@@ -37,7 +37,7 @@ RESTART_EVERY    = 100000
 import os
 import sys
 import json as _json_lat
-sys.path.insert(0, WORK_DIR)
+sys.path.insert(0, os.path.dirname(WORK_DIR))
 
 from models.config import (
     LAMMPS_CMD, MACE_MODEL_LAMMPS, KOKKOS_FLAGS,
