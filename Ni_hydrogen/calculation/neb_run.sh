@@ -19,5 +19,5 @@ export LD_LIBRARY_PATH=/home/akinyemi.az/miniforge3/envs/mace-lammps/lib:$LD_LIB
 cd Ni_hydrogen/calculation
 
 echo "Node: $(hostname)  Start: $(date)"
-python Ni_hydrogen/calculation/neb_run.py
+python /projects/westgroup/akinyemi.az/mace_lammps/Ni_hydrogen/calculation/neb_run.py
 echo "End: $(date)"

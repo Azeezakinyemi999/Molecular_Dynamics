@@ -165,7 +165,7 @@ def write_vibration_script(
         # ── Load structure ────────────────────────────────────────────────────
         atoms = read(STRUCTURE, format="lammps-data", atom_style="atomic")
         calc  = MACECalculator(
-            model_paths=MACE_MODEL, device=DEVICE, default_dtype="float64"
+            model_paths=MACE_MODEL, device=DEVICE, default_dtype="float64", head="omat_pbe"
         )
         atoms.calc = calc
 
