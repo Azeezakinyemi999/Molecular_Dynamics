@@ -31,6 +31,7 @@ MACE_MODEL_LAMMPS = (
 MACE_MODEL_ASE = (
     '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model'
 )
+MACE_HEAD = 'omat_pbe'
 
 BASE_DIR = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel'
 
@@ -113,6 +114,7 @@ SLURM_DEFAULTS = {
     'cuda_version':  '12.3.0',
     'openmpi_ver':   '4.1.6',
     'ld_paths':      _LD_PATHS,
+    'ld_preload':    '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/libjemalloc.so',
 }
 
 # =============================================================================
