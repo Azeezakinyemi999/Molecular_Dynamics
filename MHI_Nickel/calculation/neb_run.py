@@ -44,7 +44,7 @@ VIB_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': None, 'conda_env': 'ma
 
 import os
 import sys
-sys.path.insert(0, WORK_DIR)
+sys.path.insert(0, os.path.dirname(WORK_DIR))
 
 from models.neb_workflow import orchestrate_full_neb_workflow
 from models.create_slurm import submit_slurm_job, wait_for_jobs
