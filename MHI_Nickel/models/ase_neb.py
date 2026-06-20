@@ -45,7 +45,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 def make_mace_calc(model_path: str, device: str = 'cpu',
-                   dtype: str = 'float64'):
+                   dtype: str = 'float64', head: str = 'omat_pbe'):
     """Return a fresh ``MACECalculator`` instance.
 
     Parameters
@@ -68,11 +68,13 @@ def make_mace_calc(model_path: str, device: str = 'cpu',
         model_paths=model_path,
         device=device,
         default_dtype=dtype,
+        head=head,
     )
 
 
 def make_frozen_calc(model_path: str, z_freeze_cutoff: float,
-                     device: str = 'cpu', dtype: str = 'float64'):
+                     device: str = 'cpu', dtype: str = 'float64',
+                     head: str = 'omat_pbe'):
     """Return a ``MACECalculator`` subclass that zeroes forces on frozen atoms.
 
     Atoms with z-coordinate < ``z_freeze_cutoff`` receive zero force,
@@ -108,6 +110,7 @@ def make_frozen_calc(model_path: str, z_freeze_cutoff: float,
         model_paths=model_path,
         device=device,
         default_dtype=dtype,
+        head=head,
     )
 
 
@@ -588,7 +591,7 @@ def write_ase_neb_script(
 
         def make_calc():
             return MACEFrozenCalc(
-                model_paths=MACE_MODEL, device=DEVICE, default_dtype="float64")
+                model_paths=MACE_MODEL, device=DEVICE, default_dtype="float64", head="omat_pbe")
 
         # ── Load structures and pin endpoint energies ─────────────────────
         is_raw = read(NEB_IS_FILE, format="lammps-data", atom_style="atomic")
