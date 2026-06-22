@@ -1,0 +1,30 @@
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
+
+============================================================
+Section A: Slab preparation
+============================================================
+
+================================================================================
+SECTION A: Full Slab Prep Pipeline
+================================================================================
+
+
+>>> PHASE 1: Slab Construction
+[a0] 3.572833 Å  (bulk_min.lammps)
+Traceback (most recent call last):
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/neb_run.py", line 52, in <module>
+    result = orchestrate_full_neb_workflow(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/neb_workflow.py", line 2091, in orchestrate_full_neb_workflow
+    results_a = orchestrate_slab_prep(
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/neb_workflow.py", line 395, in orchestrate_slab_prep
+    slab_path, a0 = build_phase1_slab(
+                    ^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/neb_workflow.py", line 94, in build_phase1_slab
+    slab_path, a0 = build_slab(
+                    ^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/structure.py", line 435, in build_slab
+    unit_slab = surface('Ni', miller, layers, vacuum=vacuum, a=a0)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: surface() got an unexpected keyword argument 'a'
