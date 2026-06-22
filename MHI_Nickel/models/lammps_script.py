@@ -71,6 +71,7 @@ def write_minimization_script(
     restart_every=10000,
     traj_file=None,
     dump_every=10,
+    masses=None,
 ):
     """
     Write a LAMMPS conjugate-gradient minimization script with isotropic
@@ -121,6 +122,13 @@ def write_minimization_script(
     pair    = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
     neigh   = _neighbor_block()
     restart = _restart_line(restart_dir, restart_every, label='min')
+    if masses:
+        mass_lines = '\n'.join(
+            f'mass           {t}  {m[0]}  # {m[1]}'
+            for t, m in sorted(masses.items())
+        ) + '\n'
+    else:
+        mass_lines = ''
     if traj_file:
         dump_block   = (f'dump           min_traj  all  custom  {dump_every}  {traj_file}'
                         f'  id type x y z\ndump_modify    min_traj  sort id\n\n')
@@ -139,7 +147,7 @@ newton         on
 boundary       p p p
 
 read_data      {bulk_input}
-
+{mass_lines}
 {restart}
 
 {pair}
