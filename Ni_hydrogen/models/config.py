@@ -114,7 +114,6 @@ SLURM_DEFAULTS = {
     'cuda_version':  '12.3.0',
     'openmpi_ver':   '4.1.6',
     'ld_paths':      _LD_PATHS,
-    'ld_preload':    '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/libjemalloc.so',
 }
 
 # =============================================================================
