@@ -190,8 +190,6 @@ for struct_path in INPUT_STRUCTURES:
                 target_t=T,
                 timestep=TIMESTEP_PS,
                 thermo_damp=TAU_T_PS,
-                restart_dir=os.path.join(dirs['structures'], f'npt_{T}K_checkpoints'),
-                restart_every=RESTART_EVERY,
             )
             write_slurm_job(
                 job_name=f'npt_{T}K_{run_name}',
@@ -299,7 +297,15 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
+                velocity_seed=VELOCITY_SEED,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_nvt_bulk_restart_script(
                 restart_file=rst_glob,
@@ -313,7 +319,14 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_chained_slurm_job(
                 job_name=f'nvt_{T}K_{run_name}',
