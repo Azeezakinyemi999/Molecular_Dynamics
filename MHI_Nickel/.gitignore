@@ -1,16 +1,16 @@
 # LAMMPS restart/trajectory files
-*.restart.*
-*.restart
-*.lammps
-*.lammpstrj
+#*.restart.*
+# *.restart
+# *.lammps
+# *.lammpstrj
 
 # Simulation and SLURM logs
-*.log
+#*.log
 slurm_*.out
-*.out
+#*.out
 *.png 
-*slurm_scripts/
-*lammps_scripts/
+# *slurm_scripts/
+# *lammps_scripts/
 
 # Submit logs
 submit.log
