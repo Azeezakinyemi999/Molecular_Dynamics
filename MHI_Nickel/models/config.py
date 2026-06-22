@@ -110,7 +110,7 @@ SLURM_DEFAULTS = {
     'ntasks':        1,
     'cpus_per_task': 8,
     'gpu':           'a100:1',
-    'conda_env':     'mace-lammps',
+    'conda_env':     '/home/akinyemi.az/miniforge3/envs/mace-lammps',
     'cuda_version':  '12.3.0',
     'openmpi_ver':   '4.1.6',
     'ld_paths':      _LD_PATHS,
