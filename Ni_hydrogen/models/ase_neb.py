@@ -551,7 +551,8 @@ def write_ase_neb_script(
         os.environ["LD_LIBRARY_PATH"] = ":".join(
             p for p in _ld.split(":") if "stubs" not in p)
 
-        from ase.io import read
+        from pathlib import Path as _Path
+        from ase.io import read, Trajectory as _Trajectory
         from ase.mep import NEB
         from ase.optimize import MDMin
         from ase.calculators.singlepoint import SinglePointCalculator
@@ -607,27 +608,58 @@ def write_ase_neb_script(
         is_end = pin(is_raw, E_IS)
         fs_end = pin(fs_raw, E_FS)
 
-        # ── Build image chain and IDPP interpolation ──────────────────────
-        images = [is_end] + [is_raw.copy() for _ in range(N_IMAGES)] + [fs_end]
-        neb = NEB(images, climb=False, k=SPRING_CONST, method="aseneb")
-        neb.interpolate(method="idpp")
-        print("IDPP interpolation done")
-        sys.stdout.flush()
+        # ── Restart detection / IDPP interpolation ───────────────────────
+        def _load_last_band(traj_path):
+            _t = _Trajectory(traj_path)
+            _n = len(_t)
+            _last = max(0, _n - (N_IMAGES + 2))
+            return [_t[_last + _i] for _i in range(min(N_IMAGES + 2, _n - _last))]
 
-        for img in images[1:-1]:
-            img.calc = make_calc()
+        if TRAJ_PHASE2 and _Path(TRAJ_PHASE2).exists():
+            print("Restart: Phase 2 checkpoint found — resuming CINEB")
+            sys.stdout.flush()
+            images = _load_last_band(TRAJ_PHASE2)
+            for img in images[1:-1]:
+                img.calc = make_calc()
+            neb = NEB(images, climb=True, k=SPRING_CONST, method="aseneb")
+            _restart_phase = 2
+        elif TRAJ_PHASE1 and _Path(TRAJ_PHASE1).exists():
+            print("Restart: Phase 1 checkpoint found — starting Phase 2")
+            sys.stdout.flush()
+            images = _load_last_band(TRAJ_PHASE1)
+            for img in images[1:-1]:
+                img.calc = make_calc()
+            neb = NEB(images, climb=True, k=SPRING_CONST, method="aseneb")
+            _restart_phase = 2
+        else:
+            images = [is_end] + [is_raw.copy() for _ in range(N_IMAGES)] + [fs_end]
+            neb = NEB(images, climb=False, k=SPRING_CONST, method="aseneb")
+            neb.interpolate(method="idpp")
+            print("IDPP interpolation done")
+            sys.stdout.flush()
+            for img in images[1:-1]:
+                img.calc = make_calc()
+            _restart_phase = 1
 
-        # ── Phase 1: regular NEB ──────────────────────────────────────────
-        print(f"\\nPhase 1: regular NEB  ({{N1_STEPS}} steps, fmax={{N1_FMAX:.3f}} eV/Å)")
-        sys.stdout.flush()
-        _traj1_kw = {{"trajectory": TRAJ_PHASE1}} if TRAJ_PHASE1 else {{}}
-        opt1 = MDMin(neb, logfile=LOG_PHASE1, dt=0.05, **_traj1_kw)
-        opt1.run(fmax=N1_FMAX, steps=N1_STEPS)
-        print(f"Phase 1 done: {{opt1.nsteps}} steps")
-        sys.stdout.flush()
+        # ── Phase 1: regular NEB (skipped on restart) ─────────────────────
+        if _restart_phase == 1:
+            print(f"\\nPhase 1: regular NEB  ({{N1_STEPS}} steps, fmax={{N1_FMAX:.3f}} eV/Å)")
+            sys.stdout.flush()
+            _traj1_kw = {{"trajectory": TRAJ_PHASE1}} if TRAJ_PHASE1 else {{}}
+            opt1 = MDMin(neb, logfile=LOG_PHASE1, dt=0.05, **_traj1_kw)
+            opt1.run(fmax=N1_FMAX, steps=N1_STEPS)
+            print(f"Phase 1 done: {{opt1.nsteps}} steps")
+            sys.stdout.flush()
 
-        for img in images[1:-1]:
-            img.set_momenta(np.zeros_like(img.get_momenta()))
+            if TRAJ_PHASE1 and os.path.exists(TRAJ_PHASE1):
+                from ase.io import read as _r1, write as _w1
+                _lmp1 = TRAJ_PHASE1.replace(".traj", ".lammpstrj")
+                _w1(_lmp1, _r1(TRAJ_PHASE1, index=":"), format="lammps-dump-text")
+                print(f"Wrote OVITO trajectory: {{_lmp1}}")
+                sys.stdout.flush()
+
+            for img in images[1:-1]:
+                img.set_momenta(np.zeros_like(img.get_momenta()))
 
         # ── Phase 2: CINEB ────────────────────────────────────────────────
         neb.climb = True
@@ -643,6 +675,13 @@ def write_ase_neb_script(
             sys.stdout.flush()
         print(f"Phase 2 done: {{opt2.nsteps}} steps")
         sys.stdout.flush()
+
+        if TRAJ_PHASE2 and os.path.exists(TRAJ_PHASE2):
+            from ase.io import read as _r2, write as _w2
+            _lmp2 = TRAJ_PHASE2.replace(".traj", ".lammpstrj")
+            _w2(_lmp2, _r2(TRAJ_PHASE2, index=":"), format="lammps-dump-text")
+            print(f"Wrote OVITO trajectory: {{_lmp2}}")
+            sys.stdout.flush()
 
         # ── Extract MEP results ───────────────────────────────────────────
         energies = []

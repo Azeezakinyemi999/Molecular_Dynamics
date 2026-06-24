@@ -1713,8 +1713,10 @@ def orchestrate_neb(
         )
 
         # 4. ASE NEB script — E_IS hardcoded; E_FS parsed at runtime from fs_min.log
-        E_IS       = is_eng.get(is_sid, float('nan'))
-        neb_script = run_neb_pipeline(
+        E_IS        = is_eng.get(is_sid, float('nan'))
+        traj_p1     = str(job_dir / 'neb_phase1.traj')
+        traj_p2     = str(job_dir / 'neb_phase2.traj')
+        neb_script  = run_neb_pipeline(
             is_file=str(is_dest),
             fs_file=str(fs_relaxed),
             e_is=E_IS,
@@ -1731,6 +1733,8 @@ def orchestrate_neb(
             device='cpu',
             label_is=f'IS:{is_sid}',
             label_fs=f'FS:{s1}+{s2}',
+            traj_phase1=traj_p1,
+            traj_phase2=traj_p2,
         )
 
         # 5a. GPU SLURM: LAMMPS FS minimization only
@@ -1742,13 +1746,21 @@ def orchestrate_neb(
             commands=[f'{LAMMPS_CMD} {kk} -in {min_script} -log {fs_min_log}'],
         )
 
-        # 5b. CPU SLURM: ASE NEB only
+        # 5b. CPU SLURM: ASE NEB (self-chaining via traj checkpoint)
         neb_sh = str(job_dir / f'slurm_neb_{label}.sh')
-        write_slurm_job(
+        _neb_wall = neb_slurm_opts.get('time', '12:00:00')
+        _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
+        _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
+        _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
+        write_chained_slurm_job(
             job_name=f'neb_{label}',
             slurm_config=neb_slurm_opts,
             out_path=neb_sh,
-            commands=[f'python {neb_script}'],
+            first_commands=[f'python {neb_script}'],
+            restart_commands=[f'python {neb_script}'],
+            restart_glob=traj_p2,
+            cutoff=_neb_cutoff,
+            work_dir=str(job_dir),
         )
 
         if not dry_run:
