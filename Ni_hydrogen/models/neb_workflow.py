@@ -112,7 +112,7 @@ def build_phase1_slab(
 # -----------------------SECTION A: Phase 2: Surface Relaxation  -----------------------
 
 from models.lammps_script import write_surface_relaxation_script, write_surface_relaxation_restart_script
-from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job
+from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs
 
 
 def run_phase2_surface_relaxation(
@@ -452,7 +452,11 @@ def orchestrate_slab_prep(
     )
     
     relaxed_slab = relax_result['relaxed_slab']
-    
+
+    # Wait for the Phase 2 SLURM job to finish before reading its output
+    if relax_result.get('job_id') is not None:
+        wait_for_jobs({'surface_relax': relax_result['job_id']})
+
     # Phase 3: Enumerate sites (use input slab if relaxation was not run)
     print(f"\n>>> PHASE 3: ACAT Site Enumeration")
     if dry_run and relax_result['status'] == 'generated':

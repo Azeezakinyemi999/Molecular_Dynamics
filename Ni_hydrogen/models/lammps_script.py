@@ -673,6 +673,7 @@ run            {heat_steps}
 undump         heat_traj
 unfix          rescale
 unfix          nve_heat
+thermo_modify  temp  thermo_temp
 uncompute      surf_temp_heat
 print "### Phase 2 complete ###"
 
