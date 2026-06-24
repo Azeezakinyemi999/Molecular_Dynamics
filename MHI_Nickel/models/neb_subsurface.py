@@ -203,7 +203,7 @@ def orchestrate_hopa_neb(
     )
     from models.lammps_script import write_adsorbate_min_script
     from models.ase_neb import run_neb_pipeline
-    from models.create_slurm import write_slurm_job
+    from models.create_slurm import write_slurm_job, write_chained_slurm_job
 
     if masses is None:
         masses = MASSES_7
@@ -278,6 +278,8 @@ def orchestrate_hopa_neb(
         )
 
         # 3. ASE NEB script — E_IS hardcoded, E_FS parsed at runtime from fs_min.log
+        traj_p1    = str(job_dir / 'hopa_phase1.traj')
+        traj_p2    = str(job_dir / 'hopa_phase2.traj')
         neb_script = run_neb_pipeline(
             is_file=is_path,
             fs_file=fs_relaxed,
@@ -295,6 +297,8 @@ def orchestrate_hopa_neb(
             device='cpu',
             label_is=f'surface:{sid}',
             label_fs=f'sub1:{ss1_id}',
+            traj_phase1=traj_p1,
+            traj_phase2=traj_p2,
         )
 
         # 4a. GPU SLURM: FS-min
@@ -306,13 +310,21 @@ def orchestrate_hopa_neb(
             commands=[f'{LAMMPS_CMD} {kk} -in {min_script} -log {fsmin_log}'],
         )
 
-        # 4b. CPU SLURM: NEB
+        # 4b. CPU SLURM: NEB (self-chaining via traj checkpoint)
         neb_sh = str(job_dir / f'slurm_neb_{sid}.sh')
-        write_slurm_job(
+        _neb_wall = neb_slurm_opts.get('time', '12:00:00')
+        _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
+        _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
+        _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
+        write_chained_slurm_job(
             job_name=f'neb_hopa_{sid}',
             slurm_config=neb_slurm_opts,
             out_path=neb_sh,
-            commands=[f'python {neb_script}'],
+            first_commands=[f'python {neb_script}'],
+            restart_commands=[f'python {neb_script}'],
+            restart_glob=traj_p2,
+            cutoff=_neb_cutoff,
+            work_dir=str(job_dir),
         )
 
         if not dry_run:
@@ -450,7 +462,7 @@ def orchestrate_hopb_neb(
     )
     from models.lammps_script import write_adsorbate_min_script
     from models.ase_neb import run_neb_pipeline
-    from models.create_slurm import write_slurm_job
+    from models.create_slurm import write_slurm_job, write_chained_slurm_job
     from models.parsers import parse_energy_log
 
     if masses is None:
@@ -541,6 +553,8 @@ def orchestrate_hopb_neb(
         )
 
         # 3. ASE NEB script — E_IS from Hop A fs_min.log, E_FS from this job's log
+        traj_p1    = str(job_dir / 'hopb_phase1.traj')
+        traj_p2    = str(job_dir / 'hopb_phase2.traj')
         neb_script = run_neb_pipeline(
             is_file=str(hopb_is),
             fs_file=fs_relaxed,
@@ -558,6 +572,8 @@ def orchestrate_hopb_neb(
             device='cpu',
             label_is=f'sub1:{ss1_id}',
             label_fs=f'sub2:{ss2_id}',
+            traj_phase1=traj_p1,
+            traj_phase2=traj_p2,
         )
 
         # 4a. GPU SLURM: FS-min
@@ -569,13 +585,21 @@ def orchestrate_hopb_neb(
             commands=[f'{LAMMPS_CMD} {kk} -in {min_script} -log {fsmin_log}'],
         )
 
-        # 4b. CPU SLURM: NEB
+        # 4b. CPU SLURM: NEB (self-chaining via traj checkpoint)
         neb_sh = str(job_dir / f'slurm_neb_{sid}.sh')
-        write_slurm_job(
+        _neb_wall = neb_slurm_opts.get('time', '12:00:00')
+        _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
+        _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
+        _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
+        write_chained_slurm_job(
             job_name=f'neb_hopb_{sid}',
             slurm_config=neb_slurm_opts,
             out_path=neb_sh,
-            commands=[f'python {neb_script}'],
+            first_commands=[f'python {neb_script}'],
+            restart_commands=[f'python {neb_script}'],
+            restart_glob=traj_p2,
+            cutoff=_neb_cutoff,
+            work_dir=str(job_dir),
         )
 
         if not dry_run:
