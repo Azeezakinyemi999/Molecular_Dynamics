@@ -111,8 +111,8 @@ def build_phase1_slab(
 
 # -----------------------SECTION A: Phase 2: Surface Relaxation  -----------------------
 
-from models.lammps_script import write_surface_relaxation_script
-from models.create_slurm import write_slurm_job, submit_slurm_job
+from models.lammps_script import write_surface_relaxation_script, write_surface_relaxation_restart_script
+from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job
 
 
 def run_phase2_surface_relaxation(
@@ -220,12 +220,40 @@ def run_phase2_surface_relaxation(
         restart_every=restart_every,
     )
 
-    kk = ' '.join(KOKKOS_FLAGS)
-    write_slurm_job(
+    lammps_rst_in = str(Path(outdir) / 'surface_relax_restart.in')
+    rst_glob      = str(Path(restart_dir) / 'surf_300K.*.restart')
+
+    write_surface_relaxation_restart_script(
+        restart_file=rst_glob,
+        slab_relaxed=relaxed_slab,
+        relax_thermo=relax_thermo,
+        out_path=lammps_rst_in,
+        pair_style=PAIR_STYLE,
+        mace_model=MACE_MODEL_LAMMPS,
+        pair_suffix=PAIR_SUFFIX,
+        elem_str=ELEM_STR_7,
+        z_freeze_cutoff=z_freeze_cutoff,
+        timestep=timestep,
+        thermo_damp=SURF_THERMO_DAMP,
+        nvt_steps=SURF_NVT_STEPS,
+        restart_dir=restart_dir,
+        restart_every=restart_every,
+    )
+
+    kk          = ' '.join(KOKKOS_FLAGS)
+    _wall       = slurm_opts.get('time', '24:00:00')
+    _h, _m, _s  = map(int, _wall.split(':'))
+    _cutoff_val = f'{(_h*3600+_m*60+_s-300)//3600:02d}:{((_h*3600+_m*60+_s-300)%3600)//60:02d}:{(_h*3600+_m*60+_s-300)%60:02d}'
+
+    write_chained_slurm_job(
         job_name='SurfaceRelax',
         slurm_config=slurm_opts,
         out_path=slurm_script,
-        commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
+        first_commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
+        restart_commands=[f'{LAMMPS_CMD} {kk} -in {lammps_rst_in} -log {log_path}'],
+        restart_glob=rst_glob,
+        cutoff=_cutoff_val,
+        work_dir=outdir,
     )
 
     print(f"[Section A Phase 2] Surface relaxation setup:")
