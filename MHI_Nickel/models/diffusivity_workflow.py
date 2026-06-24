@@ -40,6 +40,9 @@ def generate_diffusivity_scripts(
     dump_every,
     velocity_seed,
     restart_every,
+    short_gpu_partition='gpu',
+    short_gpu_time='04:00:00',
+    short_gpu_cutoff=None,
     npt_heat_steps=20000,
     npt_prod_steps=200000,
     npt_baro_damp=1.0,
@@ -51,6 +54,12 @@ def generate_diffusivity_scripts(
     out_py: str = '',
 ) -> str:
     """Write diffusivity_run.py with embedded config. Returns the output path."""
+    if short_gpu_cutoff is None:
+        _h, _m, _s = map(int, short_gpu_time.split(':'))
+        _tot = _h * 3600 + _m * 60 + _s - 300
+        short_gpu_cutoff_val = f'{_tot//3600:02d}:{(_tot%3600)//60:02d}:{_tot%60:02d}'
+    else:
+        short_gpu_cutoff_val = short_gpu_cutoff
 
     _header = f'''#!/usr/bin/env python3
 """
@@ -75,8 +84,11 @@ TEMPERATURES     = {temperatures!r}
 WORK_DIR         = {work_dir!r}
 NVT_WALL_TIME    = {nvt_wall_time!r}
 CUTOFF           = {cutoff!r}
-GPU_PARTITION    = {gpu_partition!r}
-GPU_TIME         = {gpu_time!r}
+GPU_PARTITION        = {gpu_partition!r}
+GPU_TIME             = {gpu_time!r}
+SHORT_GPU_PARTITION  = {short_gpu_partition!r}
+SHORT_GPU_TIME       = {short_gpu_time!r}
+SHORT_GPU_CUTOFF     = {short_gpu_cutoff_val!r}
 # MD defaults (ps units)
 TIMESTEP_PS      = {timestep_ps!r}
 TAU_T_PS         = {tau_t_ps!r}
@@ -111,11 +123,12 @@ from models.config import (
     E2T_7, MASSES_7, ELEM_STR_7,
     SLURM_DEFAULTS,
 )
-from models.structure import get_lattice_parameter, insert_hydrogen
+from models.structure import get_lattice_parameter_from_dump, insert_hydrogen
 from models.utils import make_run_dirs
 from models.lammps_script import (
     write_minimization_script,
     write_npt_script,
+    write_npt_restart_script,
     write_nvt_bulk_script,
     write_nvt_bulk_restart_script,
 )
@@ -131,7 +144,8 @@ from models.diffusivity_post_processing import (
     run_arrhenius_pipeline,
 )
 
-GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition='multigpu', time=NVT_WALL_TIME)
+GPU_SLURM_CFG       = dict(SLURM_DEFAULTS, partition=GPU_PARTITION,      time=NVT_WALL_TIME)
+SHORT_GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition=SHORT_GPU_PARTITION, time=SHORT_GPU_TIME)
 KK = ' '.join(KOKKOS_FLAGS)
 
 # ── main loop ─────────────────────────────────────────────────────────────────
@@ -162,31 +176,34 @@ for struct_path in INPUT_STRUCTURES:
         min_bare_out = os.path.join(dirs['structures'], 'bulk_min.lammps')
         min_bare_sh  = os.path.join(phase1_sh_dir,  'minimize_bare.sh')
 
-        write_minimization_script(
-            bulk_input=struct_path,
-            min_output=min_bare_out,
-            out_path=min_bare_lmp,
-            pair_style=PAIR_STYLE,
-            mace_model=MACE_MODEL_LAMMPS,
-            pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
-            etol=MIN_ETOL,
-            ftol=MIN_FTOL,
-            maxiter=MIN_MAXITER,
-            maxeval=MIN_MAXEVAL,
-        )
-        write_slurm_job(
-            job_name=f'min_bare_{run_name}',
-            slurm_config=GPU_SLURM_CFG,
-            out_path=min_bare_sh,
-            runner='lmp',
-            lammps_cmd=LAMMPS_CMD,
-            kokkos_flags=KOKKOS_FLAGS,
-            script_path=min_bare_lmp,
-        )
-        jid = submit_slurm_job(min_bare_sh)
-        wait_for_jobs({'min_bare': jid})
-        print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
+        if not os.path.exists(min_bare_out):
+            write_minimization_script(
+                bulk_input=struct_path,
+                min_output=min_bare_out,
+                out_path=min_bare_lmp,
+                pair_style=PAIR_STYLE,
+                mace_model=MACE_MODEL_LAMMPS,
+                pair_suffix=PAIR_SUFFIX,
+                elem_str=ELEM_STR_7,
+                etol=MIN_ETOL,
+                ftol=MIN_FTOL,
+                maxiter=MIN_MAXITER,
+                maxeval=MIN_MAXEVAL,
+            )
+            write_slurm_job(
+                job_name=f'min_bare_{run_name}',
+                slurm_config=SHORT_GPU_SLURM_CFG,
+                out_path=min_bare_sh,
+                runner='lmp',
+                lammps_cmd=LAMMPS_CMD,
+                kokkos_flags=KOKKOS_FLAGS,
+                script_path=min_bare_lmp,
+            )
+            jid = submit_slurm_job(min_bare_sh)
+            wait_for_jobs({'min_bare': jid})
+            print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
+        else:
+            print(f'  [1a] Already exists: {min_bare_out} — skipping')
 
         # ── Phase 1b — Step A: NPT at every T in parallel ────────────────────
         print('\n--- Phase 1b: NPT equilibration at each temperature ---')
@@ -201,33 +218,55 @@ for struct_path in INPUT_STRUCTURES:
             npt_sh   = os.path.join(phase1_sh_dir,  f'npt_{T}K.sh')
             npt_final_paths[T] = f'{npt_stem}_npt_final_{T}K.lammps'
 
-            write_npt_script(
-                min_output=min_bare_out,
-                npt_dump=npt_dump,
-                out_path=npt_lmp,
-                pair_style=PAIR_STYLE,
-                mace_model=MACE_MODEL_LAMMPS,
-                pair_suffix=PAIR_SUFFIX,
-                elem_str=ELEM_STR_7,
-                target_t=T,
-                timestep=TIMESTEP_PS,
-                thermo_damp=TAU_T_PS,
-                baro_damp=NPT_BARO_DAMP,
-                heat_steps=NPT_HEAT_STEPS,
-                npt_steps=NPT_PROD_STEPS,
-                dump_every=NPT_DUMP_EVERY,
-            )
-            write_slurm_job(
-                job_name=f'npt_{T}K_{run_name}',
-                slurm_config=GPU_SLURM_CFG,
-                out_path=npt_sh,
-                runner='lmp',
-                lammps_cmd=LAMMPS_CMD,
-                kokkos_flags=KOKKOS_FLAGS,
-                script_path=npt_lmp,
-            )
-            npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
-            print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
+            npt_rst_lmp          = os.path.join(phase1_lmp_dir, f'npt_restart_{T}K.lammps')
+            npt_after_heat_rst   = f'{os.path.splitext(npt_dump)[0]}_after_heat.restart'
+
+            if not os.path.exists(npt_final_paths[T]):
+                write_npt_script(
+                    min_output=min_bare_out,
+                    npt_dump=npt_dump,
+                    out_path=npt_lmp,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=ELEM_STR_7,
+                    target_t=T,
+                    timestep=TIMESTEP_PS,
+                    thermo_damp=TAU_T_PS,
+                    baro_damp=NPT_BARO_DAMP,
+                    heat_steps=NPT_HEAT_STEPS,
+                    npt_steps=NPT_PROD_STEPS,
+                    dump_every=NPT_DUMP_EVERY,
+                )
+                write_npt_restart_script(
+                    restart_file=npt_after_heat_rst,
+                    npt_dump=npt_dump,
+                    out_path=npt_rst_lmp,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=ELEM_STR_7,
+                    target_t=T,
+                    timestep=TIMESTEP_PS,
+                    thermo_damp=TAU_T_PS,
+                    baro_damp=NPT_BARO_DAMP,
+                    npt_steps=NPT_PROD_STEPS,
+                    dump_every=NPT_DUMP_EVERY,
+                )
+                write_chained_slurm_job(
+                    job_name=f'npt_{T}K_{run_name}',
+                    slurm_config=SHORT_GPU_SLURM_CFG,
+                    out_path=npt_sh,
+                    first_commands=[f'{LAMMPS_CMD} {KK} -in {npt_lmp}'],
+                    restart_commands=[f'{LAMMPS_CMD} {KK} -in {npt_rst_lmp}'],
+                    restart_glob=npt_after_heat_rst,
+                    cutoff=SHORT_GPU_CUTOFF,
+                    work_dir=WORK_DIR,
+                )
+                npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
+                print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
+            else:
+                print(f'  [1b] NPT {T}K already done — skipping')
 
         print(f'  Waiting for {len(npt_job_ids)} NPT jobs ...')
         wait_for_jobs(npt_job_ids)
@@ -241,48 +280,51 @@ for struct_path in INPUT_STRUCTURES:
         _a0_by_T      = {}   # collect a0(T) in Å for each temperature
 
         for T in TEMPERATURES:
-            a0_T = get_lattice_parameter(npt_final_paths[T])
+            _npt_dump_T = os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat')
+            a0_T = get_lattice_parameter_from_dump(_npt_dump_T, n_last=50)
             _a0_by_T[T] = a0_T
-            print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å  →  inserting {n_h} H atom(s)')
-
-            bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
-                bulk_min_path=npt_final_paths[T],
-                n_h=n_h,
-                masses=MASSES_7,
-                e2t=E2T_7,
-                out_dir=os.path.join(dirs['structures'], f'{T}K'),
-                a0=a0_T,
-            )
-            print(f'  [1b] T={T}K  inserted {n_h} H  min_H-metal={_min_hm_T:.3f} Å  → {bulk_h_path_T}')
+            print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å')
 
             min_h_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
             min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
             min_h_sh_T  = os.path.join(phase1_sh_dir,  f'minimize_h_{T}K.sh')
             T_to_bulk_h[T] = min_h_out_T
 
-            write_minimization_script(
-                bulk_input=bulk_h_path_T,
-                min_output=min_h_out_T,
-                out_path=min_h_lmp_T,
-                pair_style=PAIR_STYLE,
-                mace_model=MACE_MODEL_LAMMPS,
-                pair_suffix=PAIR_SUFFIX,
-                elem_str=ELEM_STR_7,
-                etol=MIN_ETOL,
-                ftol=MIN_FTOL,
-                maxiter=MIN_MAXITER,
-                maxeval=MIN_MAXEVAL,
-            )
-            write_slurm_job(
-                job_name=f'min_h_{T}K_{run_name}',
-                slurm_config=GPU_SLURM_CFG,
-                out_path=min_h_sh_T,
-                runner='lmp',
-                lammps_cmd=LAMMPS_CMD,
-                kokkos_flags=KOKKOS_FLAGS,
-                script_path=min_h_lmp_T,
-            )
-            min_h_job_ids[f'min_h_{T}K'] = submit_slurm_job(min_h_sh_T)
+            if not os.path.exists(min_h_out_T):
+                bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
+                    bulk_min_path=npt_final_paths[T],
+                    n_h=n_h,
+                    masses=MASSES_7,
+                    e2t=E2T_7,
+                    out_dir=os.path.join(dirs['structures'], f'{T}K'),
+                    a0=a0_T,
+                )
+                print(f'  [1b] T={T}K  inserted {n_h} H  min_H-metal={_min_hm_T:.3f} Å  → {bulk_h_path_T}')
+                write_minimization_script(
+                    bulk_input=bulk_h_path_T,
+                    min_output=min_h_out_T,
+                    out_path=min_h_lmp_T,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=ELEM_STR_7,
+                    etol=MIN_ETOL,
+                    ftol=MIN_FTOL,
+                    maxiter=MIN_MAXITER,
+                    maxeval=MIN_MAXEVAL,
+                )
+                write_slurm_job(
+                    job_name=f'min_h_{T}K_{run_name}',
+                    slurm_config=SHORT_GPU_SLURM_CFG,
+                    out_path=min_h_sh_T,
+                    runner='lmp',
+                    lammps_cmd=LAMMPS_CMD,
+                    kokkos_flags=KOKKOS_FLAGS,
+                    script_path=min_h_lmp_T,
+                )
+                min_h_job_ids[f'min_h_{T}K'] = submit_slurm_job(min_h_sh_T)
+            else:
+                print(f'  [1b] bulk+H min {T}K already done — skipping')
 
         print(f'  Waiting for {len(min_h_job_ids)} bulk+H minimisation jobs ...')
         wait_for_jobs(min_h_job_ids)
@@ -315,65 +357,68 @@ for struct_path in INPUT_STRUCTURES:
             rst_glob    = os.path.join(rst_dir, f'nvt_{T}K.*.restart')
             chain_sh    = os.path.join(sh_dir,  f'nvt_{T}K_chain.sh')
 
-            write_nvt_bulk_script(
-                bulk_h_file=T_to_bulk_h[T],
-                traj_file=traj_file,
-                out_file=out_file,
-                msd_file=msd_file,
-                out_path=nvt_lmp,
-                pair_style=PAIR_STYLE,
-                mace_model=MACE_MODEL_LAMMPS,
-                pair_suffix=PAIR_SUFFIX,
-                elem_str=ELEM_STR_7,
-                temperature=T,
-                h_type=E2T_7['H'],
-                timestep=TIMESTEP_PS,
-                tau_t=TAU_T_PS,
-                n_equil=N_EQUIL_STEPS,
-                n_prod=N_PROD_STEPS,
-                thermo_every=THERMO_EVERY,
-                dump_every=DUMP_EVERY,
-                velocity_seed=VELOCITY_SEED,
-                restart_dir=rst_dir,
-                restart_every=RESTART_EVERY,
-            )
-            write_nvt_bulk_restart_script(
-                restart_file=rst_glob,
-                traj_file=traj_file,
-                out_file=out_file,
-                msd_file=msd_file,
-                out_path=nvt_rst_lmp,
-                pair_style=PAIR_STYLE,
-                mace_model=MACE_MODEL_LAMMPS,
-                pair_suffix=PAIR_SUFFIX,
-                elem_str=ELEM_STR_7,
-                temperature=T,
-                h_type=E2T_7['H'],
-                timestep=TIMESTEP_PS,
-                tau_t=TAU_T_PS,
-                n_equil=N_EQUIL_STEPS,
-                n_prod=N_PROD_STEPS,
-                thermo_every=THERMO_EVERY,
-                dump_every=DUMP_EVERY,
-                restart_dir=rst_dir,
-                restart_every=RESTART_EVERY,
-            )
-            write_chained_slurm_job(
-                job_name=f'nvt_{T}K_{run_name}',
-                slurm_config=GPU_SLURM_CFG,
-                out_path=chain_sh,
-                first_commands=[
-                    f'{LAMMPS_CMD} {KK} -in {nvt_lmp} -log {out_file}',
-                ],
-                restart_commands=[
-                    f'{LAMMPS_CMD} {KK} -in {nvt_rst_lmp} -log {out_file}',
-                ],
-                restart_glob=rst_glob,
-                cutoff=CUTOFF,
-                work_dir=WORK_DIR,
-            )
-            job_ids[f'{T}K'] = submit_slurm_job(chain_sh)
-            print(f'  [2] Submitted NVT {T}K  →  job {job_ids[f"{T}K"]}')
+            if not os.path.exists(msd_file):
+                write_nvt_bulk_script(
+                    bulk_h_file=T_to_bulk_h[T],
+                    traj_file=traj_file,
+                    out_file=out_file,
+                    msd_file=msd_file,
+                    out_path=nvt_lmp,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=ELEM_STR_7,
+                    temperature=T,
+                    h_type=E2T_7['H'],
+                    timestep=TIMESTEP_PS,
+                    tau_t=TAU_T_PS,
+                    n_equil=N_EQUIL_STEPS,
+                    n_prod=N_PROD_STEPS,
+                    thermo_every=THERMO_EVERY,
+                    dump_every=DUMP_EVERY,
+                    velocity_seed=VELOCITY_SEED,
+                    restart_dir=rst_dir,
+                    restart_every=RESTART_EVERY,
+                )
+                write_nvt_bulk_restart_script(
+                    restart_file=rst_glob,
+                    traj_file=traj_file,
+                    out_file=out_file,
+                    msd_file=msd_file,
+                    out_path=nvt_rst_lmp,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=ELEM_STR_7,
+                    temperature=T,
+                    h_type=E2T_7['H'],
+                    timestep=TIMESTEP_PS,
+                    tau_t=TAU_T_PS,
+                    n_equil=N_EQUIL_STEPS,
+                    n_prod=N_PROD_STEPS,
+                    thermo_every=THERMO_EVERY,
+                    dump_every=DUMP_EVERY,
+                    restart_dir=rst_dir,
+                    restart_every=RESTART_EVERY,
+                )
+                write_chained_slurm_job(
+                    job_name=f'nvt_{T}K_{run_name}',
+                    slurm_config=GPU_SLURM_CFG,
+                    out_path=chain_sh,
+                    first_commands=[
+                        f'{LAMMPS_CMD} {KK} -in {nvt_lmp} -log {out_file}',
+                    ],
+                    restart_commands=[
+                        f'{LAMMPS_CMD} {KK} -in {nvt_rst_lmp} -log {out_file}',
+                    ],
+                    restart_glob=rst_glob,
+                    cutoff=CUTOFF,
+                    work_dir=WORK_DIR,
+                )
+                job_ids[f'{T}K'] = submit_slurm_job(chain_sh)
+                print(f'  [2] Submitted NVT {T}K  →  job {job_ids[f"{T}K"]}')
+            else:
+                print(f'  [2] NVT {T}K already done — skipping')
 
         print(f'  Waiting for {len(job_ids)} NVT jobs ...')
         wait_for_jobs(job_ids)
