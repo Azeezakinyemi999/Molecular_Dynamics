@@ -204,18 +204,38 @@ def find_voronoi_sites(slab_path,
     cell = atoms.cell.diagonal()  # assumes orthorhombic
     Lx, Ly = cell[0], cell[1]
 
-    # Step 1: Replicate atoms 3x3 in xy (NOT in z)
-    replicated = []
+    # Z-layer smoothing: project each atom's z to its layer mean before Voronoi.
+    # Thermal displacements shift Voronoi vertices enough to create spurious
+    # sites or misclassify oct/tet. Smoothing z removes that noise while
+    # preserving x/y chemical diversity. Raw positions are kept for the
+    # atom-proximity filter (Step 4) so real atom locations are respected.
+    _layer_map, _layer_z = _identify_layers(metal_positions)
+    smoothed_positions = metal_positions.copy()
+    for _i in range(len(smoothed_positions)):
+        smoothed_positions[_i, 2] = _layer_z[_layer_map[_i]]
+
+    # Step 1: Replicate z-smoothed atoms 3x3 in xy (NOT in z)
+    replicated_smoothed = []
+    for ix in [-1, 0, 1]:
+        for iy in [-1, 0, 1]:
+            shifted = smoothed_positions.copy()
+            shifted[:, 0] += ix * Lx
+            shifted[:, 1] += iy * Ly
+            replicated_smoothed.append(shifted)
+    replicated_smoothed = np.vstack(replicated_smoothed)
+
+    # Also replicate raw positions for proximity filtering
+    replicated_raw = []
     for ix in [-1, 0, 1]:
         for iy in [-1, 0, 1]:
             shifted = metal_positions.copy()
             shifted[:, 0] += ix * Lx
             shifted[:, 1] += iy * Ly
-            replicated.append(shifted)
-    replicated_positions = np.vstack(replicated)
+            replicated_raw.append(shifted)
+    replicated_raw = np.vstack(replicated_raw)
 
-    # Step 2: Run scipy Voronoi
-    vor = Voronoi(replicated_positions)
+    # Step 2: Run scipy Voronoi on smoothed positions
+    vor = Voronoi(replicated_smoothed)
     vertices = vor.vertices
 
     # Step 3: Filter to vertices inside the central cell (xy)
@@ -233,10 +253,11 @@ def find_voronoi_sites(slab_path,
     if len(vertices) == 0:
         return np.empty((0, 3)), None, atoms
 
-    # Step 4: Filter out vertices too close to ANY atom (min_dist)
+    # Step 4: Filter out vertices too close to ANY raw atom (min_dist)
+    # Use raw positions here — real atom locations, not smoothed ones
     keep_mask = np.ones(len(vertices), dtype=bool)
     for i, v in enumerate(vertices):
-        diffs = replicated_positions - v
+        diffs = replicated_raw - v
         dists = np.sqrt(np.sum(diffs * diffs, axis=1))
         if dists.min() < min_dist:
             keep_mask[i] = False
