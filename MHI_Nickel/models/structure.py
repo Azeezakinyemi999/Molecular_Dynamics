@@ -132,6 +132,7 @@ def get_lattice_parameter(
     atoms = read(bulk_min_path, format='lammps-data', style='atomic')
     Lx = atoms.cell.lengths()[0]
     a0 = Lx / supercell_reps[0]
+    print(f'[a0] {a0:.6f} Å  ({os.path.basename(bulk_min_path)})')
     return float(a0)
 
 

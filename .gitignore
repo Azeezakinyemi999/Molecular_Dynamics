@@ -1,3 +1,4 @@
+
 # LAMMPS restart/trajectory files
 #*.restart.*
 # *.restart
@@ -33,12 +34,14 @@ zi*
 *.pyc
 *test_outputs
 *test_npt
-*calculation/results_1/
-calculation/results/
+*results_1/
+*results_2/
 MHI_Nickel/lammps_scripts/
 MHI_Nickel/logs/
 MHI_Nickel/results/
 MHI_Nickel/slurm_scripts/
 MHI_Nickel/strutures/
+
+
 
 
