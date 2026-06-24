@@ -585,14 +585,17 @@ def write_surface_relaxation_script(
     stem           = _stem(slab_relaxed)
 
     # Per-phase output paths
-    phase1_data    = f'{stem}_phase1_min.lammps'
-    phase1_restart = f'{stem}_phase1_min.restart'
-    phase2_data    = f'{stem}_phase2_heat.lammps'
-    phase2_restart = f'{stem}_phase2_heat.restart'
-    phase3_restart = f'{stem}_phase3_nvt.restart'
-    traj_file      = f'{stem}_nvt_traj.lammpstrj'
-    min_traj_file  = f'{stem}_min_traj.lammpstrj'
-    heat_traj_file = f'{stem}_heat_traj.lammpstrj'
+    phase1_data      = f'{stem}_phase1_min.lammps'
+    phase1_restart   = f'{stem}_phase1_min.restart'
+    phase2_data      = f'{stem}_phase2_heat.lammps'
+    phase2_restart   = f'{stem}_phase2_heat.restart'
+    phase3_data      = f'{stem}_phase3_nvt.lammps'
+    phase3_restart   = f'{stem}_phase3_nvt.restart'
+    phase4_restart   = f'{stem}_phase4_quench.restart'
+    traj_file        = f'{stem}_nvt_traj.lammpstrj'
+    min_traj_file    = f'{stem}_min_traj.lammpstrj'
+    heat_traj_file   = f'{stem}_heat_traj.lammpstrj'
+    quench_traj_file = f'{stem}_phase4_quench_traj.lammpstrj'
 
     script = f"""# ═══════════════════════════════════════════════════════
 # LAMMPS Surface Relaxation — Hastelloy N
@@ -696,20 +699,38 @@ undump         surf_traj
 unfix          thermo_out
 print "### Phase 3 complete ###"
 
+write_restart  {phase3_restart}
+write_data     {phase3_data}
+
+# ═══ PHASE 4: Quench (CG minimization of NVT snapshot) ══════════
+print "### Phase 4: Quench minimization ###"
+
+variable       z_top_after_nvt  equal  bound(free_atoms,zmax)
+print "  z top BEFORE quench: ${{z_top_after_nvt}} Ang"
+
+dump           quench_traj  free_atoms  custom  {thermo_freq}  {quench_traj_file}  id type x y z
+dump_modify    quench_traj  sort id
+
+minimize       {etol}  {ftol}  {maxiter}  {maxeval}
+
+undump         quench_traj
+print "### Phase 4 complete ###"
+
 # ═══ Results ═════════════════════════════════════════════════════
 variable       z_top_final   equal  bound(free_atoms,zmax)
 variable       pe_final_val  equal  pe
 
 print "RELAXATION_RESULTS_START"
-print "  z_top_before_Ang     : ${{z_top_before}}"
-print "  z_top_after_min_Ang  : ${{z_top_after_min}}"
-print "  surface_contraction  : ${{dz_min}}"
-print "  z_top_after_nvt_Ang  : ${{z_top_final}}"
-print "  pe_final_eV          : ${{pe_final_val}}"
+print "  z_top_before_Ang       : ${{z_top_before}}"
+print "  z_top_after_min_Ang    : ${{z_top_after_min}}"
+print "  surface_contraction    : ${{dz_min}}"
+print "  z_top_after_nvt_Ang    : ${{z_top_after_nvt}}"
+print "  z_top_after_quench_Ang : ${{z_top_final}}"
+print "  pe_final_eV            : ${{pe_final_val}}"
 print "RELAXATION_RESULTS_END"
 
 unfix          freeze
-write_restart  {phase3_restart}
+write_restart  {phase4_restart}
 write_data     {slab_relaxed}
 print "Relaxed slab written: {slab_relaxed}"
 """
@@ -732,6 +753,10 @@ def write_surface_relaxation_restart_script(
     z_freeze_cutoff=None,
     timestep=0.0005,
     thermo_damp=0.05,
+    etol=0.0,
+    ftol=1e-6,
+    maxiter=10000,
+    maxeval=100000,
     nvt_steps=100000,
     thermo_freq=1000,
     restart_dir=None,
@@ -795,16 +820,19 @@ def write_surface_relaxation_restart_script(
     out_path : str
         Path to the written ``.lammps`` script.
     """
-    pair           = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
-    neigh          = _neighbor_block()
-    restart        = _restart_line(restart_dir, restart_every,
-                                   label=f'surf_{target_t}K')
-    thermo_damp_fs = thermo_damp * 1000
-    z_cut          = z_freeze_cutoff if z_freeze_cutoff is not None else 'FILL_IN_Z_CUTOFF'
-    stem           = _stem(slab_relaxed)
+    pair             = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh            = _neighbor_block()
+    restart          = _restart_line(restart_dir, restart_every,
+                                     label=f'surf_{target_t}K')
+    thermo_damp_fs   = thermo_damp * 1000
+    z_cut            = z_freeze_cutoff if z_freeze_cutoff is not None else 'FILL_IN_Z_CUTOFF'
+    stem             = _stem(slab_relaxed)
 
-    phase3_restart = f'{stem}_phase3_nvt.restart'
-    traj_file      = f'{stem}_nvt_traj.lammpstrj'
+    phase3_data      = f'{stem}_phase3_nvt.lammps'
+    phase3_restart   = f'{stem}_phase3_nvt.restart'
+    phase4_restart   = f'{stem}_phase4_quench.restart'
+    traj_file        = f'{stem}_nvt_traj.lammpstrj'
+    quench_traj_file = f'{stem}_phase4_quench_traj.lammpstrj'
 
     script = f"""# ═══════════════════════════════════════════════════════
 # LAMMPS Surface Relaxation RESTART — Phase 3 NVT only
@@ -861,17 +889,35 @@ undump         surf_traj
 unfix          thermo_out
 print "### Phase 3 restart complete ###"
 
+write_restart  {phase3_restart}
+write_data     {phase3_data}
+
+# ═══ PHASE 4: Quench (CG minimization of NVT snapshot) ══════════
+print "### Phase 4: Quench minimization ###"
+
+variable       z_top_after_nvt  equal  bound(free_atoms,zmax)
+print "  z top BEFORE quench: ${{z_top_after_nvt}} Ang"
+
+dump           quench_traj  free_atoms  custom  {thermo_freq}  {quench_traj_file}  id type x y z
+dump_modify    quench_traj  sort id
+
+minimize       {etol}  {ftol}  {maxiter}  {maxeval}
+
+undump         quench_traj
+print "### Phase 4 complete ###"
+
 # ═══ Results ═════════════════════════════════════════════════════
 variable       z_top_final   equal  bound(free_atoms,zmax)
 variable       pe_final_val  equal  pe
 
 print "RELAXATION_RESULTS_START"
-print "  z_top_after_nvt_Ang  : ${{z_top_final}}"
-print "  pe_final_eV          : ${{pe_final_val}}"
+print "  z_top_after_nvt_Ang    : ${{z_top_after_nvt}}"
+print "  z_top_after_quench_Ang : ${{z_top_final}}"
+print "  pe_final_eV            : ${{pe_final_val}}"
 print "RELAXATION_RESULTS_END"
 
 unfix          freeze
-write_restart  {phase3_restart}
+write_restart  {phase4_restart}
 write_data     {slab_relaxed}
 print "Relaxed slab written: {slab_relaxed}"
 """

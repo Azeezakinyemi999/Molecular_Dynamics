@@ -89,7 +89,7 @@ SITE_COLORS = {
     'unknown'     : '#888888',
 }
 
-_DEFAULT_SLAB_PATH = 'structures/notebook05-adsorption-energy/7/clean_slab_reminimized.lammps'
+_DEFAULT_SLAB_PATH = 'calculation/phase2_relax/relaxed_slab.lammps'
 # Default seed and path — used only in __main__
 # When importing as a module pass seed and slab_path as arguments
 _DEFAULT_SEED      = 7
@@ -142,21 +142,36 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
     pos   = slab.get_positions()
     syms  = np.array(slab.get_chemical_symbols())
     cell  = slab.cell.diagonal()
-    z_max = pos[:, 2].max()
 
-    print(f'  {len(slab)} atoms  cell={np.round(cell, 3)}')
+    # Rank-based layer selection — immune to thermal outliers.
+    # A z-cutoff (pos[:,2] > z_max - tol) fails when one elevated atom inflates
+    # z_max, pushing the cutoff up and excluding depressed top-layer atoms, or
+    # pulling the mean down and contaminating with layer-2 atoms.
+    # Rank-based: always select exactly atoms_per_layer top atoms by z-rank.
+    _n_layers_est    = 12
+    _atoms_per_layer = max(1, len(pos) // _n_layers_est)
+    _sorted_by_z     = np.argsort(pos[:, 2])
 
-    # ── Top layer atoms (for graph nodes) ────────────────────
-    top_mask     = pos[:, 2] > (z_max - top_layer_tol)
+    # Top layer: top atoms_per_layer by rank
+    _top1_idx        = _sorted_by_z[-_atoms_per_layer:]
+    top_mask         = np.zeros(len(pos), dtype=bool)
+    top_mask[_top1_idx] = True
+
+    # z_max: mean z of top layer (used for graph metadata and ACAT z-offset)
+    z_max            = float(np.mean(pos[_top1_idx, 2]))
+
     top_indices  = np.where(top_mask)[0]
     top_syms     = syms[top_mask]
     top_pos      = pos[top_mask]
+    print(f'  {len(slab)} atoms  cell={np.round(cell, 3)}')
     print(f'  Top layer: {top_mask.sum()} atoms  '
           f'comp={dict(Counter(top_syms))}')
 
     # ── Top 3 layers for ACAT ─────────────────────────────────
-    z_top3    = z_max - 5.0
-    top3_mask = pos[:, 2] > z_top3
+    # Rank-based: top 3 × atoms_per_layer atoms by z
+    _top3_idx = _sorted_by_z[-(3 * _atoms_per_layer):]
+    top3_mask = np.zeros(len(pos), dtype=bool)
+    top3_mask[_top3_idx] = True
     top3_slab = slab[top3_mask].copy()
     top3_slab.cell[2, 2] = 30.0
     top3_slab.center(axis=2, vacuum=10.0)
