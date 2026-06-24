@@ -31,3 +31,14 @@ test*
 *.zip
 zi*
 *.pyc
+*test_outputs
+*test_npt
+*calculation/results_1/
+calculation/results/
+Ni_hydrogen/lammps_scripts/
+Ni_hydrogen/logs/
+Ni_hydrogen/results/
+Ni_hydrogen/slurm_scripts/
+Ni_hydrogen/strutures/
+
+

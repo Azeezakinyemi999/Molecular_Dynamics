@@ -32,6 +32,16 @@ THERMO_EVERY     = 1000
 DUMP_EVERY       = 1000
 VELOCITY_SEED    = 42
 RESTART_EVERY    = 100000
+# NPT Phase 1b
+NPT_HEAT_STEPS   = 20000
+NPT_PROD_STEPS   = 200000
+NPT_BARO_DAMP    = 1.0
+NPT_DUMP_EVERY   = 100
+# Minimisation (Phase 1a / Phase 1b bulk+H)
+MIN_ETOL         = 0.0
+MIN_FTOL         = 1e-8
+MIN_MAXITER      = 50000
+MIN_MAXEVAL      = 500000
 
 
 import os
@@ -104,6 +114,10 @@ for struct_path in INPUT_STRUCTURES:
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=ELEM_STR_7,
+            etol=MIN_ETOL,
+            ftol=MIN_FTOL,
+            maxiter=MIN_MAXITER,
+            maxeval=MIN_MAXEVAL,
         )
         write_slurm_job(
             job_name=f'min_bare_{run_name}',
@@ -142,8 +156,10 @@ for struct_path in INPUT_STRUCTURES:
                 target_t=T,
                 timestep=TIMESTEP_PS,
                 thermo_damp=TAU_T_PS,
-                restart_dir=os.path.join(dirs['structures'], f'npt_{T}K_checkpoints'),
-                restart_every=RESTART_EVERY,
+                baro_damp=NPT_BARO_DAMP,
+                heat_steps=NPT_HEAT_STEPS,
+                npt_steps=NPT_PROD_STEPS,
+                dump_every=NPT_DUMP_EVERY,
             )
             write_slurm_job(
                 job_name=f'npt_{T}K_{run_name}',
@@ -196,6 +212,10 @@ for struct_path in INPUT_STRUCTURES:
                 mace_model=MACE_MODEL_LAMMPS,
                 pair_suffix=PAIR_SUFFIX,
                 elem_str=ELEM_STR_7,
+                etol=MIN_ETOL,
+                ftol=MIN_FTOL,
+                maxiter=MIN_MAXITER,
+                maxeval=MIN_MAXEVAL,
             )
             write_slurm_job(
                 job_name=f'min_h_{T}K_{run_name}',
@@ -251,7 +271,15 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
+                velocity_seed=VELOCITY_SEED,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_nvt_bulk_restart_script(
                 restart_file=rst_glob,
@@ -265,7 +293,14 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_chained_slurm_job(
                 job_name=f'nvt_{T}K_{run_name}',
