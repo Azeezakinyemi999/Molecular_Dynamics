@@ -1,0 +1,47 @@
+
+# LAMMPS restart/trajectory files
+#*.restart.*
+# *.restart
+# *.lammps
+# *.lammpstrj
+
+# Simulation and SLURM logs
+#*.log
+slurm_*.out
+#*.out
+*.png 
+# *slurm_scripts/
+# *lammps_scripts/
+
+# Submit logs
+submit.log
+submit_new.log
+nb05b_submit.log
+nb06b_submit.log
+
+#*.sh
+*metadata/
+
+# Jupyter clutter
+.ipynb_checkpoints/
+
+# Test outputs
+test_outputs/
+test*
+# Temp/partial files
+*.zip
+zi*
+*.pyc
+*test_outputs
+*test_npt
+*results_1/
+*results_2/
+Ni_hydrogen/lammps_scripts/
+Ni_hydrogen/logs/
+Ni_hydrogen/results/
+Ni_hydrogen/slurm_scripts/
+Ni_hydrogen/strutures/
+
+
+
+
