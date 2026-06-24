@@ -2263,47 +2263,52 @@ sys.path.insert(0, os.path.dirname(WORK_DIR))
 from models.neb_workflow import orchestrate_full_neb_workflow
 from models.create_slurm import submit_slurm_job, wait_for_jobs
 
-result = orchestrate_full_neb_workflow(
-    bulk_min_path=BULK_MIN_PATH,
-    e_h2_gas=E_H2_GAS,
-    slab_dir=SLAB_DIR,
-    ads_dir=ADS_DIR,
-    neb_dir=NEB_DIR,
-    miller=MILLER,
-    layers=LAYERS,
-    vacuum=VACUUM,
-    lateral_repeat=LAT_REPEAT,
-    z_freeze_cutoff=Z_FREEZE_CUTOFF,
-    surf_timestep=SURF_TIMESTEP,
-    sep_min=SEP_MIN,
-    sep_max=SEP_MAX,
-    graph_dist_min=GRAPH_DIST_MIN,
-    prox_cutoff=PROX_CUTOFF,
-    n_images=N_IMAGES,
-    spring_const=SPRING_CONST,
-    neb_ftol=NEB_FTOL,
-    h_height=H_HEIGHT,
-    gpu_slurm_cfg=GPU_SLURM_CFG,
-    neb_slurm_cfg=NEB_SLURM_CFG,
-    dry_run=False,
-)
-print(f'  E_CLEAN  : {result["e_clean"]}')
-print(f'  NEB jobs : {result["n_neb_jobs"]}')
+# -- Phases A-D ----------------------------------------------------------------
+_ranked_f = os.path.join(NEB_DIR, 'ranked_barriers.json')
+if not os.path.exists(_ranked_f):
+    result = orchestrate_full_neb_workflow(
+        bulk_min_path=BULK_MIN_PATH,
+        e_h2_gas=E_H2_GAS,
+        slab_dir=SLAB_DIR,
+        ads_dir=ADS_DIR,
+        neb_dir=NEB_DIR,
+        miller=MILLER,
+        layers=LAYERS,
+        vacuum=VACUUM,
+        lateral_repeat=LAT_REPEAT,
+        z_freeze_cutoff=Z_FREEZE_CUTOFF,
+        surf_timestep=SURF_TIMESTEP,
+        sep_min=SEP_MIN,
+        sep_max=SEP_MAX,
+        graph_dist_min=GRAPH_DIST_MIN,
+        prox_cutoff=PROX_CUTOFF,
+        n_images=N_IMAGES,
+        spring_const=SPRING_CONST,
+        neb_ftol=NEB_FTOL,
+        h_height=H_HEIGHT,
+        gpu_slurm_cfg=GPU_SLURM_CFG,
+        neb_slurm_cfg=NEB_SLURM_CFG,
+        dry_run=False,
+    )
+    print(f'  E_CLEAN  : {result["e_clean"]}')
+    print(f'  NEB jobs : {result["n_neb_jobs"]}')
 
-# -- Phase D: Submit SLURM arrays ----------------------------------------------
-print('\n' + '='*60)
-print('  Phase D: Submit and wait')
-print('='*60)
+    # -- Phase D: Submit SLURM arrays ------------------------------------------
+    print('\n' + '='*60)
+    print('  Phase D: Submit and wait')
+    print('='*60)
 
-fsmin_jid = submit_slurm_job(result['fsmin_array_script'])
-print(f'  FS-min array submitted  ->  job {fsmin_jid}')
-wait_for_jobs({'fsmin_array': fsmin_jid})
-print('  All FS minimisations done.')
+    fsmin_jid = submit_slurm_job(result['fsmin_array_script'])
+    print(f'  FS-min array submitted  ->  job {fsmin_jid}')
+    wait_for_jobs({'fsmin_array': fsmin_jid})
+    print('  All FS minimisations done.')
 
-neb_jid = submit_slurm_job(result['neb_array_script'])
-print(f'  NEB array submitted  ->  job {neb_jid}')
-wait_for_jobs({'neb_array': neb_jid})
-print('  All NEB calculations done.')
+    neb_jid = submit_slurm_job(result['neb_array_script'])
+    print(f'  NEB array submitted  ->  job {neb_jid}')
+    wait_for_jobs({'neb_array': neb_jid})
+    print('  All NEB calculations done.')
+else:
+    print(f'  Phases A-D already complete: {_ranked_f} — skipping')
 
 # -- Phase E: Vibrational frequencies for dissociation IS + TS -----------------
 print('\n' + '='*60)
