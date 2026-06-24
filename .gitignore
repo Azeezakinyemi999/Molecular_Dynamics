@@ -1,10 +1,47 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+
+# LAMMPS restart/trajectory files
+#*.restart.*
+# *.restart
+# *.lammps
+# *.lammpstrj
+
+# Simulation and SLURM logs
+#*.log
+slurm_*.out
+#*.out
+*.png 
+# *slurm_scripts/
+# *lammps_scripts/
+
+# Submit logs
+submit.log
+submit_new.log
+nb05b_submit.log
+nb06b_submit.log
+
+#*.sh
+*metadata/
+
+# Jupyter clutter
 .ipynb_checkpoints/
-*.egg-info/
-dist/
-build/
-.DS_Store
-*.swp
+
+# Test outputs
+test_outputs/
+test*
+# Temp/partial files
+*.zip
+zi*
+*.pyc
+*test_outputs
+*test_npt
+*results_1/
+*results_2/
+MHI_Nickel/lammps_scripts/
+MHI_Nickel/logs/
+MHI_Nickel/results/
+MHI_Nickel/slurm_scripts/
+MHI_Nickel/strutures/
+
+
+
+

@@ -179,6 +179,8 @@ def run_phase2_surface_relaxation(
     from models.config import (
         SLURM_DEFAULTS, LAMMPS_CMD, MACE_MODEL_LAMMPS,
         PAIR_STYLE, PAIR_SUFFIX, ELEM_STR_7, KOKKOS_FLAGS,
+        SURF_ETOL, SURF_FTOL, SURF_MAXITER, SURF_MAXEVAL,
+        SURF_HEAT_STEPS, SURF_NVT_STEPS, SURF_THERMO_DAMP,
     )
 
     Path(outdir).mkdir(parents=True, exist_ok=True)
@@ -207,6 +209,13 @@ def run_phase2_surface_relaxation(
         elem_str=ELEM_STR_7,
         z_freeze_cutoff=z_freeze_cutoff,
         timestep=timestep,
+        thermo_damp=SURF_THERMO_DAMP,
+        etol=SURF_ETOL,
+        ftol=SURF_FTOL,
+        maxiter=SURF_MAXITER,
+        maxeval=SURF_MAXEVAL,
+        heat_steps=SURF_HEAT_STEPS,
+        nvt_steps=SURF_NVT_STEPS,
         restart_dir=restart_dir,
         restart_every=restart_every,
     )
@@ -506,6 +515,7 @@ from models.config import (
     LAMMPS_CMD, MACE_MODEL_LAMMPS, PAIR_STYLE, PAIR_SUFFIX,
     KOKKOS_FLAGS, ELEM_STR_7, MASSES_7, E2T_7,
     H2_HEIGHT, H2_BOND, FTOL, Z_FREEZE_CUTOFF,
+    ADS_MIN_ETOL, ADS_MIN_FTOL, ADS_MIN_MAXITER, ADS_MIN_MAXEVAL,
 )
 
 
@@ -656,7 +666,10 @@ def run_phase1_h2_adsorption(
             pair_suffix=PAIR_SUFFIX,
             elem_str=ELEM_STR_7,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
-            ftol=FTOL,
+            etol=ADS_MIN_ETOL,
+            ftol=ADS_MIN_FTOL,
+            maxiter=ADS_MIN_MAXITER,
+            maxeval=ADS_MIN_MAXEVAL,
         )
 
         write_slurm_job(
@@ -842,7 +855,10 @@ def run_phase2_h_adsorption(
             pair_suffix=PAIR_SUFFIX,
             elem_str=ELEM_STR_7,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
-            ftol=FTOL,
+            etol=ADS_MIN_ETOL,
+            ftol=ADS_MIN_FTOL,
+            maxiter=ADS_MIN_MAXITER,
+            maxeval=ADS_MIN_MAXEVAL,
         )
 
         write_slurm_job(
@@ -1594,6 +1610,7 @@ def orchestrate_neb(
         SLURM_DEFAULTS, LAMMPS_CMD, MACE_MODEL_LAMMPS, MACE_MODEL_ASE,
         PAIR_STYLE, PAIR_SUFFIX, ELEM_STR_7, KOKKOS_FLAGS,
         MASSES_7, E2T_7, Z_FREEZE_CUTOFF, FTOL,
+        ADS_MIN_ETOL, ADS_MIN_FTOL, ADS_MIN_MAXITER, ADS_MIN_MAXEVAL,
     )
 
     if slurm_opts is None:
@@ -1661,7 +1678,10 @@ def orchestrate_neb(
             pair_suffix=PAIR_SUFFIX,
             elem_str=ELEM_STR_7,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
-            ftol=FTOL,
+            etol=ADS_MIN_ETOL,
+            ftol=ADS_MIN_FTOL,
+            maxiter=ADS_MIN_MAXITER,
+            maxeval=ADS_MIN_MAXEVAL,
         )
 
         # 4. ASE NEB script — E_IS hardcoded; E_FS parsed at runtime from fs_min.log
@@ -2058,6 +2078,8 @@ def orchestrate_full_neb_workflow(
     layers: int = 12,
     vacuum: float = 15.0,
     lateral_repeat: tuple = (5, 6),
+    z_freeze_cutoff: float = 22.115,
+    surf_timestep: float = 0.0005,
     sep_min: float = 2.5,
     sep_max: float = 6.0,
     graph_dist_min: int = 2,
@@ -2095,6 +2117,8 @@ def orchestrate_full_neb_workflow(
         layers=layers,
         vacuum=vacuum,
         lateral_repeat=lateral_repeat,
+        z_freeze_cutoff=z_freeze_cutoff,
+        timestep=surf_timestep,
         slurm_opts=gpu_slurm_cfg,
         dry_run=dry_run,
     )
@@ -2175,6 +2199,8 @@ def write_neb_run_script(
     gpu_slurm_cfg,
     neb_slurm_cfg,
     out_py: str,
+    z_freeze_cutoff: float = 22.115,
+    surf_timestep: float   = 0.0005,
     vib_slurm_cfg=None,
 ) -> str:
     """Write neb_run.py with embedded config. Returns the output path."""
@@ -2223,6 +2249,9 @@ H_HEIGHT       = {h_height!r}
 GPU_SLURM_CFG  = {gpu_slurm_cfg!r}
 NEB_SLURM_CFG  = {neb_slurm_cfg!r}
 VIB_SLURM_CFG  = {_vib_cfg!r}
+# Surface relaxation (Phase A)
+Z_FREEZE_CUTOFF = {z_freeze_cutoff!r}
+SURF_TIMESTEP   = {surf_timestep!r}
 
 '''
 
@@ -2244,6 +2273,8 @@ result = orchestrate_full_neb_workflow(
     layers=LAYERS,
     vacuum=VACUUM,
     lateral_repeat=LAT_REPEAT,
+    z_freeze_cutoff=Z_FREEZE_CUTOFF,
+    surf_timestep=SURF_TIMESTEP,
     sep_min=SEP_MIN,
     sep_max=SEP_MAX,
     graph_dist_min=GRAPH_DIST_MIN,

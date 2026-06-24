@@ -40,7 +40,15 @@ def generate_diffusivity_scripts(
     dump_every,
     velocity_seed,
     restart_every,
-    out_py: str,
+    npt_heat_steps=20000,
+    npt_prod_steps=200000,
+    npt_baro_damp=1.0,
+    npt_dump_every=100,
+    min_etol=0.0,
+    min_ftol=1e-8,
+    min_maxiter=50000,
+    min_maxeval=500000,
+    out_py: str = '',
 ) -> str:
     """Write diffusivity_run.py with embedded config. Returns the output path."""
 
@@ -78,6 +86,16 @@ THERMO_EVERY     = {thermo_every!r}
 DUMP_EVERY       = {dump_every!r}
 VELOCITY_SEED    = {velocity_seed!r}
 RESTART_EVERY    = {restart_every!r}
+# NPT Phase 1b
+NPT_HEAT_STEPS   = {npt_heat_steps!r}
+NPT_PROD_STEPS   = {npt_prod_steps!r}
+NPT_BARO_DAMP    = {npt_baro_damp!r}
+NPT_DUMP_EVERY   = {npt_dump_every!r}
+# Minimisation (Phase 1a / Phase 1b bulk+H)
+MIN_ETOL         = {min_etol!r}
+MIN_FTOL         = {min_ftol!r}
+MIN_MAXITER      = {min_maxiter!r}
+MIN_MAXEVAL      = {min_maxeval!r}
 
 '''
 
@@ -152,6 +170,10 @@ for struct_path in INPUT_STRUCTURES:
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=ELEM_STR_7,
+            etol=MIN_ETOL,
+            ftol=MIN_FTOL,
+            maxiter=MIN_MAXITER,
+            maxeval=MIN_MAXEVAL,
         )
         write_slurm_job(
             job_name=f'min_bare_{run_name}',
@@ -190,8 +212,10 @@ for struct_path in INPUT_STRUCTURES:
                 target_t=T,
                 timestep=TIMESTEP_PS,
                 thermo_damp=TAU_T_PS,
-                restart_dir=os.path.join(dirs['structures'], f'npt_{T}K_checkpoints'),
-                restart_every=RESTART_EVERY,
+                baro_damp=NPT_BARO_DAMP,
+                heat_steps=NPT_HEAT_STEPS,
+                npt_steps=NPT_PROD_STEPS,
+                dump_every=NPT_DUMP_EVERY,
             )
             write_slurm_job(
                 job_name=f'npt_{T}K_{run_name}',
@@ -244,6 +268,10 @@ for struct_path in INPUT_STRUCTURES:
                 mace_model=MACE_MODEL_LAMMPS,
                 pair_suffix=PAIR_SUFFIX,
                 elem_str=ELEM_STR_7,
+                etol=MIN_ETOL,
+                ftol=MIN_FTOL,
+                maxiter=MIN_MAXITER,
+                maxeval=MIN_MAXEVAL,
             )
             write_slurm_job(
                 job_name=f'min_h_{T}K_{run_name}',
@@ -299,7 +327,15 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
+                velocity_seed=VELOCITY_SEED,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_nvt_bulk_restart_script(
                 restart_file=rst_glob,
@@ -313,7 +349,14 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_chained_slurm_job(
                 job_name=f'nvt_{T}K_{run_name}',
