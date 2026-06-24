@@ -37,9 +37,12 @@ SPRING_CONST   = 1.0
 NEB_FTOL       = 0.05
 H_HEIGHT       = 1.5
 # SLURM configurations
-GPU_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': 'a100:1', 'conda_env': 'mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'ld_preload': '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/libjemalloc.so', 'partition': 'multigpu', 'time': '04:00:00'}
-NEB_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 16, 'gpu': None, 'conda_env': 'mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'ld_preload': '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/libjemalloc.so', 'partition': 'short', 'time': '12:00:00'}
-VIB_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': None, 'conda_env': 'mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'ld_preload': '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/libjemalloc.so', 'partition': 'short', 'time': '06:00:00'}
+GPU_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': 'a100:1', 'conda_env': '/home/akinyemi.az/miniforge3/envs/mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'partition': 'multigpu', 'time': '04:00:00'}
+NEB_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 16, 'gpu': None, 'conda_env': '/home/akinyemi.az/miniforge3/envs/mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'partition': 'short', 'time': '12:00:00'}
+VIB_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': None, 'conda_env': '/home/akinyemi.az/miniforge3/envs/mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'partition': 'short', 'time': '06:00:00'}
+# Surface relaxation (Phase A)
+Z_FREEZE_CUTOFF = 22.115
+SURF_TIMESTEP   = 0.0005
 
 
 import os
@@ -59,6 +62,8 @@ result = orchestrate_full_neb_workflow(
     layers=LAYERS,
     vacuum=VACUUM,
     lateral_repeat=LAT_REPEAT,
+    z_freeze_cutoff=Z_FREEZE_CUTOFF,
+    surf_timestep=SURF_TIMESTEP,
     sep_min=SEP_MIN,
     sep_max=SEP_MAX,
     graph_dist_min=GRAPH_DIST_MIN,

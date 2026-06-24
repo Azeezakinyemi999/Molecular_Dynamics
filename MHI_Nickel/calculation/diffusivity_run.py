@@ -39,7 +39,7 @@ NPT_BARO_DAMP    = 1.0
 NPT_DUMP_EVERY   = 100
 # Minimisation (Phase 1a / Phase 1b bulk+H)
 MIN_ETOL         = 0.0
-MIN_FTOL         = 1e-8
+MIN_FTOL         = 1e-08
 MIN_MAXITER      = 50000
 MIN_MAXEVAL      = 500000
 
