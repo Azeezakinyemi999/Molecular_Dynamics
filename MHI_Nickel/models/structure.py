@@ -136,6 +136,56 @@ def get_lattice_parameter(
     return float(a0)
 
 
+def get_lattice_parameter_from_dump(
+    dump_file: str,
+    n_last: int = 50,
+    supercell_reps: tuple[int, int, int] = (5, 5, 5),
+) -> float:
+    """Extract a₀ by averaging the last n_last Lx values from an NPT box-dim dump.
+
+    The dump file is written by ``fix ave/time`` in the NPT script with columns:
+    Step  Lx  Ly  Lz.  Averaging over the tail of the production run gives a
+    thermally-averaged lattice parameter rather than a single potentially
+    fluctuating snapshot.
+
+    Parameters
+    ----------
+    dump_file : str
+        Path to the LAMMPS fix ave/time output (``npt_boxdims_{T}K.dat``).
+    n_last : int
+        Number of trailing rows to average. Default 50 = last 5000 steps at
+        dump_every=100.
+    supercell_reps : tuple of int
+        (nx, ny, nz) repetitions used when the supercell was built.
+        Default (5, 5, 5).
+
+    Returns
+    -------
+    float
+        Lattice parameter a₀ in Å.
+    """
+    if not os.path.exists(dump_file):
+        raise FileNotFoundError(f'{dump_file} not found.')
+    lx_vals = []
+    with open(dump_file) as fh:
+        for line in fh:
+            if line.startswith('#') or not line.strip():
+                continue
+            cols = line.split()
+            if len(cols) >= 2:
+                try:
+                    lx_vals.append(float(cols[1]))
+                except ValueError:
+                    continue
+    if not lx_vals:
+        raise ValueError(f'No data rows found in {dump_file}')
+    tail = lx_vals[-n_last:]
+    lx_mean = sum(tail) / len(tail)
+    a0 = lx_mean / supercell_reps[0]
+    print(f'[a0] {a0:.6f} Å  (mean of last {len(tail)} frames, {os.path.basename(dump_file)})')
+    return float(a0)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 3 — Random alloy bulk builder
 # ═══════════════════════════════════════════════════════════════════════════════
