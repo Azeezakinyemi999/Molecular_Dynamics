@@ -40,7 +40,15 @@ def generate_diffusivity_scripts(
     dump_every,
     velocity_seed,
     restart_every,
-    out_py: str,
+    npt_heat_steps=20000,
+    npt_prod_steps=200000,
+    npt_baro_damp=1.0,
+    npt_dump_every=100,
+    min_etol=0.0,
+    min_ftol=1e-8,
+    min_maxiter=50000,
+    min_maxeval=500000,
+    out_py: str = '',
 ) -> str:
     """Write diffusivity_run.py with embedded config. Returns the output path."""
 
@@ -78,13 +86,24 @@ THERMO_EVERY     = {thermo_every!r}
 DUMP_EVERY       = {dump_every!r}
 VELOCITY_SEED    = {velocity_seed!r}
 RESTART_EVERY    = {restart_every!r}
+# NPT Phase 1b
+NPT_HEAT_STEPS   = {npt_heat_steps!r}
+NPT_PROD_STEPS   = {npt_prod_steps!r}
+NPT_BARO_DAMP    = {npt_baro_damp!r}
+NPT_DUMP_EVERY   = {npt_dump_every!r}
+# Minimisation (Phase 1a / Phase 1b bulk+H)
+MIN_ETOL         = {min_etol!r}
+MIN_FTOL         = {min_ftol!r}
+MIN_MAXITER      = {min_maxiter!r}
+MIN_MAXEVAL      = {min_maxeval!r}
 
 '''
 
     _body = r"""
 import os
 import sys
-sys.path.insert(0, WORK_DIR)
+import json as _json_lat
+sys.path.insert(0, os.path.dirname(WORK_DIR))
 
 from models.config import (
     LAMMPS_CMD, MACE_MODEL_LAMMPS, KOKKOS_FLAGS,
@@ -151,6 +170,10 @@ for struct_path in INPUT_STRUCTURES:
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=ELEM_STR_7,
+            etol=MIN_ETOL,
+            ftol=MIN_FTOL,
+            maxiter=MIN_MAXITER,
+            maxeval=MIN_MAXEVAL,
         )
         write_slurm_job(
             job_name=f'min_bare_{run_name}',
@@ -163,7 +186,7 @@ for struct_path in INPUT_STRUCTURES:
         )
         jid = submit_slurm_job(min_bare_sh)
         wait_for_jobs({'min_bare': jid})
-        print('  [1a] Bare bulk minimisation done.')
+        print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
 
         # ── Phase 1b — Step A: NPT at every T in parallel ────────────────────
         print('\n--- Phase 1b: NPT equilibration at each temperature ---')
@@ -189,8 +212,10 @@ for struct_path in INPUT_STRUCTURES:
                 target_t=T,
                 timestep=TIMESTEP_PS,
                 thermo_damp=TAU_T_PS,
-                restart_dir=os.path.join(dirs['structures'], f'npt_{T}K_checkpoints'),
-                restart_every=RESTART_EVERY,
+                baro_damp=NPT_BARO_DAMP,
+                heat_steps=NPT_HEAT_STEPS,
+                npt_steps=NPT_PROD_STEPS,
+                dump_every=NPT_DUMP_EVERY,
             )
             write_slurm_job(
                 job_name=f'npt_{T}K_{run_name}',
@@ -213,12 +238,14 @@ for struct_path in INPUT_STRUCTURES:
 
         min_h_job_ids = {}
         T_to_bulk_h   = {}
+        _a0_by_T      = {}   # collect a0(T) in Å for each temperature
 
         for T in TEMPERATURES:
             a0_T = get_lattice_parameter(npt_final_paths[T])
+            _a0_by_T[T] = a0_T
             print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å  →  inserting {n_h} H atom(s)')
 
-            bulk_h_path_T, _, _ = insert_hydrogen(
+            bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
                 bulk_min_path=npt_final_paths[T],
                 n_h=n_h,
                 masses=MASSES_7,
@@ -226,6 +253,7 @@ for struct_path in INPUT_STRUCTURES:
                 out_dir=os.path.join(dirs['structures'], f'{T}K'),
                 a0=a0_T,
             )
+            print(f'  [1b] T={T}K  inserted {n_h} H  min_H-metal={_min_hm_T:.3f} Å  → {bulk_h_path_T}')
 
             min_h_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
             min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
@@ -240,6 +268,10 @@ for struct_path in INPUT_STRUCTURES:
                 mace_model=MACE_MODEL_LAMMPS,
                 pair_suffix=PAIR_SUFFIX,
                 elem_str=ELEM_STR_7,
+                etol=MIN_ETOL,
+                ftol=MIN_FTOL,
+                maxiter=MIN_MAXITER,
+                maxeval=MIN_MAXEVAL,
             )
             write_slurm_job(
                 job_name=f'min_h_{T}K_{run_name}',
@@ -255,6 +287,14 @@ for struct_path in INPUT_STRUCTURES:
         print(f'  Waiting for {len(min_h_job_ids)} bulk+H minimisation jobs ...')
         wait_for_jobs(min_h_job_ids)
         print('  All bulk+H minimisations done.')
+
+        # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
+        _lat_out = os.path.join(WORK_DIR, 'results', 'lattice_params_vs_T.json')
+        os.makedirs(os.path.dirname(_lat_out), exist_ok=True)
+        with open(_lat_out, 'w') as _f:
+            _json_lat.dump({'temperatures': list(_a0_by_T.keys()),
+                            'a0_m': [v * 1e-10 for v in _a0_by_T.values()]}, _f, indent=2)
+        print(f'  Saved lattice_params_vs_T.json → {_lat_out}')
 
         # ── Phase 2 ──────────────────────────────────────────────────────────
         print('\n--- Phase 2: NVT MD ---')
@@ -287,7 +327,15 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
+                velocity_seed=VELOCITY_SEED,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_nvt_bulk_restart_script(
                 restart_file=rst_glob,
@@ -301,7 +349,14 @@ for struct_path in INPUT_STRUCTURES:
                 elem_str=ELEM_STR_7,
                 temperature=T,
                 h_type=E2T_7['H'],
+                timestep=TIMESTEP_PS,
+                tau_t=TAU_T_PS,
+                n_equil=N_EQUIL_STEPS,
+                n_prod=N_PROD_STEPS,
+                thermo_every=THERMO_EVERY,
+                dump_every=DUMP_EVERY,
                 restart_dir=rst_dir,
+                restart_every=RESTART_EVERY,
             )
             write_chained_slurm_job(
                 job_name=f'nvt_{T}K_{run_name}',
@@ -339,18 +394,34 @@ for struct_path in INPUT_STRUCTURES:
                 outdir=analysis_dir,
             )
             D_vals.append(result['D'])
-            D_errs.append(result['D_err'])
+            D_errs.append(result['sigma_D'])
             R2_vals.append(result['R2'])
             print(f'  T={T}K   D={result["D"]:.4e} m2/s   R2={result["R2"]:.4f}')
 
         table_path = os.path.join(analysis_dir, 'diffusivity_table.txt')
         save_diffusivity_table(TEMPERATURES, D_vals, D_errs, R2_vals, table_path)
 
+        print(f'  D(T) summary: {" | ".join(f"{T:.0f}K:{D:.2e}" for T, D in zip(TEMPERATURES, D_vals))}')
         arr = run_arrhenius_pipeline(
             diffusivity_file=table_path,
             outdir=analysis_dir,
         )
-        print(f'  Ea = {arr["Ea"]:.4f} eV   D0 = {arr["D0"]:.4e} m2/s')
+        print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
+
+        # Save Arrhenius params so Part 2 (permeation_run.py) can load them
+        _arr_out = os.path.join(WORK_DIR, 'results', 'diffusivity_arrhenius.json')
+        with open(_arr_out, 'w') as _f:
+            _json_lat.dump({
+                'D0_m2s':     arr['D0'],
+                'E_D_eV':     arr['Ea'],
+                'D0_err':     arr['D0_err'],
+                'E_D_err_eV': arr['Ea_err'],
+                'R2_fit':     arr['R2'],
+                'T_K_arr':    [float(t) for t in arr['T_arr']],
+                'D_arr':      [float(d) for d in arr['D_arr']],
+                'D_err_arr':  [float(e) for e in arr['D_err_arr']],
+            }, _f, indent=2)
+        print(f'  Saved diffusivity_arrhenius.json → {_arr_out}')
 
 print('\n=== All structures and H concentrations complete ===')
 """
@@ -382,7 +453,7 @@ def generate_orchestrator_sh(
     """Write diffusivity_run.sh and chmod +x it. Returns the output path."""
 
     orch_time_line = f'#SBATCH --time={orch_time}' if orch_time else ''
-    _ld_lines = '\n'.join(
+    _ld_lines = ('\n        ').join(
         f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH'
         for p in orch_ld_paths
     )

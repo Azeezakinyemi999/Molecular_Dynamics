@@ -122,6 +122,10 @@ def write_slurm_job(
         f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH'
         for p in sc.get('ld_paths', [])
     )
+    # ── LD_PRELOAD ────────────────────────────────────────────
+    preload_line = ''
+    if sc.get('ld_preload'):
+        preload_line = f'export LD_PRELOAD={sc["ld_preload"]}'
 
     # ── Extra environment variables ───────────────────────────────
     env_lines = ''
@@ -165,6 +169,7 @@ module load OpenMPI/{sc['openmpi_ver']}
 source ~/miniforge3/etc/profile.d/conda.sh
 conda activate {sc['conda_env']}
 {ld_lines}
+{preload_line}
 {env_lines}
 cd {os.getcwd()}
 
@@ -612,6 +617,7 @@ def write_chained_slurm_job(
         f'export LD_LIBRARY_PATH={p}:$LD_LIBRARY_PATH'
         for p in sc.get('ld_paths', [])
     )
+    preload_line = f'export LD_PRELOAD={sc["ld_preload"]}' if sc.get('ld_preload') else ''
 
     # ── extra env vars ────────────────────────────────────────────
     env_lines = ''
@@ -647,6 +653,7 @@ def write_chained_slurm_job(
         'source ~/miniforge3/etc/profile.d/conda.sh',
         f'conda activate {sc["conda_env"]}',
         ld_lines,
+        preload_line, 
         env_lines,
         cd_line,
         '',

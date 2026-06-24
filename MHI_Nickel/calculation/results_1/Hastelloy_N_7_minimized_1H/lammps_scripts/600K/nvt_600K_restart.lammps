@@ -1,0 +1,70 @@
+# LAMMPS NVT bulk RESTART — Hastelloy N + H
+# T = 600 K | Notebook 10 (continuation leg)
+# Phase 1: 250 ps equilibration (resumed from checkpoint)
+# Phase 2: 750 ps production   (trajectory appended)
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p p
+
+# Resume from most recent checkpoint.
+# Velocities and thermostat state restored; no velocity command needed.
+read_restart   /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/checkpoints/nvt_600K.*.restart
+
+restart        10000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/checkpoints/nvt_600K.*.restart
+
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mp-0b2-medium.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+group          H_atom  type 8
+group          metal   subtract all H_atom
+
+thermo         1000
+thermo_style   custom step temp pe ke etotal press vol
+
+timestep       0.0005
+
+# === PHASE 1: Equilibration (250 ps) ===
+fix            nvt_equil  all  nvt  temp  600.0  600.0  100.0
+print "### Phase 1: Equilibration 250 ps at 600 K (restart) ###"
+run            500000
+unfix          nvt_equil
+print "### Phase 1 complete ###"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/nvt_600K_phase1_equil.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/nvt_600K_phase1_equil.lammps
+
+# === PHASE 2: Production (750 ps) ===
+# append yes — frames added after those from the previous leg
+dump           prod_dump  all  custom  1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/nvt_600K.dump &
+               id type x y z
+dump_modify    prod_dump  sort id  append yes
+
+fix            nvt_prod  all  nvt  temp  600.0  600.0  100.0
+
+compute        msd_H    H_atom  msd
+# append yes — MSD rows continue from where the previous leg left off
+fix            msd_out  all  ave/time  1  1  1000 &
+               c_msd_H[4]  file  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/msd_600K.dat  mode scalar  append yes
+
+print "### Phase 2: Production 750 ps at 600 K (restart) ###"
+run            1500000
+print "### Phase 2 complete ###"
+
+variable  pe_final   equal  pe
+variable  temp_fin   equal  temp
+variable  press_fin  equal  press
+
+print "EQUIL_RESULTS_START"
+print "  T_K          : 600"
+print "  pe_final_eV  : ${pe_final}"
+print "  temp_final_K : ${temp_fin}"
+print "  press_final  : ${press_fin}"
+print "EQUIL_RESULTS_END"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/nvt_600K_phase2_prod.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/results/Hastelloy_N_7_minimized_1H/results/600K/nvt_600K.out

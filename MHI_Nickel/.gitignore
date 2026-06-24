@@ -1,16 +1,16 @@
 # LAMMPS restart/trajectory files
-*.restart.*
-*.restart
-*.lammps
-*.lammpstrj
+#*.restart.*
+# *.restart
+# *.lammps
+# *.lammpstrj
 
 # Simulation and SLURM logs
-*.log
+#*.log
 slurm_*.out
-*.out
+#*.out
 *.png 
-*slurm_scripts/
-*lammps_scripts/
+# *slurm_scripts/
+# *lammps_scripts/
 
 # Submit logs
 submit.log
@@ -18,7 +18,7 @@ submit_new.log
 nb05b_submit.log
 nb06b_submit.log
 
-*.sh
+#*.sh
 *metadata/
 
 # Jupyter clutter
@@ -31,3 +31,14 @@ test*
 *.zip
 zi*
 *.pyc
+*test_outputs
+*test_npt
+*calculation/results_1/
+calculation/results/
+MHI_Nickel/lammps_scripts/
+MHI_Nickel/logs/
+MHI_Nickel/results/
+MHI_Nickel/slurm_scripts/
+MHI_Nickel/strutures/
+
+
