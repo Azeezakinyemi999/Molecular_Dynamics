@@ -31,3 +31,14 @@ test*
 *.zip
 zi*
 *.pyc
+*test_outputs
+*test_npt
+*calculation/results_1/
+calculation/results/
+MHI_Nickel/lammps_scripts/
+MHI_Nickel/logs/
+MHI_Nickel/results/
+MHI_Nickel/slurm_scripts/
+MHI_Nickel/strutures/
+
+
