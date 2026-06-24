@@ -105,63 +105,75 @@ if not dedup_is_labels:
 # Phase 1 — Hop A NEB: surface H* → subsurface-1 oct
 # ══════════════════════════════════════════════════════════════════════════════
 print('\n── Phase 1: Hop A NEB ──────────────────────────────────────────────────')
-hopa_out = orchestrate_hopa_neb(
-    dedup_is_labels    = dedup_is_labels,
-    subsurface_graph   = (G, subsurface_sites),
-    surface_connections= surface_connections,
-    outdir             = SUB_NEB_DIR,
-    masses             = MASSES_7,
-    e2t                = E2T_7,
-    slurm_opts         = GPU_SLURM_CFG,
-    neb_slurm_opts     = NEB_SLURM_CFG,
-    n_images           = N_IMAGES,
-    spring_const       = SPRING_K,
-    neb_ftol           = NEB_FTOL_VAL,
-    dry_run            = False,
-)
-hopa_jobs = hopa_out['jobs']
-print(f'  Hop A: {hopa_out["n_jobs"]} jobs  fsmin_array={hopa_out["fsmin_array"]}')
+_hopa_jobs_json = os.path.join(SUB_NEB_DIR, 'hopa', 'hopa_jobs.json')
+if not os.path.exists(_hopa_jobs_json):
+    hopa_out = orchestrate_hopa_neb(
+        dedup_is_labels    = dedup_is_labels,
+        subsurface_graph   = (G, subsurface_sites),
+        surface_connections= surface_connections,
+        outdir             = SUB_NEB_DIR,
+        masses             = MASSES_7,
+        e2t                = E2T_7,
+        slurm_opts         = GPU_SLURM_CFG,
+        neb_slurm_opts     = NEB_SLURM_CFG,
+        n_images           = N_IMAGES,
+        spring_const       = SPRING_K,
+        neb_ftol           = NEB_FTOL_VAL,
+        dry_run            = False,
+    )
+    hopa_jobs = hopa_out['jobs']
+    print(f'  Hop A: {hopa_out["n_jobs"]} jobs  fsmin_array={hopa_out["fsmin_array"]}')
 
-print('  Submitting Hop A FS-min …')
-_jid_hopa_fsmin = submit_slurm_job(hopa_out['fsmin_array'])
-wait_for_jobs({'hopa_fsmin': _jid_hopa_fsmin})
-print('  Hop A FS-min done.')
+    print('  Submitting Hop A FS-min …')
+    _jid_hopa_fsmin = submit_slurm_job(hopa_out['fsmin_array'])
+    wait_for_jobs({'hopa_fsmin': _jid_hopa_fsmin})
+    print('  Hop A FS-min done.')
 
-print('  Submitting Hop A NEB …')
-_jid_hopa_neb = submit_slurm_job(hopa_out['neb_array'])
-wait_for_jobs({'hopa_neb': _jid_hopa_neb})
-print('  Hop A NEB done.')
+    print('  Submitting Hop A NEB …')
+    _jid_hopa_neb = submit_slurm_job(hopa_out['neb_array'])
+    wait_for_jobs({'hopa_neb': _jid_hopa_neb})
+    print('  Hop A NEB done.')
+else:
+    with open(_hopa_jobs_json) as _f:
+        hopa_jobs = json.load(_f)
+    print(f'  Hop A already done ({len(hopa_jobs)} jobs) — skipping')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Phase 2 — Hop B NEB: subsurface-1 → subsurface-2 oct
 # ══════════════════════════════════════════════════════════════════════════════
 print('\n── Phase 2: Hop B NEB ──────────────────────────────────────────────────')
-hopb_out = orchestrate_hopb_neb(
-    hopa_jobs          = hopa_jobs,
-    hopa_outdir        = os.path.join(SUB_NEB_DIR, 'hopa'),
-    subsurface_graph   = (G, subsurface_sites),
-    outdir             = SUB_NEB_DIR,
-    masses             = MASSES_7,
-    e2t                = E2T_7,
-    slurm_opts         = GPU_SLURM_CFG,
-    neb_slurm_opts     = NEB_SLURM_CFG,
-    n_images           = N_IMAGES,
-    spring_const       = SPRING_K,
-    neb_ftol           = NEB_FTOL_VAL,
-    dry_run            = False,
-)
-hopb_jobs = hopb_out['jobs']
-print(f'  Hop B: {hopb_out["n_jobs"]} jobs  fsmin_array={hopb_out["fsmin_array"]}')
+_hopb_jobs_json = os.path.join(SUB_NEB_DIR, 'hopb', 'hopb_jobs.json')
+if not os.path.exists(_hopb_jobs_json):
+    hopb_out = orchestrate_hopb_neb(
+        hopa_jobs          = hopa_jobs,
+        hopa_outdir        = os.path.join(SUB_NEB_DIR, 'hopa'),
+        subsurface_graph   = (G, subsurface_sites),
+        outdir             = SUB_NEB_DIR,
+        masses             = MASSES_7,
+        e2t                = E2T_7,
+        slurm_opts         = GPU_SLURM_CFG,
+        neb_slurm_opts     = NEB_SLURM_CFG,
+        n_images           = N_IMAGES,
+        spring_const       = SPRING_K,
+        neb_ftol           = NEB_FTOL_VAL,
+        dry_run            = False,
+    )
+    hopb_jobs = hopb_out['jobs']
+    print(f'  Hop B: {hopb_out["n_jobs"]} jobs  fsmin_array={hopb_out["fsmin_array"]}')
 
-print('  Submitting Hop B FS-min …')
-_jid_hopb_fsmin = submit_slurm_job(hopb_out['fsmin_array'])
-wait_for_jobs({'hopb_fsmin': _jid_hopb_fsmin})
-print('  Hop B FS-min done.')
+    print('  Submitting Hop B FS-min …')
+    _jid_hopb_fsmin = submit_slurm_job(hopb_out['fsmin_array'])
+    wait_for_jobs({'hopb_fsmin': _jid_hopb_fsmin})
+    print('  Hop B FS-min done.')
 
-print('  Submitting Hop B NEB …')
-_jid_hopb_neb = submit_slurm_job(hopb_out['neb_array'])
-wait_for_jobs({'hopb_neb': _jid_hopb_neb})
-print('  Hop B NEB done.')
+    print('  Submitting Hop B NEB …')
+    _jid_hopb_neb = submit_slurm_job(hopb_out['neb_array'])
+    wait_for_jobs({'hopb_neb': _jid_hopb_neb})
+    print('  Hop B NEB done.')
+else:
+    with open(_hopb_jobs_json) as _f:
+        hopb_jobs = json.load(_f)
+    print(f'  Hop B already done ({len(hopb_jobs)} jobs) — skipping')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Phase 3 — Vibrational frequencies (IS + TS, both hops)
@@ -240,6 +252,11 @@ else:
     print(f'  WARNING: diss_vib_rates.json not found — using raw barriers for diss/des rates')
 
 for _T in TEMPERATURES:
+    _out = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
+    if os.path.exists(_out):
+        print(f'  T={_T:4.0f} K  KMC sweep already done — skipping')
+        continue
+
     with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
         _tst = json.load(_f)
 
@@ -300,7 +317,6 @@ for _T in TEMPERATURES:
     _sweep['T_K']   = _T
     _sweep['D_m2s'] = _D_T
     _sweep['a0_m']  = _a0_T
-    _out = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
     with open(_out, 'w') as _f:
         json.dump(_sweep, _f, indent=2)
     _conv = sum(1 for c in _sweep.get('converged', []) if c)
