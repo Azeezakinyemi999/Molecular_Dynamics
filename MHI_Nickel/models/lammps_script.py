@@ -359,6 +359,7 @@ def write_npt_restart_script(
     supercell_reps=5,
     restart_dir=None,
     restart_every=10000,
+    min_output=None,
 ):
     """Write a LAMMPS NPT continuation script (Stage 2 production only).
 
@@ -427,6 +428,7 @@ def write_npt_restart_script(
     thermo_damp_fs = thermo_damp * 1000
     baro_damp_fs   = baro_damp   * 1000
     npt_ps         = npt_steps   * timestep
+    _final_stem    = _stem(min_output) if min_output else _stem(npt_dump)
 
     script = f"""# ════════════════════════════════════════════════════
 # LAMMPS NPT RESTART — Stage 2 only at {target_t} K
@@ -473,7 +475,7 @@ variable       a0_npt  equal  lx/{supercell_reps}.0
 print "NPT_RESULT: a0_at_{target_t}K = ${{a0_npt}} Angstrom"
 
 write_restart  {_stem(npt_dump)}_final.restart
-write_data     {_stem(npt_dump)}_npt_final_{target_t}K.lammps
+write_data     {_final_stem}_npt_final_{target_t}K.lammps
 """
     os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
     with open(out_path, 'w') as f:
