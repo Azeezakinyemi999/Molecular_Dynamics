@@ -241,6 +241,7 @@ for struct_path in INPUT_STRUCTURES:
                 write_npt_restart_script(
                     restart_file=npt_after_heat_rst,
                     npt_dump=npt_dump,
+                    min_output=min_bare_out,
                     out_path=npt_rst_lmp,
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
