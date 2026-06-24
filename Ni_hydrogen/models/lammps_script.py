@@ -274,8 +274,8 @@ def write_npt_script(
         traj_close = 'undump         npt_traj\n'
     else:
         traj_open = traj_close = ''
-    thermo_damp_ps = thermo_damp 
-    baro_damp_fs   = baro_damp  
+    thermo_damp_fs = thermo_damp * 1000
+    baro_damp_fs   = baro_damp  * 1000
     heat_ps        = heat_steps * timestep
     npt_ps         = npt_steps  * timestep
 
@@ -305,7 +305,7 @@ thermo         {dump_every}
 thermo_style   custom step time temp pe ke press vol lx ly lz
 
 {traj_open}# ── Stage 1: Heat 10 K → {target_t} K over {heat_ps:.0f} ps ──────────────
-fix            heat all npt temp 10.0 {target_t}.0 {thermo_damp_ps:.1f} &
+fix            heat all npt temp 10.0 {target_t}.0 {thermo_damp_fs:.1f} &
                iso 0.0 0.0 {baro_damp_fs:.1f}
 run            {heat_steps}
 unfix          heat
@@ -315,7 +315,7 @@ write_restart  {_stem(npt_dump)}_after_heat.restart
 write_data     {_stem(min_output)}_npt_after_heat.lammps
 
 # ── Stage 2: NPT production at {target_t} K ({npt_ps:.0f} ps) ────────────
-fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_ps:.1f} &
+fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_fs:.1f} &
                iso 0.0 0.0 {baro_damp_fs:.1f}
 
 variable       lx_val  equal  lx
@@ -335,6 +335,145 @@ print "NPT_RESULT: a0_at_{target_t}K = ${{a0_npt}} Angstrom"
 
 write_restart  {_stem(npt_dump)}_final.restart
 write_data     {_stem(min_output)}_npt_final_{target_t}K.lammps
+"""
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
+
+
+def write_npt_restart_script(
+    restart_file,
+    npt_dump,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    target_t=300,
+    timestep=0.001,
+    thermo_damp=0.1,
+    baro_damp=1.0,
+    npt_steps=200000,
+    dump_every=100,
+    supercell_reps=5,
+    restart_dir=None,
+    restart_every=10000,
+):
+    """Write a LAMMPS NPT continuation script (Stage 2 production only).
+
+    Reads ``*_after_heat.restart`` written by :func:`write_npt_script` and
+    runs NPT production at *target_t*, appending box dimensions to the
+    existing *npt_dump* file.
+
+    Mirrors :func:`write_npt_script` Stage 2 exactly with three differences:
+
+    1. ``read_restart`` replaces ``read_data`` — velocities and thermostat
+       state are restored from the checkpoint; no ``velocity`` command.
+    2. ``fix boxdump`` uses ``append yes`` — box dims are appended to the
+       existing ``npt_dump`` rather than overwriting it.
+    3. Only Stage 2 (production) runs — Stage 1 heating is skipped.
+
+    Intended as the ``restart_commands`` LAMMPS input for
+    :func:`~models.create_slurm.write_chained_slurm_job`.
+
+    Parameters
+    ----------
+    restart_file : str
+        Path to ``*_after_heat.restart`` produced by :func:`write_npt_script`.
+    npt_dump : str
+        Path to the ``ave/time`` box-dimension dump file
+        (``npt_boxdims_{T}K.dat``).  Box dims are appended to this file.
+    out_path : str
+        Destination path for the ``.lammps`` input script.
+    pair_style : str
+        LAMMPS ``pair_style`` keyword.
+    mace_model : str
+        Full path to the MACE ``.pt`` model file.
+    pair_suffix : str
+        Suffix for ``pair_style``.
+    elem_str : str
+        Element string for ``pair_coeff * *``.
+    target_t : float, optional
+        Target temperature in K. Default ``300``.
+    timestep : float, optional
+        MD timestep in ps. Default ``0.001`` (1 fs).
+    thermo_damp : float, optional
+        Nosé-Hoover thermostat damping time in ps. Default ``0.1``.
+    baro_damp : float, optional
+        Parrinello-Rahman barostat damping time in ps. Default ``1.0``.
+    npt_steps : int, optional
+        Steps for constant-T NPT production. Default ``200000``.
+    dump_every : int, optional
+        Frequency for box-dimension output. Default ``100``.
+    supercell_reps : int, optional
+        Unit cell repetitions along one axis for ``a0`` calculation.
+        Default ``5``.
+    restart_dir : str or None, optional
+        Directory for periodic binary restart files.  If ``None``, no
+        restart directive is written. Default ``None``.
+    restart_every : int, optional
+        Steps between restart file writes. Default ``10000``.
+
+    Returns
+    -------
+    out_path : str
+        Path to the written ``.lammps`` script.
+    """
+    pair           = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh          = _neighbor_block()
+    restart        = _restart_line(restart_dir, restart_every,
+                                   label=f'npt_{target_t}K_rst')
+    thermo_damp_fs = thermo_damp * 1000
+    baro_damp_fs   = baro_damp   * 1000
+    npt_ps         = npt_steps   * timestep
+
+    script = f"""# ════════════════════════════════════════════════════
+# LAMMPS NPT RESTART — Stage 2 only at {target_t} K
+# Notebook 02 (continuation leg)
+# Reads *_after_heat.restart; appends box dims to existing dump
+# ════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p p
+
+# Velocities and thermostat state are restored from the checkpoint.
+# No velocity command needed.
+read_restart   {restart_file}
+
+{restart}
+
+{pair}
+
+{neigh}
+
+timestep       {timestep}
+
+thermo         {dump_every}
+thermo_style   custom step time temp pe ke press vol lx ly lz
+
+# ── Stage 2: NPT production at {target_t} K ({npt_ps:.0f} ps) ────────────
+fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_fs:.1f} &
+               iso 0.0 0.0 {baro_damp_fs:.1f}
+
+variable       lx_val  equal  lx
+variable       ly_val  equal  ly
+variable       lz_val  equal  lz
+fix            boxdump all ave/time 1 1 {dump_every} v_lx_val v_ly_val v_lz_val &
+               file {npt_dump}  append yes
+
+run            {npt_steps}
+unfix          npt_run
+unfix          boxdump
+print "### NPT restart complete at {target_t} K ###"
+
+variable       a0_npt  equal  lx/{supercell_reps}.0
+print "NPT_RESULT: a0_at_{target_t}K = ${{a0_npt}} Angstrom"
+
+write_restart  {_stem(npt_dump)}_final.restart
+write_data     {_stem(npt_dump)}_npt_final_{target_t}K.lammps
 """
     os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
     with open(out_path, 'w') as f:
@@ -439,7 +578,7 @@ def write_surface_relaxation_script(
     neigh          = _neighbor_block()
     restart        = _restart_line(restart_dir, restart_every,
                                    label=f'surf_{target_t}K')
-    thermo_damp_ps = thermo_damp 
+    thermo_damp_fs = thermo_damp * 1000
     z_cut          = z_freeze_cutoff if z_freeze_cutoff is not None else 'FILL_IN_Z_CUTOFF'
     stem           = _stem(slab_relaxed)
 
@@ -548,7 +687,7 @@ fix            thermo_out  all  ave/time  1  1  {thermo_freq}  &
 dump           surf_traj  free_atoms  custom  {thermo_freq}  {traj_file}  id type x y z
 dump_modify    surf_traj  sort id
 
-fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_ps:.1f}
+fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_fs:.1f}
 run            {nvt_steps}
 unfix          nvt_equil
 undump         surf_traj
@@ -563,6 +702,168 @@ print "RELAXATION_RESULTS_START"
 print "  z_top_before_Ang     : ${{z_top_before}}"
 print "  z_top_after_min_Ang  : ${{z_top_after_min}}"
 print "  surface_contraction  : ${{dz_min}}"
+print "  z_top_after_nvt_Ang  : ${{z_top_final}}"
+print "  pe_final_eV          : ${{pe_final_val}}"
+print "RELAXATION_RESULTS_END"
+
+unfix          freeze
+write_restart  {phase3_restart}
+write_data     {slab_relaxed}
+print "Relaxed slab written: {slab_relaxed}"
+"""
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
+
+
+def write_surface_relaxation_restart_script(
+    restart_file,
+    slab_relaxed,
+    relax_thermo,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    target_t=300,
+    z_freeze_cutoff=None,
+    timestep=0.0005,
+    thermo_damp=0.05,
+    nvt_steps=100000,
+    thermo_freq=1000,
+    restart_dir=None,
+    restart_every=10000,
+):
+    """Write a LAMMPS surface relaxation continuation script (Phase 3 NVT only).
+
+    Reads the latest periodic restart from *restart_file* (a glob pattern
+    matching ``restarts/surf_300K.*.restart``) and re-runs Phase 3 NVT,
+    appending to the existing trajectory and thermo files.
+
+    Mirrors :func:`write_surface_relaxation_script` Phase 3 exactly with
+    three differences:
+
+    1. ``read_restart`` replaces all three phases' setup — velocities and
+       thermostat state are restored; no ``velocity`` or ``minimize`` needed.
+    2. The NVT dump uses ``append yes``.
+    3. The ``fix ave/time`` thermo file uses ``append yes``.
+
+    Intended as the ``restart_commands`` LAMMPS input for
+    :func:`~models.create_slurm.write_chained_slurm_job`.
+
+    Parameters
+    ----------
+    restart_file : str
+        Glob-style path to the periodic LAMMPS restart file, e.g.
+        ``'restarts/surf_300K.*.restart'``.  LAMMPS picks the most recent.
+    slab_relaxed : str
+        Path for the final relaxed slab output (``write_data``).
+    relax_thermo : str
+        Path to the existing ``ave/time`` temperature file. Appended to.
+    out_path : str
+        Destination path for the ``.lammps`` input script.
+    pair_style : str
+        LAMMPS ``pair_style`` keyword.
+    mace_model : str
+        Full path to the MACE ``.pt`` model file.
+    pair_suffix : str
+        Suffix for ``pair_style``.
+    elem_str : str
+        Element string for ``pair_coeff * *``.
+    target_t : float, optional
+        NVT target temperature in K. Default ``300``.
+    z_freeze_cutoff : float or None, optional
+        Z-coordinate threshold for frozen-layer group. Default ``None``.
+    timestep : float, optional
+        MD timestep in ps. Default ``0.0005`` (0.5 fs).
+    thermo_damp : float, optional
+        Nosé-Hoover thermostat damping time in ps. Default ``0.05``.
+    nvt_steps : int, optional
+        Steps for Phase 3 NVT. Default ``100000``.
+    thermo_freq : int, optional
+        Thermo output frequency. Default ``1000``.
+    restart_dir : str or None, optional
+        Directory for periodic binary restart files. Default ``None``.
+    restart_every : int, optional
+        Steps between periodic restart writes. Default ``10000``.
+
+    Returns
+    -------
+    out_path : str
+        Path to the written ``.lammps`` script.
+    """
+    pair           = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh          = _neighbor_block()
+    restart        = _restart_line(restart_dir, restart_every,
+                                   label=f'surf_{target_t}K')
+    thermo_damp_fs = thermo_damp * 1000
+    z_cut          = z_freeze_cutoff if z_freeze_cutoff is not None else 'FILL_IN_Z_CUTOFF'
+    stem           = _stem(slab_relaxed)
+
+    phase3_restart = f'{stem}_phase3_nvt.restart'
+    traj_file      = f'{stem}_nvt_traj.lammpstrj'
+
+    script = f"""# ═══════════════════════════════════════════════════════
+# LAMMPS Surface Relaxation RESTART — Phase 3 NVT only
+# T = {target_t} K | boundary p p f (continuation leg)
+# Reads latest periodic restart; appends to existing trajectory
+# ═══════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p f
+
+# Velocities and thermostat state are restored from the checkpoint.
+# No velocity command needed.
+read_restart   {restart_file}
+
+{restart}
+
+{pair}
+
+{neigh}
+
+# ── Frozen layers (z ≤ {z_cut} Å) ────────────────────────────────
+region         frozen_reg    block  INF INF  INF INF  EDGE  {z_cut}
+group          frozen_atoms  region  frozen_reg
+group          free_atoms    subtract  all  frozen_atoms
+
+fix            freeze  frozen_atoms  setforce  0.0  0.0  0.0
+
+thermo         {thermo_freq}
+thermo_style   custom  step  time  temp  pe  ke  press  lx  ly  lz
+
+timestep       {timestep}
+
+# ═══ PHASE 3: NVT Equilibration at {target_t} K (restart) ════════
+print "### Phase 3 NVT restart at {target_t} K ###"
+
+compute        surf_temp  free_atoms  temp
+thermo_modify  temp  surf_temp
+
+# append yes — rows continue from where the previous leg stopped
+fix            thermo_out  all  ave/time  1  1  {thermo_freq}  &
+               c_surf_temp  &
+               file  {relax_thermo}  mode scalar  append yes
+
+# append yes — frames added after those from the previous leg
+dump           surf_traj  free_atoms  custom  {thermo_freq}  {traj_file}  id type x y z
+dump_modify    surf_traj  sort id  append yes
+
+fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_fs:.1f}
+run            {nvt_steps}
+unfix          nvt_equil
+undump         surf_traj
+unfix          thermo_out
+print "### Phase 3 restart complete ###"
+
+# ═══ Results ═════════════════════════════════════════════════════
+variable       z_top_final   equal  bound(free_atoms,zmax)
+variable       pe_final_val  equal  pe
+
+print "RELAXATION_RESULTS_START"
 print "  z_top_after_nvt_Ang  : ${{z_top_final}}"
 print "  pe_final_eV          : ${{pe_final_val}}"
 print "RELAXATION_RESULTS_END"
@@ -666,7 +967,7 @@ def write_nvt_bulk_script(
     neigh     = _neighbor_block()
     restart   = _restart_line(restart_dir, restart_every,
                                label=f'nvt_{temperature}K')
-    tau_t_fs  = tau_t 
+    tau_t_fs  = tau_t * 1000
     equil_ps  = n_equil * timestep
     prod_ps   = n_prod  * timestep
     stem      = _stem(out_file)
@@ -848,7 +1149,7 @@ def write_nvt_bulk_restart_script(
     neigh     = _neighbor_block()
     restart   = _restart_line(restart_dir, restart_every,
                                label=f'nvt_{temperature}K')
-    tau_t_fs  = tau_t 
+    tau_t_fs  = tau_t * 1000
     equil_ps  = n_equil * timestep
     prod_ps   = n_prod  * timestep
     stem      = _stem(out_file)
@@ -1012,7 +1313,7 @@ def write_nvt_bulk_restart_script(
     neigh     = _neighbor_block()
     restart   = _restart_line(restart_dir, restart_every,
                                label=f'nvt_{temperature}K')
-    tau_t_fs  = tau_t 
+    tau_t_fs  = tau_t * 1000
     equil_ps  = n_equil * timestep
     prod_ps   = n_prod  * timestep
     stem      = _stem(out_file)
