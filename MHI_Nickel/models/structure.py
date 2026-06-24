@@ -482,7 +482,7 @@ def build_slab(
 
     # ── Build FCC slab with a₀ ────────────────────────────────────────────────
     # Use Ni as the template element (FCC, same structure)
-    unit_slab = surface('Ni', miller, layers, vacuum=vacuum, a=a0)
+    unit_slab = surface(bulk('Ni', 'fcc', a=a0), miller, layers, vacuum=vacuum)
 
     # Tile laterally if requested
     p, q = lateral_repeat

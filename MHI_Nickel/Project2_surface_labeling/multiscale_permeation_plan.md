@@ -982,4 +982,120 @@ The complete end-to-end dependency map showing every file produced and consumed 
 
 ---
 
+## Section 8 — ZPE Corrections, Temperature Dependence, and KMC Rate Assembly
+
+### ZPE corrections: what they capture and what they do not
+
+Phase E (Part 1) and Phase 3 (Part 2) both compute harmonic vibrational frequencies at the IS and TS of every NEB transition using MACE as the force engine. These frequencies feed into two corrections:
+
+**Zero-point energy correction to the barrier:**
+
+```text
+ΔE_ZPE = ½ℏ × (∑ωᵢ^IS − ∑ωᵢ^TS_real)
+Ea_eff  = Ea_NEB + ΔE_ZPE
+```
+
+H is a light atom (mass 1.008 amu). Its vibrational frequencies are high (H–H stretch ~3800 cm⁻¹, H–metal stretch ~800–1200 cm⁻¹), which means large zero-point energies. The ZPE difference between IS (H fully coordinated in its adsorption site) and TS (H at the saddle point, partially uncoordinated) is typically −0.05 to −0.15 eV for H on transition metals — a downward correction that can change rates by a factor of 2–5 at 500 K. ZPE corrections are the dominant quantum correction for light-atom diffusion and cannot be neglected.
+
+**Vineyard prefactor:**
+
+```text
+ν_Vineyard = c × (∏ᵢ νᵢ^IS) / (∏ᵢ νᵢ^TS_real)
+```
+
+The imaginary TS mode is excluded from the denominator product (it is not a vibration — it is the instability direction). The Vineyard prefactor replaces the assumed default of 10¹³ s⁻¹ with a physically-derived attempt frequency. For H on metals, ν_Vineyard is typically 10¹²–10¹³ s⁻¹.
+
+**What ZPE corrections do NOT capture:**
+
+ZPE corrections are evaluated at 0 K harmonic geometry. They do not capture:
+
+- Finite-temperature entropic contributions to the free-energy barrier (ΔS‡ terms in free-energy TST)
+- Anharmonic corrections to vibrational frequencies at high T
+- How the saddle-point geometry shifts as the lattice thermally expands from 500 K to 900 K
+
+The geometric effect of thermal expansion on the barrier is small for metals in this temperature range (typically < 0.02 eV over 400 K). By contrast, ZPE shifts the barrier by 0.05–0.15 eV. ZPE corrections therefore dominate the quantum correction budget, and the residual error from using 0 K NEB geometries on a 300 K-relaxed slab is negligible relative to the ZPE correction already applied.
+
+**Conclusion on temperature-dependent slabs:** Using temperature-dependent lattice parameters for the NEB slab would be a half-measure (adsorption IS/FS structures would still be 0 K CG-minimised). The ZPE corrections already capture the most important physical effect. Temperature-dependent slabs are not worth the 5× compute cost for this system.
+
+---
+
+### How `diss_vib_rates.json` is used in the KMC temperature sweep
+
+`build_rate_dict()` in `models/tst_rates.py` computes rates at a specific `T_K` and stores them alongside the temperature-independent quantities (`Ea_zpe`, `Ed_zpe`, `nu`). The `neb_run.py` Phase E call uses `T_K=700.0` — this only affects the reference rate values printed to screen and stored in the internal dict; it does **not** affect what `neb_run.py` writes to `diss_vib_rates.json`.
+
+What `diss_vib_rates.json` contains (written by `neb_run.py` Phase E):
+
+```json
+{
+  "label__elem1+elem2": {
+    "pair":   ["Ni", "Mo"],
+    "Ea_zpe": 0.312,     ← ZPE-corrected forward barrier (eV) — temperature-independent
+    "Ed_zpe": 0.189,     ← ZPE-corrected reverse barrier (eV) — temperature-independent
+    "Ea_raw": 0.358,     ← raw NEB barrier (eV)
+    "Ed_raw": 0.235,     ← raw NEB reverse barrier (eV)
+    "nu":     8.3e12,    ← Vineyard prefactor (s⁻¹) — temperature-independent
+    "label":  "..."
+  }
+}
+```
+
+`permeation_run.py` reads `Ea_zpe`, `Ed_zpe`, and `nu` from this file and recomputes rates fresh at every temperature in the sweep:
+
+```python
+for _T in TEMPERATURES:          # [500, 600, 700, 800, 900] K
+    _kBT = KB_EV * _T
+    for _pkey, _dv in _diss_vib.items():
+        _k_diss[_pkey] = np.exp(-_dv['Ea_zpe'] / _kBT)           # sticking factor
+        _k_des[_pkey]  = _dv['nu'] * np.exp(-_dv['Ed_zpe'] / _kBT)  # TST rate (s⁻¹)
+```
+
+The T_K=700.0 in Phase E therefore has no effect on the temperature sweep — it is a documentation/print artifact.
+
+---
+
+### Why k_diss has no Vineyard prefactor
+
+`k_diss` in the rate dict is dimensionally different from `k_des`. The KMC `build_event_list()` function (`models/kmc.py`) documents this explicitly:
+
+```python
+# H₂ → 2H* sticking probability (dimensionless Boltzmann factor)
+# Multiply by gas_strike_rate(P,T) inside build_event_list.
+# Derive as: exp(-Ea_diss_zpe / (kB * T)) from tst_rates output.
+'k_diss':  {('Ni', 'Ni'): float, ...}
+```
+
+The actual adsorption rate in the KMC is:
+
+```text
+R_adsorb = R_strike × k_diss = [Hertz-Knudsen collision rate] × exp(−Ea_ZPE / k_B T)
+```
+
+where `R_strike = P / √(2π m_H₂ k_B T) × A_site` is computed inside `build_event_list` from the gas pressure, temperature, and surface site area. The attempt frequency for the forward (adsorption) process comes from gas-phase kinetic theory, not from the Vineyard formula. `k_diss` is therefore a dimensionless thermal activation factor, not a full TST rate constant.
+
+`k_des`, by contrast, is the rate for a surface process (2H* → H₂) that has no gas-phase component. It uses the full TST expression including the Vineyard prefactor:
+
+```text
+k_des = ν_Vineyard × exp(−Ed_ZPE / k_B T)   [s⁻¹]
+```
+
+This asymmetry — gas kinetic theory for adsorption, harmonic TST for desorption — is the standard treatment for dissociative chemisorption kinetics. It is internally consistent with detailed balance because both rates are derived from the same NEB barrier: at equilibrium, `R_strike × k_diss = k_des` recovers the correct Sieverts equilibrium constant.
+
+---
+
+### Summary: temperature dependence of the complete rate assembly
+
+| Rate constant | Source | Temperature enters via | Notes |
+| --- | --- | --- | --- |
+| `k_diss(T)` | Part 1 Phase E, ZPE-corrected Ea | Boltzmann factor exp(−Ea_ZPE/kBT) | No ν prefactor — uses gas Hertz-Knudsen flux |
+| `k_des(T)` | Part 1 Phase E, ZPE-corrected Ed | ν_Vineyard × exp(−Ed_ZPE/kBT) | Full TST rate (s⁻¹) |
+| `k_entry(T)` | Part 2 Phase 3, Hop A ZPE-corrected | ν_A × exp(−ΔE_entry_ZPE/kBT) | Full TST rate (s⁻¹) |
+| `k_exit(T)` | Part 2 Phase 3, Hop A ZPE-corrected | ν_A × exp(−ΔE_exit_ZPE/kBT) | Full TST rate (s⁻¹) |
+| `k_mig(T)` | Part 2 Phase 3, Hop B ZPE-corrected | ν_B × exp(−ΔE_mig_ZPE/kBT) | Full TST rate (s⁻¹) |
+| `k_surf_diff(T)` | Part 1 Phase E, ZPE-corrected | ν_diff × exp(−ΔE_diff_ZPE/kBT) | Full TST rate (s⁻¹) |
+| `k_drain(T)` | Part 3 Phase 3 Arrhenius D(T) | D(T) = D₀ exp(−E_D/kBT), then D/dx² | Not from NEB — from MD MSD |
+
+All ZPE-corrected barriers and Vineyard prefactors are stored as temperature-independent constants in JSON files. The KMC recomputes the actual rate constants at each temperature in the sweep from these stored values. No rate pre-computed at a specific temperature is reused at a different temperature.
+
+---
+
 *Document generated from `pipeline.ipynb` source — 2026-06-22*
