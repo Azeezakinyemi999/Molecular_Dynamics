@@ -330,7 +330,7 @@ def run_phase3_site_enumeration(
     
     # Build surface connectivity graph
     print(f"[Section A Phase 3] Building surface graph...")
-    G, slab = build_surface_graph(
+    G, slab, _top3_slab, _sites = build_surface_graph(
         relaxed_slab_path,
         seed=seed,
         bond_cutoff=bond_cutoff,
