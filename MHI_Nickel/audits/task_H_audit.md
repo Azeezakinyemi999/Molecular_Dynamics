@@ -264,3 +264,169 @@ None.
 
 **VERIFIED.** `models/lammps_script.py`, `models/surface_graph.py`,
 `models/subsurface_graph.py` ready to commit.
+
+---
+
+## 7. Post-H Fixes — Live Pipeline Bugs
+
+Found and fixed during first live cluster run of the full pipeline.
+
+---
+
+### Fix 1 — `run_phase3_site_enumeration` unpack crash (`e0083a9`)
+
+**File:** `models/neb_workflow.py`
+
+Task H updated `build_surface_graph` to return 4 values (`G, slab, top3_slab,
+sites`) but `run_phase3_site_enumeration` was never updated — still unpacked 2.
+
+```python
+# Before (crash: ValueError too many values to unpack)
+G, slab = build_surface_graph(relaxed_slab_path, ...)
+
+# After
+G, slab, _top3_slab, _sites = build_surface_graph(relaxed_slab_path, ...)
+```
+
+---
+
+### Fix 2 — `top3_slab.center(axis=2, vacuum=10.0)` double-face enumeration (`e0083a9`)
+
+**File:** `models/surface_graph.py`
+
+`center(axis=2, vacuum=10.0)` added 10 Å vacuum on **both** sides of the 3-layer
+sub-slab. With `pbc=[True, True, False]`, ACAT saw two exposed surfaces and
+enumerated sites for both → 423 sites instead of ~180.
+
+The original slab already has 15 Å vacuum above the top layer. Both lines removed:
+
+```python
+# Removed:
+top3_slab.cell[2, 2] = 30.0
+top3_slab.center(axis=2, vacuum=10.0)
+```
+
+This reduced the double-count but still gave 424 sites (root cause below).
+
+---
+
+### Fix 3 — ACAT layer merging after NVT+quench → 424 sites (`92bbd27`)
+
+**File:** `models/surface_graph.py`
+
+**Root cause:** After NVT+quench, thermal displacements within a layer span
+~1.7 Å. The interlayer gap between adjacent top layers was only 0.098–0.225 Å.
+ACAT's `get_layers` (tolerance=0.3 Å) found no gap larger than 0.3 Å between
+consecutive sorted z-values → merged all 3 layers into fewer planes. The trial
+loop picked n_layers=1, treating all 3 planes as one stepped surface
+(n_morphs=3) → 424 sites.
+
+**Fix — two parts:**
+
+1. Translate `top3_slab` so atoms start at z≈0 (vacuum only above, not also
+   below). Keeps `z_offset` correct for mapping ACAT sites back to full-slab
+   frame.
+
+2. Build `acat_slab = top3_slab.copy()` with z-positions snapped to per-layer
+   means. Each atom's z is replaced by the mean-z of the `_atoms_per_layer`
+   atoms in its rank-based group. Gives ACAT 3 perfectly flat planes → n_layers=3,
+   n_morphs=1 (flat terrace). Only `acat_slab` is z-snapped; `top3_slab` is
+   unchanged so `z_offset` is unaffected.
+
+3. Remove trial loop; hardcode `n_layers=3`. `top3_slab` always has exactly 3
+   layers by construction (rank-based selection of 3×`_atoms_per_layer` atoms).
+
+```python
+# Translate to z≈0
+_top3_z_min = top3_slab.get_positions()[:, 2].min()
+_top3_z_max = top3_slab.get_positions()[:, 2].max()
+top3_slab.positions[:, 2] -= _top3_z_min
+top3_slab.cell[2, 2] = _top3_z_max - _top3_z_min + 15.0
+
+# Z-snapped copy for ACAT only
+acat_slab = top3_slab.copy()
+_acat_pos  = acat_slab.get_positions()
+_acat_by_z = np.argsort(_acat_pos[:, 2])
+for _li in range(3):
+    _layer_atoms = _acat_by_z[_li * _atoms_per_layer : (_li + 1) * _atoms_per_layer]
+    _acat_pos[_layer_atoms, 2] = _acat_pos[_layer_atoms, 2].mean()
+acat_slab.positions = _acat_pos
+
+cs  = CustomSurface(acat_slab, n_layers=3)
+sas = SlabAdsorptionSites(acat_slab, surface=cs, ...)
+```
+
+**Result:** 159 valid sites (ontop: 28, bridge: 84, hollow: 47). Atop count = 28
+= 30 surface atoms − 2 C atoms excluded by ACAT as adsorbate_elements ✓.
+Edge/site ratio = 2.05 ✓.
+
+---
+
+### Fix 4 — `subsurf_element=None` crashes `nx.write_gml` (`92bbd27`)
+
+**File:** `models/surface_graph.py`
+
+Site nodes with no subsurface element stored `None`. GML format requires string
+values → `nx.write_gml` raised `NetworkXError: None is not a string`.
+
+```python
+# Before
+subsurf_element = sub if sub else None,
+
+# After
+subsurf_element = sub if sub else '',
+```
+
+---
+
+### Fix 5 — Restart-contamination guards (`92bbd27`)
+
+**Files:** `models/neb_workflow.py`, `models/neb_subsurface.py`
+
+**Root cause:** Re-running the pipeline orchestrator unconditionally re-submitted
+SLURM jobs. Each new job found old `.restart` files in the `restarts/` directory
+from the prior completed run → ran continuation commands (extra NVT steps) instead
+of starting fresh. Affected Phase 2 surface relaxation, surface NEB, and
+subsurface Hop A/B.
+
+Full audit of all 6 `write_chained_slurm_job` usages: 4 lacked guards (fixed), 2
+already guarded.
+
+| Location | Guard added on |
+|---|---|
+| `orchestrate_slab_prep` (Phase 2) | `relaxed_slab.lammps` existence |
+| `orchestrate_neb` (per NEB pair) | `neb_barrier.txt` existence |
+| `orchestrate_hopa_neb` (per site) | `barrier_file` existence |
+| `orchestrate_hopb_neb` (per site) | `barrier_file` existence |
+
+For Phase 2, the entire `run_phase2_surface_relaxation` call is skipped (not just
+submission). For NEB/Hop, SLURM submission is skipped but scripts are still
+regenerated for reference. `wait_for_jobs` moved inside the `else` branch for
+Phase 2 so it only runs when a new job is actually submitted.
+
+---
+
+### Distortion robustness test
+
+Tested `build_surface_graph` (z-snap + n_layers=3 fix) across 8 distortion levels
+of the actual quenched slab (alpha=0 fully flat → alpha=1 actual slab):
+
+| alpha | n_sites | inter-layer gap (min) | grouping |
+| --- | --- | --- | --- |
+| 0.00 | 159 | 1.806 Å | clean |
+| 0.10 | 159 | 1.635 Å | clean |
+| 0.25 | 159 | 1.379 Å | clean |
+| 0.50 | 159 | 0.952 Å | clean |
+| 0.75 | 159 | 0.525 Å | clean |
+| 1.00 | 159 | 0.098 Å | clean |
+
+Site count locked at 159 across all distortion levels. Rank-based grouping never
+mixes atoms between true layers even at 0.098 Å gap. The `_n_layers_est = 12`
+hardcode is correct for the current 12-layer, 360-atom slab; no fix needed while
+the number of layers is unchanged.
+
+---
+
+### Post-H status
+
+**VERIFIED.** Committed in `e0083a9` and `92bbd27`.
