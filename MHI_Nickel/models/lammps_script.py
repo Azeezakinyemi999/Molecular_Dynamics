@@ -274,8 +274,8 @@ def write_npt_script(
         traj_close = 'undump         npt_traj\n'
     else:
         traj_open = traj_close = ''
-    thermo_damp_fs = thermo_damp * 1000
-    baro_damp_fs   = baro_damp  * 1000
+    thermo_damp_ps = thermo_damp
+    baro_damp_fs   = baro_damp
     heat_ps        = heat_steps * timestep
     npt_ps         = npt_steps  * timestep
 
@@ -305,7 +305,7 @@ thermo         {dump_every}
 thermo_style   custom step time temp pe ke press vol lx ly lz
 
 {traj_open}# ── Stage 1: Heat 10 K → {target_t} K over {heat_ps:.0f} ps ──────────────
-fix            heat all npt temp 10.0 {target_t}.0 {thermo_damp_fs:.1f} &
+fix            heat all npt temp 10.0 {target_t}.0 {thermo_damp_ps:.1f} &
                iso 0.0 0.0 {baro_damp_fs:.1f}
 run            {heat_steps}
 unfix          heat
@@ -315,7 +315,7 @@ write_restart  {_stem(npt_dump)}_after_heat.restart
 write_data     {_stem(min_output)}_npt_after_heat.lammps
 
 # ── Stage 2: NPT production at {target_t} K ({npt_ps:.0f} ps) ────────────
-fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_fs:.1f} &
+fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_ps:.1f} &
                iso 0.0 0.0 {baro_damp_fs:.1f}
 
 variable       lx_val  equal  lx
@@ -425,8 +425,8 @@ def write_npt_restart_script(
     neigh          = _neighbor_block()
     restart        = _restart_line(restart_dir, restart_every,
                                    label=f'npt_{target_t}K_rst')
-    thermo_damp_fs = thermo_damp * 1000
-    baro_damp_fs   = baro_damp   * 1000
+    thermo_damp_ps = thermo_damp
+    baro_damp_fs   = baro_damp
     npt_ps         = npt_steps   * timestep
     _final_stem    = _stem(min_output) if min_output else _stem(npt_dump)
 
@@ -457,7 +457,7 @@ thermo         {dump_every}
 thermo_style   custom step time temp pe ke press vol lx ly lz
 
 # ── Stage 2: NPT production at {target_t} K ({npt_ps:.0f} ps) ────────────
-fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_fs:.1f} &
+fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_ps:.1f} &
                iso 0.0 0.0 {baro_damp_fs:.1f}
 
 variable       lx_val  equal  lx
@@ -580,7 +580,7 @@ def write_surface_relaxation_script(
     neigh          = _neighbor_block()
     restart        = _restart_line(restart_dir, restart_every,
                                    label=f'surf_{target_t}K')
-    thermo_damp_fs = thermo_damp * 1000
+    thermo_damp_ps = thermo_damp
     z_cut          = z_freeze_cutoff if z_freeze_cutoff is not None else 'FILL_IN_Z_CUTOFF'
     stem           = _stem(slab_relaxed)
 
@@ -693,7 +693,7 @@ fix            thermo_out  all  ave/time  1  1  {thermo_freq}  &
 dump           surf_traj  free_atoms  custom  {thermo_freq}  {traj_file}  id type x y z
 dump_modify    surf_traj  sort id
 
-fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_fs:.1f}
+fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_ps:.1f}
 run            {nvt_steps}
 unfix          nvt_equil
 undump         surf_traj
@@ -825,7 +825,7 @@ def write_surface_relaxation_restart_script(
     neigh            = _neighbor_block()
     restart          = _restart_line(restart_dir, restart_every,
                                      label=f'surf_{target_t}K')
-    thermo_damp_fs   = thermo_damp * 1000
+    thermo_damp_ps   = thermo_damp
     z_cut            = z_freeze_cutoff if z_freeze_cutoff is not None else 'FILL_IN_Z_CUTOFF'
     stem             = _stem(slab_relaxed)
 
@@ -883,7 +883,7 @@ fix            thermo_out  all  ave/time  1  1  {thermo_freq}  &
 dump           surf_traj  free_atoms  custom  {thermo_freq}  {traj_file}  id type x y z
 dump_modify    surf_traj  sort id  append yes
 
-fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_fs:.1f}
+fix            nvt_equil  free_atoms  nvt  temp  {target_t}.0  {target_t}.0  {thermo_damp_ps:.1f}
 run            {nvt_steps}
 unfix          nvt_equil
 undump         surf_traj
@@ -1016,7 +1016,7 @@ def write_nvt_bulk_script(
     neigh     = _neighbor_block()
     restart   = _restart_line(restart_dir, restart_every,
                                label=f'nvt_{temperature}K')
-    tau_t_fs  = tau_t * 1000
+    tau_t_fs  = tau_t
     equil_ps  = n_equil * timestep
     prod_ps   = n_prod  * timestep
     stem      = _stem(out_file)
@@ -1184,7 +1184,7 @@ def write_nvt_bulk_restart_script(
     neigh     = _neighbor_block()
     restart   = _restart_line(restart_dir, restart_every,
                                label=f'nvt_{temperature}K')
-    tau_t_fs  = tau_t * 1000
+    tau_t_fs  = tau_t
     equil_ps  = n_equil * timestep
     prod_ps   = n_prod  * timestep
     stem      = _stem(out_file)
