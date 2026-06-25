@@ -275,7 +275,7 @@ def write_npt_script(
     else:
         traj_open = traj_close = ''
     thermo_damp_ps = thermo_damp
-    baro_damp_fs   = baro_damp
+    baro_damp_ps   = baro_damp
     heat_ps        = heat_steps * timestep
     npt_ps         = npt_steps  * timestep
 
@@ -306,7 +306,7 @@ thermo_style   custom step time temp pe ke press vol lx ly lz
 
 {traj_open}# ── Stage 1: Heat 10 K → {target_t} K over {heat_ps:.0f} ps ──────────────
 fix            heat all npt temp 10.0 {target_t}.0 {thermo_damp_ps:.1f} &
-               iso 0.0 0.0 {baro_damp_fs:.1f}
+               iso 0.0 0.0 {baro_damp_ps:.1f}
 run            {heat_steps}
 unfix          heat
 print "### Heating complete ###"
@@ -316,7 +316,7 @@ write_data     {_stem(min_output)}_npt_after_heat.lammps
 
 # ── Stage 2: NPT production at {target_t} K ({npt_ps:.0f} ps) ────────────
 fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_ps:.1f} &
-               iso 0.0 0.0 {baro_damp_fs:.1f}
+               iso 0.0 0.0 {baro_damp_ps:.1f}
 
 variable       lx_val  equal  lx
 variable       ly_val  equal  ly
@@ -426,7 +426,7 @@ def write_npt_restart_script(
     restart        = _restart_line(restart_dir, restart_every,
                                    label=f'npt_{target_t}K_rst')
     thermo_damp_ps = thermo_damp
-    baro_damp_fs   = baro_damp
+    baro_damp_ps   = baro_damp
     npt_ps         = npt_steps   * timestep
     _final_stem    = _stem(min_output) if min_output else _stem(npt_dump)
 
@@ -458,7 +458,7 @@ thermo_style   custom step time temp pe ke press vol lx ly lz
 
 # ── Stage 2: NPT production at {target_t} K ({npt_ps:.0f} ps) ────────────
 fix            npt_run all npt temp {target_t}.0 {target_t}.0 {thermo_damp_ps:.1f} &
-               iso 0.0 0.0 {baro_damp_fs:.1f}
+               iso 0.0 0.0 {baro_damp_ps:.1f}
 
 variable       lx_val  equal  lx
 variable       ly_val  equal  ly
@@ -1016,7 +1016,7 @@ def write_nvt_bulk_script(
     neigh     = _neighbor_block()
     restart   = _restart_line(restart_dir, restart_every,
                                label=f'nvt_{temperature}K')
-    tau_t_fs  = tau_t
+    tau_t_ps  = tau_t
     equil_ps  = n_equil * timestep
     prod_ps   = n_prod  * timestep
     stem      = _stem(out_file)
@@ -1055,7 +1055,7 @@ timestep       {timestep}
 velocity       all create {temperature}.0 {velocity_seed} mom yes rot yes dist gaussian
 
 # ═══ PHASE 1: Equilibration ({equil_ps:.0f} ps) ═══════════════════════════
-fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}
+fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}
 
 dump           equil_dump  all  custom  {dump_every}  {equil_traj}  id type x y z
 dump_modify    equil_dump  sort id
@@ -1074,7 +1074,7 @@ dump           prod_dump  all  custom  {dump_every}  {traj_file} &
                id type x y z
 dump_modify    prod_dump  sort id
 
-fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}
+fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}
 
 compute        msd_H    H_atom  msd
 fix            msd_out  all  ave/time  1  1  {thermo_every} &
@@ -1184,7 +1184,7 @@ def write_nvt_bulk_restart_script(
     neigh     = _neighbor_block()
     restart   = _restart_line(restart_dir, restart_every,
                                label=f'nvt_{temperature}K')
-    tau_t_fs  = tau_t
+    tau_t_ps  = tau_t
     equil_ps  = n_equil * timestep
     prod_ps   = n_prod  * timestep
     stem      = _stem(out_file)
@@ -1224,7 +1224,7 @@ def write_nvt_bulk_restart_script(
         f"timestep       {timestep}\n"
         "\n"
         f"# === PHASE 1: Equilibration ({equil_ps:.0f} ps) ===\n"
-        f"fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}\n"
+        f"fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}\n"
         "\n"
         f"dump           equil_dump  all  custom  {dump_every}  {equil_traj}  id type x y z\n"
         "dump_modify    equil_dump  sort id  append yes\n"
@@ -1244,7 +1244,7 @@ def write_nvt_bulk_restart_script(
         "               id type x y z\n"
         "dump_modify    prod_dump  sort id  append yes\n"
         "\n"
-        f"fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_fs:.1f}\n"
+        f"fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}\n"
         "\n"
         "compute        msd_H    H_atom  msd\n"
         "# append yes — MSD rows continue from where the previous leg left off\n"
