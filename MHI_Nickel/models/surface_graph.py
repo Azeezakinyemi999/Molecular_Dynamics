@@ -174,37 +174,40 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
     top3_mask[_top3_idx] = True
     top3_slab = slab[top3_mask].copy()
     top3_slab.pbc = [True, True, False]
+    # Translate atoms to z≈0 so the cell has vacuum only above (not also below).
+    # Without this, ACAT enumerates sites on both exposed faces of the sub-slab.
+    _top3_z_min = top3_slab.get_positions()[:, 2].min()
+    _top3_z_max = top3_slab.get_positions()[:, 2].max()
+    top3_slab.positions[:, 2] -= _top3_z_min
+    top3_slab.cell[2, 2] = _top3_z_max - _top3_z_min + 15.0
     top3_full_idx = np.where(top3_mask)[0]
+
+    # Build a z-snapped copy for ACAT only.
+    # After NVT+quench, thermal displacements within a layer can exceed ACAT's
+    # default layer-detection tolerance (0.3 Å), causing get_layers() to merge
+    # two atomic layers into one plane.  Projecting each atom to its layer mean-z
+    # gives ACAT three perfectly flat planes while leaving top3_slab unchanged for
+    # z_offset and return value.
+    acat_slab = top3_slab.copy()
+    _acat_pos  = acat_slab.get_positions()
+    _acat_by_z = np.argsort(_acat_pos[:, 2])
+    for _li in range(3):
+        _layer_atoms = _acat_by_z[_li * _atoms_per_layer : (_li + 1) * _atoms_per_layer]
+        _acat_pos[_layer_atoms, 2] = _acat_pos[_layer_atoms, 2].mean()
+    acat_slab.positions = _acat_pos
 
     # ── ACAT site identification ──────────────────────────────
     print('Running ACAT...')
 
-    # Find correct n_layers by trial
-    # Validate by requiring at least 20 hollow (3fold) sites
-    # n_layers=1 often passes AssertionError but gives wrong results
-    cs, sas_test, n_layers_acat = None, None, None
-    for nl in range(1, 11):
-        try:
-            cs_try  = CustomSurface(top3_slab, n_layers=nl)
-            sas_try = SlabAdsorptionSites(
-                top3_slab, surface=cs_try,
-                composition_effect=True,
-                label_sites=False, tol=acat_tol)
-            raw_try = sas_try.get_sites()
-            n_hollow = sum(1 for s in raw_try
-                           if s.get("site") in ("3fold","fcc","hcp")
-                           and s.get("composition")
-                           and not np.any(np.isnan(s.get("position",
-                                          [np.nan]))))
-            if n_hollow >= 20:
-                cs, sas_test, n_layers_acat = cs_try, sas_try, nl
-                break
-        except (AssertionError, Exception):
-            continue
-    if cs is None:
-        raise RuntimeError(
-            'Could not find valid n_layers giving >= 20 hollow sites '
-            '(tried 1-10).')
+    # top3_slab always has exactly 3 atomic layers (3 × _atoms_per_layer atoms).
+    # After z-snapping, get_layers finds exactly 3 clean planes → n_layers=3,
+    # n_morphs=1 (flat terrace).  No trial loop needed.
+    cs       = CustomSurface(acat_slab, n_layers=3)
+    sas_test = SlabAdsorptionSites(
+        acat_slab, surface=cs,
+        composition_effect=True,
+        label_sites=False, tol=acat_tol)
+    n_layers_acat = 3
     print(f'  n_layers used for ACAT  : {n_layers_acat}')
     sas = sas_test
 
@@ -295,7 +298,7 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
             y               = float(site_pos[1]),
             z               = float(site_pos[2]),
             atom_indices    = full_indices,
-            subsurf_element = sub if sub else None,
+            subsurf_element = sub if sub else '',
             color           = SITE_COLORS.get(st, '#888888'),
             marker          = SITE_MARKERS.get(st, 'o'),
         )
