@@ -439,23 +439,35 @@ def orchestrate_slab_prep(
         seed=7,
     )
     
-    # Phase 2: Relax surface (skip if dry_run, but generate scripts)
+    # Phase 2: Relax surface
     print(f"\n>>> PHASE 2: Surface Relaxation")
-    relax_result = run_phase2_surface_relaxation(
-        slab_path=slab_path,
-        outdir=str(phase2_dir),
-        a0=a0,
-        timestep=timestep,
-        z_freeze_cutoff=z_freeze_cutoff,
-        slurm_opts=slurm_opts,
-        dry_run=dry_run,
-    )
-    
-    relaxed_slab = relax_result['relaxed_slab']
+    _relaxed_slab = str(phase2_dir / 'relaxed_slab.lammps')
+    if os.path.exists(_relaxed_slab):
+        print(f"  [Phase 2] Already done: {_relaxed_slab} — skipping")
+        relax_result = {
+            'relaxed_slab': _relaxed_slab,
+            'traj_file'   : str(phase2_dir / 'relaxed_slab_nvt_traj.lammpstrj'),
+            'log_file'    : str(phase2_dir / 'surface_relax.log'),
+            'job_id'      : None,
+            'outdir'      : str(phase2_dir),
+            'a0'          : a0,
+            'status'      : 'already_done',
+        }
+    else:
+        relax_result = run_phase2_surface_relaxation(
+            slab_path=slab_path,
+            outdir=str(phase2_dir),
+            a0=a0,
+            timestep=timestep,
+            z_freeze_cutoff=z_freeze_cutoff,
+            slurm_opts=slurm_opts,
+            dry_run=dry_run,
+        )
+        # Wait for the Phase 2 SLURM job to finish before reading its output
+        if relax_result.get('job_id') is not None:
+            wait_for_jobs({'surface_relax': relax_result['job_id']})
 
-    # Wait for the Phase 2 SLURM job to finish before reading its output
-    if relax_result.get('job_id') is not None:
-        wait_for_jobs({'surface_relax': relax_result['job_id']})
+    relaxed_slab = relax_result['relaxed_slab']
 
     # Phase 3: Enumerate sites (use input slab if relaxation was not run)
     print(f"\n>>> PHASE 3: ACAT Site Enumeration")
@@ -1768,8 +1780,12 @@ def orchestrate_neb(
         )
 
         if not dry_run:
-            submit_slurm_job(fsmin_sh)
-            submit_slurm_job(neb_sh)
+            _barrier_f = str(job_dir / 'neb_barrier.txt')
+            if os.path.exists(_barrier_f):
+                print(f"  NEB {label}: already done ({_barrier_f}) — skipping submission")
+            else:
+                submit_slurm_job(fsmin_sh)
+                submit_slurm_job(neb_sh)
 
         neb_jobs.append({
             'label'       : label,
