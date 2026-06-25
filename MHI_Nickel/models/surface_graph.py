@@ -173,8 +173,6 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
     top3_mask = np.zeros(len(pos), dtype=bool)
     top3_mask[_top3_idx] = True
     top3_slab = slab[top3_mask].copy()
-    top3_slab.cell[2, 2] = 30.0
-    top3_slab.center(axis=2, vacuum=10.0)
     top3_slab.pbc = [True, True, False]
     top3_full_idx = np.where(top3_mask)[0]
 
