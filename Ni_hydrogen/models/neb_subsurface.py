@@ -329,8 +329,11 @@ def orchestrate_hopa_neb(
 
         if not dry_run:
             from models.create_slurm import submit_slurm_job
-            submit_slurm_job(fsmin_sh)
-            submit_slurm_job(neb_sh)
+            if os.path.exists(barrier_file):
+                print(f"  Hop A {sid}: already done ({barrier_file}) — skipping submission")
+            else:
+                submit_slurm_job(fsmin_sh)
+                submit_slurm_job(neb_sh)
 
         jobs.append({
             'sid'         : sid,
@@ -604,8 +607,11 @@ def orchestrate_hopb_neb(
 
         if not dry_run:
             from models.create_slurm import submit_slurm_job
-            submit_slurm_job(fsmin_sh)
-            submit_slurm_job(neb_sh)
+            if os.path.exists(barrier_file):
+                print(f"  Hop B {sid}: already done ({barrier_file}) — skipping submission")
+            else:
+                submit_slurm_job(fsmin_sh)
+                submit_slurm_job(neb_sh)
 
         jobs.append({
             'sid'         : sid,
