@@ -35,6 +35,7 @@ Phases:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from models.config import E2T_7, MASSES_7
