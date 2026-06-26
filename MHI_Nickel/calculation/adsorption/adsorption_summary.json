@@ -1,0 +1,26 @@
+{
+  "phase1": {
+    "h2_energies": {},
+    "ranked_sites": [],
+    "is_pool": {},
+    "intact_pool": {},
+    "n_sites_computed": 0,
+    "n_sites_total": 156,
+    "outdir": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2",
+    "status": "submitted"
+  },
+  "phase2": {
+    "h_energies": {},
+    "ranked_sites": [],
+    "all_h_energies": {},
+    "fs_pool": {},
+    "n_sites_computed": 0,
+    "n_sites_total": 156,
+    "outdir": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase2_h",
+    "status": "submitted"
+  },
+  "is_pool": {},
+  "fs_pool": {},
+  "summary_json": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/adsorption_summary.json",
+  "status": "submitted"
+}

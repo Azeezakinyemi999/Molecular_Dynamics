@@ -1,0 +1,155 @@
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+package kokkos
+package kokkos newton on neigh half
+# ═══════════════════════════════════════════════════════
+# LAMMPS Adsorbate CG Minimization — Hastelloy N Slab
+# Section B (NB05/NB06) | fixed box | boundary p p f
+# pair_style: mliap unified
+# ═══════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p f
+
+read_data      /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/structures/slab_h2_s_7.lammps
+Reading data file ...
+  orthogonal box = (0 0 0) to (12.631872 15.158246 52.690537)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  362 atoms
+  read_data CPU = 0.435 seconds
+
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+# ── Freeze bottom layers (z ≤ 22.115 Å) ─────────────────────────────
+region         frozen_reg   block  INF INF  INF INF  EDGE  22.115
+group          frozen_atoms region frozen_reg
+129 atoms in group frozen_atoms
+group          free_atoms   subtract all frozen_atoms
+233 atoms in group free_atoms
+
+fix            freeze  frozen_atoms  setforce  0.0  0.0  0.0
+
+thermo         100
+thermo_style   custom  step  pe  fmax  fnorm  press
+
+print "### Adsorbate minimization ###"
+### Adsorbate minimization ###
+
+minimize       0.0  1e-06  10000  100000
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- KOKKOS package: https://doi.org/10.1145/3731599.3767498
+
+@inproceedings{Johansson25,
+ author = {A. Johansson and E. Weinberg and C. Trott and M. McCarthy and S. Moore},
+ title = {{LAMMPS-KOKKOS}: {P}erformance Portable Molecular Dynamics Across Exascale Architectures},
+ year = 2025,
+ booktitle = {Proceedings of the SC '25 Workshops of the International Conference for High Performance Computing,
+  Networking, Storage and Analysis},
+ pages = {1217–1232},
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 8
+  ghost atom cutoff = 8
+  binsize = 8, bins = 2 2 7
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair mliap/kk, perpetual
+      attributes: full, newton on, kokkos_device
+      pair build: full/bin/kk/device
+      stencil: full/bin/3d
+      bin: kk/device
+WARNING: Fix MINIMIZE/kk not compatible with sending data in Kokkos communication (src/KOKKOS/comm_kokkos.cpp:842)
+WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
+WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 72.13 | 72.13 | 72.13 Mbytes
+   Step         PotEng          Fmax          Fnorm          Press     
+         0  -2269.7073      0.31323574     0.44162563    -13567.161    
+       100  -2269.7202      0.025694247    0.040505338   -13581.579    
+       200  -2269.7305      0.0041739379   0.01191879    -13608.222    
+       300  -2269.7308      0.0019139469   0.0082863382  -13598.732    
+       400  -2269.731       0.0006702773   0.0022249711  -13606.031    
+       500  -2269.731       0.00020662406  0.0012094469  -13607.699    
+       600  -2269.731       0.0001181143   0.00023363057 -13607.265    
+       700  -2269.731       2.4365024e-05  5.4068424e-05 -13607.189    
+       800  -2269.731       3.0051186e-06  1.2130116e-05 -13607.194    
+       900  -2269.731       3.5120563e-06  6.0745819e-06 -13607.202    
+      1000  -2269.731       4.5304455e-07  1.218209e-06  -13607.206    
+      1002  -2269.731       2.2767867e-07  9.8913826e-07 -13607.206    
+Loop time of 67.6436 on 1 procs for 1002 steps with 362 atoms
+
+98.6% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = force tolerance
+  Energy initial, next-to-last, final = 
+     -2269.70734412638  -2269.73102488888  -2269.73102488888
+  Force two-norm initial, final = 0.44162563 9.8913826e-07
+  Force max component initial, final = 0.31323574 2.2767867e-07
+  Final line search alpha, max atom move = 1 2.2767867e-07
+  Iterations, force evaluations = 1002 2023
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 67.27      | 67.27      | 67.27      |   0.0 | 99.45
+Neigh   | 0.00057401 | 0.00057401 | 0.00057401 |   0.0 |  0.00
+Comm    | 0.046272   | 0.046272   | 0.046272   |   0.0 |  0.07
+Output  | 0.00057459 | 0.00057459 | 0.00057459 |   0.0 |  0.00
+Modify  | 0.046699   | 0.046699   | 0.046699   |   0.0 |  0.07
+Other   |            | 0.2796     |            |       |  0.41
+
+Nlocal:            362 ave         362 max         362 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1329 ave        1329 max        1329 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:        57004 ave       57004 max       57004 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 57004
+Ave neighs/atom = 157.46961
+Neighbor list builds = 1
+Dangerous builds = 0
+
+print "### Minimization complete ###"
+### Minimization complete ###
+
+
+variable       pe_final  equal  pe
+variable       fmax_f    equal  fmax
+variable       natoms    equal  atoms
+
+print "  pe_final_eV     : ${pe_final}"
+  pe_final_eV     : -2269.73102488888
+print "  fmax_eV_per_Ang : ${fmax_f}"
+  fmax_eV_per_Ang : 2.27678674205589e-07
+print "  natoms          : ${natoms}"
+  natoms          : 362
+
+unfix          freeze
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_s_7_relaxed.lammps
+System init for write_data ...
+print "Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_s_7_relaxed.lammps"
+Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_s_7_relaxed.lammps
+Total wall time: 0:02:54
