@@ -724,34 +724,13 @@ def run_phase1_h2_adsorption(
             commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
         )
 
-    # Submit all H2 adsorption jobs as a single SLURM array (avoids QOS per-job limit).
-    # Wait for the array to finish before collecting results.
-    sids = [site['site_id'] for site in sites]
-    job_index_path = phase_dir / 'h2_job_index.txt'
-    job_index_path.write_text('\n'.join(sids) + '\n')
-    ar = (1, len(sids))
-    array_script = str(phase_dir / 'run_h2_array.sh')
-    write_slurm_job(
-        job_name='h2_ads_array',
-        slurm_config=slurm_opts,
-        out_path=array_script,
-        array_range=ar,
-        concurrent=20,
-        commands=[
-            f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
-            f'bash {slurm_dir}/h2_slurm_${{SID}}.sh',
-        ],
-    )
-
-    if not dry_run:
-        array_jid = submit_slurm_job(array_script)
-        if array_jid:
-            wait_for_jobs({'h2_array': array_jid})
+        if not dry_run:
+            submit_slurm_job(slurm_sh)
 
     status = 'submitted' if not dry_run else 'generated'
-    print(f"  Array script: {array_script}  ({status})")
+    print(f"  Scripts in {script_dir}/  ({status})")
 
-    # Collect results after jobs have completed
+    # Collect results if logs already exist (post-run)
     h2_energies = {}
     is_pool     = {}
 
@@ -934,34 +913,13 @@ def run_phase2_h_adsorption(
             commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
         )
 
-    # Submit all H adsorption jobs as a single SLURM array (avoids QOS per-job limit).
-    # Wait for the array to finish before collecting results.
-    sids = [site['site_id'] for site in sites]
-    job_index_path = phase_dir / 'h_job_index.txt'
-    job_index_path.write_text('\n'.join(sids) + '\n')
-    ar = (1, len(sids))
-    array_script = str(phase_dir / 'run_h_array.sh')
-    write_slurm_job(
-        job_name='h_ads_array',
-        slurm_config=slurm_opts,
-        out_path=array_script,
-        array_range=ar,
-        concurrent=20,
-        commands=[
-            f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
-            f'bash {slurm_dir}/h_slurm_${{SID}}.sh',
-        ],
-    )
-
-    if not dry_run:
-        array_jid = submit_slurm_job(array_script)
-        if array_jid:
-            wait_for_jobs({'h_array': array_jid})
+        if not dry_run:
+            submit_slurm_job(slurm_sh)
 
     status = 'submitted' if not dry_run else 'generated'
-    print(f"  Array script: {array_script}  ({status})")
+    print(f"  Scripts in {script_dir}/  ({status})")
 
-    # Collect results after jobs have completed
+    # Collect results; FS pool = all sites with E_ads < 0
     h_energies = {}
     fs_pool    = {}
 
