@@ -2388,7 +2388,7 @@ import sys
 sys.path.insert(0, os.path.dirname(WORK_DIR))
 
 from models.neb_workflow import orchestrate_full_neb_workflow
-from models.create_slurm import submit_slurm_job, wait_for_jobs
+from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
 
 # -- Phases A-D ----------------------------------------------------------------
 _ranked_f = os.path.join(NEB_DIR, 'ranked_barriers.json')
@@ -2425,9 +2425,16 @@ if not os.path.exists(_ranked_f):
     print('  Phase D: Submit and wait')
     print('='*60)
 
-    fsmin_jid = submit_slurm_job(result['fsmin_array_script'])
-    print(f'  FS-min array submitted  ->  job {fsmin_jid}')
-    wait_for_jobs({'fsmin_array': fsmin_jid})
+    auto_submit(
+        array_script   = result['fsmin_array_script'],
+        index_file     = result['job_index'],
+        result_dir     = NEB_DIR,
+        result_pattern = '*/neb_final_relaxed.lammps',
+        n_total        = result['n_neb_jobs'],
+        job_name       = 'fsmin_array',
+        queue_max      = 8,
+        concurrent     = 4,
+    )
     print('  All FS minimisations done.')
 
     neb_jid = submit_slurm_job(result['neb_array_script'])
