@@ -34,7 +34,7 @@ zi*
 *test_outputs
 *test_npt
 *calculation/results_1/
-calculation/results/
+#calculation/results/
 MHI_Nickel/lammps_scripts/
 MHI_Nickel/logs/
 MHI_Nickel/results/
