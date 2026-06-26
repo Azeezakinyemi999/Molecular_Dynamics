@@ -113,7 +113,7 @@ def build_phase1_slab(
 # -----------------------SECTION A: Phase 2: Surface Relaxation  -----------------------
 
 from models.lammps_script import write_surface_relaxation_script, write_surface_relaxation_restart_script
-from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs
+from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs, auto_submit
 
 
 def run_phase2_surface_relaxation(
@@ -724,13 +724,46 @@ def run_phase1_h2_adsorption(
             commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
         )
 
-        if not dry_run:
-            submit_slurm_job(slurm_sh)
+    # Write job index (0-indexed, one site_id per line for auto_submit)
+    sids = [site['site_id'] for site in sites]
+    job_index_path = str(phase_dir / 'h2_job_index.txt')
+    Path(job_index_path).write_text('\n'.join(sids) + '\n')
+
+    # Single array script — auto_submit overrides --array range per chunk
+    array_script = str(phase_dir / 'run_h2_array.sh')
+    write_slurm_job(
+        job_name='h2_ads_array',
+        slurm_config=slurm_opts,
+        out_path=array_script,
+        array_range=(0, len(sids) - 1),
+        commands=[
+            f'SID=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
+            f'bash {slurm_dir}/h2_slurm_${{SID}}.sh',
+        ],
+    )
+
+    partition = slurm_opts.get('partition', 'multigpu')
+    if partition == 'short':
+        _qmax, _conc = 1000, 50
+    else:
+        _qmax, _conc = 8, 4
+
+    if not dry_run:
+        auto_submit(
+            array_script   = array_script,
+            index_file     = job_index_path,
+            result_dir     = str(result_dir),
+            result_pattern = 'h2_min_s_*.log',
+            n_total        = len(sids),
+            job_name       = 'h2_ads_array',
+            queue_max      = _qmax,
+            concurrent     = _conc,
+        )
 
     status = 'submitted' if not dry_run else 'generated'
-    print(f"  Scripts in {script_dir}/  ({status})")
+    print(f"  Array script: {array_script}  ({status})")
 
-    # Collect results if logs already exist (post-run)
+    # Collect results after auto_submit has drained the queue
     h2_energies = {}
     is_pool     = {}
 
@@ -913,13 +946,46 @@ def run_phase2_h_adsorption(
             commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
         )
 
-        if not dry_run:
-            submit_slurm_job(slurm_sh)
+    # Write job index (0-indexed, one site_id per line for auto_submit)
+    sids = [site['site_id'] for site in sites]
+    job_index_path = str(phase_dir / 'h_job_index.txt')
+    Path(job_index_path).write_text('\n'.join(sids) + '\n')
+
+    # Single array script — auto_submit overrides --array range per chunk
+    array_script = str(phase_dir / 'run_h_array.sh')
+    write_slurm_job(
+        job_name='h_ads_array',
+        slurm_config=slurm_opts,
+        out_path=array_script,
+        array_range=(0, len(sids) - 1),
+        commands=[
+            f'SID=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
+            f'bash {slurm_dir}/h_slurm_${{SID}}.sh',
+        ],
+    )
+
+    partition = slurm_opts.get('partition', 'multigpu')
+    if partition == 'short':
+        _qmax, _conc = 1000, 50
+    else:
+        _qmax, _conc = 8, 4
+
+    if not dry_run:
+        auto_submit(
+            array_script   = array_script,
+            index_file     = job_index_path,
+            result_dir     = str(result_dir),
+            result_pattern = 'h_min_s_*.log',
+            n_total        = len(sids),
+            job_name       = 'h_ads_array',
+            queue_max      = _qmax,
+            concurrent     = _conc,
+        )
 
     status = 'submitted' if not dry_run else 'generated'
-    print(f"  Scripts in {script_dir}/  ({status})")
+    print(f"  Array script: {array_script}  ({status})")
 
-    # Collect results; FS pool = all sites with E_ads < 0
+    # Collect results after auto_submit has drained the queue
     h_energies = {}
     fs_pool    = {}
 
