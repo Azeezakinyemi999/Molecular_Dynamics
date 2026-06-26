@@ -135,7 +135,7 @@ if not os.path.exists(_hopa_jobs_json):
         n_images           = N_IMAGES,
         spring_const       = SPRING_K,
         neb_ftol           = NEB_FTOL_VAL,
-        dry_run            = False,
+        dry_run            = True,
     )
     hopa_jobs = hopa_out['jobs']
     print(f'  Hop A: {hopa_out["n_jobs"]} jobs  fsmin_array={hopa_out["fsmin_array"]}')
@@ -172,7 +172,7 @@ if not os.path.exists(_hopb_jobs_json):
         n_images           = N_IMAGES,
         spring_const       = SPRING_K,
         neb_ftol           = NEB_FTOL_VAL,
-        dry_run            = False,
+        dry_run            = True,
     )
     hopb_jobs = hopb_out['jobs']
     print(f'  Hop B: {hopb_out["n_jobs"]} jobs  fsmin_array={hopb_out["fsmin_array"]}')
