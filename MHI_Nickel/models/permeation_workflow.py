@@ -69,7 +69,7 @@ from models.permeation import (
     richardson_flux,
 )
 from models.parsers import parse_barrier_file
-from models.create_slurm import submit_slurm_job, wait_for_jobs
+from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(SUB_NEB_DIR, exist_ok=True)
@@ -119,14 +119,22 @@ if not os.path.exists(_hopa_jobs_json):
         n_images           = N_IMAGES,
         spring_const       = SPRING_K,
         neb_ftol           = NEB_FTOL_VAL,
-        dry_run            = False,
+        dry_run            = True,
     )
     hopa_jobs = hopa_out['jobs']
     print(f'  Hop A: {hopa_out["n_jobs"]} jobs  fsmin_array={hopa_out["fsmin_array"]}')
 
     print('  Submitting Hop A FS-min …')
-    _jid_hopa_fsmin = submit_slurm_job(hopa_out['fsmin_array'])
-    wait_for_jobs({'hopa_fsmin': _jid_hopa_fsmin})
+    auto_submit(
+        array_script   = hopa_out['fsmin_array'],
+        index_file     = os.path.join(SUB_NEB_DIR, 'hopa', 'job_index.txt'),
+        result_dir     = os.path.join(SUB_NEB_DIR, 'hopa'),
+        result_pattern = '*/sub1_fs_relaxed.lammps',
+        n_total        = hopa_out['n_jobs'],
+        job_name       = 'hopa_fsmin_array',
+        queue_max      = 8,
+        concurrent     = 4,
+    )
     print('  Hop A FS-min done.')
 
     print('  Submitting Hop A NEB …')
@@ -156,14 +164,22 @@ if not os.path.exists(_hopb_jobs_json):
         n_images           = N_IMAGES,
         spring_const       = SPRING_K,
         neb_ftol           = NEB_FTOL_VAL,
-        dry_run            = False,
+        dry_run            = True,
     )
     hopb_jobs = hopb_out['jobs']
     print(f'  Hop B: {hopb_out["n_jobs"]} jobs  fsmin_array={hopb_out["fsmin_array"]}')
 
     print('  Submitting Hop B FS-min …')
-    _jid_hopb_fsmin = submit_slurm_job(hopb_out['fsmin_array'])
-    wait_for_jobs({'hopb_fsmin': _jid_hopb_fsmin})
+    auto_submit(
+        array_script   = hopb_out['fsmin_array'],
+        index_file     = os.path.join(SUB_NEB_DIR, 'hopb', 'job_index.txt'),
+        result_dir     = os.path.join(SUB_NEB_DIR, 'hopb'),
+        result_pattern = '*/sub2_fs_relaxed.lammps',
+        n_total        = hopb_out['n_jobs'],
+        job_name       = 'hopb_fsmin_array',
+        queue_max      = 8,
+        concurrent     = 4,
+    )
     print('  Hop B FS-min done.')
 
     print('  Submitting Hop B NEB …')
