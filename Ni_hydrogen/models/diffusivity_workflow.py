@@ -51,9 +51,12 @@ def generate_diffusivity_scripts(
     min_ftol=1e-8,
     min_maxiter=50000,
     min_maxeval=500000,
+    metal_table: dict | None = None,
     out_py: str = '',
 ) -> str:
     """Write diffusivity_run.py with embedded config. Returns the output path."""
+    if metal_table is None:
+        metal_table = {}
     if short_gpu_cutoff is None:
         _h, _m, _s = map(int, short_gpu_time.split(':'))
         _tot = _h * 3600 + _m * 60 + _s - 300
@@ -108,6 +111,8 @@ MIN_ETOL         = {min_etol!r}
 MIN_FTOL         = {min_ftol!r}
 MIN_MAXITER      = {min_maxiter!r}
 MIN_MAXEVAL      = {min_maxeval!r}
+# Element / type tables per metal stem (oxide vs non-oxide)
+METAL_TABLE      = {metal_table!r}
 
 '''
 
@@ -151,6 +156,10 @@ KK = ' '.join(KOKKOS_FLAGS)
 # ── main loop ─────────────────────────────────────────────────────────────────
 for struct_path in INPUT_STRUCTURES:
     struct_stem = os.path.splitext(os.path.basename(struct_path))[0]
+    _cfg      = METAL_TABLE.get(struct_stem, {})
+    _ELEM_STR = _cfg.get('elem_str', ELEM_STR_7)
+    _E2T      = _cfg.get('e2t',      E2T_7)
+    _MASSES   = _cfg.get('masses',   MASSES_7)
 
     for n_h in N_H_VALUES:
         run_name = f'{struct_stem}_{n_h}H'
@@ -184,7 +193,7 @@ for struct_path in INPUT_STRUCTURES:
                 pair_style=PAIR_STYLE,
                 mace_model=MACE_MODEL_LAMMPS,
                 pair_suffix=PAIR_SUFFIX,
-                elem_str=ELEM_STR_7,
+                elem_str=_ELEM_STR,
                 etol=MIN_ETOL,
                 ftol=MIN_FTOL,
                 maxiter=MIN_MAXITER,
@@ -229,7 +238,7 @@ for struct_path in INPUT_STRUCTURES:
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
                     pair_suffix=PAIR_SUFFIX,
-                    elem_str=ELEM_STR_7,
+                    elem_str=_ELEM_STR,
                     target_t=T,
                     timestep=TIMESTEP_PS,
                     thermo_damp=TAU_T_PS,
@@ -246,7 +255,7 @@ for struct_path in INPUT_STRUCTURES:
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
                     pair_suffix=PAIR_SUFFIX,
-                    elem_str=ELEM_STR_7,
+                    elem_str=_ELEM_STR,
                     target_t=T,
                     timestep=TIMESTEP_PS,
                     thermo_damp=TAU_T_PS,
@@ -295,8 +304,8 @@ for struct_path in INPUT_STRUCTURES:
                 bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
                     bulk_min_path=npt_final_paths[T],
                     n_h=n_h,
-                    masses=MASSES_7,
-                    e2t=E2T_7,
+                    masses=_MASSES,
+                    e2t=_E2T,
                     out_dir=os.path.join(dirs['structures'], f'{T}K'),
                     a0=a0_T,
                 )
@@ -308,7 +317,7 @@ for struct_path in INPUT_STRUCTURES:
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
                     pair_suffix=PAIR_SUFFIX,
-                    elem_str=ELEM_STR_7,
+                    elem_str=_ELEM_STR,
                     etol=MIN_ETOL,
                     ftol=MIN_FTOL,
                     maxiter=MIN_MAXITER,
@@ -332,7 +341,7 @@ for struct_path in INPUT_STRUCTURES:
         print('  All bulk+H minimisations done.')
 
         # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
-        _lat_out = os.path.join(WORK_DIR, 'results', 'lattice_params_vs_T.json')
+        _lat_out = os.path.join(WORK_DIR, 'results', struct_stem, 'lattice_params_vs_T.json')
         os.makedirs(os.path.dirname(_lat_out), exist_ok=True)
         with open(_lat_out, 'w') as _f:
             _json_lat.dump({'temperatures': list(_a0_by_T.keys()),
@@ -368,9 +377,9 @@ for struct_path in INPUT_STRUCTURES:
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
                     pair_suffix=PAIR_SUFFIX,
-                    elem_str=ELEM_STR_7,
+                    elem_str=_ELEM_STR,
                     temperature=T,
-                    h_type=E2T_7['H'],
+                    h_type=_E2T['H'],
                     timestep=TIMESTEP_PS,
                     tau_t=TAU_T_PS,
                     n_equil=N_EQUIL_STEPS,
@@ -390,9 +399,9 @@ for struct_path in INPUT_STRUCTURES:
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
                     pair_suffix=PAIR_SUFFIX,
-                    elem_str=ELEM_STR_7,
+                    elem_str=_ELEM_STR,
                     temperature=T,
-                    h_type=E2T_7['H'],
+                    h_type=_E2T['H'],
                     timestep=TIMESTEP_PS,
                     tau_t=TAU_T_PS,
                     n_equil=N_EQUIL_STEPS,
@@ -436,7 +445,7 @@ for struct_path in INPUT_STRUCTURES:
             result = run_diffusivity_pipeline(
                 dump_file=dump,
                 temperature=T,
-                h_type=E2T_7['H'],
+                h_type=_E2T['H'],
                 outdir=analysis_dir,
             )
             D_vals.append(result['D'])
