@@ -455,7 +455,8 @@ for struct_path in INPUT_STRUCTURES:
         print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
 
         # Save Arrhenius params so Part 2 (permeation_run.py) can load them
-        _arr_out = os.path.join(WORK_DIR, 'results', 'diffusivity_arrhenius.json')
+        _arr_out = os.path.join(WORK_DIR, 'results', struct_stem, 'diffusivity_arrhenius.json')
+        os.makedirs(os.path.dirname(_arr_out), exist_ok=True)
         with open(_arr_out, 'w') as _f:
             _json_lat.dump({
                 'D0_m2s':     arr['D0'],
