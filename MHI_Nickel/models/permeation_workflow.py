@@ -48,7 +48,7 @@ import glob
 import numpy as np
 from ase.io import read as _ase_read
 
-from models.config import MASSES_7, E2T_7, MACE_MODEL_ASE
+from models.config import MACE_MODEL_ASE
 from models.subsurface_graph import build_subsurface_graph, connect_to_surface
 from models.neb_subsurface import orchestrate_hopa_neb, orchestrate_hopb_neb
 from models.vibrations import collect_is_ts_paths, orchestrate_vibrations
@@ -112,8 +112,8 @@ if not os.path.exists(_hopa_jobs_json):
         subsurface_graph   = (G, subsurface_sites),
         surface_connections= surface_connections,
         outdir             = SUB_NEB_DIR,
-        masses             = MASSES_7,
-        e2t                = E2T_7,
+        masses             = MASSES,
+        e2t                = E2T,
         slurm_opts         = GPU_SLURM_CFG,
         neb_slurm_opts     = NEB_SLURM_CFG,
         n_images           = N_IMAGES,
@@ -157,8 +157,8 @@ if not os.path.exists(_hopb_jobs_json):
         hopa_outdir        = os.path.join(SUB_NEB_DIR, 'hopa'),
         subsurface_graph   = (G, subsurface_sites),
         outdir             = SUB_NEB_DIR,
-        masses             = MASSES_7,
-        e2t                = E2T_7,
+        masses             = MASSES,
+        e2t                = E2T,
         slurm_opts         = GPU_SLURM_CFG,
         neb_slurm_opts     = NEB_SLURM_CFG,
         n_images           = N_IMAGES,
@@ -505,8 +505,18 @@ def generate_permeation_scripts(
     spring_const,
     neb_ftol,
     out_py,
+    elem_str=None,
+    e2t=None,
+    masses=None,
 ):
     """Write permeation_run.py with embedded config. Returns the output path."""
+    from models.config import MASSES_7, E2T_7, ELEM_STR_7
+    if elem_str is None:
+        elem_str = ELEM_STR_7
+    if e2t is None:
+        e2t = E2T_7
+    if masses is None:
+        masses = MASSES_7
     _parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     _header = f'''#!/usr/bin/env python3
@@ -565,6 +575,11 @@ NEB_FTOL_VAL   = {neb_ftol!r}
 GPU_SLURM_CFG  = {gpu_slurm_cfg!r}
 NEB_SLURM_CFG  = {neb_slurm_cfg!r}
 VIB_SLURM_CFG  = {vib_slurm_cfg!r}
+
+# Element / type tables (metal-specific)
+ELEM_STR = {elem_str!r}
+E2T      = {e2t!r}
+MASSES   = {masses!r}
 
 '''
 
