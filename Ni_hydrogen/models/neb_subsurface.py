@@ -158,6 +158,7 @@ def orchestrate_hopa_neb(
     outdir: str,
     masses: dict | None = None,
     e2t: dict | None = None,
+    elem_str: str | None = None,
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
     n_images: int = 18,
@@ -209,6 +210,8 @@ def orchestrate_hopa_neb(
         masses = MASSES_7
     if e2t is None:
         e2t = E2T_7
+    if elem_str is None:
+        elem_str = ELEM_STR_7
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
     if neb_slurm_opts is None:
@@ -272,7 +275,7 @@ def orchestrate_hopa_neb(
             pair_style=PAIR_STYLE,
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
+            elem_str=elem_str,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
             ftol=FTOL,
         )
@@ -421,6 +424,7 @@ def orchestrate_hopb_neb(
     outdir: str,
     masses: dict | None = None,
     e2t: dict | None = None,
+    elem_str: str | None = None,
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
     n_images: int = 18,
@@ -472,6 +476,8 @@ def orchestrate_hopb_neb(
         masses = MASSES_7
     if e2t is None:
         e2t = E2T_7
+    if elem_str is None:
+        elem_str = ELEM_STR_7
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
     if neb_slurm_opts is None:
@@ -550,7 +556,7 @@ def orchestrate_hopb_neb(
             pair_style=PAIR_STYLE,
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
+            elem_str=elem_str,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
             ftol=FTOL,
         )
