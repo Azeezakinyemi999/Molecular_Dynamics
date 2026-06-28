@@ -45,3 +45,5 @@ Ni_hydrogen/strutures/
 
 
 
+Ni_hydrogen/calculation/neb/phase2_cross_product/all_combinations.json
+Ni_hydrogen/calculation/neb/phase2b_filtered/filtered_combinations.json
