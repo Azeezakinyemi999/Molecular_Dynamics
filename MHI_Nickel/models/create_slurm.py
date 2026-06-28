@@ -189,7 +189,7 @@ echo "End: $(date)"
 # SLURM JOB SUBMITTER
 # ═══════════════════════════════════════════════════════════════════════════
 
-def submit_slurm_job(slurm_path, extra_args=None, dry_run=False):
+def submit_slurm_job(slurm_path, extra_args=None, dry_run=False, dependency=None):
     """
     Submit a SLURM script with ``sbatch`` and return the job ID.
 
@@ -203,13 +203,17 @@ def submit_slurm_job(slurm_path, extra_args=None, dry_run=False):
     dry_run : bool, optional
         If ``True``, print the command without submitting.
         Default ``False``.
+    dependency : str or None, optional
+        SLURM dependency expression, e.g. ``'afterok:12345'``.
+        Passed as ``--dependency=<value>``.  Default ``None``.
 
     Returns
     -------
     job_id : str or None
         Submitted SLURM job ID, or ``None`` on failure or dry run.
     """
-    cmd = ['sbatch'] + (extra_args or []) + [slurm_path]
+    dep_args = [f'--dependency={dependency}'] if dependency else []
+    cmd = ['sbatch'] + dep_args + (extra_args or []) + [slurm_path]
 
     if dry_run:
         print(f'[dry-run] {" ".join(cmd)}')
@@ -642,14 +646,14 @@ def write_chained_slurm_job(
         f'#SBATCH --job-name={job_name}',
         f'#SBATCH --ntasks={sc["ntasks"]}',
         f'#SBATCH --cpus-per-task={sc["cpus_per_task"]}',
-        f'#SBATCH --gres=gpu:{sc["gpu"]}',
+        f'#SBATCH --gres=gpu:{sc["gpu"]}' if sc.get('gpu') else '',
         f'#SBATCH --partition={sc["partition"]}',
         f'#SBATCH --time={sc["time"]}',
         f'#SBATCH --output={output_log}',
         '',
         '# ── Environment ─────────────────────────────────────────',
         f'module load OpenMPI/{sc["openmpi_ver"]}',
-        f'module load cuda/{sc["cuda_version"]}',
+        f'module load cuda/{sc["cuda_version"]}' if sc.get('cuda_version') else '',
         'source ~/miniforge3/etc/profile.d/conda.sh',
         f'conda activate {sc["conda_env"]}',
         ld_lines,

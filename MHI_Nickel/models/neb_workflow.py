@@ -1898,8 +1898,15 @@ def orchestrate_neb(
             if os.path.exists(_barrier_f):
                 print(f"  NEB {label}: already done ({_barrier_f}) — skipping submission")
             else:
-                submit_slurm_job(fsmin_sh)
-                submit_slurm_job(neb_sh)
+                _fs_relaxed = str(job_dir / 'neb_final_relaxed.lammps')
+                if os.path.exists(_fs_relaxed):
+                    # fsmin already done — submit NEB directly
+                    submit_slurm_job(neb_sh)
+                else:
+                    # fsmin not done — submit both, NEB depends on fsmin
+                    fsmin_jid = submit_slurm_job(fsmin_sh)
+                    dep = f'afterok:{fsmin_jid}' if fsmin_jid else None
+                    submit_slurm_job(neb_sh, dependency=dep)
 
         neb_jobs.append({
             'label'       : label,
