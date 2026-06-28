@@ -158,6 +158,7 @@ def orchestrate_hopa_neb(
     outdir: str,
     masses: dict | None = None,
     e2t: dict | None = None,
+    elem_str: str | None = None,
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
     n_images: int = 18,
@@ -209,6 +210,8 @@ def orchestrate_hopa_neb(
         masses = MASSES_7
     if e2t is None:
         e2t = E2T_7
+    if elem_str is None:
+        elem_str = ELEM_STR_7
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
     if neb_slurm_opts is None:
@@ -272,7 +275,7 @@ def orchestrate_hopa_neb(
             pair_style=PAIR_STYLE,
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
+            elem_str=elem_str,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
             ftol=FTOL,
         )
@@ -332,8 +335,12 @@ def orchestrate_hopa_neb(
             if os.path.exists(barrier_file):
                 print(f"  Hop A {sid}: already done ({barrier_file}) — skipping submission")
             else:
-                submit_slurm_job(fsmin_sh)
-                submit_slurm_job(neb_sh)
+                if os.path.exists(fs_relaxed):
+                    submit_slurm_job(neb_sh)
+                else:
+                    fsmin_jid = submit_slurm_job(fsmin_sh)
+                    dep = f'afterok:{fsmin_jid}' if fsmin_jid else None
+                    submit_slurm_job(neb_sh, dependency=dep)
 
         jobs.append({
             'sid'         : sid,
@@ -421,6 +428,7 @@ def orchestrate_hopb_neb(
     outdir: str,
     masses: dict | None = None,
     e2t: dict | None = None,
+    elem_str: str | None = None,
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
     n_images: int = 18,
@@ -472,6 +480,8 @@ def orchestrate_hopb_neb(
         masses = MASSES_7
     if e2t is None:
         e2t = E2T_7
+    if elem_str is None:
+        elem_str = ELEM_STR_7
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
     if neb_slurm_opts is None:
@@ -550,7 +560,7 @@ def orchestrate_hopb_neb(
             pair_style=PAIR_STYLE,
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
+            elem_str=elem_str,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
             ftol=FTOL,
         )
@@ -610,8 +620,12 @@ def orchestrate_hopb_neb(
             if os.path.exists(barrier_file):
                 print(f"  Hop B {sid}: already done ({barrier_file}) — skipping submission")
             else:
-                submit_slurm_job(fsmin_sh)
-                submit_slurm_job(neb_sh)
+                if os.path.exists(fs_relaxed):
+                    submit_slurm_job(neb_sh)
+                else:
+                    fsmin_jid = submit_slurm_job(fsmin_sh)
+                    dep = f'afterok:{fsmin_jid}' if fsmin_jid else None
+                    submit_slurm_job(neb_sh, dependency=dep)
 
         jobs.append({
             'sid'         : sid,

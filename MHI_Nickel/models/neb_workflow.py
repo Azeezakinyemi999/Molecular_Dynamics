@@ -38,7 +38,7 @@ import json
 import os
 from pathlib import Path
 
-from models.config import E2T_7, MASSES_7
+from models.config import E2T_7, MASSES_7, ELEM_STR_7
 from models.structure import build_slab
 
 
@@ -125,6 +125,7 @@ def run_phase2_surface_relaxation(
     slurm_opts: dict | None = None,
     restart_every: int = 10000,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
 ) -> dict:
     """
     Section A Phase 2: Relax the slab surface via three-phase LAMMPS MD.
@@ -179,7 +180,7 @@ def run_phase2_surface_relaxation(
     """
     from models.config import (
         SLURM_DEFAULTS, LAMMPS_CMD, MACE_MODEL_LAMMPS,
-        PAIR_STYLE, PAIR_SUFFIX, ELEM_STR_7, KOKKOS_FLAGS,
+        PAIR_STYLE, PAIR_SUFFIX, KOKKOS_FLAGS,
         SURF_ETOL, SURF_FTOL, SURF_MAXITER, SURF_MAXEVAL,
         SURF_HEAT_STEPS, SURF_NVT_STEPS, SURF_THERMO_DAMP,
     )
@@ -207,7 +208,7 @@ def run_phase2_surface_relaxation(
         pair_style=PAIR_STYLE,
         mace_model=MACE_MODEL_LAMMPS,
         pair_suffix=PAIR_SUFFIX,
-        elem_str=ELEM_STR_7,
+        elem_str=elem_str,
         z_freeze_cutoff=z_freeze_cutoff,
         timestep=timestep,
         thermo_damp=SURF_THERMO_DAMP,
@@ -232,7 +233,7 @@ def run_phase2_surface_relaxation(
         pair_style=PAIR_STYLE,
         mace_model=MACE_MODEL_LAMMPS,
         pair_suffix=PAIR_SUFFIX,
-        elem_str=ELEM_STR_7,
+        elem_str=elem_str,
         z_freeze_cutoff=z_freeze_cutoff,
         timestep=timestep,
         thermo_damp=SURF_THERMO_DAMP,
@@ -374,6 +375,9 @@ def orchestrate_slab_prep(
     z_freeze_cutoff: float = 22.115,
     slurm_opts: dict | None = None,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> dict:
     """
     Section A Full Pipeline: Build slab → Relax surface → Enumerate sites.
@@ -416,8 +420,13 @@ def orchestrate_slab_prep(
             'status': overall completion status,
         }
     """
+    if e2t is None:
+        e2t = E2T_7
+    if masses is None:
+        masses = MASSES_7
+
     Path(outdir).mkdir(parents=True, exist_ok=True)
-    
+
     hkl_str = ''.join(map(str, miller))
     phase1_dir = Path(outdir) / 'phase1_slab'
     phase2_dir = Path(outdir) / 'phase2_relax'
@@ -438,6 +447,8 @@ def orchestrate_slab_prep(
         vacuum=vacuum,
         lateral_repeat=lateral_repeat,
         seed=7,
+        e2t=e2t,
+        masses=masses,
     )
     
     # Phase 2: Relax surface
@@ -463,6 +474,7 @@ def orchestrate_slab_prep(
             z_freeze_cutoff=z_freeze_cutoff,
             slurm_opts=slurm_opts,
             dry_run=dry_run,
+            elem_str=elem_str,
         )
         # Wait for the Phase 2 SLURM job to finish before reading its output
         if relax_result.get('job_id') is not None:
@@ -615,6 +627,9 @@ def run_phase1_h2_adsorption(
     outdir: str,
     slurm_opts: dict | None = None,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> dict:
     """
     Section B Phase 1: H2* adsorption energy for all surface sites (NB05b).
@@ -660,6 +675,10 @@ def run_phase1_h2_adsorption(
     """
     from models.config import SLURM_DEFAULTS
 
+    if e2t is None:
+        e2t = E2T_7
+    if masses is None:
+        masses = MASSES_7
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '02:00:00'}
 
@@ -694,8 +713,8 @@ def run_phase1_h2_adsorption(
             slab_path=relaxed_slab_path,
             site_position=site_xy,
             species='H2',
-            masses=MASSES_7,
-            e2t=E2T_7,
+            masses=masses,
+            e2t=e2t,
             out_path=struct_path,
             height=H2_HEIGHT,
             h2_bond=H2_BOND,
@@ -709,7 +728,7 @@ def run_phase1_h2_adsorption(
             pair_style=PAIR_STYLE,
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
+            elem_str=elem_str,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
             etol=ADS_MIN_ETOL,
             ftol=ADS_MIN_FTOL,
@@ -839,6 +858,9 @@ def run_phase2_h_adsorption(
     outdir: str,
     slurm_opts: dict | None = None,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> dict:
     """
     Section B Phase 2: H* adsorption energy for all surface sites (NB06b).
@@ -883,6 +905,10 @@ def run_phase2_h_adsorption(
     """
     from models.config import SLURM_DEFAULTS
 
+    if e2t is None:
+        e2t = E2T_7
+    if masses is None:
+        masses = MASSES_7
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '01:00:00'}
 
@@ -918,8 +944,8 @@ def run_phase2_h_adsorption(
             slab_path=relaxed_slab_path,
             site_position=site_xy,
             species='H',
-            masses=MASSES_7,
-            e2t=E2T_7,
+            masses=masses,
+            e2t=e2t,
             out_path=struct_path,
             height=H2_HEIGHT,
         )
@@ -931,7 +957,7 @@ def run_phase2_h_adsorption(
             pair_style=PAIR_STYLE,
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
+            elem_str=elem_str,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
             etol=ADS_MIN_ETOL,
             ftol=ADS_MIN_FTOL,
@@ -1067,6 +1093,9 @@ def orchestrate_adsorption_energies(
     outdir: str = 'calculation/adsorption',
     slurm_opts: dict | None = None,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> dict:
     """
     Section B Full Pipeline: H2* adsorption energies → H* adsorption energies.
@@ -1104,6 +1133,11 @@ def orchestrate_adsorption_energies(
           'status': str,
         }
     """
+    if e2t is None:
+        e2t = E2T_7
+    if masses is None:
+        masses = MASSES_7
+
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*80}")
@@ -1119,6 +1153,9 @@ def orchestrate_adsorption_energies(
         outdir=outdir,
         slurm_opts=slurm_opts,
         dry_run=dry_run,
+        elem_str=elem_str,
+        e2t=e2t,
+        masses=masses,
     )
 
     print(f"\n>>> PHASE 2: H* Adsorption Energy")
@@ -1130,6 +1167,9 @@ def orchestrate_adsorption_energies(
         outdir=outdir,
         slurm_opts=slurm_opts,
         dry_run=dry_run,
+        elem_str=elem_str,
+        e2t=e2t,
+        masses=masses,
     )
 
     summary_path = Path(outdir) / 'adsorption_summary.json'
@@ -1669,6 +1709,9 @@ def orchestrate_neb(
     neb_ftol: float = 0.05,
     h_height: float = 1.5,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> dict:
     """
     Section C Phase 3: Write per-job NEB files and split GPU/CPU SLURM scripts.
@@ -1719,11 +1762,15 @@ def orchestrate_neb(
     """
     from models.config import (
         SLURM_DEFAULTS, LAMMPS_CMD, MACE_MODEL_LAMMPS, MACE_MODEL_ASE,
-        PAIR_STYLE, PAIR_SUFFIX, ELEM_STR_7, KOKKOS_FLAGS,
-        MASSES_7, E2T_7, Z_FREEZE_CUTOFF, FTOL,
+        PAIR_STYLE, PAIR_SUFFIX, KOKKOS_FLAGS,
+        Z_FREEZE_CUTOFF, FTOL,
         ADS_MIN_ETOL, ADS_MIN_FTOL, ADS_MIN_MAXITER, ADS_MIN_MAXEVAL,
     )
 
+    if e2t is None:
+        e2t = E2T_7
+    if masses is None:
+        masses = MASSES_7
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
 
@@ -1770,8 +1817,8 @@ def orchestrate_neb(
                 is_lammps=str(is_dest),
                 fs_xy1=fs_xy[s1],
                 fs_xy2=fs_xy[s2],
-                masses=MASSES_7,
-                e2t=E2T_7,
+                masses=masses,
+                e2t=e2t,
                 out_path=str(fs_raw),
                 h_height=h_height,
             )
@@ -1787,7 +1834,7 @@ def orchestrate_neb(
             pair_style=PAIR_STYLE,
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
-            elem_str=ELEM_STR_7,
+            elem_str=elem_str,
             z_freeze_cutoff=Z_FREEZE_CUTOFF,
             etol=ADS_MIN_ETOL,
             ftol=ADS_MIN_FTOL,
@@ -1851,8 +1898,15 @@ def orchestrate_neb(
             if os.path.exists(_barrier_f):
                 print(f"  NEB {label}: already done ({_barrier_f}) — skipping submission")
             else:
-                submit_slurm_job(fsmin_sh)
-                submit_slurm_job(neb_sh)
+                _fs_relaxed = str(job_dir / 'neb_final_relaxed.lammps')
+                if os.path.exists(_fs_relaxed):
+                    # fsmin already done — submit NEB directly
+                    submit_slurm_job(neb_sh)
+                else:
+                    # fsmin not done — submit both, NEB depends on fsmin
+                    fsmin_jid = submit_slurm_job(fsmin_sh)
+                    dep = f'afterok:{fsmin_jid}' if fsmin_jid else None
+                    submit_slurm_job(neb_sh, dependency=dep)
 
         neb_jobs.append({
             'label'       : label,
@@ -2059,6 +2113,9 @@ def orchestrate_neb_pipeline(
     neb_ftol: float = 0.05,
     h_height: float = 1.5,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> dict:
     """
     Section C Full Pipeline: pools → pairs → dedup → filter → NEB jobs.
@@ -2153,6 +2210,7 @@ def orchestrate_neb_pipeline(
         neb_slurm_opts=neb_slurm_opts,
         n_images=n_images, spring_const=spring_const,
         neb_ftol=neb_ftol, h_height=h_height, dry_run=dry_run,
+        elem_str=elem_str, e2t=e2t, masses=masses,
     )
 
     summary = {
@@ -2218,6 +2276,9 @@ def orchestrate_full_neb_workflow(
     gpu_slurm_cfg: dict | None = None,
     neb_slurm_cfg: dict | None = None,
     dry_run: bool = True,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> dict:
     """Chain Sections A → B → C in a single call.
 
@@ -2248,6 +2309,9 @@ def orchestrate_full_neb_workflow(
         timestep=surf_timestep,
         slurm_opts=gpu_slurm_cfg,
         dry_run=dry_run,
+        elem_str=elem_str,
+        e2t=e2t,
+        masses=masses,
     )
 
     # e_clean is available only after the Phase A SLURM job finishes and
@@ -2267,6 +2331,9 @@ def orchestrate_full_neb_workflow(
         outdir=ads_dir,
         slurm_opts=gpu_slurm_cfg,
         dry_run=dry_run,
+        elem_str=elem_str,
+        e2t=e2t,
+        masses=masses,
     )
 
     # ── Section C ──────────────────────────────────────────────────────────────
@@ -2288,6 +2355,9 @@ def orchestrate_full_neb_workflow(
         neb_ftol=neb_ftol,
         h_height=h_height,
         dry_run=dry_run,
+        elem_str=elem_str,
+        e2t=e2t,
+        masses=masses,
     )
 
     return {
@@ -2329,9 +2399,16 @@ def write_neb_run_script(
     z_freeze_cutoff: float = 22.115,
     surf_timestep: float   = 0.0005,
     vib_slurm_cfg=None,
+    elem_str: str = ELEM_STR_7,
+    e2t: dict = None,
+    masses: dict = None,
 ) -> str:
     """Write neb_run.py with embedded config. Returns the output path."""
 
+    if e2t is None:
+        e2t = E2T_7
+    if masses is None:
+        masses = MASSES_7
     _vib_cfg = vib_slurm_cfg if vib_slurm_cfg is not None else neb_slurm_cfg
 
     _header = f'''#!/usr/bin/env python3
@@ -2379,6 +2456,10 @@ VIB_SLURM_CFG  = {_vib_cfg!r}
 # Surface relaxation (Phase A)
 Z_FREEZE_CUTOFF = {z_freeze_cutoff!r}
 SURF_TIMESTEP   = {surf_timestep!r}
+# Element / type tables (metal-specific)
+ELEM_STR = {elem_str!r}
+E2T      = {e2t!r}
+MASSES   = {masses!r}
 
 '''
 
@@ -2416,6 +2497,9 @@ if not os.path.exists(_ranked_f):
         gpu_slurm_cfg=GPU_SLURM_CFG,
         neb_slurm_cfg=NEB_SLURM_CFG,
         dry_run=False,
+        elem_str=ELEM_STR,
+        e2t=E2T,
+        masses=MASSES,
     )
     print(f'  E_CLEAN  : {result["e_clean"]}')
     print(f'  NEB jobs : {result["n_neb_jobs"]}')
