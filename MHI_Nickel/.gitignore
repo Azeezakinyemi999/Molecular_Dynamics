@@ -42,3 +42,21 @@ MHI_Nickel/slurm_scripts/
 MHI_Nickel/strutures/
 
 
+# Calculation outputs
+*.restart
+*.lammpstrj
+*.dump
+*.lammps
+*.out
+*.log
+# But keep these specific ones:
+!models/*.py
+!calculation/*.py
+!calculation/*.ipynb
+
+# Generated SLURM scripts (recreated by notebook)
+adsorption/phase1_h2/slurm/
+adsorption/phase2_h/slurm/
+
+# Old results_1 directory
+results_1/

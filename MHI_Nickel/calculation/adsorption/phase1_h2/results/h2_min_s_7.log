@@ -23,7 +23,7 @@ Reading data file ...
   1 by 1 by 1 MPI processor grid
   reading atoms ...
   362 atoms
-  read_data CPU = 0.435 seconds
+  read_data CPU = 0.026 seconds
 
 pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
 pair_coeff     * * Al B C Cr Fe Mo Ni H
@@ -84,39 +84,38 @@ WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on 
 Per MPI rank memory allocation (min/avg/max) = 72.13 | 72.13 | 72.13 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
          0  -2269.7073      0.31323574     0.44162563    -13567.161    
-       100  -2269.7202      0.025694247    0.040505338   -13581.579    
-       200  -2269.7305      0.0041739379   0.01191879    -13608.222    
-       300  -2269.7308      0.0019139469   0.0082863382  -13598.732    
-       400  -2269.731       0.0006702773   0.0022249711  -13606.031    
-       500  -2269.731       0.00020662406  0.0012094469  -13607.699    
-       600  -2269.731       0.0001181143   0.00023363057 -13607.265    
-       700  -2269.731       2.4365024e-05  5.4068424e-05 -13607.189    
-       800  -2269.731       3.0051186e-06  1.2130116e-05 -13607.194    
-       900  -2269.731       3.5120563e-06  6.0745819e-06 -13607.202    
-      1000  -2269.731       4.5304455e-07  1.218209e-06  -13607.206    
-      1002  -2269.731       2.2767867e-07  9.8913826e-07 -13607.206    
-Loop time of 67.6436 on 1 procs for 1002 steps with 362 atoms
+       100  -2269.7199      0.028578238    0.040328226   -13582.712    
+       200  -2269.7278      0.012671597    0.019327031   -13612.329    
+       300  -2269.7308      0.0077725678   0.012468901   -13597.306    
+       400  -2269.731       0.00097018051  0.0030270688  -13609.045    
+       500  -2269.731       0.00040728731  0.00071125077 -13607.415    
+       600  -2269.731       9.8860423e-05  0.00026781757 -13607.31     
+       700  -2269.731       6.7630477e-06  3.6430672e-05 -13607.135    
+       800  -2269.731       1.4401055e-06  5.2123167e-06 -13607.209    
+       900  -2269.731       1.0193692e-06  2.1277906e-06 -13607.206    
+       905  -2269.731       1.7268512e-07  9.5597307e-07 -13607.207    
+Loop time of 60.9225 on 1 procs for 905 steps with 362 atoms
 
-98.6% CPU use with 1 MPI tasks x 1 OpenMP threads
+98.8% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
   Stopping criterion = force tolerance
   Energy initial, next-to-last, final = 
      -2269.70734412638  -2269.73102488888  -2269.73102488888
-  Force two-norm initial, final = 0.44162563 9.8913826e-07
-  Force max component initial, final = 0.31323574 2.2767867e-07
-  Final line search alpha, max atom move = 1 2.2767867e-07
-  Iterations, force evaluations = 1002 2023
+  Force two-norm initial, final = 0.44162563 9.5597307e-07
+  Force max component initial, final = 0.31323574 1.7268512e-07
+  Final line search alpha, max atom move = 1 1.7268512e-07
+  Iterations, force evaluations = 905 1836
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 67.27      | 67.27      | 67.27      |   0.0 | 99.45
-Neigh   | 0.00057401 | 0.00057401 | 0.00057401 |   0.0 |  0.00
-Comm    | 0.046272   | 0.046272   | 0.046272   |   0.0 |  0.07
-Output  | 0.00057459 | 0.00057459 | 0.00057459 |   0.0 |  0.00
-Modify  | 0.046699   | 0.046699   | 0.046699   |   0.0 |  0.07
-Other   |            | 0.2796     |            |       |  0.41
+Pair    | 60.653     | 60.653     | 60.653     |   0.0 | 99.56
+Neigh   | 0.00061815 | 0.00061815 | 0.00061815 |   0.0 |  0.00
+Comm    | 0.042591   | 0.042591   | 0.042591   |   0.0 |  0.07
+Output  | 0.00059062 | 0.00059062 | 0.00059062 |   0.0 |  0.00
+Modify  | 0.043339   | 0.043339   | 0.043339   |   0.0 |  0.07
+Other   |            | 0.1819     |            |       |  0.30
 
 Nlocal:            362 ave         362 max         362 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -124,11 +123,11 @@ Nghost:           1329 ave        1329 max        1329 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Neighs:              0 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-FullNghs:        57004 ave       57004 max       57004 min
+FullNghs:        57002 ave       57002 max       57002 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 57004
-Ave neighs/atom = 157.46961
+Total # of neighbors = 57002
+Ave neighs/atom = 157.46409
 Neighbor list builds = 1
 Dangerous builds = 0
 
@@ -143,7 +142,7 @@ variable       natoms    equal  atoms
 print "  pe_final_eV     : ${pe_final}"
   pe_final_eV     : -2269.73102488888
 print "  fmax_eV_per_Ang : ${fmax_f}"
-  fmax_eV_per_Ang : 2.27678674205589e-07
+  fmax_eV_per_Ang : 1.72685121036797e-07
 print "  natoms          : ${natoms}"
   natoms          : 362
 
@@ -152,4 +151,4 @@ write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculatio
 System init for write_data ...
 print "Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_s_7_relaxed.lammps"
 Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_s_7_relaxed.lammps
-Total wall time: 0:02:54
+Total wall time: 0:01:32

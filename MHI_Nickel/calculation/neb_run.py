@@ -37,7 +37,7 @@ SPRING_CONST   = 1.0
 NEB_FTOL       = 0.05
 H_HEIGHT       = 1.5
 # SLURM configurations
-GPU_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': 'a100:1', 'conda_env': '/home/akinyemi.az/miniforge3/envs/mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'partition': 'gpu', 'time': '04:00:00'}
+GPU_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': 'a100:1', 'conda_env': '/home/akinyemi.az/miniforge3/envs/mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'partition': 'gpu', 'time': '00:20:00'}
 NEB_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 16, 'gpu': None, 'conda_env': '/home/akinyemi.az/miniforge3/envs/mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'partition': 'short', 'time': '12:00:00'}
 VIB_SLURM_CFG  = {'ntasks': 1, 'cpus_per_task': 8, 'gpu': None, 'conda_env': '/home/akinyemi.az/miniforge3/envs/mace-lammps', 'cuda_version': '12.3.0', 'openmpi_ver': '4.1.6', 'ld_paths': ['/shared/EL9/explorer/cuda/12.3.0/lib64', '/shared/EL9/explorer/cuda/12.3.0/lib64/stubs', '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap', '/home/akinyemi.az/miniforge3/envs/mace-lammps/lib'], 'partition': 'short', 'time': '06:00:00'}
 # Surface relaxation (Phase A)
@@ -50,7 +50,7 @@ import sys
 sys.path.insert(0, os.path.dirname(WORK_DIR))
 
 from models.neb_workflow import orchestrate_full_neb_workflow
-from models.create_slurm import submit_slurm_job, wait_for_jobs
+from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
 
 # -- Phases A-D ----------------------------------------------------------------
 _ranked_f = os.path.join(NEB_DIR, 'ranked_barriers.json')
@@ -87,9 +87,16 @@ if not os.path.exists(_ranked_f):
     print('  Phase D: Submit and wait')
     print('='*60)
 
-    fsmin_jid = submit_slurm_job(result['fsmin_array_script'])
-    print(f'  FS-min array submitted  ->  job {fsmin_jid}')
-    wait_for_jobs({'fsmin_array': fsmin_jid})
+    auto_submit(
+        array_script   = result['fsmin_array_script'],
+        index_file     = result['job_index'],
+        result_dir     = NEB_DIR,
+        result_pattern = '*/neb_final_relaxed.lammps',
+        n_total        = result['n_neb_jobs'],
+        job_name       = 'fsmin_array',
+        queue_max      = 8,
+        concurrent     = 4,
+    )
     print('  All FS minimisations done.')
 
     neb_jid = submit_slurm_job(result['neb_array_script'])

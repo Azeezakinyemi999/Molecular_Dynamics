@@ -4,9 +4,9 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:a100:1
 #SBATCH --partition=gpu
-#SBATCH --time=04:00:00
+#SBATCH --time=00:20:00
 #SBATCH --output=/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/neb/neb/run_fsmin_array_%j.out
-#SBATCH --array=1-0%4
+#SBATCH --array=1-2944%4
 
 module load OpenMPI/4.1.6
 module load cuda/12.3.0
@@ -18,7 +18,7 @@ export LD_LIBRARY_PATH=/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-
 export LD_LIBRARY_PATH=/home/akinyemi.az/miniforge3/envs/mace-lammps/lib:$LD_LIBRARY_PATH
 
 
-cd /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
+cd /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation
 
 echo "Node: $(hostname)  Start: $(date)"
 LABEL=$(sed -n "${SLURM_ARRAY_TASK_ID}p" /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/neb/neb/job_index.txt)

@@ -45,3 +45,5 @@ MHI_Nickel/strutures/
 
 
 
+MHI_Nickel/calculation/neb/phase2_cross_product/all_combinations.json
+MHI_Nickel/calculation/neb/phase2b_filtered/filtered_combinations.json

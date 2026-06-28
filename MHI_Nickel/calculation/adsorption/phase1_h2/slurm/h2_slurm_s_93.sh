@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:a100:1
 #SBATCH --partition=gpu
-#SBATCH --time=04:00:00
+#SBATCH --time=00:20:00
 #SBATCH --output=/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/slurm/h2_slurm_s_93_%j.out
 
 
@@ -18,7 +18,7 @@ export LD_LIBRARY_PATH=/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-
 export LD_LIBRARY_PATH=/home/akinyemi.az/miniforge3/envs/mace-lammps/lib:$LD_LIBRARY_PATH
 
 
-cd /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
+cd /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation
 
 echo "Node: $(hostname)  Start: $(date)"
 /projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap/lmp -k on g 1 -sf kk -pk kokkos newton on neigh half -in /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/scripts/h2_min_s_93.in -log /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_min_s_93.log

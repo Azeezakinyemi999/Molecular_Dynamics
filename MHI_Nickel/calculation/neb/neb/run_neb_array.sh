@@ -6,7 +6,7 @@
 #SBATCH --partition=short
 #SBATCH --time=12:00:00
 #SBATCH --output=/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/neb/neb/run_neb_array_%j.out
-#SBATCH --array=1-0%50
+#SBATCH --array=1-2944%50
 
 module load OpenMPI/4.1.6
 module load cuda/12.3.0
@@ -18,7 +18,7 @@ export LD_LIBRARY_PATH=/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-
 export LD_LIBRARY_PATH=/home/akinyemi.az/miniforge3/envs/mace-lammps/lib:$LD_LIBRARY_PATH
 
 
-cd /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
+cd /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation
 
 echo "Node: $(hostname)  Start: $(date)"
 LABEL=$(sed -n "${SLURM_ARRAY_TASK_ID}p" /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/neb/neb/job_index.txt)
