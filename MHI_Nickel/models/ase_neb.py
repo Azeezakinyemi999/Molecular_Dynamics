@@ -159,7 +159,9 @@ def build_neb_images(
     from ase.calculators.singlepoint import SinglePointCalculator
 
     is_raw = read(is_file, format='lammps-data', atom_style='atomic')
+    is_raw.wrap()
     fs_raw = read(fs_file, format='lammps-data', atom_style='atomic')
+    fs_raw.wrap()
 
     # Pin endpoint energies if supplied
     def _pin(atoms, energy):
@@ -596,7 +598,9 @@ def write_ase_neb_script(
 
         # ── Load structures and pin endpoint energies ─────────────────────
         is_raw = read(NEB_IS_FILE, format="lammps-data", atom_style="atomic")
+        is_raw.wrap()
         fs_raw = read(FS_RELAXED_DATA, format="lammps-data", atom_style="atomic")
+        fs_raw.wrap()
 
         def pin(atoms, energy):
             atoms = atoms.copy()
