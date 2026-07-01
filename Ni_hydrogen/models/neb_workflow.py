@@ -2474,8 +2474,32 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(WORK_DIR))
 
-from models.neb_workflow import orchestrate_full_neb_workflow
+from models.neb_workflow import orchestrate_full_neb_workflow, calculate_ref_adsorbate_energy
 from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
+
+# -- H2 reference energy (compute at runtime if not embedded at generation time) --
+if E_H2_GAS is None:
+    from models.config import LAMMPS_CMD, MACE_MODEL_LAMMPS, PAIR_STYLE, PAIR_SUFFIX, KOKKOS_FLAGS
+    E_H2_GAS = calculate_ref_adsorbate_energy(
+        adsorbate='H2',
+        outdir=os.path.join(ADS_DIR, 'ref_energies'),
+        pair_style=PAIR_STYLE,
+        mace_model=MACE_MODEL_LAMMPS,
+        pair_suffix=PAIR_SUFFIX,
+        elem_str=ELEM_STR,
+        e2t=E2T,
+        masses=MASSES,
+        lammps_cmd=LAMMPS_CMD,
+        kokkos_flags=KOKKOS_FLAGS,
+        slurm_opts=GPU_SLURM_CFG,
+        dry_run=False,
+    )
+    if E_H2_GAS is None:
+        raise RuntimeError(
+            'H2 reference energy unavailable after job completion. '
+            'Check logs in: ' + os.path.join(ADS_DIR, 'ref_energies')
+        )
+    print(f'  E_H2_GAS = {E_H2_GAS} eV  (computed by calculate_ref_adsorbate_energy)')
 
 # -- Phases A-D ----------------------------------------------------------------
 _ranked_f = os.path.join(NEB_DIR, 'ranked_barriers.json')
@@ -2876,3 +2900,192 @@ def plot_mep_overlay(barriers, neb_dir: str):
     plt.show()
     print(f'Saved: {out_fig}')
     return out_fig
+
+
+# ---------------------------------------------------------------------------
+# Reference adsorbate energy calculator
+# ---------------------------------------------------------------------------
+
+def calculate_ref_adsorbate_energy(
+    adsorbate: str,
+    outdir: str,
+    pair_style: str,
+    mace_model: str,
+    pair_suffix: str,
+    elem_str: str,
+    e2t: dict,
+    masses: dict,
+    lammps_cmd: str,
+    kokkos_flags: list,
+    slurm_opts: dict,
+    dry_run: bool = True,
+    box_size: float = 15.0,
+    h2_bond: float = 0.741,
+) -> 'float | None':
+    """Compute the gas-phase reference energy for H2 (or H) with the pipeline MACE model.
+
+    Writes LAMMPS input files and a SLURM script into ``outdir``.  With
+    ``dry_run=False`` the job is submitted and this function blocks until it
+    finishes, then parses and caches the result to
+    ``{outdir}/h2_ref_energy.json``.  On repeated calls the cached value is
+    returned immediately without re-submitting.
+
+    Parameters
+    ----------
+    adsorbate : str
+        ``'H2'`` or ``'H'``.
+    outdir : str
+        Directory for all generated files and the result cache.
+    pair_style, mace_model, pair_suffix, elem_str : str
+        LAMMPS potential settings — must be identical to the slab and
+        adsorption calculations so all three E_ads terms use the same model.
+    e2t : dict
+        ``{element_symbol: atom_type_int}`` mapping.
+    masses : dict
+        ``{atom_type: (mass_amu, symbol)}`` — all types, not only H.
+    lammps_cmd : str
+        Full path to the LAMMPS binary.
+    kokkos_flags : list of str
+        Kokkos launch flags, e.g. ``['-k', 'on', 'g', '1', '-sf', 'kk']``.
+    slurm_opts : dict
+        SLURM cluster configuration passed to ``write_slurm_job``.
+    dry_run : bool
+        If ``True``, write scripts only — do not submit or block.
+    box_size : float
+        Cubic vacuum box edge length in Å (default 15.0).
+    h2_bond : float
+        H–H bond length in Å used when ``adsorbate='H2'`` (default 0.741).
+
+    Returns
+    -------
+    float or None
+        ``pe_final_eV`` from the LAMMPS log, or ``None`` if ``dry_run=True``
+        or the log is not yet available.
+    """
+    import numpy as np
+    from models.structure import write_lammps_data
+    from models.lammps_script import _pair_block, _neighbor_block
+    from models.create_slurm import write_slurm_job, submit_slurm_job, wait_for_jobs
+    from models.parsers import parse_energy_log
+
+    os.makedirs(outdir, exist_ok=True)
+    cache_json = os.path.join(outdir, 'h2_ref_energy.json')
+
+    if os.path.exists(cache_json):
+        with open(cache_json) as fh:
+            cached = json.load(fh)
+        e_ref = cached.get('pe_final_eV')
+        print(f'[ref_energy] {adsorbate} cached: {e_ref} eV  ({cache_json})')
+        return e_ref
+
+    # ── Geometry ───────────────────────────────────────────────────────────────
+    half = box_size / 2.0
+    if adsorbate == 'H2':
+        symbols   = ['H', 'H']
+        positions = np.array([
+            [half - h2_bond / 2.0, half, half],
+            [half + h2_bond / 2.0, half, half],
+        ])
+        natoms_str = '2'
+    elif adsorbate == 'H':
+        symbols    = ['H']
+        positions  = np.array([[half, half, half]])
+        natoms_str = '1'
+    else:
+        raise ValueError(f"adsorbate must be 'H2' or 'H', got {adsorbate!r}")
+
+    tag = adsorbate.lower()
+    data_file    = os.path.join(outdir, f'{tag}_gas.lammps')
+    relaxed_file = os.path.join(outdir, f'{tag}_gas_relaxed.lammps')
+    log_file     = os.path.join(outdir, f'{tag}_gas_min.log')
+    min_script   = os.path.join(outdir, f'{tag}_gas_min.lammps')
+    slurm_script = os.path.join(outdir, f'{tag}_ref.sh')
+
+    # ── Data file ──────────────────────────────────────────────────────────────
+    write_lammps_data(
+        symbols      = symbols,
+        positions    = positions,
+        cell_lengths = [box_size, box_size, box_size],
+        masses       = masses,
+        e2t          = e2t,
+        out_path     = data_file,
+        comment      = f'{adsorbate} gas reference — {mace_model}',
+    )
+
+    # ── LAMMPS minimization script ─────────────────────────────────────────────
+    lmp_script_body = (
+        'units          metal\n'
+        'atom_style     atomic\n'
+        'newton         on\n'
+        'boundary       p p p\n'
+        '\n'
+        f'read_data      {data_file}\n'
+        '\n'
+        f'{_pair_block(pair_style, mace_model, pair_suffix, elem_str)}\n'
+        '\n'
+        f'{_neighbor_block()}\n'
+        '\n'
+        'thermo         50\n'
+        'thermo_style   custom step pe fmax\n'
+        '\n'
+        'minimize       0.0  1e-8  50000  500000\n'
+        '\n'
+        'variable  pe_final  equal  pe\n'
+        'variable  fmax_f    equal  fmax\n'
+        '\n'
+        'print "  pe_final_eV      : ${pe_final}"\n'
+        'print "  fmax_eV_per_Ang  : ${fmax_f}"\n'
+        f'print "  natoms           : {natoms_str}"\n'
+        '\n'
+        f'write_data     {relaxed_file}\n'
+    )
+    with open(min_script, 'w') as fh:
+        fh.write(lmp_script_body)
+    print(f'[ref_energy] Written: {min_script}')
+
+    # ── SLURM script ───────────────────────────────────────────────────────────
+    kokkos_str  = ' '.join(kokkos_flags) if kokkos_flags else ''
+    lmp_command = f'{lammps_cmd} {kokkos_str} -in {min_script} -log {log_file}'.strip()
+    write_slurm_job(
+        job_name     = f'ref_{tag}',
+        slurm_config = slurm_opts,
+        out_path     = slurm_script,
+        commands     = [lmp_command],
+        output_log   = os.path.join(outdir, f'ref_{tag}_%j.out'),
+    )
+    print(f'[ref_energy] Written: {slurm_script}')
+
+    if dry_run:
+        print(f'[ref_energy] dry_run=True — scripts written, not submitted.')
+        return None
+
+    # ── Submit → wait → parse ──────────────────────────────────────────────────
+    job_id = submit_slurm_job(slurm_script)
+    print(f'[ref_energy] Submitted {adsorbate} reference job → {job_id}')
+    wait_for_jobs({f'ref_{tag}': job_id})
+    print(f'[ref_energy] {adsorbate} reference job done.')
+
+    if not os.path.exists(log_file):
+        print(f'[ref_energy] WARNING: log not found at {log_file}')
+        return None
+
+    parsed = parse_energy_log(log_file)
+    if parsed is None:
+        print(f'[ref_energy] WARNING: could not parse {log_file}')
+        return None
+
+    e_ref = parsed.get('pe_final_eV')
+    if e_ref is None:
+        print(f'[ref_energy] WARNING: pe_final_eV missing in {log_file}')
+        return None
+
+    cache_data = {
+        'adsorbate'  : adsorbate,
+        'pe_final_eV': e_ref,
+        'mace_model' : mace_model,
+        'log_file'   : log_file,
+    }
+    with open(cache_json, 'w') as fh:
+        json.dump(cache_data, fh, indent=2)
+    print(f'[ref_energy] {adsorbate} E_ref = {e_ref} eV  →  {cache_json}')
+    return e_ref
