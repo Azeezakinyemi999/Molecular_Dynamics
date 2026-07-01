@@ -504,13 +504,16 @@ def write_chained_slurm_job(
     slurm_config,
     out_path,
     first_commands,
-    restart_commands,
-    restart_glob,
-    cutoff,
+    restart_commands=None,
+    restart_glob=None,
+    cutoff=None,
     flush_wait=30,
     work_dir=None,
     output_log=None,
     extra_env_vars=None,
+    n_equil=None,
+    equil_restart_commands=None,
+    prod_restart_commands=None,
 ):
     """
     Write a self-resubmitting SLURM script for simulations that exceed
@@ -560,14 +563,23 @@ def write_chained_slurm_job(
         Shell commands for leg 1 (no restart file present), e.g.::
 
             [f'{LAMMPS_CMD} {kk} -in nvt.lammps -log nvt.log']
-    restart_commands : list of str
-        Shell commands for legs 2+ (restart file present), e.g.::
-
-            [f'{LAMMPS_CMD} {kk} -in nvt_restart.lammps -log nvt.log']
+    restart_commands : list of str or None
+        Shell commands for legs 2+ when no phase detection is needed.
+        Ignored when ``n_equil`` is provided.
     restart_glob : str
         Glob pattern used to detect an existing LAMMPS checkpoint, e.g.
-        ``'results/500K/nvt_500K.*.restart'``.  If any file matches,
-        ``restart_commands`` is used; otherwise ``first_commands``.
+        ``'results/500K/nvt_500K.*.restart'``.
+    n_equil : int or None, optional
+        When provided, enables phase-aware restart selection.  The step
+        number is extracted from the checkpoint filename; if it is less
+        than ``n_equil``, ``equil_restart_commands`` is used, otherwise
+        ``prod_restart_commands``.
+    equil_restart_commands : list of str or None, optional
+        Commands for mid-equil restarts (step < n_equil).  Required when
+        ``n_equil`` is set.
+    prod_restart_commands : list of str or None, optional
+        Commands for mid-production restarts (step >= n_equil).  Required
+        when ``n_equil`` is set.
     cutoff : str
         Wall-time at which the job should self-terminate and resubmit,
         in ``'HH:MM:SS'`` format.  Must be shorter than
@@ -636,8 +648,7 @@ def write_chained_slurm_job(
     # ── command heredocs ──────────────────────────────────────────
     # Using heredoc (<<'EOF') avoids ALL quoting/escaping issues with
     # paths, LAMMPS flags, or single quotes inside the commands.
-    first_block   = '\n'.join(first_commands)
-    restart_block = '\n'.join(restart_commands)
+    first_block = '\n'.join(first_commands)
 
     # Build the script as a list of lines to avoid f-string conflicts
     # with bash $ variables.
@@ -657,7 +668,7 @@ def write_chained_slurm_job(
         'source ~/miniforge3/etc/profile.d/conda.sh',
         f'conda activate {sc["conda_env"]}',
         ld_lines,
-        preload_line, 
+        preload_line,
         env_lines,
         cd_line,
         '',
@@ -674,24 +685,62 @@ def write_chained_slurm_job(
         '# If the glob matches nothing, RESTART_FILE is empty.',
         'RESTART_FILE=$(ls -t ${RESTART_GLOB} 2>/dev/null | head -1)',
         '',
-        'if [ -n "$RESTART_FILE" ]; then',
-        '    echo "Restart file found: $RESTART_FILE -- using restart commands."',
-        f'    timeout --signal=SIGTERM --kill-after=60 "$CUTOFF_SEC" bash <<\'LAMMPS_BLOCK\'',
-        restart_block,
-        'LAMMPS_BLOCK',
-        'else',
-        '    echo "No restart file found -- starting fresh."',
-        f'    timeout --signal=SIGTERM --kill-after=60 "$CUTOFF_SEC" bash <<\'LAMMPS_BLOCK\'',
-        first_block,
-        'LAMMPS_BLOCK',
-        'fi',
+    ]
+
+    if n_equil is not None:
+        # Phase-aware restart: detect whether checkpoint is in equil or prod
+        equil_block = '\n'.join(equil_restart_commands)
+        prod_block  = '\n'.join(prod_restart_commands)
+        lines += [
+            f'N_EQUIL={n_equil}',
+            '',
+            'if [ -n "$RESTART_FILE" ]; then',
+            '    # Extract the step number from the checkpoint filename.',
+            '    LAST_STEP=$(basename "$RESTART_FILE" .restart | grep -oE \'[0-9]+$\')',
+            '    if [ -n "$LAST_STEP" ] && [ "$LAST_STEP" -lt "$N_EQUIL" ]; then',
+            '        echo "Equil-phase restart (step=$LAST_STEP < n_equil=$N_EQUIL)."',
+            f'        timeout --signal=SIGTERM --kill-after=60 "$CUTOFF_SEC" bash <<\'EQUIL_RST_BLOCK\'',
+            equil_block,
+            'EQUIL_RST_BLOCK',
+            '    else',
+            '        echo "Prod-phase restart (step=$LAST_STEP >= n_equil=$N_EQUIL)."',
+            f'        timeout --signal=SIGTERM --kill-after=60 "$CUTOFF_SEC" bash <<\'PROD_RST_BLOCK\'',
+            prod_block,
+            'PROD_RST_BLOCK',
+            '    fi',
+            'else',
+            '    echo "No restart file found -- starting fresh."',
+            f'    timeout --signal=SIGTERM --kill-after=60 "$CUTOFF_SEC" bash <<\'FIRST_BLOCK\'',
+            first_block,
+            'FIRST_BLOCK',
+            'fi',
+        ]
+    else:
+        # Legacy two-branch behaviour (no phase detection)
+        restart_block = '\n'.join(restart_commands)
+        lines += [
+            'if [ -n "$RESTART_FILE" ]; then',
+            '    echo "Restart file found: $RESTART_FILE -- using restart commands."',
+            f'    timeout --signal=SIGTERM --kill-after=60 "$CUTOFF_SEC" bash <<\'LAMMPS_BLOCK\'',
+            restart_block,
+            'LAMMPS_BLOCK',
+            'else',
+            '    echo "No restart file found -- starting fresh."',
+            f'    timeout --signal=SIGTERM --kill-after=60 "$CUTOFF_SEC" bash <<\'LAMMPS_BLOCK\'',
+            first_block,
+            'LAMMPS_BLOCK',
+            'fi',
+        ]
+
+    lines += [
         '',
         'EXIT_CODE=$?',
         'echo "Command block exited with code $EXIT_CODE at $(date)"',
         '',
         '# ── Handle exit code ─────────────────────────────────────',
         'if [ "$EXIT_CODE" -eq 0 ]; then',
-        '    echo "LAMMPS converged (exit 0). Simulation complete. No resubmission."',
+        '    echo "LAMMPS converged (exit 0). Simulation complete."',
+        '    touch "${SCRIPT_PATH}.done"',
         '    exit 0',
         '',
         'elif [ "$EXIT_CODE" -eq 124 ]; then',
