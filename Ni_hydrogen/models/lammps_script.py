@@ -936,7 +936,8 @@ def write_nvt_bulk_script(
     bulk_h_file,
     traj_file,
     out_file,
-    msd_file,
+    msd_equil_file,
+    msd_prod_file,
     out_path,
     pair_style,
     mace_model,
@@ -971,8 +972,10 @@ def write_nvt_bulk_script(
         Path for the production trajectory dump (``.lammpstrj``).
     out_file : str
         Path where the final structure is written (``write_data``).
-    msd_file : str
-        Path for the H-atom MSD time series output.
+    msd_equil_file : str
+        Path for the H-atom MSD time series during equilibration (diagnostic).
+    msd_prod_file : str
+        Path for the H-atom MSD time series during production (used for post-processing).
     out_path : str
         Destination path for the ``.lammps`` input script.
     pair_style : str
@@ -1060,8 +1063,14 @@ fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau
 dump           equil_dump  all  custom  {dump_every}  {equil_traj}  id type x y z
 dump_modify    equil_dump  sort id
 
+compute        msd_H      H_atom  msd
+fix            msd_equil  all  ave/time  1  1  {thermo_every} &
+               c_msd_H[4]  file  {msd_equil_file}  mode scalar
+
 print "### Phase 1: Equilibration {equil_ps:.0f} ps at {temperature} K ###"
 run            {n_equil}
+unfix          msd_equil
+uncompute      msd_H
 undump         equil_dump
 unfix          nvt_equil
 print "### Phase 1 complete ###"
@@ -1076,9 +1085,9 @@ dump_modify    prod_dump  sort id
 
 fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}
 
-compute        msd_H    H_atom  msd
-fix            msd_out  all  ave/time  1  1  {thermo_every} &
-               c_msd_H[4]  file  {msd_file}  mode scalar
+compute        msd_H     H_atom  msd
+fix            msd_prod  all  ave/time  1  1  {thermo_every} &
+               c_msd_H[4]  file  {msd_prod_file}  mode scalar
 
 print "### Phase 2: Production {prod_ps:.0f} ps at {temperature} K ###"
 run            {n_prod}
