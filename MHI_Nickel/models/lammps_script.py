@@ -1286,6 +1286,261 @@ def write_nvt_bulk_restart_script(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 5b. NVT EQUIL-PHASE RESTART  (NB10 — mid-equil continuation)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def write_nvt_equil_restart_script(
+    restart_file,
+    traj_file,
+    out_file,
+    msd_equil_file,
+    msd_prod_file,
+    log_file,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    temperature,
+    h_type=9,
+    timestep=0.0005,
+    tau_t=0.1,
+    n_equil=500000,
+    n_prod=1500000,
+    thermo_every=1000,
+    dump_every=1000,
+    restart_dir=None,
+    restart_every=10000,
+):
+    """
+    Write a NVT restart script for when the checkpoint is mid-equilibration
+    (step < n_equil).
+
+    Continues equil for the remaining steps using ``variable remaining_equil
+    equal (n_equil - step)``, then runs the FULL production phase fresh
+    (no append on dump or MSD prod — first time production runs).
+
+    Equil MSD appends to ``msd_equil_file``; production MSD writes fresh to
+    ``msd_prod_file``.  Log is redirected to ``log_file`` in append mode so
+    prior legs' thermo output is preserved.
+    """
+    pair      = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh     = _neighbor_block()
+    restart   = _restart_line(restart_dir, restart_every,
+                               label=f'nvt_{temperature}K')
+    tau_t_ps  = tau_t
+    prod_ps   = n_prod * timestep
+    stem      = _stem(out_file)
+
+    phase1_data    = f'{stem}_phase1_equil.lammps'
+    phase1_restart = f'{stem}_phase1_equil.restart'
+    phase2_restart = f'{stem}_phase2_prod.restart'
+    equil_traj     = f'{stem}_phase1_equil.lammpstrj'
+
+    script = (
+        f"log            {log_file}  append\n"
+        "\n"
+        "# LAMMPS NVT bulk EQUIL-PHASE RESTART\n"
+        f"# T = {temperature} K  |  mid-equil continuation\n"
+        "# Continues equilibration from checkpoint, then runs full production.\n"
+        "\n"
+        "units          metal\n"
+        "atom_style     atomic\n"
+        "newton         on\n"
+        "boundary       p p p\n"
+        "\n"
+        "# Resume from most recent equil-phase checkpoint.\n"
+        f"read_restart   {restart_file}\n"
+        "\n"
+        f"{restart}\n"
+        "\n"
+        f"{pair}\n"
+        "\n"
+        f"{neigh}\n"
+        "\n"
+        f"group          H_atom  type {h_type}\n"
+        "group          metal   subtract all H_atom\n"
+        "\n"
+        f"thermo         {thermo_every}\n"
+        "thermo_style   custom step temp pe ke etotal press vol\n"
+        "\n"
+        f"timestep       {timestep}\n"
+        "\n"
+        "# === PHASE 1: Continue Equilibration ===\n"
+        f"fix            nvt_equil  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}\n"
+        "\n"
+        f"dump           equil_dump  all  custom  {dump_every}  {equil_traj}  id type x y z\n"
+        "dump_modify    equil_dump  sort id  append yes\n"
+        "\n"
+        "compute        msd_H      H_atom  msd\n"
+        f"fix            msd_equil  all  ave/time  1  1  {thermo_every} &\n"
+        f"               c_msd_H[4]  file  {msd_equil_file}  mode scalar  append yes\n"
+        "\n"
+        f"variable remaining_equil equal ({n_equil} - step)\n"
+        'print "### Phase 1: Equilibration continuation at '
+        f'{temperature} K (restart) ###"\n'
+        "run            ${remaining_equil}\n"
+        "\n"
+        "unfix          msd_equil\n"
+        "uncompute      msd_H\n"
+        "undump         equil_dump\n"
+        "unfix          nvt_equil\n"
+        'print "### Phase 1 complete ###"\n'
+        "\n"
+        f"write_restart  {phase1_restart}\n"
+        f"write_data     {phase1_data}\n"
+        "\n"
+        f"# === PHASE 2: Production ({prod_ps:.0f} ps, fresh start) ===\n"
+        f"dump           prod_dump  all  custom  {dump_every}  {traj_file} &\n"
+        "               id type x y z\n"
+        "dump_modify    prod_dump  sort id\n"
+        "\n"
+        f"fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}\n"
+        "\n"
+        "compute        msd_H     H_atom  msd\n"
+        f"fix            msd_prod  all  ave/time  1  1  {thermo_every} &\n"
+        f"               c_msd_H[4]  file  {msd_prod_file}  mode scalar\n"
+        "\n"
+        f'print "### Phase 2: Production {prod_ps:.0f} ps at {temperature} K ###"\n'
+        f"run            {n_prod}\n"
+        'print "### Phase 2 complete ###"\n'
+        "\n"
+        "variable  pe_final   equal  pe\n"
+        "variable  temp_fin   equal  temp\n"
+        "variable  press_fin  equal  press\n"
+        "\n"
+        'print "EQUIL_RESULTS_START"\n'
+        f'print "  T_K          : {temperature}"\n'
+        'print "  pe_final_eV  : ${pe_final}"\n'
+        'print "  temp_final_K : ${temp_fin}"\n'
+        'print "  press_final  : ${press_fin}"\n'
+        'print "EQUIL_RESULTS_END"\n'
+        "\n"
+        f"write_restart  {phase2_restart}\n"
+        f"write_data     {out_file}\n"
+    )
+
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5c. NVT PROD-PHASE RESTART  (NB10 — mid-production continuation)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def write_nvt_prod_restart_script(
+    restart_file,
+    traj_file,
+    out_file,
+    msd_prod_file,
+    log_file,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    temperature,
+    h_type=9,
+    timestep=0.0005,
+    tau_t=0.1,
+    n_equil=500000,
+    n_prod=1500000,
+    thermo_every=1000,
+    dump_every=1000,
+    restart_dir=None,
+    restart_every=10000,
+):
+    """
+    Write a NVT restart script for when the checkpoint is mid-production
+    (step >= n_equil).
+
+    Skips equilibration entirely.  Continues production for the remaining
+    steps using ``variable remaining_prod equal (n_equil + n_prod - step)``.
+    Dump and MSD prod use ``append yes`` to continue accumulating data from
+    prior production legs.
+
+    Log is redirected to ``log_file`` in append mode.
+    """
+    pair      = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh     = _neighbor_block()
+    restart   = _restart_line(restart_dir, restart_every,
+                               label=f'nvt_{temperature}K')
+    tau_t_ps  = tau_t
+    stem      = _stem(out_file)
+
+    phase2_restart = f'{stem}_phase2_prod.restart'
+    total_steps    = n_equil + n_prod
+
+    script = (
+        f"log            {log_file}  append\n"
+        "\n"
+        "# LAMMPS NVT bulk PROD-PHASE RESTART\n"
+        f"# T = {temperature} K  |  mid-production continuation\n"
+        "# Skips equilibration; continues production from checkpoint.\n"
+        "\n"
+        "units          metal\n"
+        "atom_style     atomic\n"
+        "newton         on\n"
+        "boundary       p p p\n"
+        "\n"
+        "# Resume from most recent production-phase checkpoint.\n"
+        f"read_restart   {restart_file}\n"
+        "\n"
+        f"{restart}\n"
+        "\n"
+        f"{pair}\n"
+        "\n"
+        f"{neigh}\n"
+        "\n"
+        f"group          H_atom  type {h_type}\n"
+        "group          metal   subtract all H_atom\n"
+        "\n"
+        f"thermo         {thermo_every}\n"
+        "thermo_style   custom step temp pe ke etotal press vol\n"
+        "\n"
+        f"timestep       {timestep}\n"
+        "\n"
+        "# === PHASE 2: Continue Production ===\n"
+        f"dump           prod_dump  all  custom  {dump_every}  {traj_file} &\n"
+        "               id type x y z\n"
+        "dump_modify    prod_dump  sort id  append yes\n"
+        "\n"
+        f"fix            nvt_prod  all  nvt  temp  {temperature}.0  {temperature}.0  {tau_t_ps:.1f}\n"
+        "\n"
+        "compute        msd_H     H_atom  msd\n"
+        f"fix            msd_prod  all  ave/time  1  1  {thermo_every} &\n"
+        f"               c_msd_H[4]  file  {msd_prod_file}  mode scalar  append yes\n"
+        "\n"
+        f"variable remaining_prod equal ({total_steps} - step)\n"
+        'print "### Phase 2: Production continuation at '
+        f'{temperature} K (restart) ###"\n'
+        "run            ${remaining_prod}\n"
+        'print "### Phase 2 complete ###"\n'
+        "\n"
+        "variable  pe_final   equal  pe\n"
+        "variable  temp_fin   equal  temp\n"
+        "variable  press_fin  equal  press\n"
+        "\n"
+        'print "EQUIL_RESULTS_START"\n'
+        f'print "  T_K          : {temperature}"\n'
+        'print "  pe_final_eV  : ${pe_final}"\n'
+        'print "  temp_final_K : ${temp_fin}"\n'
+        'print "  press_final  : ${press_fin}"\n'
+        'print "EQUIL_RESULTS_END"\n'
+        "\n"
+        f"write_restart  {phase2_restart}\n"
+        f"write_data     {out_file}\n"
+    )
+
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 6. ADSORBATE CG MINIMIZATION  (NB05, NB06)
 # ═══════════════════════════════════════════════════════════════════════════
 
