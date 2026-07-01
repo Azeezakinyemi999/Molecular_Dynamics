@@ -482,14 +482,14 @@ def orchestrate_slab_prep(
 
     relaxed_slab = relax_result['relaxed_slab']
 
-    # Phase 3: Enumerate sites (use input slab if relaxation was not run)
+    # Phase 3: Enumerate sites
     print(f"\n>>> PHASE 3: ACAT Site Enumeration")
     if dry_run and relax_result['status'] == 'generated':
-        # For dry-run, we use the input slab (Phase 2 would produce relaxed version)
-        print(f"  Note: Using input slab for site enumeration (Phase 2 in dry_run)")
-        enum_slab = slab_path
-    else:
-        enum_slab = relaxed_slab
+        raise RuntimeError(
+            "Phase 3 skipped: relaxed_slab.lammps not yet available (dry_run=True). "
+            "Run Phase 2 (slab relaxation) to completion before enumerating sites."
+        )
+    enum_slab = relaxed_slab
     
     sites_json, n_sites = run_phase3_site_enumeration(
         relaxed_slab_path=enum_slab,
