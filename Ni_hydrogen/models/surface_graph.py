@@ -139,6 +139,7 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
     """
     print('Reading slab...')
     slab  = ase_read(slab_path, format='lammps-data', atom_style='atomic')
+    slab.wrap()
     pos   = slab.get_positions()
     syms  = np.array(slab.get_chemical_symbols())
     cell  = slab.cell.diagonal()

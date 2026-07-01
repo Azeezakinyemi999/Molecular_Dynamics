@@ -160,6 +160,7 @@ from scipy.spatial import Voronoi
 def _slab_to_atoms(slab_path):
     """Read a LAMMPS data file into ASE Atoms."""
     atoms = ase_read(slab_path, format="lammps-data", atom_style="atomic")
+    atoms.wrap()
     return atoms
 
 
