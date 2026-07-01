@@ -819,8 +819,9 @@ def run_phase1_h2_adsorption(
     with open(h2_coords_path, 'w') as f:
         json.dump(is_pool, f, indent=2)
 
-    # H2_intact_pool.json — intact-only subset: actual NEB IS candidates
-    intact_pool = {sid: v for sid, v in is_pool.items() if v['status'] == 'intact'}
+    # H2_intact_pool.json — intact + E_ads<0 subset: actual NEB IS candidates
+    intact_pool = {sid: v for sid, v in is_pool.items()
+                   if v['status'] == 'intact' and v['E_ads'] < 0}
     intact_pool_path = phase_dir / 'H2_intact_pool.json'
     with open(intact_pool_path, 'w') as f:
         json.dump(intact_pool, f, indent=2)
@@ -840,11 +841,12 @@ def run_phase1_h2_adsorption(
     with open(out_json, 'w') as f:
         json.dump(result, f, indent=2)
 
-    n_intact = len(intact_pool)
-    n_diss   = sum(1 for v in is_pool.values() if v['status'] == 'dissociated')
+    n_intact_all = sum(1 for v in is_pool.values() if v['status'] == 'intact')
+    n_intact     = len(intact_pool)
+    n_diss       = sum(1 for v in is_pool.values() if v['status'] == 'dissociated')
     print(f"  H2* energies     → {out_json}")
     print(f"  H2_site_coords   → {h2_coords_path}  (all {len(is_pool)} computed)")
-    print(f"  H2_intact_pool   → {intact_pool_path}  ({n_intact} intact / {n_diss} dissociated)")
+    print(f"  H2_intact_pool   → {intact_pool_path}  ({n_intact} intact+Eads<0 / {n_intact_all - n_intact} dropped by energy / {n_diss} dissociated)")
     return result
 
 
