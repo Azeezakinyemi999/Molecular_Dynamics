@@ -135,7 +135,8 @@ from models.lammps_script import (
     write_npt_script,
     write_npt_restart_script,
     write_nvt_bulk_script,
-    write_nvt_bulk_restart_script,
+    write_nvt_equil_restart_script,
+    write_nvt_prod_restart_script,
 )
 from models.create_slurm import (
     write_slurm_job,
@@ -350,7 +351,7 @@ for struct_path in INPUT_STRUCTURES:
 
         # ── Phase 2 ──────────────────────────────────────────────────────────
         print('\n--- Phase 2: NVT MD ---')
-        job_ids = {}
+        chain_sh_by_T = {}
 
         for T in TEMPERATURES:
             lmp_dir = dirs[T]['lammps_scripts']
@@ -359,20 +360,25 @@ for struct_path in INPUT_STRUCTURES:
             rst_dir = os.path.join(res_dir, 'checkpoints')
             os.makedirs(rst_dir, exist_ok=True)
 
-            nvt_lmp     = os.path.join(lmp_dir, f'nvt_{T}K.lammps')
-            nvt_rst_lmp = os.path.join(lmp_dir, f'nvt_{T}K_restart.lammps')
-            traj_file   = os.path.join(res_dir, f'nvt_{T}K.dump')
-            out_file    = os.path.join(res_dir, f'nvt_{T}K.out')
-            msd_file    = os.path.join(res_dir, f'msd_{T}K.dat')
-            rst_glob    = os.path.join(rst_dir, f'nvt_{T}K.*.restart')
-            chain_sh    = os.path.join(sh_dir,  f'nvt_{T}K_chain.sh')
+            nvt_lmp           = os.path.join(lmp_dir, f'nvt_{T}K.lammps')
+            nvt_equil_rst_lmp = os.path.join(lmp_dir, f'nvt_{T}K_rst_equil.lammps')
+            nvt_prod_rst_lmp  = os.path.join(lmp_dir, f'nvt_{T}K_rst_prod.lammps')
+            traj_file         = os.path.join(res_dir, f'nvt_{T}K.dump')
+            out_file          = os.path.join(res_dir, f'nvt_{T}K.out')
+            log_file          = os.path.join(res_dir, f'nvt_{T}K.log')
+            msd_equil_file    = os.path.join(res_dir, f'msd_{T}K_equil.dat')
+            msd_prod_file     = os.path.join(res_dir, f'msd_{T}K_prod.dat')
+            rst_glob          = os.path.join(rst_dir, f'nvt_{T}K.*.restart')
+            chain_sh          = os.path.join(sh_dir,  f'nvt_{T}K_chain.sh')
+            chain_sh_by_T[T]  = chain_sh
 
-            if not os.path.exists(msd_file):
+            if not os.path.exists(chain_sh + '.done'):
                 write_nvt_bulk_script(
                     bulk_h_file=T_to_bulk_h[T],
                     traj_file=traj_file,
                     out_file=out_file,
-                    msd_file=msd_file,
+                    msd_equil_file=msd_equil_file,
+                    msd_prod_file=msd_prod_file,
                     out_path=nvt_lmp,
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
@@ -390,12 +396,36 @@ for struct_path in INPUT_STRUCTURES:
                     restart_dir=rst_dir,
                     restart_every=RESTART_EVERY,
                 )
-                write_nvt_bulk_restart_script(
+                write_nvt_equil_restart_script(
                     restart_file=rst_glob,
                     traj_file=traj_file,
                     out_file=out_file,
-                    msd_file=msd_file,
-                    out_path=nvt_rst_lmp,
+                    msd_equil_file=msd_equil_file,
+                    msd_prod_file=msd_prod_file,
+                    log_file=log_file,
+                    out_path=nvt_equil_rst_lmp,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=_ELEM_STR,
+                    temperature=T,
+                    h_type=_E2T['H'],
+                    timestep=TIMESTEP_PS,
+                    tau_t=TAU_T_PS,
+                    n_equil=N_EQUIL_STEPS,
+                    n_prod=N_PROD_STEPS,
+                    thermo_every=THERMO_EVERY,
+                    dump_every=DUMP_EVERY,
+                    restart_dir=rst_dir,
+                    restart_every=RESTART_EVERY,
+                )
+                write_nvt_prod_restart_script(
+                    restart_file=rst_glob,
+                    traj_file=traj_file,
+                    out_file=out_file,
+                    msd_prod_file=msd_prod_file,
+                    log_file=log_file,
+                    out_path=nvt_prod_rst_lmp,
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
                     pair_suffix=PAIR_SUFFIX,
@@ -416,22 +446,34 @@ for struct_path in INPUT_STRUCTURES:
                     slurm_config=GPU_SLURM_CFG,
                     out_path=chain_sh,
                     first_commands=[
-                        f'{LAMMPS_CMD} {KK} -in {nvt_lmp} -log {out_file}',
+                        f'{LAMMPS_CMD} {KK} -in {nvt_lmp} -log {log_file}',
                     ],
-                    restart_commands=[
-                        f'{LAMMPS_CMD} {KK} -in {nvt_rst_lmp} -log {out_file}',
+                    equil_restart_commands=[
+                        f'{LAMMPS_CMD} {KK} -in {nvt_equil_rst_lmp} -log /dev/null',
                     ],
+                    prod_restart_commands=[
+                        f'{LAMMPS_CMD} {KK} -in {nvt_prod_rst_lmp} -log /dev/null',
+                    ],
+                    n_equil=N_EQUIL_STEPS,
                     restart_glob=rst_glob,
                     cutoff=CUTOFF,
                     work_dir=WORK_DIR,
                 )
-                job_ids[f'{T}K'] = submit_slurm_job(chain_sh)
-                print(f'  [2] Submitted NVT {T}K  →  job {job_ids[f"{T}K"]}')
+                job_id = submit_slurm_job(chain_sh)
+                print(f'  [2] Submitted NVT {T}K  →  job {job_id}')
             else:
                 print(f'  [2] NVT {T}K already done — skipping')
 
-        print(f'  Waiting for {len(job_ids)} NVT jobs ...')
-        wait_for_jobs(job_ids)
+        print('  Waiting for NVT jobs (polling .done sentinels) ...')
+        import time as _time
+        pending = set(TEMPERATURES)
+        while pending:
+            for T in list(pending):
+                if os.path.exists(chain_sh_by_T[T] + '.done'):
+                    pending.discard(T)
+                    print(f'  NVT {T}K complete')
+            if pending:
+                _time.sleep(60)
         print('  All NVT jobs done.')
 
         # ── Phase 3 ──────────────────────────────────────────────────────────
