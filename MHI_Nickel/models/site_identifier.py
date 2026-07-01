@@ -64,7 +64,9 @@ ADSORBATE_REGISTRY = {
 
 def _load_struct(struct):
     if isinstance(struct, str):
-        return ase_read(struct, format='lammps-data', atom_style='atomic')
+        atoms = ase_read(struct, format='lammps-data', atom_style='atomic')
+        atoms.wrap()
+        return atoms
     return struct.copy()
 
 

@@ -87,6 +87,7 @@ def _build_single_h_fs(
     from models.structure import write_lammps_data
 
     atoms = ase_read(source_lammps, format='lammps-data', atom_style='atomic')
+    atoms.wrap()
     pos   = atoms.get_positions()
     syms  = np.array(atoms.get_chemical_symbols())
     cell  = atoms.cell.lengths()
