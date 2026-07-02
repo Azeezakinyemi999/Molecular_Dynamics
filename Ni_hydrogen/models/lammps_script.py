@@ -1513,7 +1513,7 @@ def write_nvt_prod_restart_script(
         f"fix            msd_prod  all  ave/time  1  1  {thermo_every} &\n"
         f"               c_msd_H[4]  file  {msd_prod_file}  mode scalar  append yes\n"
         "\n"
-        f"variable remaining_prod equal ({total_steps} - step)\n"
+        f"variable remaining_prod equal (({total_steps} - step) > 0 ? ({total_steps} - step) : 0)\n"
         'print "### Phase 2: Production continuation at '
         f'{temperature} K (restart) ###"\n'
         "run            ${remaining_prod}\n"
