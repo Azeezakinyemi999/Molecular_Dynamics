@@ -525,13 +525,24 @@ def write_ase_neb_script(
         images_dir = os.path.dirname(os.path.abspath(out_path))
 
     if fs_log_file is not None:
+        # Accumulate last valid float — LAMMPS echoes the `print` command itself
+        # (containing `${pe_final}`) on the line immediately before the actual
+        # output value. Returning on the first match hits the echo line and raises
+        # ValueError. Overwriting `_val` on each successful parse picks the last
+        # valid line instead.
         efs_block = (
             'def _parse_pe_final(log_path):\n'
+            '    _val = None\n'
             '    with open(log_path) as _f:\n'
             '        for _line in _f:\n'
             "            if 'pe_final_eV' in _line and ':' in _line:\n"
-            "                return float(_line.split(':')[1].strip())\n"
-            '    raise ValueError(f"pe_final_eV not found in {log_path}")\n'
+            '                try:\n'
+            "                    _val = float(_line.split(':')[1].strip())\n"
+            '                except ValueError:\n'
+            '                    pass\n'
+            '    if _val is None:\n'
+            '        raise ValueError(f"pe_final_eV not found in {log_path}")\n'
+            '    return _val\n'
             f'\nE_FS = _parse_pe_final("{fs_log_file}")  # eV — from fs_min.log at runtime'
         )
     else:
