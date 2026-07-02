@@ -214,7 +214,7 @@ def orchestrate_hopa_neb(
     if elem_str is None:
         elem_str = ELEM_STR_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
     if neb_slurm_opts is None:
         neb_slurm_opts = {
             **SLURM_DEFAULTS,
@@ -376,7 +376,7 @@ def orchestrate_hopa_neb(
         slurm_config=slurm_opts,
         out_path=fsmin_array,
         array_range=ar,
-        concurrent=4,
+        concurrent=2,
         commands=[
             f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
             f'bash {hopa_dir}/${{SID}}/slurm_fsmin_${{SID}}.sh',
@@ -484,7 +484,7 @@ def orchestrate_hopb_neb(
     if elem_str is None:
         elem_str = ELEM_STR_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
     if neb_slurm_opts is None:
         neb_slurm_opts = {
             **SLURM_DEFAULTS,
@@ -662,7 +662,7 @@ def orchestrate_hopb_neb(
         slurm_config=slurm_opts,
         out_path=fsmin_array,
         array_range=ar,
-        concurrent=4,
+        concurrent=2,
         commands=[
             f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
             f'bash {hopb_dir}/${{SID}}/slurm_fsmin_${{SID}}.sh',

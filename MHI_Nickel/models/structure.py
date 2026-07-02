@@ -247,7 +247,9 @@ def build_alloy_bulk(
     nx, ny, nz = supercell_reps
 
     # ── Build FCC template ────────────────────────────────────────────────────
-    unit_cell = bulk('Ni', crystalstructure='fcc', a=a0)
+    # cubic=True gives the conventional 4-atom orthogonal cell so that a
+    # (nx,ny,nz) supercell contains 4·nx·ny·nz atoms with an orthogonal box.
+    unit_cell = bulk('Ni', crystalstructure='fcc', a=a0, cubic=True)
     P = [[nx, 0, 0], [0, ny, 0], [0, 0, nz]]
     super_cell = make_supercell(unit_cell, P)
     n_atoms = len(super_cell)

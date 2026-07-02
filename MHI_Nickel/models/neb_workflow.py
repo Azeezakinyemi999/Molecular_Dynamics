@@ -191,7 +191,7 @@ def run_phase2_surface_relaxation(
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '24:00:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
 
     # Derive all output paths up front
     relaxed_slab  = str(Path(outdir) / 'relaxed_slab.lammps')
@@ -688,7 +688,7 @@ def run_phase1_h2_adsorption(
     if masses is None:
         masses = MASSES_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '02:00:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
 
     phase_dir  = Path(outdir) / 'phase1_h2'
     struct_dir = phase_dir / 'structures'
@@ -769,11 +769,11 @@ def run_phase1_h2_adsorption(
         ],
     )
 
-    partition = slurm_opts.get('partition', 'multigpu')
+    partition = slurm_opts.get('partition', 'sharing')
     if partition == 'short':
         _qmax, _conc = 1000, 50
     else:
-        _qmax, _conc = 8, 4
+        _qmax, _conc = 4, 2
 
     if not dry_run:
         auto_submit(
@@ -920,7 +920,7 @@ def run_phase2_h_adsorption(
     if masses is None:
         masses = MASSES_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '01:00:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
 
     phase_dir  = Path(outdir) / 'phase2_h'
     struct_dir = phase_dir / 'structures'
@@ -1000,11 +1000,11 @@ def run_phase2_h_adsorption(
         ],
     )
 
-    partition = slurm_opts.get('partition', 'multigpu')
+    partition = slurm_opts.get('partition', 'sharing')
     if partition == 'short':
         _qmax, _conc = 1000, 50
     else:
-        _qmax, _conc = 8, 4
+        _qmax, _conc = 4, 2
 
     if not dry_run:
         auto_submit(
@@ -1784,7 +1784,7 @@ def orchestrate_neb(
     if masses is None:
         masses = MASSES_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
 
     if neb_slurm_opts is None:
         neb_slurm_opts = {
@@ -1951,7 +1951,7 @@ def orchestrate_neb(
         slurm_config=slurm_opts,
         out_path=fsmin_array,
         array_range=ar,
-        concurrent=4,
+        concurrent=2,
         commands=[
             f'LABEL=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
             f'bash {neb_dir}/${{LABEL}}/slurm_fsmin_${{LABEL}}.sh',
@@ -2563,8 +2563,8 @@ if not os.path.exists(_ranked_f):
         result_pattern = '*/neb_final_relaxed.lammps',
         n_total        = result['n_neb_jobs'],
         job_name       = 'fsmin_array',
-        queue_max      = 8,
-        concurrent     = 4,
+        queue_max      = 4,
+        concurrent     = 2,
     )
     print('  All FS minimisations done.')
 
