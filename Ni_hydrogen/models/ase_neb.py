@@ -668,8 +668,8 @@ def write_ase_neb_script(
 
             if TRAJ_PHASE1 and os.path.exists(TRAJ_PHASE1):
                 from ase.io import read as _r1, write as _w1
-                _lmp1 = TRAJ_PHASE1.replace(".traj", ".lammpstrj")
-                _w1(_lmp1, _r1(TRAJ_PHASE1, index=":"), format="lammps-dump-text")
+                _lmp1 = TRAJ_PHASE1.replace(".traj", ".extxyz")
+                _w1(_lmp1, _r1(TRAJ_PHASE1, index=":"), format="extxyz")
                 print(f"Wrote OVITO trajectory: {{_lmp1}}")
                 sys.stdout.flush()
 
@@ -693,8 +693,8 @@ def write_ase_neb_script(
 
         if TRAJ_PHASE2 and os.path.exists(TRAJ_PHASE2):
             from ase.io import read as _r2, write as _w2
-            _lmp2 = TRAJ_PHASE2.replace(".traj", ".lammpstrj")
-            _w2(_lmp2, _r2(TRAJ_PHASE2, index=":"), format="lammps-dump-text")
+            _lmp2 = TRAJ_PHASE2.replace(".traj", ".extxyz")
+            _w2(_lmp2, _r2(TRAJ_PHASE2, index=":"), format="extxyz")
             print(f"Wrote OVITO trajectory: {{_lmp2}}")
             sys.stdout.flush()
 
