@@ -423,6 +423,14 @@ def insert_hydrogen(
 # Section 5 — Surface slab builder
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Crystal structure map for pure metals: element → (ase_structure, template_element)
+_CRYSTAL_STRUCT_MAP: dict[str, tuple[str, str]] = {
+    'Ni': ('fcc', 'Ni'), 'Al': ('fcc', 'Al'), 'Cu': ('fcc', 'Cu'),
+    'Fe': ('bcc', 'Fe'), 'Cr': ('bcc', 'Cr'), 'Mo': ('bcc', 'Mo'),
+    'W':  ('bcc', 'W'),  'V':  ('bcc', 'V'),
+}
+
+
 def build_slab(
     bulk_min_path: str,
     miller: tuple[int, int, int],
@@ -434,12 +442,19 @@ def build_slab(
     supercell_reps: tuple[int, int, int] = (5, 5, 5),
     lateral_repeat: tuple[int, int] = (1, 1),
     seed: int = 42,
+    metal_type: str = 'alloy',
 ) -> tuple[str, float]:
     """Construct a surface slab from a minimized bulk structure.
 
-    Uses ASE's :func:`ase.build.surface` to cleave the bulk along the
-    given Miller plane, adds a vacuum layer, and optionally tiles the
-    slab laterally.  The structure is written as a LAMMPS data file.
+    Routes slab construction based on ``metal_type``:
+
+    * ``'alloy'``  — Ni-FCC geometry template; element symbols randomly
+      shuffled from bulk composition fractions.  Suitable for Ni-based
+      alloys such as Hastelloy N.
+    * ``'pure'``   — correct FCC or BCC geometry from ``_CRYSTAL_STRUCT_MAP``;
+      all sites set to the single non-H element.  No shuffle.
+    * ``'oxide'``  — primitive cell extracted via spglib from the minimized
+      bulk supercell; stoichiometry preserved exactly.  No shuffle.
 
     Parameters
     ----------
@@ -458,14 +473,14 @@ def build_slab(
     out_path : str
         Destination LAMMPS data file path.
     supercell_reps : tuple of int, optional
-        Repetitions of the bulk supercell used to determine a₀.
+        Repetitions used by ``get_lattice_parameter`` (alloy/pure only).
         Default ``(5, 5, 5)``.
     lateral_repeat : tuple of int, optional
-        (p, q) tiling of the slab unit cell in the x–y plane.
-        Default ``(1, 1)`` — no lateral tiling.
+        ``(p, q)`` lateral tiling.  Default ``(1, 1)``.
     seed : int, optional
-        Random seed used to shuffle slab site composition.
-        Default ``42``.
+        Random seed for composition shuffle (alloy path only).  Default ``42``.
+    metal_type : str, optional
+        One of ``'alloy'``, ``'pure'``, ``'oxide'``.  Default ``'alloy'``.
 
     Returns
     -------
@@ -474,48 +489,86 @@ def build_slab(
     a0 : float
         Lattice parameter used for slab construction (Å).
     """
-    a0 = get_lattice_parameter(bulk_min_path, supercell_reps)
+    from collections import Counter
 
-    # ── Read element composition from bulk to reassign symbols ───────────────
     bulk_atoms = read(bulk_min_path, format='lammps-data', style='atomic')
     bulk_atoms.wrap()
-    bulk_syms  = bulk_atoms.get_chemical_symbols()
-    # Map type→element from e2t (invert)
-    t2e = {v: k for k, v in e2t.items()}
+    bulk_syms = bulk_atoms.get_chemical_symbols()
+    hkl_str   = ''.join(map(str, miller))
 
-    # ── Build FCC slab with a₀ ────────────────────────────────────────────────
-    # Use Ni as the template element (FCC, same structure)
-    unit_slab = surface(bulk('Ni', 'fcc', a=a0), miller, layers, vacuum=vacuum)
+    if metal_type == 'oxide':
+        # ── Oxide: extract primitive cell via spglib, preserve stoichiometry ─
+        import spglib
+        cell_data = (
+            bulk_atoms.get_cell(),
+            bulk_atoms.get_scaled_positions(),
+            bulk_atoms.get_atomic_numbers(),
+        )
+        prim_data = spglib.find_primitive(cell_data, symprec=1e-2)
+        if prim_data is None:
+            raise RuntimeError(
+                f'spglib could not find a primitive cell for {bulk_min_path}. '
+                'Try increasing symprec or check the structure symmetry.'
+            )
+        lattice, scaled_pos, numbers = prim_data
+        primitive_atoms = Atoms(
+            numbers=numbers, scaled_positions=scaled_pos, cell=lattice, pbc=True
+        )
+        unit_slab = surface(primitive_atoms, miller, layers, vacuum=vacuum)
+        p, q = lateral_repeat
+        if p != 1 or q != 1:
+            unit_slab = make_supercell(unit_slab, [[p, 0, 0], [0, q, 0], [0, 0, 1]])
+        symbols_arr = np.array(unit_slab.get_chemical_symbols())
+        a0 = float(primitive_atoms.cell.lengths()[0])
 
-    # Tile laterally if requested
-    p, q = lateral_repeat
-    if p != 1 or q != 1:
-        unit_slab = make_supercell(unit_slab, [[p, 0, 0], [0, q, 0], [0, 0, 1]])
+    elif metal_type == 'pure':
+        # ── Pure metal: look up correct FCC/BCC template, no shuffle ─────────
+        non_h = [s for s in set(bulk_syms) if s != 'H']
+        if len(non_h) != 1:
+            raise ValueError(
+                f"metal_type='pure' expects exactly one non-H element; "
+                f"found {non_h} in {bulk_min_path}"
+            )
+        elem = non_h[0]
+        if elem not in _CRYSTAL_STRUCT_MAP:
+            raise KeyError(
+                f"Element '{elem}' not in _CRYSTAL_STRUCT_MAP. "
+                f"Add it to the map or use metal_type='alloy'."
+            )
+        struct_type, template_elem = _CRYSTAL_STRUCT_MAP[elem]
+        a0 = get_lattice_parameter(bulk_min_path, supercell_reps)
+        unit_slab = surface(bulk(template_elem, struct_type, a=a0), miller, layers, vacuum=vacuum)
+        p, q = lateral_repeat
+        if p != 1 or q != 1:
+            unit_slab = make_supercell(unit_slab, [[p, 0, 0], [0, q, 0], [0, 0, 1]])
+        symbols_arr = np.array([elem] * len(unit_slab))
 
-    n_slab = len(unit_slab)
-
-    # ── Randomly assign composition to slab sites ────────────────────────────
-    # Count element fractions from bulk
-    from collections import Counter
-    bulk_counts  = Counter(bulk_syms)
-    n_bulk       = len(bulk_syms)
-    elements     = [el for el in bulk_counts if el != 'H']
-    fractions    = np.array([bulk_counts[el] / n_bulk for el in elements])
-    counts       = np.round(fractions * n_slab).astype(int)
-    diff         = n_slab - counts.sum()
-    counts[np.argmax(fractions)] += diff
-
-    symbols_arr = np.concatenate([
-        np.full(c, el) for el, c in zip(elements, counts)
-    ])
-    rng = np.random.default_rng(seed)
-    rng.shuffle(symbols_arr)
+    else:
+        # ── Alloy (default): Ni-FCC template + random composition shuffle ─────
+        a0 = get_lattice_parameter(bulk_min_path, supercell_reps)
+        unit_slab = surface(bulk('Ni', 'fcc', a=a0), miller, layers, vacuum=vacuum)
+        p, q = lateral_repeat
+        if p != 1 or q != 1:
+            unit_slab = make_supercell(unit_slab, [[p, 0, 0], [0, q, 0], [0, 0, 1]])
+        n_slab       = len(unit_slab)
+        bulk_counts  = Counter(bulk_syms)
+        n_bulk       = len(bulk_syms)
+        elements     = [el for el in bulk_counts if el != 'H']
+        fractions    = np.array([bulk_counts[el] / n_bulk for el in elements])
+        counts       = np.round(fractions * n_slab).astype(int)
+        diff         = n_slab - counts.sum()
+        counts[np.argmax(fractions)] += diff
+        symbols_arr  = np.concatenate(
+            [np.full(c, el) for el, c in zip(elements, counts)]
+        )
+        rng = np.random.default_rng(seed)
+        rng.shuffle(symbols_arr)
 
     positions    = unit_slab.get_positions()
     cell_lengths = unit_slab.cell.lengths()
+    n_slab       = len(unit_slab)
 
-    hkl_str = ''.join(map(str, miller))
-    print(f'Slab ({hkl_str}): {n_slab} atoms, {layers} layers, {vacuum:.1f} Å vacuum')
+    print(f'Slab ({hkl_str}): {n_slab} atoms, {layers} layers, {vacuum:.1f} Å vacuum  [{metal_type}]')
     print(f'Cell : {cell_lengths[0]:.4f} × {cell_lengths[1]:.4f} × {cell_lengths[2]:.4f} Å')
 
     out_path = write_lammps_data(
@@ -525,7 +578,7 @@ def build_slab(
         masses=masses,
         e2t=e2t,
         out_path=out_path,
-        comment=f'Hastelloy N ({hkl_str}) slab  {layers} layers  {vacuum:.1f} A vacuum',
+        comment=f'{metal_type} ({hkl_str}) slab  {layers} layers  {vacuum:.1f} A vacuum',
     )
     return out_path, a0
 

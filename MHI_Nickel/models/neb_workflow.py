@@ -53,16 +53,16 @@ def build_phase1_slab(
     seed: int = 7,
     masses: dict = MASSES_7,
     e2t: dict = E2T_7,
+    metal_type: str = 'alloy',
 ) -> tuple[str, float]:
     """
-    Section A Phase 1: Build the FCC(111) Hastelloy N slab from minimized bulk.
+    Section A Phase 1: Build the surface slab from minimized bulk.
 
-    This follows NB03:
-        1. Load minimized bulk structure NB02.
-        2. Build FCC(111) slab with 5×6 lateral tiling, 12 layers, and 15 Å vacuum.
-        3. Randomly substitute Ni → Hastelloy N composition using a reproducible seed (seed=7).
-        4. Initial magnetic moments are handled in Phase 2 via LAMMPS input script.
-        5. Return the generated LAMMPS slab file path and lattice parameter a0.
+    Routes to the correct crystal-structure template via ``metal_type``:
+
+    * ``'alloy'``  — Ni-FCC template + random composition shuffle (seed).
+    * ``'pure'``   — correct FCC/BCC template from element lookup; no shuffle.
+    * ``'oxide'``  — primitive cell via spglib; stoichiometry preserved.
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ def build_phase1_slab(
     out_path : str
         Destination path for slab LAMMPS file.
     miller : tuple of int
-        Miller indices. Default (1,1,1) for FCC(111).
+        Miller indices. Default (1,1,1).
     layers : int
         Number of atomic layers. Default 12.
     vacuum : float
@@ -79,13 +79,15 @@ def build_phase1_slab(
     lateral_repeat : tuple of int
         (p, q) lateral tiling. Default (5, 6).
     supercell_reps : tuple of int
-        Bulk supercell repetitions. Default (5, 5, 5).
+        Bulk supercell repetitions (used by get_lattice_parameter). Default (5, 5, 5).
     seed : int
-        Random seed for composition assignment. Default 7 (matches NB03).
+        Random seed for composition shuffle (alloy path only). Default 7.
     masses : dict
         Atom type → (mass, element) mapping. Default MASSES_7.
     e2t : dict
         Element → type mapping. Default E2T_7.
+    metal_type : str
+        One of ``'alloy'``, ``'pure'``, ``'oxide'``. Default ``'alloy'``.
 
     Returns
     -------
@@ -103,6 +105,7 @@ def build_phase1_slab(
         supercell_reps=supercell_reps,
         lateral_repeat=lateral_repeat,
         seed=seed,
+        metal_type=metal_type,
     )
     print(f"[Section A Phase 1] Built slab: {slab_path}")
     print(f"  a0 = {a0:.6f} Å")
@@ -378,6 +381,8 @@ def orchestrate_slab_prep(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    slab_seed: int = 7,
+    metal_type: str = 'alloy',
 ) -> dict:
     """
     Section A Full Pipeline: Build slab → Relax surface → Enumerate sites.
@@ -446,9 +451,10 @@ def orchestrate_slab_prep(
         layers=layers,
         vacuum=vacuum,
         lateral_repeat=lateral_repeat,
-        seed=7,
+        seed=slab_seed,
         e2t=e2t,
         masses=masses,
+        metal_type=metal_type,
     )
     
     # Phase 2: Relax surface
@@ -494,7 +500,7 @@ def orchestrate_slab_prep(
     sites_json, n_sites = run_phase3_site_enumeration(
         relaxed_slab_path=enum_slab,
         outdir=str(phase3_dir),
-        seed=7,
+        seed=slab_seed,
         bond_cutoff=3.2,
     )
     
@@ -2285,6 +2291,8 @@ def orchestrate_full_neb_workflow(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    slab_seed: int = 7,
+    metal_type: str = 'alloy',
 ) -> dict:
     """Chain Sections A → B → C in a single call.
 
@@ -2318,6 +2326,8 @@ def orchestrate_full_neb_workflow(
         elem_str=elem_str,
         e2t=e2t,
         masses=masses,
+        slab_seed=slab_seed,
+        metal_type=metal_type,
     )
 
     # e_clean is available only after the Phase A SLURM job finishes and
@@ -2408,6 +2418,8 @@ def write_neb_run_script(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    slab_seed: int = 7,
+    metal_type: str = 'alloy',
 ) -> str:
     """Write neb_run.py with embedded config. Returns the output path."""
 
@@ -2462,6 +2474,9 @@ VIB_SLURM_CFG  = {_vib_cfg!r}
 # Surface relaxation (Phase A)
 Z_FREEZE_CUTOFF = {z_freeze_cutoff!r}
 SURF_TIMESTEP   = {surf_timestep!r}
+# Slab construction
+SLAB_SEED  = {slab_seed!r}
+METAL_TYPE = {metal_type!r}
 # Element / type tables (metal-specific)
 ELEM_STR = {elem_str!r}
 E2T      = {e2t!r}
@@ -2530,6 +2545,8 @@ if not os.path.exists(_ranked_f):
         elem_str=ELEM_STR,
         e2t=E2T,
         masses=MASSES,
+        slab_seed=SLAB_SEED,
+        metal_type=METAL_TYPE,
     )
     print(f'  E_CLEAN  : {result["e_clean"]}')
     print(f'  NEB jobs : {result["n_neb_jobs"]}')
