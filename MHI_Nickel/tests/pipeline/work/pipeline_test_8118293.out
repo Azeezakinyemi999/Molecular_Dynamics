@@ -1,7 +1,0 @@
-Working directory: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
-Node: c0605  Start: Fri Jul  3 06:13:49 PM EDT 2026
-/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
-Submitted batch job 8118321
-/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
-Submitted batch job 8118370
-/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
