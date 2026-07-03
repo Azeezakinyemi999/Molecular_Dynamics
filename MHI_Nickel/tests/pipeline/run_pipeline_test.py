@@ -204,7 +204,7 @@ def stage1_relax_slab(s0: dict) -> dict:
     print('  Submitting slab minimisation...')
     jid = submit_slurm_job(s0['slab_sh'])
     print(f'  Job ID: {jid}  — waiting...')
-    wait_for_jobs([jid])
+    wait_for_jobs({'slab_min': jid})
 
     parsed  = parse_energy_log(s0['slab_log'])
     e_clean = parsed['pe_final_eV'] if parsed else float('nan')
