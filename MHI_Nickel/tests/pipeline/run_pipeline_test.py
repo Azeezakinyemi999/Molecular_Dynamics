@@ -257,13 +257,14 @@ def stage2_enumerate_sites(s0: dict, work_dir: str) -> dict:
         sites.append({
             'site_id': f's_{k}',
             'level1': {
-                'site_type':    'ontop',
-                'composition':  {'Ni': 1},
-                'full_label':   'ontop_Ni1',
-                'position':     [x, y, _surface_z + _site_h],
-                'atom_indices': [idx],
+                'site_type':         'ontop',
+                'composition':       {'Ni': 1},
+                'full_label':        'ontop_Ni1',
+                'position':          [x, y, _surface_z + _site_h],
+                'atom_indices':      [idx],
+                'constituent_atoms': [{'element': 'Ni'}],
             },
-            'level2': {str(idx): {'elem': 'Ni'}},
+            'level2': {str(idx): {'element': 'Ni', 'shell1': []}},
             'level3': [],
         })
 
