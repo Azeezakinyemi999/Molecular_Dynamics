@@ -162,6 +162,7 @@ def write_slurm_job(
 #SBATCH --partition={sc['partition']}
 #SBATCH --time={sc['time']}
 #SBATCH --output={output_log}
+#SBATCH --exclude=d3204
 {array_line}
 
 module load OpenMPI/{sc['openmpi_ver']}
