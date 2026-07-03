@@ -1,0 +1,95 @@
+Node: d3233  Start: Fri Jul  3 06:00:41 PM EDT 2026
+Node: d3233  Start: Fri Jul  3 06:00:43 PM EDT 2026
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+Reading data file ...
+  orthogonal box = (0 0 0) to (4.9780317 4.9780317 24.064546)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  13 atoms
+  read_data CPU = 0.016 seconds
+W0703 18:01:12.267000 1160369 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+13 atoms in group frozen_atoms
+0 atoms in group free_atoms
+### Adsorbate minimization ###
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+- KOKKOS package: https://doi.org/10.1145/3731599.3767498
+The log file lists these citations in BibTeX format.
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 8
+  ghost atom cutoff = 8
+  binsize = 8, bins = 1 1 4
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair mliap/kk, perpetual
+      attributes: full, newton on, kokkos_device
+      pair build: full/bin/kk/device
+      stencil: full/bin/3d
+      bin: kk/device
+Setting up cg/kk style minimization ...
+  Unit style    : metal
+  Current step  : 0
+WARNING: Fix MINIMIZE/kk not compatible with sending data in Kokkos communication (src/KOKKOS/comm_kokkos.cpp:842)
+WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
+WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 38.24 | 38.24 | 38.24 Mbytes
+   Step         PotEng          Fmax          Fnorm          Press     
+         0  -59.695961      0              0             -28864.507    
+         1  -59.695961      0              0             -28864.507    
+Loop time of 0.243797 on 1 procs for 1 steps with 13 atoms
+
+96.0% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = search direction is not downhill
+  Energy initial, next-to-last, final = 
+     -59.6959611593517  -59.6959611593517  -59.6959611593517
+  Force two-norm initial, final = 0 0
+  Force max component initial, final = 0 0
+  Final line search alpha, max atom move = 0 0
+  Iterations, force evaluations = 1 0
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.24158    | 0.24158    | 0.24158    |   0.0 | 99.09
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00011441 | 0.00011441 | 0.00011441 |   0.0 |  0.05
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 2.9596e-05 | 2.9596e-05 | 2.9596e-05 |   0.0 |  0.01
+Other   |            | 0.002071   |            |       |  0.85
+
+Nlocal:             13 ave          13 max          13 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:            228 ave         228 max         228 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:         1220 ave        1220 max        1220 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 1220
+Ave neighs/atom = 93.846154
+Neighbor list builds = 0
+Dangerous builds = 0
+### Minimization complete ###
+  pe_final_eV     : -59.6959611593517
+  fmax_eV_per_Ang : 0
+  natoms          : 13
+System init for write_data ...
+Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_1_relaxed.lammps
+Total wall time: 0:00:41
+End: Fri Jul  3 06:01:26 PM EDT 2026
+End: Fri Jul  3 06:01:26 PM EDT 2026

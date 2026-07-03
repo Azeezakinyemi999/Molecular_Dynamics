@@ -1,0 +1,12 @@
+{
+  "n_is_unique": 1,
+  "n_fs_unique": 0,
+  "n_combinations": 0,
+  "n_deduped": 0,
+  "n_neb_jobs": 0,
+  "job_index": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/job_index.txt",
+  "fsmin_array_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/run_fsmin_array.sh",
+  "neb_array_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/run_neb_array.sh",
+  "pairs_json": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/neb_pairs.json",
+  "status": "submitted"
+}

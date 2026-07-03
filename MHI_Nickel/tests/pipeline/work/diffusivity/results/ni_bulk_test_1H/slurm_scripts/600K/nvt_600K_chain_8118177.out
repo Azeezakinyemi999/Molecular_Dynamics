@@ -1,0 +1,26 @@
+Job: 8118177  |  Node: d3233  |  Fri Jul  3 06:03:43 PM EDT 2026
+Prod-phase restart (step=2000 >= n_equil=500).
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+Reading restart file ...
+  restart file = 11 Feb 2026, LAMMPS = 11 Feb 2026
+  restoring atom style atomic/kk from restart
+  orthogonal box = (0.007889097 0.007889097 0.007889097) to (7.0521351 7.0521351 7.0521351)
+  1 by 1 by 1 MPI processor grid
+  pair style mliap stores no restart info
+  33 atoms
+  read_restart CPU = 0.027 seconds
+1 atoms in group H_atom
+32 atoms in group metal
+Resetting global fix info from restart file:
+  fix style: nvt/kk, fix ID: nvt_prod
+Resetting peratom fix info from restart file:
+  fix style: STORE/ATOM, fix ID: msd_H_COMPUTE_STORE
+### Phase 2: Production continuation at 600 K (restart) ###
+ERROR: Variable remaining_prod: Invalid syntax in variable formula (src/variable.cpp:2624)
+Command block exited with code 1 at Fri Jul  3 06:04:15 PM EDT 2026
+Job failed with exit code 1. Not resubmitting.
