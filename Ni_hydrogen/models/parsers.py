@@ -570,10 +570,10 @@ def parse_barrier_file(barrier_file: str) -> dict:
                     key = _KEY_ALIASES.get(key, key)  # normalise aliases
                     if key in _FLOAT_KEYS:
                         try:
-                            result[key] = float(val)
-                        except ValueError:
+                            result[key] = float(val.split()[0])
+                        except (ValueError, IndexError):
                             pass
-                    elif key == 'converged':
+                    elif key.lower() == 'converged':
                         result['converged'] = val.lower() in ('true', '1', 'yes')
                     break
 
