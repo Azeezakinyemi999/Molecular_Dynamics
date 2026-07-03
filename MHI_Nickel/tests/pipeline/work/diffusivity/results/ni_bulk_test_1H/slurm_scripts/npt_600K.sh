@@ -21,7 +21,7 @@ export LD_LIBRARY_PATH=/home/akinyemi.az/miniforge3/envs/mace-lammps/lib:$LD_LIB
 cd /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity
 
 # ── Paths and config ─────────────────────────────────────
-SCRIPT_PATH="$(realpath "$0")"
+SCRIPT_PATH="/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_600K.sh"
 RESTART_GLOB="/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/npt_boxdims_600K_after_heat.restart"
 CUTOFF_SEC=900
 FLUSH_WAIT=30
