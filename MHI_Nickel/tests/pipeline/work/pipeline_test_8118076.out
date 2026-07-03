@@ -1,0 +1,25 @@
+Working directory: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
+Node: c0596  Start: Fri Jul  3 05:56:37 PM EDT 2026
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
+Submitted batch job 8118106
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
+Submitted batch job 8118144
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
+Traceback (most recent call last):
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/run_pipeline_test.py", line 731, in main
+    s5 = stage5_neb(s0, s1, s2, s3, s4, WORK_DIR)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/run_pipeline_test.py", line 390, in stage5_neb
+    result = orchestrate_neb_pipeline(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/neb_workflow.py", line 2200, in orchestrate_neb_pipeline
+    unique_is = deduplicate_is_sites(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/neb_workflow.py", line 1569, in deduplicate_is_sites
+    key = _site_signature(sid, sites_dict)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/neb_workflow.py", line 1276, in _site_signature
+    a['element'] for a in site['level1']['constituent_atoms']
+                          ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'constituent_atoms'
+slurmstepd: error: *** JOB 8118076 ON c0596 CANCELLED AT 2026-07-03T18:15:53 ***

@@ -1,0 +1,127 @@
+{
+  "metadata": {
+    "n_atoms_total": 12,
+    "n_sites_total": 3,
+    "cell": [
+      [
+        4.978031739553295,
+        0.0,
+        0.0
+      ],
+      [
+        2.4890158697766473,
+        4.311101947298393,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        24.064545895094966
+      ]
+    ],
+    "slab_composition": {
+      "Ni": 12
+    },
+    "site_type_counts": {
+      "ontop": 3
+    }
+  },
+  "surface_atoms": [
+    8,
+    9,
+    10,
+    11
+  ],
+  "sites": [
+    {
+      "site_id": "s_0",
+      "level1": {
+        "site_type": "ontop",
+        "composition": {
+          "Ni": 1
+        },
+        "full_label": "ontop_Ni1",
+        "position": [
+          0.0,
+          0.0,
+          15.864545895094967
+        ],
+        "atom_indices": [
+          8
+        ],
+        "constituent_atoms": [
+          {
+            "element": "Ni"
+          }
+        ]
+      },
+      "level2": {
+        "8": {
+          "element": "Ni",
+          "shell1": []
+        }
+      },
+      "level3": []
+    },
+    {
+      "site_id": "s_1",
+      "level1": {
+        "site_type": "ontop",
+        "composition": {
+          "Ni": 1
+        },
+        "full_label": "ontop_Ni1",
+        "position": [
+          2.489015869776647,
+          0.0,
+          15.864545895094967
+        ],
+        "atom_indices": [
+          9
+        ],
+        "constituent_atoms": [
+          {
+            "element": "Ni"
+          }
+        ]
+      },
+      "level2": {
+        "9": {
+          "element": "Ni",
+          "shell1": []
+        }
+      },
+      "level3": []
+    },
+    {
+      "site_id": "s_2",
+      "level1": {
+        "site_type": "ontop",
+        "composition": {
+          "Ni": 1
+        },
+        "full_label": "ontop_Ni1",
+        "position": [
+          1.2445079348883235,
+          2.1555509736491962,
+          15.864545895094967
+        ],
+        "atom_indices": [
+          10
+        ],
+        "constituent_atoms": [
+          {
+            "element": "Ni"
+          }
+        ]
+      },
+      "level2": {
+        "10": {
+          "element": "Ni",
+          "shell1": []
+        }
+      },
+      "level3": []
+    }
+  ]
+}
