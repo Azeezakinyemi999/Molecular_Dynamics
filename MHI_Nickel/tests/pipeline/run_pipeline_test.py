@@ -213,6 +213,13 @@ def stage1_relax_slab(s0: dict) -> dict:
     _check('slab_log_parsed',   parsed is not None,      f'e_clean = {e_clean:.4f} eV')
     _check('e_clean_finite',    e_clean == e_clean,      '')  # NaN check (nan != nan)
 
+    if not _exists(s0['slab_out']):
+        raise RuntimeError(
+            f'slab_relaxed.lammps not written — LAMMPS job likely crashed '
+            f'(check {s0["slab_log"].replace(".log","_*.out")} on the compute node). '
+            f'Common cause: /tmp full on the compute node.'
+        )
+
     print(f'  e_clean = {e_clean:.6f} eV')
     return dict(e_clean=e_clean)
 
