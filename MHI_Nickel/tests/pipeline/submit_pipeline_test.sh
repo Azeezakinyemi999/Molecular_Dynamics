@@ -21,7 +21,17 @@ module load OpenMPI/4.1.6
 source ~/miniforge3/etc/profile.d/conda.sh
 conda activate /home/akinyemi.az/miniforge3/envs/mace-lammps
 
-cd "$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")"
+# Navigate to repo root. $0 resolves to a SLURM temp file in /var/spool so
+# realpath "$0" cannot be used. Walk up from $SLURM_SUBMIT_DIR instead.
+repo_root="$SLURM_SUBMIT_DIR"
+while [[ "$repo_root" != "/" && ! -d "$repo_root/models" ]]; do
+    repo_root="$(dirname "$repo_root")"
+done
+if [[ ! -d "$repo_root/models" ]]; then
+    echo "ERROR: could not locate repo root (models/ not found above $SLURM_SUBMIT_DIR)" >&2
+    exit 1
+fi
+cd "$repo_root"
 echo "Working directory: $(pwd)"
 echo "Node: $(hostname)  Start: $(date)"
 
