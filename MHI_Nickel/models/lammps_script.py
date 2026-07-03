@@ -1316,8 +1316,8 @@ def write_nvt_equil_restart_script(
     Write a NVT restart script for when the checkpoint is mid-equilibration
     (step < n_equil).
 
-    Continues equil for the remaining steps using ``variable remaining_equil
-    equal (n_equil - step)``, then runs the FULL production phase fresh
+    Continues equil to the absolute step count via ``run n_equil upto``,
+    then runs the FULL production phase fresh
     (no append on dump or MSD prod — first time production runs).
 
     Equil MSD appends to ``msd_equil_file``; production MSD writes fresh to
@@ -1376,10 +1376,10 @@ def write_nvt_equil_restart_script(
         f"fix            msd_equil  all  ave/time  1  1  {thermo_every} &\n"
         f"               c_msd_H[4]  file  {msd_equil_file}  mode scalar  append yes\n"
         "\n"
-        f"variable remaining_equil equal ({n_equil} - step)\n"
         'print "### Phase 1: Equilibration continuation at '
         f'{temperature} K (restart) ###"\n'
-        "run            ${remaining_equil}\n"
+        # 'run N upto' cannot go negative if the checkpoint is past n_equil.
+        f"run            {n_equil}  upto\n"
         "\n"
         "unfix          msd_equil\n"
         "uncompute      msd_H\n"
@@ -1456,8 +1456,8 @@ def write_nvt_prod_restart_script(
     Write a NVT restart script for when the checkpoint is mid-production
     (step >= n_equil).
 
-    Skips equilibration entirely.  Continues production for the remaining
-    steps using ``variable remaining_prod equal (n_equil + n_prod - step)``.
+    Skips equilibration entirely.  Continues production to the absolute
+    step count via ``run (n_equil + n_prod) upto``.
     Dump and MSD prod use ``append yes`` to continue accumulating data from
     prior production legs.
 
@@ -1513,10 +1513,11 @@ def write_nvt_prod_restart_script(
         f"fix            msd_prod  all  ave/time  1  1  {thermo_every} &\n"
         f"               c_msd_H[4]  file  {msd_prod_file}  mode scalar  append yes\n"
         "\n"
-        f"variable remaining_prod equal (({total_steps} - step) > 0 ? ({total_steps} - step) : 0)\n"
         'print "### Phase 2: Production continuation at '
         f'{temperature} K (restart) ###"\n'
-        "run            ${remaining_prod}\n"
+        # 'run N upto' runs to absolute step N (0 steps if already past it);
+        # LAMMPS variable formulas have no ternary operator.
+        f"run            {total_steps}  upto\n"
         'print "### Phase 2 complete ###"\n'
         "\n"
         "variable  pe_final   equal  pe\n"
