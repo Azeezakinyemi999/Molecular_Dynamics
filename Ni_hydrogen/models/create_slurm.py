@@ -533,7 +533,9 @@ def write_chained_slurm_job(
          Prints "complete" and exits without resubmitting.
        * **124** — ``timeout`` fired (wall-time limit approaching).
          Waits ``flush_wait`` seconds for LAMMPS to finish writing the
-         last restart file, then calls ``sbatch $(realpath $0)`` to
+         last restart file, then calls ``sbatch`` on the original script
+         path (baked in at generation time — ``$0`` under sbatch is the
+         spooled copy in ``/var/spool/slurmd``) to
          chain the next leg.
        * **other** — real error; exits with that code so SLURM marks
          the job as FAILED (no silent infinite loop).
@@ -674,7 +676,9 @@ def write_chained_slurm_job(
         cd_line,
         '',
         '# ── Paths and config ─────────────────────────────────────',
-        'SCRIPT_PATH="$(realpath "$0")"',
+        # $0 under sbatch is the spooled copy in /var/spool/slurmd, so the
+        # .done sentinel and resubmission must use the real script path.
+        f'SCRIPT_PATH="{os.path.abspath(out_path)}"',
         f'RESTART_GLOB="{restart_glob}"',
         f'CUTOFF_SEC={cutoff_sec}',
         f'FLUSH_WAIT={flush_wait}',
