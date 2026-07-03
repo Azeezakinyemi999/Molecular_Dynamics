@@ -37,6 +37,8 @@ import pathlib
 import time
 import traceback
 
+import networkx as nx
+
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -286,6 +288,17 @@ def stage2_enumerate_sites(s0: dict, work_dir: str) -> dict:
     n_sites = len(sites)
     _check('sites_json_written', _exists(sites_json), sites_json)
     _check('sites_nonzero', n_sites > 0, f'{n_sites} synthetic ontop sites')
+
+    # Write a minimal surface_graph.gml — load_neb_pools requires this file.
+    # No site-site edges needed: _graph_distance returns -1 for disconnected
+    # pairs, which enumerate_fs_pairs explicitly accepts.
+    G_syn = nx.Graph()
+    for site in sites:
+        G_syn.add_node(site['site_id'], node_type='site')
+    gml_path = str(pathlib.Path(sites_dir) / 'surface_graph.gml')
+    nx.write_gml(G_syn, gml_path)
+    _check('surface_graph_gml_written', _exists(gml_path), gml_path)
+
     print(f'  surface_z = {_surface_z:.3f} Å  |  {n_sites} sites written')
 
     return dict(sites_json=sites_json, sites_dir=sites_dir, n_sites=n_sites)
