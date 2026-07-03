@@ -6,7 +6,7 @@ Minimal end-to-end pipeline smoke test for the H-in-Ni permeation workflow.
 Uses the smallest practical structures to validate the full code path on
 the cluster before committing to the full-scale production run:
 
-  Stage 0 — Build 2×2 Ni FCC(111) slab (4 layers, 16 atoms) with ASE
+  Stage 0 — Build 2×2 Ni FCC(111) slab (3 layers, 12 atoms) with ASE
   Stage 1 — CG-minimise the slab with MACE (1 GPU SLURM job, ~5 min)
   Stage 2 — Enumerate adsorption sites with ACAT, keep N_MAX_SITES=3
   Stage 3 — H2* adsorption on 3 sites (auto_submit GPU array, ~10 min)
@@ -125,7 +125,7 @@ def _header(title: str):
 # ═════════════════════════════════════════════════════════════════════════════
 
 def stage0_build_slab(work_dir: str) -> dict:
-    _header('Stage 0: Build 2×2 Ni FCC(111) slab (4 layers, 16 atoms)')
+    _header('Stage 0: Build 2×2 Ni FCC(111) slab (3 layers, 12 atoms)')
 
     slab_dir = pathlib.Path(work_dir) / 'slab'
     slab_dir.mkdir(parents=True, exist_ok=True)
@@ -136,8 +136,9 @@ def stage0_build_slab(work_dir: str) -> dict:
     slab_in  = str(slab_dir / 'slab_min.in')
     slab_sh  = str(slab_dir / 'slab_min.sh')
 
-    # Build with ASE — bypasses build_phase1_slab (which needs a pre-minimised bulk)
-    slab = fcc111('Ni', size=(2, 2, 4), vacuum=10.0)
+    # 3 layers: FCC(111) ABC stacking period is 3 — ACAT requires n_layers % 3 == 0.
+    # 4 layers fails (4 % 3 = 1); 3 layers is the minimal valid choice.
+    slab = fcc111('Ni', size=(2, 2, 3), vacuum=10.0)
     slab.wrap()
 
     pos  = slab.get_positions()
