@@ -35,6 +35,7 @@ from models.structure import (
     build_slab,
     add_adsorbate,
     build_fs_raw_structure,
+    is_pure_bcc_structure,
     _CRYSTAL_STRUCT_MAP,
 )
 from models.config import H2_HEIGHT, H2_BOND
@@ -454,6 +455,93 @@ class TestCrystalStructMap:
 
     def test_w_is_bcc(self):
         assert _CRYSTAL_STRUCT_MAP['W'][0] == 'bcc'
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 5b. is_pure_bcc_structure — auto-skip detection for Parts 1-2 (GitHub #6)
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestIsPureBccStructure:
+    """Structural (not filename-based) BCC detection: reads the LAMMPS file's
+    element set and checks it against _CRYSTAL_STRUCT_MAP. Any future single-
+    element BCC structure (Cr, Mo, W, V) must be caught automatically."""
+
+    def _write_single_element(self, tmp_path, elem, mass, n=2):
+        pos = np.array([[0.0, 0.0, 0.0], [1.5, 1.5, 1.5]][:n])
+        fpath = str(tmp_path / f'{elem}_single.lammps')
+        write_lammps_data(
+            [elem] * n, pos, [3.0, 3.0, 3.0],
+            {1: (mass, elem)}, {elem: 1}, fpath, comment=f'{elem} test',
+        )
+        return fpath
+
+    def test_fe_is_bcc(self, tmp_path):
+        p = self._write_single_element(tmp_path, 'Fe', 55.845)
+        assert is_pure_bcc_structure(p) is True
+
+    def test_cr_is_bcc(self, tmp_path):
+        """Cr never appears as a pure single-element structure today (only
+        inside Hastelloy alloys and Cr2O3), but if it ever does, it must
+        be caught without any code change."""
+        p = self._write_single_element(tmp_path, 'Cr', 51.9961)
+        assert is_pure_bcc_structure(p) is True
+
+    def test_mo_is_bcc(self, tmp_path):
+        p = self._write_single_element(tmp_path, 'Mo', 95.96)
+        assert is_pure_bcc_structure(p) is True
+
+    def test_v_is_bcc(self, tmp_path):
+        p = self._write_single_element(tmp_path, 'V', 50.9415)
+        assert is_pure_bcc_structure(p) is True
+
+    def test_w_is_bcc(self, tmp_path):
+        p = self._write_single_element(tmp_path, 'W', 183.84)
+        assert is_pure_bcc_structure(p) is True
+
+    def test_ni_is_not_bcc(self, tmp_path):
+        p = self._write_single_element(tmp_path, 'Ni', 58.6934)
+        assert is_pure_bcc_structure(p) is False
+
+    def test_al_is_not_bcc(self, tmp_path):
+        p = self._write_single_element(tmp_path, 'Al', 26.9815)
+        assert is_pure_bcc_structure(p) is False
+
+    def test_multi_element_alloy_is_not_bcc(self, tmp_path):
+        """Alloys (e.g. Hastelloy N, which contains BCC-mapped Fe/Cr/Mo)
+        must not be flagged — they build via a different code path in
+        build_slab and are unaffected by the pure-BCC skip check."""
+        pos = np.array([[0.0, 0.0, 0.0], [1.76, 1.76, 1.76]])
+        fpath = str(tmp_path / 'alloy.lammps')
+        write_lammps_data(
+            ['Ni', 'Fe'], pos, [3.52, 3.52, 3.52],
+            {1: (58.6934, 'Ni'), 2: (55.845, 'Fe')},
+            {'Ni': 1, 'Fe': 2}, fpath, comment='alloy test',
+        )
+        assert is_pure_bcc_structure(fpath) is False
+
+    def test_multi_element_oxide_is_not_bcc(self, tmp_path):
+        """Cr2O3 contains BCC-mapped Cr but is multi-element — must not be
+        flagged (it's handled by the oxide Miller-index path instead)."""
+        pos = np.array([[0.0, 0.0, 0.0], [1.5, 1.5, 1.5]])
+        fpath = str(tmp_path / 'cr_oxide.lammps')
+        write_lammps_data(
+            ['Cr', 'O'], pos, [5.0, 5.0, 5.0],
+            {1: (51.9961, 'Cr'), 2: (15.999, 'O')},
+            {'Cr': 1, 'O': 2}, fpath, comment='Cr2O3 test',
+        )
+        assert is_pure_bcc_structure(fpath) is False
+
+    def test_unmapped_element_is_not_bcc(self, tmp_path):
+        """An element absent from _CRYSTAL_STRUCT_MAP (e.g. Au) must not
+        crash — default to False via .get() rather than KeyError."""
+        assert 'Au' not in _CRYSTAL_STRUCT_MAP
+        pos = np.array([[0.0, 0.0, 0.0], [1.5, 1.5, 1.5]])
+        fpath = str(tmp_path / 'au_single.lammps')
+        write_lammps_data(
+            ['Au', 'Au'], pos, [4.0, 4.0, 4.0],
+            {1: (196.9666, 'Au')}, {'Au': 1}, fpath, comment='Au test',
+        )
+        assert is_pure_bcc_structure(fpath) is False
 
 
 # ═════════════════════════════════════════════════════════════════════════════
