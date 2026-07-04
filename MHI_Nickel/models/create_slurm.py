@@ -664,6 +664,7 @@ def write_chained_slurm_job(
         f'#SBATCH --partition={sc["partition"]}',
         f'#SBATCH --time={sc["time"]}',
         f'#SBATCH --output={output_log}',
+        '#SBATCH --exclude=d3204',
         '',
         '# ── Environment ─────────────────────────────────────────',
         f'module load OpenMPI/{sc["openmpi_ver"]}',
