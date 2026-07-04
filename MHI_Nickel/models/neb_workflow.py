@@ -485,6 +485,13 @@ def orchestrate_slab_prep(
         # Wait for the Phase 2 SLURM job to finish before reading its output
         if relax_result.get('job_id') is not None:
             wait_for_jobs({'surface_relax': relax_result['job_id']})
+            if not os.path.exists(relax_result['relaxed_slab']):
+                raise RuntimeError(
+                    f"Surface relaxation job finished but "
+                    f"{relax_result['relaxed_slab']} was not written — the "
+                    f"LAMMPS job likely crashed. Check "
+                    f"{relax_result.get('log_file', 'the job log')}."
+                )
 
     relaxed_slab = relax_result['relaxed_slab']
 
