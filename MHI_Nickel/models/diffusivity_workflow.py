@@ -7,6 +7,8 @@ All configuration variables (input_structures, temperatures, …) remain in the
 notebook. Cells import one function each and call it with those variables.
 """
 
+from __future__ import annotations
+
 import os
 import textwrap
 

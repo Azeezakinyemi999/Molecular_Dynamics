@@ -583,13 +583,22 @@ class TestBuildSlabOxide:
     def test_oxide_slab_created(self, tmp_path):
         spglib = pytest.importorskip('spglib')
         from ase.build import bulk
-        from ase.io import write as ase_write
+        from ase.io import read as ase_read
         # Use NiO rock-salt as a simple oxide
         nio = bulk('NiO', crystalstructure='rocksalt', a=4.177, cubic=True)
-        fpath = str(tmp_path / 'nio.lammps')
-        ase_write(fpath, nio, format='lammps-data')
         masses_nio = {1: (58.6934, 'Ni'), 2: (15.999, 'O')}
         e2t_nio    = {'Ni': 1, 'O': 2}
+        # Write with explicit masses so element identity survives the
+        # round-trip (a bare ase_write file has no Masses section and reads
+        # back as H/He on some ASE versions → KeyError in build_slab).
+        fpath = write_lammps_data(
+            symbols=nio.get_chemical_symbols(),
+            positions=nio.get_positions(),
+            cell_lengths=nio.cell.diagonal(),
+            masses=masses_nio, e2t=e2t_nio,
+            out_path=str(tmp_path / 'nio.lammps'),
+            comment='NiO rocksalt bulk',
+        )
         out = str(tmp_path / 'nio_slab.lammps')
         out_path, a0 = build_slab(
             fpath, miller=(1, 0, 0), layers=2, vacuum=10.0,
@@ -598,6 +607,35 @@ class TestBuildSlabOxide:
         )
         assert os.path.exists(out_path)
         assert a0 > 0.0
+
+    def test_oxide_thickness_independent_of_layers(self, tmp_path):
+        """The oxide path auto-picks the repeat count to hit ~22 Å material
+        thickness — the incoming `layers` value must not matter."""
+        spglib = pytest.importorskip('spglib')
+        from ase.build import bulk
+        from ase.io import read as ase_read
+        nio = bulk('NiO', crystalstructure='rocksalt', a=4.177, cubic=True)
+        masses_nio = {1: (58.6934, 'Ni'), 2: (15.999, 'O')}
+        e2t_nio    = {'Ni': 1, 'O': 2}
+        fpath = write_lammps_data(
+            symbols=nio.get_chemical_symbols(),
+            positions=nio.get_positions(),
+            cell_lengths=nio.cell.diagonal(),
+            masses=masses_nio, e2t=e2t_nio,
+            out_path=str(tmp_path / 'nio.lammps'),
+            comment='NiO rocksalt bulk',
+        )
+        thicknesses = []
+        for layers in (2, 12):
+            out = str(tmp_path / f'nio_slab_L{layers}.lammps')
+            build_slab(fpath, miller=(1, 0, 0), layers=layers, vacuum=10.0,
+                       masses=masses_nio, e2t=e2t_nio, out_path=out,
+                       metal_type='oxide')
+            z = ase_read(out, format='lammps-data',
+                         style='atomic').get_positions()[:, 2]
+            thicknesses.append(float(z.max() - z.min()))
+        assert thicknesses[0] == pytest.approx(thicknesses[1], abs=1e-6)
+        assert abs(thicknesses[0] - 22.0) < 4.0
 
 
 # ═════════════════════════════════════════════════════════════════════════════
