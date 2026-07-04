@@ -86,6 +86,18 @@ GPU_SLURM_CFG       = dict(SLURM_DEFAULTS, partition=GPU_PARTITION,      time=NV
 SHORT_GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition=SHORT_GPU_PARTITION, time=SHORT_GPU_TIME)
 KK = ' '.join(KOKKOS_FLAGS)
 
+
+def _require_file(path, hint):
+    # Fail fast with a clear message when a SLURM job's output is missing.
+    # wait_for_jobs only waits for jobs to leave the queue — a crashed LAMMPS
+    # job looks identical to a successful one, so each phase must verify its
+    # output exists before the next phase consumes it.
+    if not os.path.exists(path):
+        raise RuntimeError(
+            f'Expected output missing: {path}\n'
+            f'  The SLURM job that should have written it likely failed. {hint}'
+        )
+
 # ── main loop ─────────────────────────────────────────────────────────────────
 for struct_path in INPUT_STRUCTURES:
     struct_stem = os.path.splitext(os.path.basename(struct_path))[0]
@@ -143,6 +155,8 @@ for struct_path in INPUT_STRUCTURES:
             )
             jid = submit_slurm_job(min_bare_sh)
             wait_for_jobs({'min_bare': jid})
+            _require_file(min_bare_out,
+                          f'Check the min_bare job log in {phase1_sh_dir}.')
             print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
         else:
             print(f'  [1a] Already exists: {min_bare_out} — skipping')
@@ -213,6 +227,11 @@ for struct_path in INPUT_STRUCTURES:
 
         print(f'  Waiting for {len(npt_job_ids)} NPT jobs ...')
         wait_for_jobs(npt_job_ids)
+        for T in TEMPERATURES:
+            _require_file(npt_final_paths[T],
+                          f'Check the npt_{T}K job log in {phase1_sh_dir}.')
+            _require_file(os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat'),
+                          f'Check the npt_{T}K job log in {phase1_sh_dir}.')
         print('  All NPT jobs done.')
 
         # ── Phase 1b — Step B: insert H at a0(T), minimise ───────────────────
@@ -271,6 +290,9 @@ for struct_path in INPUT_STRUCTURES:
 
         print(f'  Waiting for {len(min_h_job_ids)} bulk+H minimisation jobs ...')
         wait_for_jobs(min_h_job_ids)
+        for T in TEMPERATURES:
+            _require_file(T_to_bulk_h[T],
+                          f'Check the min_h_{T}K job log in {phase1_sh_dir}.')
         print('  All bulk+H minimisations done.')
 
         # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
@@ -391,6 +413,10 @@ for struct_path in INPUT_STRUCTURES:
                     cutoff=CUTOFF,
                     work_dir=WORK_DIR,
                 )
+                # Stale failure sentinel from an earlier attempt would make the
+                # polling loop below abort before the new job even starts.
+                if os.path.exists(chain_sh + '.failed'):
+                    os.remove(chain_sh + '.failed')
                 job_id = submit_slurm_job(chain_sh)
                 print(f'  [2] Submitted NVT {T}K  →  job {job_id}')
             else:
@@ -404,6 +430,13 @@ for struct_path in INPUT_STRUCTURES:
                 if os.path.exists(chain_sh_by_T[T] + '.done'):
                     pending.discard(T)
                     print(f'  NVT {T}K complete')
+                elif os.path.exists(chain_sh_by_T[T] + '.failed'):
+                    raise RuntimeError(
+                        f'NVT {T}K chain job failed (sentinel: '
+                        f'{chain_sh_by_T[T]}.failed). Check the chain job '
+                        f'logs next to that script. Aborting instead of '
+                        f'polling forever.'
+                    )
             if pending:
                 _time.sleep(60)
         print('  All NVT jobs done.')

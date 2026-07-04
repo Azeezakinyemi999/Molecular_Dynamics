@@ -1,6 +1,6 @@
-Pipeline smoke test — 2026-07-03 21:15:06
-Wall time : 30.4 min
-Passed    : 26 / 28
+Pipeline smoke test — 2026-07-04 17:05:14
+Wall time : 21.3 min
+Passed    : 30 / 33
 
 PASS  slab_raw_written
 PASS  slab_relaxed_file
@@ -17,16 +17,21 @@ PASS  h_n_computed
 PASS  h_site_coords_written
 PASS  neb_pools_loaded
 PASS  neb_dedup_ran
-PASS  neb_graceful_empty
+PASS  neb_jobs_submitted
+PASS  neb_barrier_file_written
+PASS  neb_barrier_parseable
+PASS  neb_barrier_positive
+PASS  neb_converged
 PASS  diff_bulk_written
 PASS  diffusivity_run_py_written
+PASS  diffusivity_run_exit_0
 PASS  diff_msd_files_written
 PASS  diff_table_written
+PASS  diff_arrhenius_json_written
+PASS  diff_arrhenius_graceful_nan
 PASS  tst_k_entry_positive
 PASS  tst_detailed_balance
-PASS  kmc_flux_positive
-PASS  kmc_C0_positive
-PASS  permeability_positive
 PASS  permeation_summary_written
-FAIL  diffusivity_run_exit_0
-FAIL  diff_arrhenius_json_written
+FAIL  kmc_flux_positive
+FAIL  kmc_C0_positive
+FAIL  permeability_positive

@@ -1,23 +1,23 @@
 {
   "T_K": 700.0,
-  "barrier_source": "synthetic (Stage 5 skipped or no NEB pairs)",
-  "E_abs_eV": 0.3,
-  "E_des_eV": 0.5,
-  "k_entry_s1": 69198242344.60745,
-  "k_exit_s1": 2512802983.2012506,
+  "barrier_source": "real NEB barrier from neb_barrier.txt",
+  "E_abs_eV": 1.2467,
+  "E_des_eV": 0.0,
+  "k_entry_s1": 10571.948814406573,
+  "k_exit_s1": 10000000000000.0,
   "D_m2s": 1.3186415350496606e-10,
   "S0_m3_pasqrt": 9.171323253193086e+28,
-  "S_est_m3_pasqrt": 3.0398929053687648e+25,
-  "Phi_mol_m_s_Pasqrt": 4008529047122040.5,
+  "S_est_m3_pasqrt": 0.0,
+  "Phi_mol_m_s_Pasqrt": 0.0,
   "J_vals": [
-    3.741293777313905e+24,
-    4.275764316930177e+24,
-    4.008529047122041e+24
+    0.0,
+    0.0,
+    0.0
   ],
   "C0_vals": [
-    2.837233378344181e+28,
-    3.2425524323933494e+28,
-    3.039892905368765e+28
+    0.0,
+    0.0,
+    0.0
   ],
   "converged": [
     true,
