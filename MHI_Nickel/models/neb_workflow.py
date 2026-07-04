@@ -617,7 +617,7 @@ def _check_h2_intact(relaxed_path: str, bond_cutoff: float = 1.5) -> bool | None
     if not Path(relaxed_path).exists():
         return None
     try:
-        struct = ase_read(relaxed_path, format='lammps-data', style='atomic')
+        struct = ase_read(relaxed_path, format='lammps-data', atom_style='atomic')
         struct.wrap()
         syms   = np.array(struct.get_chemical_symbols())
         pos    = struct.get_positions()
@@ -639,7 +639,7 @@ def _get_h_final_position(relaxed_path: str) -> list | None:
     if not Path(relaxed_path).exists():
         return None
     try:
-        struct = ase_read(relaxed_path, format='lammps-data', style='atomic')
+        struct = ase_read(relaxed_path, format='lammps-data', atom_style='atomic')
         struct.wrap()
         syms   = np.array(struct.get_chemical_symbols())
         pos    = struct.get_positions()
@@ -1388,7 +1388,7 @@ def load_neb_pools(
         relaxed = p1 / 'results' / f'h2_{sid}_relaxed.lammps'
         if relaxed.exists():
             try:
-                struct = ase_read(str(relaxed), format='lammps-data', style='atomic')
+                struct = ase_read(str(relaxed), format='lammps-data', atom_style='atomic')
                 struct.wrap()
                 syms = np.array(struct.get_chemical_symbols())
                 pos  = struct.get_positions()
@@ -1419,7 +1419,7 @@ def load_neb_pools(
         relaxed = p2 / 'results' / f'h_atom_{sid}_relaxed.lammps'
         if relaxed.exists():
             try:
-                struct = ase_read(str(relaxed), format='lammps-data', style='atomic')
+                struct = ase_read(str(relaxed), format='lammps-data', atom_style='atomic')
                 struct.wrap()
                 syms = np.array(struct.get_chemical_symbols())
                 pos  = struct.get_positions()
