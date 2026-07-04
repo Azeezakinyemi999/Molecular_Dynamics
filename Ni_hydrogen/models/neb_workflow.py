@@ -375,7 +375,7 @@ def orchestrate_slab_prep(
     vacuum: float = 15.0,
     lateral_repeat: tuple[int, int] = (5, 6),
     timestep: float = 0.0005,
-    z_freeze_cutoff: float = 22.115,
+    z_freeze_cutoff: float | None = None,
     slurm_opts: dict | None = None,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
@@ -406,8 +406,9 @@ def orchestrate_slab_prep(
         Lateral tiling (p, q). Default (5, 6).
     timestep : float
         MD timestep (ps). Default 0.0005.
-    z_freeze_cutoff : float
-        Z-freeze cutoff (Å). Default 22.115.
+    z_freeze_cutoff : float or None
+        Z-freeze cutoff (Å). None (default) = auto: freeze the bottom 1/3
+        of the built slab's thickness (computed from the Phase 1 geometry).
     slurm_opts : dict, optional
         SLURM configuration. If None, uses defaults.
     dry_run : bool
@@ -456,7 +457,13 @@ def orchestrate_slab_prep(
         masses=masses,
         metal_type=metal_type,
     )
-    
+
+    # Resolve the freeze cutoff from the actual slab geometry when not pinned.
+    if z_freeze_cutoff is None:
+        from models.structure import compute_z_freeze_cutoff
+        z_freeze_cutoff = compute_z_freeze_cutoff(slab_path)
+        print(f"  z_freeze_cutoff (auto, bottom 1/3 of slab): {z_freeze_cutoff:.3f} Å")
+
     # Phase 2: Relax surface
     print(f"\n>>> PHASE 2: Surface Relaxation")
     _relaxed_slab = str(phase2_dir / 'relaxed_slab.lammps')
@@ -520,6 +527,7 @@ def orchestrate_slab_prep(
         'phase3_graph'  : str(phase3_dir / 'surface_graph.gml'),
         'n_sites'       : n_sites,
         'a0'            : a0,
+        'z_freeze_cutoff': z_freeze_cutoff,
         'outdir'        : outdir,
         'status'        : relax_result['status'],
     }
@@ -645,6 +653,7 @@ def run_phase1_h2_adsorption(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    z_freeze_cutoff: float | None = None,
 ) -> dict:
     """
     Section B Phase 1: H2* adsorption energy for all surface sites (NB05b).
@@ -697,6 +706,10 @@ def run_phase1_h2_adsorption(
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
 
+    if z_freeze_cutoff is None:
+        from models.structure import compute_z_freeze_cutoff
+        z_freeze_cutoff = compute_z_freeze_cutoff(relaxed_slab_path)
+
     phase_dir  = Path(outdir) / 'phase1_h2'
     struct_dir = phase_dir / 'structures'
     script_dir = phase_dir / 'scripts'
@@ -744,7 +757,7 @@ def run_phase1_h2_adsorption(
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=elem_str,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             etol=ADS_MIN_ETOL,
             ftol=ADS_MIN_FTOL,
             maxiter=ADS_MIN_MAXITER,
@@ -878,6 +891,7 @@ def run_phase2_h_adsorption(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    z_freeze_cutoff: float | None = None,
 ) -> dict:
     """
     Section B Phase 2: H* adsorption energy for all surface sites (NB06b).
@@ -929,6 +943,10 @@ def run_phase2_h_adsorption(
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
 
+    if z_freeze_cutoff is None:
+        from models.structure import compute_z_freeze_cutoff
+        z_freeze_cutoff = compute_z_freeze_cutoff(relaxed_slab_path)
+
     phase_dir  = Path(outdir) / 'phase2_h'
     struct_dir = phase_dir / 'structures'
     script_dir = phase_dir / 'scripts'
@@ -975,7 +993,7 @@ def run_phase2_h_adsorption(
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=elem_str,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             etol=ADS_MIN_ETOL,
             ftol=ADS_MIN_FTOL,
             maxiter=ADS_MIN_MAXITER,
@@ -1113,6 +1131,7 @@ def orchestrate_adsorption_energies(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    z_freeze_cutoff: float | None = None,
 ) -> dict:
     """
     Section B Full Pipeline: H2* adsorption energies → H* adsorption energies.
@@ -1173,6 +1192,7 @@ def orchestrate_adsorption_energies(
         elem_str=elem_str,
         e2t=e2t,
         masses=masses,
+        z_freeze_cutoff=z_freeze_cutoff,
     )
 
     print(f"\n>>> PHASE 2: H* Adsorption Energy")
@@ -1187,6 +1207,7 @@ def orchestrate_adsorption_energies(
         elem_str=elem_str,
         e2t=e2t,
         masses=masses,
+        z_freeze_cutoff=z_freeze_cutoff,
     )
 
     summary_path = Path(outdir) / 'adsorption_summary.json'
@@ -1731,6 +1752,7 @@ def orchestrate_neb(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    z_freeze_cutoff: float | None = None,
 ) -> dict:
     """
     Section C Phase 3: Write per-job NEB files and split GPU/CPU SLURM scripts.
@@ -1802,6 +1824,11 @@ def orchestrate_neb(
             'cuda_version': None,
         }
 
+    if z_freeze_cutoff is None:
+        # Standalone use without a resolved cutoff: fall back to the config
+        # constant (matches historical behaviour for the 12-layer metal slab).
+        z_freeze_cutoff = Z_FREEZE_CUTOFF
+
     neb_dir = Path(outdir) / 'neb'
     neb_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1854,7 +1881,7 @@ def orchestrate_neb(
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=elem_str,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             etol=ADS_MIN_ETOL,
             ftol=ADS_MIN_FTOL,
             maxiter=ADS_MIN_MAXITER,
@@ -1878,7 +1905,7 @@ def orchestrate_neb(
             n_images=n_images,
             spring_const=spring_const,
             neb_ftol=neb_ftol,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             device='cpu',
             label_is=f'IS:{is_sid}',
             label_fs=f'FS:{s1}+{s2}',
@@ -2135,6 +2162,7 @@ def orchestrate_neb_pipeline(
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
+    z_freeze_cutoff: float | None = None,
 ) -> dict:
     """
     Section C Full Pipeline: pools → pairs → dedup → filter → NEB jobs.
@@ -2230,6 +2258,7 @@ def orchestrate_neb_pipeline(
         n_images=n_images, spring_const=spring_const,
         neb_ftol=neb_ftol, h_height=h_height, dry_run=dry_run,
         elem_str=elem_str, e2t=e2t, masses=masses,
+        z_freeze_cutoff=z_freeze_cutoff,
     )
 
     summary = {
@@ -2282,7 +2311,7 @@ def orchestrate_full_neb_workflow(
     layers: int = 12,
     vacuum: float = 15.0,
     lateral_repeat: tuple = (5, 6),
-    z_freeze_cutoff: float = 22.115,
+    z_freeze_cutoff: float | None = None,
     surf_timestep: float = 0.0005,
     sep_min: float = 2.5,
     sep_max: float = 5.0,
@@ -2344,6 +2373,10 @@ def orchestrate_full_neb_workflow(
     e_clean = parsed.get('pe_final_eV', float('nan'))
     print(f'  E_CLEAN = {e_clean}')
 
+    # Use the cutoff Section A resolved (auto = bottom 1/3 of slab thickness)
+    # so the NEB/adsorption freeze matches what was frozen during relaxation.
+    z_freeze_cutoff = results_a.get('z_freeze_cutoff', z_freeze_cutoff)
+
     # ── Section B ──────────────────────────────────────────────────────────────
     print(f"\n{'='*60}\nSection B: Adsorption energies\n{'='*60}")
     orchestrate_adsorption_energies(
@@ -2357,6 +2390,7 @@ def orchestrate_full_neb_workflow(
         elem_str=elem_str,
         e2t=e2t,
         masses=masses,
+        z_freeze_cutoff=z_freeze_cutoff,
     )
 
     # ── Section C ──────────────────────────────────────────────────────────────
@@ -2381,6 +2415,7 @@ def orchestrate_full_neb_workflow(
         elem_str=elem_str,
         e2t=e2t,
         masses=masses,
+        z_freeze_cutoff=z_freeze_cutoff,
     )
 
     return {
