@@ -41,13 +41,18 @@ import os
 import json
 import numpy as np
 import networkx as nx
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.lines import Line2D
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    from matplotlib.lines import Line2D
+except ImportError:      # plotting optional — visualize_surface_graph raises
+    plt = None
+    mpatches = None
+    Line2D = None
 from collections import Counter
 from ase.io import read as ase_read
-from acat.adsorption_sites import SlabAdsorptionSites
-from acat.settings import CustomSurface
+# ACAT is imported lazily inside build_surface_graph — only the metal path
+# needs it (the oxide path enumerates sites geometrically).
 
 # ── OVITO-matched color scheme ────────────────────────────────
 ELEMENT_COLORS = {
@@ -99,8 +104,91 @@ _DEFAULT_SEED      = 7
 # STEP 1 — Build surface graph
 # ══════════════════════════════════════════════════════════════
 
+def _z_plane_clusters(z, gap_tol=0.5):
+    """
+    Cluster z coordinates into atomic planes by gap detection.
+
+    Sorts z and starts a new plane wherever the gap between consecutive
+    values exceeds ``gap_tol``.  Unlike rank-based selection this makes no
+    assumption about atoms-per-plane, so it works for oxide slabs where
+    plane populations are unequal (e.g. O3 vs Cr planes in corundum).
+
+    Returns
+    -------
+    list of ndarray
+        Atom-index arrays, one per plane, ordered bottom → top.
+    """
+    order = np.argsort(z)
+    clusters = [[order[0]]]
+    for idx in order[1:]:
+        if z[idx] - z[clusters[-1][-1]] > gap_tol:
+            clusters.append([idx])
+        else:
+            clusters[-1].append(idx)
+    return [np.array(c) for c in clusters]
+
+
+def _enumerate_oxide_sites(pos, syms, cell, top_indices,
+                           oxide_bond_cutoff=2.6):
+    """
+    Geometric adsorption-site enumeration for oxide surfaces (no ACAT).
+
+    Sites generated from the exposed top plane(s):
+      * ``ontop``  — one per top-plane atom (O-top and metal-top).
+      * ``bridge`` — midpoint of every surface metal–oxygen pair closer
+        than ``oxide_bond_cutoff`` (min-image in xy).  Captures the M–O
+        pairs across which H2 dissociates heterolytically on oxides.
+
+    Returns ACAT-shaped site dicts (``site``, ``composition``, ``position``,
+    ``indices``) but with FULL-slab atom indices and full-slab z.
+    """
+    sites = []
+    for i in top_indices:
+        sites.append({
+            'site'       : 'ontop',
+            'composition': str(syms[i]),
+            'position'   : pos[i].copy(),
+            'indices'    : (int(i),),
+        })
+    n_ontop = len(sites)
+
+    idx = [int(i) for i in top_indices]
+    for a in range(len(idx)):
+        for b in range(a + 1, len(idx)):
+            i, j = idx[a], idx[b]
+            si, sj = str(syms[i]), str(syms[j])
+            if (si == 'O') == (sj == 'O'):   # need exactly one oxygen
+                continue
+            dp = pos[j] - pos[i]
+            dp[0] -= cell[0] * round(dp[0] / cell[0])
+            dp[1] -= cell[1] * round(dp[1] / cell[1])
+            if float(np.linalg.norm(dp)) >= oxide_bond_cutoff:
+                continue
+            mid = pos[i] + 0.5 * dp
+            mid[0] %= cell[0]
+            mid[1] %= cell[1]
+            metal_sym = si if sj == 'O' else sj
+            sites.append({
+                'site'       : 'bridge',
+                'composition': f'{metal_sym}O',
+                'position'   : mid,
+                'indices'    : (i, j),
+            })
+
+    n_bridge = len(sites) - n_ontop
+    print(f'  Oxide sites: {n_ontop} ontop  {n_bridge} M–O bridge')
+    if n_bridge == 0:
+        print('  WARNING: 0 M–O bridge sites — termination may be O-only '
+              'beyond the exposure tolerance; site-site graph will have no '
+              'edges (graph_dist=-1 pairs are still accepted downstream).')
+    return sites
+
+
 def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
-                        top_layer_tol=1.8, n_layers=3, acat_tol=0.5):
+                        top_layer_tol=1.8, n_layers=3, acat_tol=0.5,
+                        metal_type='alloy', n_layers_total=12,
+                        oxide_gap_tol=0.5, oxide_exposure_tol=1.0,
+                        oxide_bond_cutoff=2.6):
     """
     Build the augmented NetworkX surface graph.
 
@@ -125,6 +213,20 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
         at least 20 hollow sites are found.  Default 3.
     acat_tol : float, optional
         ACAT site-merging tolerance.  Default 0.5.
+    metal_type : str, optional
+        ``'alloy'``/``'pure'`` use ACAT (unchanged behaviour); ``'oxide'``
+        uses geometric enumeration (ontop + M–O bridges) because ACAT only
+        understands close-packed metal surfaces.  Default ``'alloy'``.
+    n_layers_total : int, optional
+        Total atomic-plane count of the slab (metal path only) — drives the
+        rank-based top-layer selection.  Default 12.
+    oxide_gap_tol : float, optional
+        Z-gap (Å) separating atomic planes on the oxide path.  Default 0.5.
+    oxide_exposure_tol : float, optional
+        Planes within this z distance (Å) of the top plane are merged into
+        the exposed surface (composite terminations).  Default 1.0.
+    oxide_bond_cutoff : float, optional
+        Max M–O distance (Å) for oxide bridge sites.  Default 2.6.
 
     Returns
     -------
@@ -132,10 +234,10 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
         Augmented surface graph with all node and edge attributes.
     slab : ase.Atoms
         Full slab.
-    top3_slab : ase.Atoms
-        Top-3-layer sub-slab passed to ACAT.
+    top3_slab : ase.Atoms or None
+        Top-3-layer sub-slab passed to ACAT (``None`` on the oxide path).
     sites : list of dict
-        Raw ACAT site dicts (filtered for valid composition and position).
+        Raw site dicts (filtered for valid composition and position).
     """
     print('Reading slab...')
     slab  = ase_read(slab_path, format='lammps-data', atom_style='atomic')
@@ -144,22 +246,46 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
     syms  = np.array(slab.get_chemical_symbols())
     cell  = slab.cell.diagonal()
 
-    # Rank-based layer selection — immune to thermal outliers.
-    # A z-cutoff (pos[:,2] > z_max - tol) fails when one elevated atom inflates
-    # z_max, pushing the cutoff up and excluding depressed top-layer atoms, or
-    # pulling the mean down and contaminating with layer-2 atoms.
-    # Rank-based: always select exactly atoms_per_layer top atoms by z-rank.
-    _n_layers_est    = 12
-    _atoms_per_layer = max(1, len(pos) // _n_layers_est)
-    _sorted_by_z     = np.argsort(pos[:, 2])
+    if metal_type == 'oxide':
+        # Gap-based plane detection — oxide planes have unequal atom counts,
+        # so the rank-based equal-count selection below cannot be used.
+        clusters = _z_plane_clusters(pos[:, 2], gap_tol=oxide_gap_tol)
+        _sel = [clusters[-1]]
+        # Merge chemically co-exposed planes (e.g. a Cr plane sitting <1 Å
+        # beneath the O3 termination of Cr2O3(0001)).
+        j = len(clusters) - 1
+        while j > 0:
+            gap = float(np.mean(pos[clusters[j], 2])
+                        - np.mean(pos[clusters[j - 1], 2]))
+            if gap < oxide_exposure_tol:
+                _sel.append(clusters[j - 1])
+                j -= 1
+            else:
+                break
+        _top1_idx = np.concatenate(_sel)
+        top_mask  = np.zeros(len(pos), dtype=bool)
+        top_mask[_top1_idx] = True
+        z_max = float(np.mean(pos[_top1_idx, 2]))
+        print(f'  Oxide slab: {len(clusters)} atomic planes detected; '
+              f'exposed surface = top {len(_sel)} plane(s)')
+    else:
+        # Rank-based layer selection — immune to thermal outliers.
+        # A z-cutoff (pos[:,2] > z_max - tol) fails when one elevated atom
+        # inflates z_max, pushing the cutoff up and excluding depressed
+        # top-layer atoms, or pulling the mean down and contaminating with
+        # layer-2 atoms.  Rank-based: always select exactly atoms_per_layer
+        # top atoms by z-rank.
+        _n_layers_est    = n_layers_total
+        _atoms_per_layer = max(1, len(pos) // _n_layers_est)
+        _sorted_by_z     = np.argsort(pos[:, 2])
 
-    # Top layer: top atoms_per_layer by rank
-    _top1_idx        = _sorted_by_z[-_atoms_per_layer:]
-    top_mask         = np.zeros(len(pos), dtype=bool)
-    top_mask[_top1_idx] = True
+        # Top layer: top atoms_per_layer by rank
+        _top1_idx        = _sorted_by_z[-_atoms_per_layer:]
+        top_mask         = np.zeros(len(pos), dtype=bool)
+        top_mask[_top1_idx] = True
 
-    # z_max: mean z of top layer (used for graph metadata and ACAT z-offset)
-    z_max            = float(np.mean(pos[_top1_idx, 2]))
+        # z_max: mean z of top layer (graph metadata and ACAT z-offset)
+        z_max            = float(np.mean(pos[_top1_idx, 2]))
 
     top_indices  = np.where(top_mask)[0]
     top_syms     = syms[top_mask]
@@ -168,61 +294,77 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
     print(f'  Top layer: {top_mask.sum()} atoms  '
           f'comp={dict(Counter(top_syms))}')
 
-    # ── Top 3 layers for ACAT ─────────────────────────────────
-    # Rank-based: top 3 × atoms_per_layer atoms by z
-    _top3_idx = _sorted_by_z[-(3 * _atoms_per_layer):]
-    top3_mask = np.zeros(len(pos), dtype=bool)
-    top3_mask[_top3_idx] = True
-    top3_slab = slab[top3_mask].copy()
-    top3_slab.pbc = [True, True, False]
-    # Translate atoms to z≈0 so the cell has vacuum only above (not also below).
-    # Without this, ACAT enumerates sites on both exposed faces of the sub-slab.
-    _top3_z_min = top3_slab.get_positions()[:, 2].min()
-    _top3_z_max = top3_slab.get_positions()[:, 2].max()
-    top3_slab.positions[:, 2] -= _top3_z_min
-    top3_slab.cell[2, 2] = _top3_z_max - _top3_z_min + 15.0
-    top3_full_idx = np.where(top3_mask)[0]
+    if metal_type == 'oxide':
+        # ── Geometric oxide site enumeration (no ACAT) ────────
+        top3_slab = None
+        sites = _enumerate_oxide_sites(pos, syms, cell, top_indices,
+                                       oxide_bond_cutoff=oxide_bond_cutoff)
+        z_offset = 0.0
+        # Oxide sites already carry full-slab indices.
+        def _to_full(idxs):
+            return tuple(int(i) for i in idxs)
+    else:
+        # ── Top 3 layers for ACAT ─────────────────────────────
+        # Rank-based: top 3 × atoms_per_layer atoms by z
+        _top3_idx = _sorted_by_z[-(3 * _atoms_per_layer):]
+        top3_mask = np.zeros(len(pos), dtype=bool)
+        top3_mask[_top3_idx] = True
+        top3_slab = slab[top3_mask].copy()
+        top3_slab.pbc = [True, True, False]
+        # Translate atoms to z≈0 so the cell has vacuum only above (not also
+        # below).  Without this, ACAT enumerates sites on both exposed faces
+        # of the sub-slab.
+        _top3_z_min = top3_slab.get_positions()[:, 2].min()
+        _top3_z_max = top3_slab.get_positions()[:, 2].max()
+        top3_slab.positions[:, 2] -= _top3_z_min
+        top3_slab.cell[2, 2] = _top3_z_max - _top3_z_min + 15.0
+        top3_full_idx = np.where(top3_mask)[0]
 
-    # Build a z-snapped copy for ACAT only.
-    # After NVT+quench, thermal displacements within a layer can exceed ACAT's
-    # default layer-detection tolerance (0.3 Å), causing get_layers() to merge
-    # two atomic layers into one plane.  Projecting each atom to its layer mean-z
-    # gives ACAT three perfectly flat planes while leaving top3_slab unchanged for
-    # z_offset and return value.
-    acat_slab = top3_slab.copy()
-    _acat_pos  = acat_slab.get_positions()
-    _acat_by_z = np.argsort(_acat_pos[:, 2])
-    for _li in range(3):
-        _layer_atoms = _acat_by_z[_li * _atoms_per_layer : (_li + 1) * _atoms_per_layer]
-        _acat_pos[_layer_atoms, 2] = _acat_pos[_layer_atoms, 2].mean()
-    acat_slab.positions = _acat_pos
+        # Build a z-snapped copy for ACAT only.
+        # After NVT+quench, thermal displacements within a layer can exceed
+        # ACAT's default layer-detection tolerance (0.3 Å), causing
+        # get_layers() to merge two atomic layers into one plane.  Projecting
+        # each atom to its layer mean-z gives ACAT three perfectly flat
+        # planes while leaving top3_slab unchanged for z_offset and return
+        # value.
+        acat_slab = top3_slab.copy()
+        _acat_pos  = acat_slab.get_positions()
+        _acat_by_z = np.argsort(_acat_pos[:, 2])
+        for _li in range(3):
+            _layer_atoms = _acat_by_z[_li * _atoms_per_layer : (_li + 1) * _atoms_per_layer]
+            _acat_pos[_layer_atoms, 2] = _acat_pos[_layer_atoms, 2].mean()
+        acat_slab.positions = _acat_pos
 
-    # ── ACAT site identification ──────────────────────────────
-    print('Running ACAT...')
+        # ── ACAT site identification ──────────────────────────
+        print('Running ACAT...')
+        from acat.adsorption_sites import SlabAdsorptionSites
+        from acat.settings import CustomSurface
 
-    # top3_slab always has exactly 3 atomic layers (3 × _atoms_per_layer atoms).
-    # After z-snapping, get_layers finds exactly 3 clean planes → n_layers=3,
-    # n_morphs=1 (flat terrace).  No trial loop needed.
-    cs       = CustomSurface(acat_slab, n_layers=3)
-    sas_test = SlabAdsorptionSites(
-        acat_slab, surface=cs,
-        composition_effect=True,
-        label_sites=False, tol=acat_tol)
-    n_layers_acat = 3
-    print(f'  n_layers used for ACAT  : {n_layers_acat}')
-    sas = sas_test
+        # top3_slab always has exactly 3 atomic layers (3 × _atoms_per_layer
+        # atoms).  After z-snapping, get_layers finds exactly 3 clean planes
+        # → n_layers=3, n_morphs=1 (flat terrace).  No trial loop needed.
+        cs       = CustomSurface(acat_slab, n_layers=3)
+        sas_test = SlabAdsorptionSites(
+            acat_slab, surface=cs,
+            composition_effect=True,
+            label_sites=False, tol=acat_tol)
+        n_layers_acat = 3
+        print(f'  n_layers used for ACAT  : {n_layers_acat}')
+        sas = sas_test
 
+        raw_sites = sas_test.get_sites()
+        sites = [s for s in raw_sites
+                 if s['composition']
+                 and not np.any(np.isnan(s['position']))]
+        print(f'  {len(sites)} valid sites')
 
+        # z offset to map top3 positions back to full slab z
+        z_offset = (pos[top3_full_idx[0], 2]
+                    - top3_slab.get_positions()[0, 2])
 
-    raw_sites = sas_test.get_sites()
-    sites = [s for s in raw_sites
-             if s['composition']
-             and not np.any(np.isnan(s['position']))]
-    print(f'  {len(sites)} valid sites')
-
-    # z offset to map top3 positions back to full slab z
-    z_offset = (pos[top3_full_idx[0], 2]
-                - top3_slab.get_positions()[0, 2])
+        # ACAT indices are top3-sub-slab indices — map back to full slab.
+        def _to_full(idxs):
+            return tuple(int(top3_full_idx[i]) for i in idxs)
 
     # ── Build graph ───────────────────────────────────────────
     G = nx.Graph()
@@ -266,12 +408,11 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
 
     # ── Site nodes ────────────────────────────────────────────
     for si, s in enumerate(sites):
-        # Map ACAT (top3-reindexed) indices → full slab indices
-        full_indices = tuple(int(top3_full_idx[i]) for i in s['indices'])
+        full_indices = _to_full(s['indices'])
 
-        acat_pos = s['position'].copy()
-        site_pos = np.array([acat_pos[0], acat_pos[1],
-                             acat_pos[2] + z_offset])
+        raw_pos  = np.asarray(s['position'], dtype=float)
+        site_pos = np.array([raw_pos[0], raw_pos[1],
+                             raw_pos[2] + z_offset])
 
         st   = s['site']
         if st == '3fold':
@@ -307,7 +448,7 @@ def build_surface_graph(slab_path, seed=7, bond_cutoff=3.2,
     # ── Site-atom edges (only to top-layer atoms) ─────────────
     top_idx_set = set(top_indices.tolist())
     for si, s in enumerate(sites):
-        full_indices = tuple(int(top3_full_idx[i]) for i in s['indices'])
+        full_indices = _to_full(s['indices'])
         for ai in full_indices:
             if ai in top_idx_set and f'a_{ai}' in G.nodes:
                 G.add_edge(f's_{si}', f'a_{ai}', edge_type='site-atom')
@@ -788,6 +929,11 @@ def visualize_surface_graph(G, slab, selected_site=None,
     fig : matplotlib.figure.Figure
         The three-panel figure object.
     """
+    if plt is None:
+        raise ImportError(
+            'matplotlib is not available in this environment — '
+            'visualize_surface_graph requires it.'
+        )
     cell  = np.array(G.graph['cell'])
     z_max = G.graph['z_max']
 
