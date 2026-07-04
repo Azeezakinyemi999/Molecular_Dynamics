@@ -1,5 +1,5 @@
-Node: d3233  Start: Fri Jul  3 07:24:54 PM EDT 2026
-Node: d3233  Start: Fri Jul  3 07:24:56 PM EDT 2026
+Node: d3233  Start: Fri Jul  3 08:51:43 PM EDT 2026
+Node: d3233  Start: Fri Jul  3 08:51:45 PM EDT 2026
 LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
 KOKKOS mode with Kokkos version 5.0.2 is enabled
   using double precision
@@ -11,8 +11,8 @@ Reading data file ...
   1 by 1 by 1 MPI processor grid
   reading atoms ...
   13 atoms
-  read_data CPU = 0.227 seconds
-W0703 19:25:40.325000 1199817 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+  read_data CPU = 0.208 seconds
+W0703 20:52:29.657000 1214950 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
 13 atoms in group frozen_atoms
 0 atoms in group free_atoms
 ### Adsorbate minimization ###
@@ -48,9 +48,9 @@ Per MPI rank memory allocation (min/avg/max) = 38.24 | 38.24 | 38.24 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
          0  -59.695961      0              0             -28864.507    
          1  -59.695961      0              0             -28864.507    
-Loop time of 0.239856 on 1 procs for 1 steps with 13 atoms
+Loop time of 0.242564 on 1 procs for 1 steps with 13 atoms
 
-96.8% CPU use with 1 MPI tasks x 1 OpenMP threads
+95.6% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
   Stopping criterion = search direction is not downhill
@@ -64,16 +64,16 @@ Minimization stats:
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.2377     | 0.2377     | 0.2377     |   0.0 | 99.10
+Pair    | 0.24042    | 0.24042    | 0.24042    |   0.0 | 99.12
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.00012411 | 0.00012411 | 0.00012411 |   0.0 |  0.05
+Comm    | 0.00012172 | 0.00012172 | 0.00012172 |   0.0 |  0.05
 Output  | 0          | 0          | 0          |   0.0 |  0.00
-Modify  | 2.7215e-05 | 2.7215e-05 | 2.7215e-05 |   0.0 |  0.01
-Other   |            | 0.002002   |            |       |  0.83
+Modify  | 2.7736e-05 | 2.7736e-05 | 2.7736e-05 |   0.0 |  0.01
+Other   |            | 0.001995   |            |       |  0.82
 
 Nlocal:             13 ave          13 max          13 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Nghost:            228 ave         228 max         228 min
+Nghost:            224 ave         224 max         224 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Neighs:              0 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -89,7 +89,7 @@ Dangerous builds = 0
   fmax_eV_per_Ang : 0
   natoms          : 13
 System init for write_data ...
-Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_1_relaxed.lammps
-Total wall time: 0:00:55
-End: Fri Jul  3 07:25:55 PM EDT 2026
-End: Fri Jul  3 07:25:55 PM EDT 2026
+Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_0_relaxed.lammps
+Total wall time: 0:00:54
+End: Fri Jul  3 08:52:42 PM EDT 2026
+End: Fri Jul  3 08:52:43 PM EDT 2026

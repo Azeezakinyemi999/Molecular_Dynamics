@@ -1,0 +1,80 @@
+log            /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K.log  append
+
+# LAMMPS NVT bulk EQUIL-PHASE RESTART
+# T = 600 K  |  mid-equil continuation
+# Continues equilibration from checkpoint, then runs full production.
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p p
+
+# Resume from most recent equil-phase checkpoint.
+read_restart   /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/checkpoints/nvt_600K.*.restart
+
+restart        1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/checkpoints/nvt_600K.*.restart
+
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+group          H_atom  type 8
+group          metal   subtract all H_atom
+
+thermo         100
+thermo_style   custom step temp pe ke etotal press vol
+
+timestep       0.001
+
+# === PHASE 1: Continue Equilibration ===
+fix            nvt_equil  all  nvt  temp  600.0  600.0  0.1
+
+dump           equil_dump  all  custom  100  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K_phase1_equil.lammpstrj  id type x y z
+dump_modify    equil_dump  sort id  append yes
+
+compute        msd_H      H_atom  msd
+fix            msd_equil  all  ave/time  1  1  100 &
+               c_msd_H[4]  file  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/msd_600K_equil.dat  mode scalar  append yes
+
+print "### Phase 1: Equilibration continuation at 600 K (restart) ###"
+run            500  upto
+
+unfix          msd_equil
+uncompute      msd_H
+undump         equil_dump
+unfix          nvt_equil
+print "### Phase 1 complete ###"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K_phase1_equil.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K_phase1_equil.lammps
+
+# === PHASE 2: Production (2 ps, fresh start) ===
+dump           prod_dump  all  custom  100  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K.dump &
+               id type x y z
+dump_modify    prod_dump  sort id
+
+fix            nvt_prod  all  nvt  temp  600.0  600.0  0.1
+
+compute        msd_H     H_atom  msd
+fix            msd_prod  all  ave/time  1  1  100 &
+               c_msd_H[4]  file  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/msd_600K_prod.dat  mode scalar
+
+print "### Phase 2: Production 2 ps at 600 K ###"
+run            2000
+print "### Phase 2 complete ###"
+
+variable  pe_final   equal  pe
+variable  temp_fin   equal  temp
+variable  press_fin  equal  press
+
+print "EQUIL_RESULTS_START"
+print "  T_K          : 600"
+print "  pe_final_eV  : ${pe_final}"
+print "  temp_final_K : ${temp_fin}"
+print "  press_final  : ${press_fin}"
+print "EQUIL_RESULTS_END"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K_phase2_prod.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K.out

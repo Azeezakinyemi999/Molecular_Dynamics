@@ -23,7 +23,7 @@ Reading data file ...
   1 by 1 by 1 MPI processor grid
   reading atoms ...
   13 atoms
-  read_data CPU = 0.155 seconds
+  read_data CPU = 0.208 seconds
 
 pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
 pair_coeff     * * Al B C Cr Fe Mo Ni H
@@ -85,9 +85,9 @@ Per MPI rank memory allocation (min/avg/max) = 38.24 | 38.24 | 38.24 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
          0  -59.695961      0              0             -28864.507    
          1  -59.695961      0              0             -28864.507    
-Loop time of 0.240004 on 1 procs for 1 steps with 13 atoms
+Loop time of 0.242564 on 1 procs for 1 steps with 13 atoms
 
-98.0% CPU use with 1 MPI tasks x 1 OpenMP threads
+95.6% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
   Stopping criterion = search direction is not downhill
@@ -101,12 +101,12 @@ Minimization stats:
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.2379     | 0.2379     | 0.2379     |   0.0 | 99.12
+Pair    | 0.24042    | 0.24042    | 0.24042    |   0.0 | 99.12
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.00012855 | 0.00012855 | 0.00012855 |   0.0 |  0.05
+Comm    | 0.00012172 | 0.00012172 | 0.00012172 |   0.0 |  0.05
 Output  | 0          | 0          | 0          |   0.0 |  0.00
-Modify  | 3.2079e-05 | 3.2079e-05 | 3.2079e-05 |   0.0 |  0.01
-Other   |            | 0.001943   |            |       |  0.81
+Modify  | 2.7736e-05 | 2.7736e-05 | 2.7736e-05 |   0.0 |  0.01
+Other   |            | 0.001995   |            |       |  0.82
 
 Nlocal:             13 ave          13 max          13 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -142,4 +142,4 @@ write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipe
 System init for write_data ...
 print "Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_0_relaxed.lammps"
 Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_0_relaxed.lammps
-Total wall time: 0:00:53
+Total wall time: 0:00:54

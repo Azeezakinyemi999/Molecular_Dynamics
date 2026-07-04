@@ -1,0 +1,8 @@
+# Time-averaged data for fix msd_equil
+# TimeStep c_msd_H[4]
+0 0
+100 0.0262733
+200 0.0331541
+300 0.00697786
+400 0.0221328
+500 0.0450396

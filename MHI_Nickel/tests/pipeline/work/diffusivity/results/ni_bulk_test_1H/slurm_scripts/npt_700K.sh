@@ -6,6 +6,7 @@
 #SBATCH --partition=sharing
 #SBATCH --time=00:20:00
 #SBATCH --output=/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_700K_%j.out
+#SBATCH --exclude=d3204
 
 # ── Environment ─────────────────────────────────────────
 module load OpenMPI/4.1.6
