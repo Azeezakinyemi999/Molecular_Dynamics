@@ -509,7 +509,7 @@ def plot_arrhenius(
     # x-axis: 1000/T for readability
     x_data = 1000.0 / T_arr
     y_data = np.log10(D_arr)
-    y_err  = D_err_arr / (D_arr * np.log(10))   # σ in log10 units
+    y_err  = np.abs(D_err_arr / (D_arr * np.log(10)))   # σ in log10 units
 
     # Smooth fit line over extended range
     T_fine  = np.linspace(T_arr.min() * 0.9, T_arr.max() * 1.1, 200)
@@ -605,7 +605,29 @@ def run_arrhenius_pipeline(
 
     T_arr, D_arr, D_err_arr, _ = parse_diffusivity_file(diffusivity_file)
 
-    Ea, Ea_err, D0, D0_err, R2 = fit_arrhenius(T_arr, D_arr, D_err_arr)
+    # ln(D) requires D > 0; short/noisy MD runs can yield a negative MSD
+    # slope, and one bad temperature must not kill the whole pipeline.
+    valid = (np.isfinite(D_arr) & (D_arr > 0)
+             & np.isfinite(D_err_arr) & (D_err_arr > 0))
+    if not valid.all():
+        bad = ', '.join(f'{t:.0f}K (D={d:.3e})'
+                        for t, d in zip(T_arr[~valid], D_arr[~valid]))
+        print(f'WARNING: dropping {int((~valid).sum())} invalid D(T) '
+              f'point(s) from Arrhenius fit (D ≤ 0 or non-finite): {bad}')
+
+    if int(valid.sum()) < 2:
+        print('WARNING: < 2 valid D(T) points — Arrhenius fit and plot skipped.')
+        return {
+            'Ea': float('nan'), 'Ea_err': float('nan'),
+            'D0': float('nan'), 'D0_err': float('nan'),
+            'R2': float('nan'),
+            'T_arr': T_arr, 'D_arr': D_arr, 'D_err_arr': D_err_arr,
+            'fig': None, 'plot_file': None,
+        }
+
+    T_fit, D_fit, D_err_fit = T_arr[valid], D_arr[valid], D_err_arr[valid]
+
+    Ea, Ea_err, D0, D0_err, R2 = fit_arrhenius(T_fit, D_fit, D_err_fit)
 
     print(f'Arrhenius fit:  Ea = {Ea:.4f} ± {Ea_err:.4f} eV  |  '
           f'D0 = {D0:.4e} ± {D0_err:.2e} m²/s  |  R² = {R2:.4f}')
@@ -614,7 +636,7 @@ def run_arrhenius_pipeline(
     plot_file = os.path.join(outdir, plot_filename)
 
     fig = plot_arrhenius(
-        T_arr, D_arr, D_err_arr, Ea, D0,
+        T_fit, D_fit, D_err_fit, Ea, D0,
         outfile=plot_file,
         lit_Ea=lit_Ea, lit_D0=lit_D0, lit_label=lit_label,
     )
