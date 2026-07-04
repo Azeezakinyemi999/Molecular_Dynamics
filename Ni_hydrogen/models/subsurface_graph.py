@@ -146,6 +146,46 @@ def _identify_layers(positions, n_layers=12, z_tol=None):
     return layer_map, layer_z
 
 
+def _identify_layers_by_gaps(positions, gap_tol=0.5):
+    """
+    Bin atoms into z-layers by gap detection (no equal-count assumption).
+
+    Sorts atoms by z and starts a new layer wherever the gap between
+    consecutive z values exceeds ``gap_tol``.  Required for oxide slabs,
+    whose atomic planes have unequal atom counts (e.g. O3 vs Cr planes in
+    corundum) and whose plane count differs from the repeat-unit count.
+
+    Same contract as :func:`_identify_layers`:
+
+    Returns
+    -------
+    layer_map : dict
+        Maps atom index (int) → layer number (int, 1-indexed;
+        1 = bottom, N = top).
+    layer_z : dict
+        Maps layer number (int) → mean z-coordinate (float) in Å.
+    """
+    positions = np.asarray(positions)
+    z = positions[:, 2]
+    order = np.argsort(z)
+
+    layer_map = {}
+    layer_members = [[order[0]]]
+    for idx in order[1:]:
+        if z[idx] - z[layer_members[-1][-1]] > gap_tol:
+            layer_members.append([idx])
+        else:
+            layer_members[-1].append(idx)
+
+    layer_z = {}
+    for L, members in enumerate(layer_members, start=1):
+        layer_z[L] = float(np.mean(z[members]))
+        for a in members:
+            layer_map[int(a)] = L
+
+    return layer_map, layer_z
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # VORONOI SITE FINDING (scipy-based, with PBC 3x3 replication)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -166,7 +206,8 @@ def _slab_to_atoms(slab_path):
 
 def find_voronoi_sites(slab_path,
                       clustering_tol=CLUSTERING_TOL_DEFAULT,
-                      min_dist=MIN_DIST_DEFAULT):
+                      min_dist=MIN_DIST_DEFAULT,
+                      layer_mode='rank'):
     """
     Find interstitial sites using ``scipy.spatial.Voronoi`` with PBC handling.
 
@@ -184,6 +225,10 @@ def find_voronoi_sites(slab_path,
     min_dist : float, optional
         Discard vertices within this distance of any atom in Å.
         Default ``MIN_DIST_DEFAULT`` (0.5).
+    layer_mode : str, optional
+        ``'rank'`` (default) — equal-count rank binning assuming 12 layers
+        (metal slabs, unchanged behaviour).  ``'gaps'`` — gap-based plane
+        detection for slabs with unequal plane populations (oxides).
 
     Returns
     -------
@@ -210,7 +255,10 @@ def find_voronoi_sites(slab_path,
     # sites or misclassify oct/tet. Smoothing z removes that noise while
     # preserving x/y chemical diversity. Raw positions are kept for the
     # atom-proximity filter (Step 4) so real atom locations are respected.
-    _layer_map, _layer_z = _identify_layers(metal_positions)
+    if layer_mode == 'gaps':
+        _layer_map, _layer_z = _identify_layers_by_gaps(metal_positions)
+    else:
+        _layer_map, _layer_z = _identify_layers(metal_positions)
     smoothed_positions = metal_positions.copy()
     for _i in range(len(smoothed_positions)):
         smoothed_positions[_i, 2] = _layer_z[_layer_map[_i]]
@@ -370,7 +418,7 @@ def _composition_label(coord_list, site_type):
 
 
 def classify_site(site_pos, atom_positions, atom_elements, cell,
-                  cutoff=COORD_CUTOFF_DEFAULT):
+                  cutoff=COORD_CUTOFF_DEFAULT, keep_unclassified=False):
     """
     Classify a Voronoi vertex as octahedral, tetrahedral, or unknown.
 
@@ -394,6 +442,11 @@ def classify_site(site_pos, atom_positions, atom_elements, cell,
         Orthorhombic cell dimensions in Å.
     cutoff : float, optional
         Coordination cutoff in Å.  Default ``COORD_CUTOFF_DEFAULT`` (2.2).
+    keep_unclassified : bool, optional
+        When True, coordination counts outside the oct/tet rules yield
+        ``site_type='interstitial'`` with a real composition label instead
+        of ``'unknown'`` (used for oxides, whose interstitial geometry does
+        not follow FCC oct/tet coordination counts).  Default False.
 
     Returns
     -------
@@ -433,7 +486,7 @@ def classify_site(site_pos, atom_positions, atom_elements, cell,
         site_type = "tet"
         is_distorted = True
     else:
-        site_type = "unknown"
+        site_type = "interstitial" if keep_unclassified else "unknown"
         is_distorted = True
 
     # Distortion score: spread in nearest-neighbor distances
@@ -445,8 +498,8 @@ def classify_site(site_pos, atom_positions, atom_elements, cell,
     else:
         distortion_score = 0.0
 
-    # Composition label (only meaningful for oct/tet)
-    if site_type in ("oct", "tet"):
+    # Composition label (only meaningful for classified sites)
+    if site_type in ("oct", "tet", "interstitial"):
         composition_label = _composition_label(coord_list, site_type)
     else:
         composition_label = f"unknown_n{n}"
@@ -615,6 +668,7 @@ def build_subsurface_graph(
     coord_cutoff=COORD_CUTOFF_DEFAULT,
     xy_tol=XY_TOL_DEFAULT,
     z_tol=0.5,
+    metal_type='alloy',
 ):
     """
     Top-level orchestrator. Returns the augmented graph and site list.
@@ -660,6 +714,12 @@ def build_subsurface_graph(
     z_tol : float, optional
         Tolerance for layer identification (kept for compatibility).
         Default 0.5.
+    metal_type : str, optional
+        ``'alloy'``/``'pure'`` — unchanged behaviour (rank-based 12-layer
+        binning, oct/tet-only sites).  ``'oxide'`` — gap-based plane
+        detection with auto-derived subsurface/bulk layer indices, and ALL
+        Voronoi interstitials retained (labelled ``'interstitial'`` when
+        outside the FCC oct/tet coordination rules).  Default ``'alloy'``.
 
     Returns
     -------
@@ -673,15 +733,17 @@ def build_subsurface_graph(
     print(f"  Building subsurface graph for seed {seed}")
     print(f"=" * 70)
 
+    _is_oxide = (metal_type == 'oxide')
+
     # Step 1: Find all Voronoi sites
     print(f"\nStep 1: Voronoi tessellation via scipy...")
     sites_cart, structure, atoms = find_voronoi_sites(
-        slab_path, clustering_tol=clustering_tol, min_dist=min_dist
+        slab_path, clustering_tol=clustering_tol, min_dist=min_dist,
+        layer_mode='gaps' if _is_oxide else 'rank',
     )
     print(f"  Found {len(sites_cart)} unique interstitial sites in the cell")
 
     # Step 2: Identify layers
-    print(f"\nStep 2: Identifying {n_layers_total} z-layers...")
     metal_positions = atoms.get_positions()
     metal_elements  = np.array(atoms.get_chemical_symbols())
 
@@ -690,9 +752,23 @@ def build_subsurface_graph(
     metal_positions = metal_positions[is_metal]
     metal_elements  = metal_elements[is_metal]
 
-    layer_map, layer_z = _identify_layers(
-        metal_positions, n_layers=n_layers_total
-    )
+    if _is_oxide:
+        # Gap-based plane detection — oxide planes have unequal atom counts
+        # and the plane count is unrelated to the repeat-unit count.
+        print(f"\nStep 2: Identifying z-layers by gap detection (oxide)...")
+        layer_map, layer_z = _identify_layers_by_gaps(metal_positions)
+        _N = len(layer_z)
+        # Top plane (_N) is the surface itself; sub1/sub2 are the first two
+        # planes beneath it — mirrors the metal convention (11, 10) of 12.
+        subsurface_layers  = (_N - 2, _N - 1)
+        bulk_sample_layers = tuple(range(max(2, _N - 7), _N - 2))
+        print(f"  {_N} planes detected → subsurface_layers={subsurface_layers}"
+              f"  bulk_sample_layers={bulk_sample_layers}")
+    else:
+        print(f"\nStep 2: Identifying {n_layers_total} z-layers...")
+        layer_map, layer_z = _identify_layers(
+            metal_positions, n_layers=n_layers_total
+        )
     print(f"  Layer z-centers: " +
           ", ".join(f"L{k}={v:.2f}" for k, v in sorted(layer_z.items())))
 
@@ -711,10 +787,12 @@ def build_subsurface_graph(
         if nearest_layer not in target_layers:
             continue
 
-        # Step 4: Classify the site
+        # Step 4: Classify the site.  On the oxide path unmatched
+        # coordination counts become 'interstitial' (kept) instead of
+        # 'unknown' (discarded) — FCC oct/tet rules don't apply there.
         clf = classify_site(
             site_pos, metal_positions, metal_elements, cell,
-            cutoff=coord_cutoff
+            cutoff=coord_cutoff, keep_unclassified=_is_oxide,
         )
 
         if clf["site_type"] == "unknown":
@@ -807,7 +885,35 @@ def build_subsurface_graph(
         G.add_edge(sub_id, surf_id,
                    edge_type="surface-subsurface", distance=dist)
 
+    # Sub1–sub2 edges — required by Hop B (find_sub2_neighbor walks
+    # G.neighbors of a subsurface_1 node looking for subsurface_2).
+    # Connect by periodic xy proximity; if a sub1 site has no sub2 within
+    # xy_tol, fall back to its nearest sub2 so Hop B always has a path.
+    _sub1 = [s for s in subsurface_sites_final
+             if s["layer_classification"] == "subsurface_1"]
+    _sub2 = [s for s in subsurface_sites_final
+             if s["layer_classification"] == "subsurface_2"]
+    n_ss_edges = 0
+    for s1 in _sub1:
+        added = 0
+        best = None   # (distance, site_id)
+        for s2 in _sub2:
+            d = float(_periodic_xy_distance(s1["position"], s2["position"],
+                                            cell))
+            if best is None or d < best[0]:
+                best = (d, s2["site_id"])
+            if d < xy_tol:
+                G.add_edge(s1["site_id"], s2["site_id"],
+                           edge_type="subsurface-subsurface", distance=d)
+                added += 1
+        if added == 0 and best is not None:
+            G.add_edge(s1["site_id"], best[1],
+                       edge_type="subsurface-subsurface", distance=best[0])
+            added = 1
+        n_ss_edges += added
+
     print(f"  Surface-subsurface connections: {len(connections)}")
+    print(f"  Subsurface1-subsurface2 edges : {n_ss_edges}  (Hop B)")
     print(f"  Total graph nodes: {G.number_of_nodes()}")
     print(f"  Total graph edges: {G.number_of_edges()}")
 
@@ -856,8 +962,7 @@ def save_subsurface_sites(subsurface_sites, output_path, seed,
     for s in subsurface_sites:
         L = s["layer_classification"]
         by_layer[L] = by_layer.get(L, 0) + 1
-        if s["site_type"] in by_type:
-            by_type[s["site_type"]] += 1
+        by_type[s["site_type"]] = by_type.get(s["site_type"], 0) + 1
         c = s["composition_label"]
         by_composition[c] = by_composition.get(c, 0) + 1
 

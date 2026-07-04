@@ -45,6 +45,7 @@ import os
 import sys
 import json
 import glob
+import itertools
 import numpy as np
 from ase.io import read as _ase_read
 
@@ -81,13 +82,34 @@ _KB_EV = 8.617333262e-5   # eV/K
 print('Building subsurface graph …')
 with open(SURFACE_SITES_JSON) as _f:
     _surf_data = json.load(_f)
-G, subsurface_sites = build_subsurface_graph(RELAXED_SLAB_PATH, SURFACE_SITES_JSON, seed=42)
+G, subsurface_sites = build_subsurface_graph(RELAXED_SLAB_PATH, SURFACE_SITES_JSON, seed=42,
+                                             metal_type=METAL_TYPE)
 _slab_atoms = _ase_read(RELAXED_SLAB_PATH, format='lammps-data', atom_style='atomic')
 _cell = _slab_atoms.get_cell()
 surface_connections = connect_to_surface(subsurface_sites, _surf_data, _cell)
 _sub1_n = sum(1 for s in subsurface_sites if s.get('layer_classification') == 'subsurface_1')
 print(f'  subsurface-1 sites : {_sub1_n}')
 print(f'  surface connections: {len(surface_connections)}')
+
+# Species present in this slab (length-descending so 2-letter symbols match
+# before 'O' in strings like 'CrO_bridge'); used for rate-label matching.
+_slab_species = sorted(
+    {s for s in _slab_atoms.get_chemical_symbols() if s != 'H'},
+    key=len, reverse=True,
+)
+_sid2comp = {s['site_id']: str(s.get('level1', {}).get('composition', ''))
+             for s in _surf_data.get('sites', [])}
+
+# KMC surface composition: oxide surfaces use the actual surface-atom
+# element fractions; metals keep make_grid's Hastelloy default (unchanged).
+_kmc_composition = None
+if METAL_TYPE == 'oxide':
+    _cnt = {}
+    for _a in _surf_data.get('surface_atoms', []):
+        _cnt[_a['element']] = _cnt.get(_a['element'], 0) + 1
+    _tot = sum(_cnt.values()) or 1
+    _kmc_composition = {k: v / _tot for k, v in _cnt.items()}
+    print(f'  KMC surface composition (oxide): {_kmc_composition}')
 
 # ── Collect dedup IS labels ────────────────────────────────────────────────────
 dedup_is_labels = [
@@ -285,11 +307,21 @@ for _T in TEMPERATURES:
     for _lbl, _r in _tst.items():
         if _lbl.startswith('hopa_'):
             _sid = _lbl[len('hopa_'):]
-            for _el in ('Ni', 'Mo', 'Cr', 'Fe'):
+            _matched = False
+            for _el in _slab_species:
                 if _el in _sid:
                     _k_entry[_el] = _r['k_forward']
                     _k_exit[_el]  = _r['k_reverse']
+                    _matched = True
                     break
+            if not _matched:
+                # Bare site ids (s_NN) carry no element name — resolve via
+                # the site's level1 composition from surface_sites.json.
+                _comp = _sid2comp.get(_sid, '')
+                for _el in _slab_species:
+                    if _el in _comp:
+                        _k_entry.setdefault(_el, _r['k_forward'])
+                        _k_exit.setdefault(_el, _r['k_reverse'])
 
     if _diss_vib:
         for _pkey5, _dv5 in _diss_vib.items():
@@ -308,9 +340,10 @@ for _T in TEMPERATURES:
             _k_des[_pair]  = _NU_DISS * np.exp(-_bd['E_des'] / _kBT)
     else:
         print(f'  WARNING: no diss rate source found — using placeholders at T={_T} K')
-        for _pair in [('Ni', 'Ni'), ('Mo', 'Ni'), ('Cr', 'Ni'), ('Fe', 'Ni'),
-                      ('Mo', 'Mo'), ('Cr', 'Mo'), ('Fe', 'Mo'),
-                      ('Cr', 'Cr'), ('Fe', 'Cr'), ('Fe', 'Fe')]:
+        # element_pair keys are sorted tuples; cover every species pair
+        # actually present in this slab (metal or oxide).
+        for _pair in itertools.combinations_with_replacement(
+                sorted(_slab_species), 2):
             _k_diss[_pair] = np.exp(-0.5  / _kBT)
             _k_des[_pair]  = _NU_DISS * np.exp(-1.2 / _kBT)
 
@@ -330,6 +363,7 @@ for _T in TEMPERATURES:
         nx         = NX,
         ny         = NY,
         seed       = SEED,
+        composition = _kmc_composition,
         kmc_kwargs = {'window': 2000, 'rtol': 0.02, 'max_steps': KMC_MAX_STEPS},
     )
     _sweep['T_K']   = _T
@@ -510,6 +544,7 @@ def generate_permeation_scripts(
     elem_str=None,
     e2t=None,
     masses=None,
+    metal_type='alloy',
 ):
     """Write permeation_run.py with embedded config. Returns the output path."""
     from models.config import MASSES_7, E2T_7, ELEM_STR_7
@@ -582,6 +617,7 @@ VIB_SLURM_CFG  = {vib_slurm_cfg!r}
 ELEM_STR = {elem_str!r}
 E2T      = {e2t!r}
 MASSES   = {masses!r}
+METAL_TYPE = {metal_type!r}
 
 '''
 

@@ -445,6 +445,7 @@ def build_slab(
     lateral_repeat: tuple[int, int] = (1, 1),
     seed: int = 42,
     metal_type: str = 'alloy',
+    oxide_target_thickness: float = 22.0,
 ) -> tuple[str, float]:
     """Construct a surface slab from a minimized bulk structure.
 
@@ -457,6 +458,9 @@ def build_slab(
       all sites set to the single non-H element.  No shuffle.
     * ``'oxide'``  — primitive cell extracted via spglib from the minimized
       bulk supercell; stoichiometry preserved exactly.  No shuffle.
+      ``layers`` is IGNORED: for an oxide, one repeat unit contains several
+      atomic planes, so the repeat count is chosen automatically to match
+      ``oxide_target_thickness`` (the metal slabs' ~22 Å).
 
     Parameters
     ----------
@@ -483,6 +487,9 @@ def build_slab(
         Random seed for composition shuffle (alloy path only).  Default ``42``.
     metal_type : str, optional
         One of ``'alloy'``, ``'pure'``, ``'oxide'``.  Default ``'alloy'``.
+    oxide_target_thickness : float, optional
+        Target slab material thickness (Å) for the oxide path; the repeat
+        count is chosen to land closest to it.  Default ``22.0``.
 
     Returns
     -------
@@ -516,7 +523,28 @@ def build_slab(
         primitive_atoms = Atoms(
             numbers=numbers, scaled_positions=scaled_pos, cell=lattice, pbc=True
         )
-        unit_slab = surface(primitive_atoms, miller, layers, vacuum=vacuum)
+
+        # `layers` counts primitive repeat units for oxides, not atomic
+        # planes — pick the repeat count that lands closest to the target
+        # material thickness instead of trusting the metal-tuned value.
+        def _material_thickness(n_units):
+            _s = surface(primitive_atoms, miller, n_units, vacuum=vacuum)
+            _z = _s.get_positions()[:, 2]
+            return float(_z.max() - _z.min())
+
+        t1 = _material_thickness(1)
+        t2 = _material_thickness(2)
+        d_unit = t2 - t1
+        if d_unit <= 0.1:
+            d_unit = max(t1, 0.1)
+        n_units = max(1, 1 + round((oxide_target_thickness - t1) / d_unit))
+        print(f'[build_slab/oxide] layers={layers} ignored — auto thickness: '
+              f'unit={d_unit:.3f} Å  n_units={n_units}  '
+              f'thickness≈{t1 + (n_units - 1) * d_unit:.2f} Å '
+              f'(target {oxide_target_thickness:.1f} Å)')
+
+        unit_slab = surface(primitive_atoms, miller, n_units, vacuum=vacuum)
+        layers = n_units   # keep logs/comments truthful about what was built
         p, q = lateral_repeat
         if p != 1 or q != 1:
             unit_slab = make_supercell(unit_slab, [[p, 0, 0], [0, q, 0], [0, 0, 1]])
