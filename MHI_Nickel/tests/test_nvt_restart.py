@@ -308,15 +308,18 @@ class TestWriteNvtEquilRestartScript:
         assert 'nvt_1000K.log' in first, f"log command references wrong file: {first!r}"
         assert 'nvt_1000K.out' not in first, "log should go to .log, not .out"
 
-    def test_variable_remaining_equil(self, equil_rst_script):
-        """BUG 1 FIX: remaining equil steps must use (n_equil - step), not hardcoded n_equil."""
-        assert f'variable remaining_equil equal ({N_EQUIL} - step)' in equil_rst_script
+    def test_equil_run_upto(self, equil_rst_script):
+        """'run N upto' resumes to the absolute equil step count — replaces
+        the remaining_equil variable, which could go negative for a stale
+        checkpoint."""
+        assert f'run            {N_EQUIL}  upto' in equil_rst_script
+        assert 'remaining_equil' not in equil_rst_script
 
-    def test_run_uses_variable_not_hardcoded(self, equil_rst_script):
-        """BUG 1 FIX: run must use ${remaining_equil}, not run 2000000."""
-        assert 'run            ${remaining_equil}' in equil_rst_script
-        # Must NOT hardcode the full equil steps
-        assert f'run            {N_EQUIL}' not in equil_rst_script
+    def test_equil_run_not_plain_hardcoded(self, equil_rst_script):
+        """A plain 'run N_EQUIL' (without upto) would redo the FULL equil
+        phase on every restart leg instead of just the remainder."""
+        assert f'run            {N_EQUIL}\n' not in equil_rst_script
+        assert '?' not in equil_rst_script   # no C-style ternary in LAMMPS
 
     def test_equil_dump_appends(self, equil_rst_script):
         """Equil dump must append — prior equil frames already in the file."""
@@ -409,17 +412,19 @@ class TestWriteNvtProdRestartScript:
         assert 'nvt_1000K.log' in first
         assert 'nvt_1000K.out' not in first
 
-    def test_variable_remaining_prod(self, prod_rst_script):
-        """BUG 1 FIX: remaining prod steps must use (total_steps - step)."""
-        # The implementation uses a ternary to clamp negative values:
-        # variable remaining_prod equal ((N - step) > 0 ? (N - step) : 0)
-        assert f'variable remaining_prod equal (({TOTAL_STEPS} - step)' in prod_rst_script
+    def test_prod_run_upto_total(self, prod_rst_script):
+        """'run TOTAL upto' resumes to n_equil + n_prod — replaces the old
+        ternary formula '((N - step) > 0 ? (N - step) : 0)', which is
+        invalid LAMMPS syntax: it crashed every prod restart leg and
+        truncated the production MSD files (2026-07-03 smoke-test bug)."""
+        assert f'run            {TOTAL_STEPS}  upto' in prod_rst_script
+        assert 'remaining_prod' not in prod_rst_script
+        assert '?' not in prod_rst_script
 
-    def test_run_uses_variable_not_hardcoded(self, prod_rst_script):
-        """run must use ${remaining_prod}, not a hardcoded step count."""
-        assert 'run            ${remaining_prod}' in prod_rst_script
+    def test_prod_run_not_plain_hardcoded(self, prod_rst_script):
+        """No plain hardcoded step counts — only the upto form."""
         assert f'run            {N_PROD}' not in prod_rst_script
-        assert f'run            {N_EQUIL}' not in prod_rst_script
+        assert f'run            {N_EQUIL}\n' not in prod_rst_script
 
     def test_prod_dump_appends(self, prod_rst_script):
         """Production dump must append — prior frames already accumulated."""

@@ -645,6 +645,7 @@ def compute_z_freeze_cutoff(slab_path: str, fraction: float = 1.0 / 3.0) -> floa
         Z coordinate (Å) below which atoms should be frozen.
     """
     atoms = read(slab_path, format='lammps-data', atom_style='atomic')
+    atoms.wrap()
     zs = np.sort(atoms.get_positions()[:, 2])
     raw = float(zs[0] + (zs[-1] - zs[0]) * fraction)
 
