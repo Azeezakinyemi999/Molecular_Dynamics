@@ -706,9 +706,25 @@ def stage7_permeation_math(s5: dict, work_dir: str) -> dict:
     E_D_EV = 0.40             # bulk diffusion barrier (eV)
     NU_TST = 1.0e13           # attempt frequency (s⁻¹)
 
-    # ── Choose barrier: real NEB result from Stage 5, or synthetic fallback ───
-    E_ABS = 0.30   # fallback entry barrier (eV)
-    E_DES = 0.50   # fallback exit barrier (eV)
+    # ── Untested-process rates ────────────────────────────────────────────────
+    # Hop A (surface -> subsurface entry/exit) and surface diffusion are not
+    # computed anywhere in this smoke test — they live in Part 2's
+    # permeation_workflow.py. Keep them as FIXED synthetic constants
+    # regardless of what Stage 5 finds. Previously these were derived from
+    # the Stage-5 dissociation barrier, which produced extreme, non-physical
+    # rate ratios (e.g. k_exit/k_entry ~1e9, zero KMC subsurface occupancy)
+    # whenever the real NEB happened to find a strongly exothermic
+    # (near-zero reverse barrier) dissociation path — a different, unrelated
+    # physical process being mistaken for this one.
+    ENTRY_EV     = 0.30   # synthetic Hop-A entry barrier (eV)
+    EXIT_EV      = 0.50   # synthetic Hop-A exit barrier (eV)
+    SURF_DIFF_EV = 0.20   # synthetic surface-diffusion barrier (eV)
+
+    # ── Dissociation barrier: real NEB result from Stage 5, or synthetic ───
+    # This IS the process Stage 5's NEB measures (H2* -> 2H* surface hop),
+    # so it feeds k_diss/k_des directly — no unrelated hop borrows it.
+    E_ABS = 0.30   # fallback dissociation barrier (eV)
+    E_DES = 0.50   # fallback recombination barrier (eV)
     source = 'synthetic (Stage 5 skipped or no NEB pairs)'
 
     if (not s5.get('skipped', True)
@@ -723,19 +739,21 @@ def stage7_permeation_math(s5: dict, work_dir: str) -> dict:
                 source = f'real NEB barrier from {bf.name}'
 
     print(f'  Barrier source : {source}')
-    print(f'  E_abs = {E_ABS:.3f} eV   E_des = {E_DES:.3f} eV   T = {T_K:.0f} K')
+    print(f'  E_abs (diss) = {E_ABS:.3f} eV   E_des (assoc) = {E_DES:.3f} eV   T = {T_K:.0f} K')
+    print(f'  Hop-A entry/exit (synthetic, untested here): '
+          f'{ENTRY_EV:.2f}/{EXIT_EV:.2f} eV')
 
     # ── TST rates ─────────────────────────────────────────────────────────────
-    k_entry     = arrhenius_rate(NU_TST, E_ABS, T_K)
-    k_exit      = arrhenius_rate(NU_TST, E_DES, T_K)
-    k_diss      = arrhenius_rate(NU_TST, E_ABS + 0.10, T_K)
-    k_des       = arrhenius_rate(NU_TST, E_DES + 0.20, T_K)
-    k_surf_diff = arrhenius_rate(NU_TST, E_ABS - 0.10, T_K)   # faster than entry
+    k_diss      = arrhenius_rate(NU_TST, E_ABS, T_K)
+    k_des       = arrhenius_rate(NU_TST, E_DES, T_K)
+    k_entry     = arrhenius_rate(NU_TST, ENTRY_EV, T_K)
+    k_exit      = arrhenius_rate(NU_TST, EXIT_EV, T_K)
+    k_surf_diff = arrhenius_rate(NU_TST, SURF_DIFF_EV, T_K)
 
     _check('tst_k_entry_positive', k_entry > 0,
            f'k_entry = {k_entry:.3e} s⁻¹')
     db_ratio   = k_entry / k_exit
-    db_expect  = math.exp((E_DES - E_ABS) / (KB_EV * T_K))
+    db_expect  = math.exp((EXIT_EV - ENTRY_EV) / (KB_EV * T_K))
     _check('tst_detailed_balance',
            abs(db_ratio - db_expect) / db_expect < 1e-6,
            f'k_fwd/k_rev = {db_ratio:.4e}  expected {db_expect:.4e}')
