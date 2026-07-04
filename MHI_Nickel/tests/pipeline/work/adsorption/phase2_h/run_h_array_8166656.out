@@ -1,5 +1,5 @@
-Node: d3233  Start: Fri Jul  3 08:53:47 PM EDT 2026
-Node: d3233  Start: Fri Jul  3 08:53:49 PM EDT 2026
+Node: d3233  Start: Sat Jul  4 04:49:41 PM EDT 2026
+Node: d3233  Start: Sat Jul  4 04:49:41 PM EDT 2026
 LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
 KOKKOS mode with Kokkos version 5.0.2 is enabled
   using double precision
@@ -11,10 +11,10 @@ Reading data file ...
   1 by 1 by 1 MPI processor grid
   reading atoms ...
   13 atoms
-  read_data CPU = 0.043 seconds
-W0703 20:54:34.504000 1215803 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
-13 atoms in group frozen_atoms
-0 atoms in group free_atoms
+  read_data CPU = 0.017 seconds
+W0704 16:50:02.231000 1493972 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+4 atoms in group frozen_atoms
+9 atoms in group free_atoms
 ### Adsorbate minimization ###
 
 CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
@@ -46,50 +46,50 @@ WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src
 WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
 Per MPI rank memory allocation (min/avg/max) = 38.24 | 38.24 | 38.24 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
-         0  -59.695961      0              0             -28864.507    
-         1  -59.695961      0              0             -28864.507    
-Loop time of 0.24642 on 1 procs for 1 steps with 13 atoms
+         0  -59.695961      1.2590976      1.743623      -28864.507    
+        64  -62.009332      3.4724903e-07  7.3698752e-07 -26689.961    
+Loop time of 5.34544 on 1 procs for 64 steps with 13 atoms
 
-94.3% CPU use with 1 MPI tasks x 1 OpenMP threads
+98.3% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
-  Stopping criterion = search direction is not downhill
+  Stopping criterion = force tolerance
   Energy initial, next-to-last, final = 
-     -59.6959611593517  -59.6959611593517  -59.6959611593517
-  Force two-norm initial, final = 0 0
-  Force max component initial, final = 0 0
-  Final line search alpha, max atom move = 0 0
-  Iterations, force evaluations = 1 0
+     -59.6959611593517  -62.0093317578733  -62.0093317578735
+  Force two-norm initial, final = 1.743623 7.3698752e-07
+  Force max component initial, final = 1.2590976 3.4724903e-07
+  Final line search alpha, max atom move = 1 3.4724903e-07
+  Iterations, force evaluations = 64 110
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.24412    | 0.24412    | 0.24412    |   0.0 | 99.07
-Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.00011999 | 0.00011999 | 0.00011999 |   0.0 |  0.05
+Pair    | 5.3209     | 5.3209     | 5.3209     |   0.0 | 99.54
+Neigh   | 0.00064417 | 0.00064417 | 0.00064417 |   0.0 |  0.01
+Comm    | 0.0046438  | 0.0046438  | 0.0046438  |   0.0 |  0.09
 Output  | 0          | 0          | 0          |   0.0 |  0.00
-Modify  | 3.0251e-05 | 3.0251e-05 | 3.0251e-05 |   0.0 |  0.01
-Other   |            | 0.002153   |            |       |  0.87
+Modify  | 0.0030006  | 0.0030006  | 0.0030006  |   0.0 |  0.06
+Other   |            | 0.01629    |            |       |  0.30
 
 Nlocal:             13 ave          13 max          13 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Nghost:            228 ave         228 max         228 min
+Nghost:            224 ave         224 max         224 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Neighs:              0 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-FullNghs:         1220 ave        1220 max        1220 min
+FullNghs:         1238 ave        1238 max        1238 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 1220
-Ave neighs/atom = 93.846154
-Neighbor list builds = 0
+Total # of neighbors = 1238
+Ave neighs/atom = 95.230769
+Neighbor list builds = 2
 Dangerous builds = 0
 ### Minimization complete ###
-  pe_final_eV     : -59.6959611593517
-  fmax_eV_per_Ang : 0
+  pe_final_eV     : -62.0093317578735
+  fmax_eV_per_Ang : 3.47249027917362e-07
   natoms          : 13
 System init for write_data ...
-Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_1_relaxed.lammps
-Total wall time: 0:00:54
-End: Fri Jul  3 08:54:47 PM EDT 2026
-End: Fri Jul  3 08:54:47 PM EDT 2026
+Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_0_relaxed.lammps
+Total wall time: 0:00:35
+End: Sat Jul  4 04:50:19 PM EDT 2026
+End: Sat Jul  4 04:50:19 PM EDT 2026

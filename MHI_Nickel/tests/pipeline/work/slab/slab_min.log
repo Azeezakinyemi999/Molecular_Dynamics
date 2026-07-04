@@ -23,7 +23,7 @@ Reading data file ...
   1 by 1 by 1 MPI processor grid
   reading atoms ...
   12 atoms
-  read_data CPU = 0.067 seconds
+  read_data CPU = 0.009 seconds
 
 pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
 pair_coeff     * * Al B C Cr Fe Mo Ni H
@@ -84,29 +84,29 @@ WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on 
 Per MPI rank memory allocation (min/avg/max) = 38.23 | 38.23 | 38.23 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
          0  -57.045135      0.87495914     2.0617496     -40869.11     
-        29  -58.028152      3.0202079e-07  7.2499938e-07 -26918.622    
-Loop time of 2.95412 on 1 procs for 29 steps with 12 atoms
+        29  -58.028152      3.0202077e-07  7.2499939e-07 -26918.622    
+Loop time of 2.9769 on 1 procs for 29 steps with 12 atoms
 
-98.4% CPU use with 1 MPI tasks x 1 OpenMP threads
+97.7% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
   Stopping criterion = force tolerance
   Energy initial, next-to-last, final = 
      -57.0451352981955  -58.0281518634329  -58.0281518634333
-  Force two-norm initial, final = 2.0617496 7.2499938e-07
-  Force max component initial, final = 0.87495914 3.0202079e-07
-  Final line search alpha, max atom move = 1 3.0202079e-07
+  Force two-norm initial, final = 2.0617496 7.2499939e-07
+  Force max component initial, final = 0.87495914 3.0202077e-07
+  Final line search alpha, max atom move = 1 3.0202077e-07
   Iterations, force evaluations = 29 54
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 2.9418     | 2.9418     | 2.9418     |   0.0 | 99.58
+Pair    | 2.9651     | 2.9651     | 2.9651     |   0.0 | 99.60
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.0022792  | 0.0022792  | 0.0022792  |   0.0 |  0.08
+Comm    | 0.0022585  | 0.0022585  | 0.0022585  |   0.0 |  0.08
 Output  | 0          | 0          | 0          |   0.0 |  0.00
-Modify  | 0.0014967  | 0.0014967  | 0.0014967  |   0.0 |  0.05
-Other   |            | 0.008518   |            |       |  0.29
+Modify  | 0.0014299  | 0.0014299  | 0.0014299  |   0.0 |  0.05
+Other   |            | 0.008106   |            |       |  0.27
 
 Nlocal:             12 ave          12 max          12 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -133,7 +133,7 @@ variable       natoms    equal  atoms
 print "  pe_final_eV     : ${pe_final}"
   pe_final_eV     : -58.0281518634333
 print "  fmax_eV_per_Ang : ${fmax_f}"
-  fmax_eV_per_Ang : 3.02020790697233e-07
+  fmax_eV_per_Ang : 3.0202077243649e-07
 print "  natoms          : ${natoms}"
   natoms          : 12
 
@@ -142,4 +142,4 @@ write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipe
 System init for write_data ...
 print "Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_relaxed.lammps"
 Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_relaxed.lammps
-Total wall time: 0:00:53
+Total wall time: 0:00:38

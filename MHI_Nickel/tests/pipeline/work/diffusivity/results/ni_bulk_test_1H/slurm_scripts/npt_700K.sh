@@ -29,6 +29,9 @@ FLUSH_WAIT=30
 
 echo "Job: $SLURM_JOB_ID  |  Node: $(hostname)  |  $(date)"
 
+# Clear any failure sentinel from a previous attempt of this chain.
+rm -f "${SCRIPT_PATH}.failed"
+
 # ── Select command block ─────────────────────────────────
 # ls -t glob | head -1 returns the most recent restart file.
 # If the glob matches nothing, RESTART_FILE is empty.
@@ -65,5 +68,6 @@ elif [ "$EXIT_CODE" -eq 124 ]; then
 
 else
     echo "Job failed with exit code $EXIT_CODE. Not resubmitting."
+    touch "${SCRIPT_PATH}.failed"
     exit $EXIT_CODE
 fi

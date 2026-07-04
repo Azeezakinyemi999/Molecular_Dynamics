@@ -7,7 +7,7 @@
 #SBATCH --time=01:00:00
 #SBATCH --output=/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/run_neb_array_%j.out
 #SBATCH --exclude=d3204
-#SBATCH --array=1-0%50
+#SBATCH --array=1-1%50
 
 module load OpenMPI/4.1.6
 

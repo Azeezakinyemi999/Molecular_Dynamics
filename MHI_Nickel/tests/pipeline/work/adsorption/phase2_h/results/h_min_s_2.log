@@ -23,7 +23,7 @@ Reading data file ...
   1 by 1 by 1 MPI processor grid
   reading atoms ...
   13 atoms
-  read_data CPU = 0.022 seconds
+  read_data CPU = 0.019 seconds
 
 pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
 pair_coeff     * * Al B C Cr Fe Mo Ni H
@@ -31,12 +31,12 @@ pair_coeff     * * Al B C Cr Fe Mo Ni H
 neighbor       2.0 bin
 neigh_modify   every 1 delay 0 check yes
 
-# ── Freeze bottom layers (z ≤ 22.115 Å) ─────────────────────────────
-region         frozen_reg   block  INF INF  INF INF  EDGE  22.115
+# ── Freeze bottom layers (z ≤ 10.877039427763766 Å) ─────────────────────────────
+region         frozen_reg   block  INF INF  INF INF  EDGE  10.877039427763766
 group          frozen_atoms region frozen_reg
-13 atoms in group frozen_atoms
+4 atoms in group frozen_atoms
 group          free_atoms   subtract all frozen_atoms
-0 atoms in group free_atoms
+9 atoms in group free_atoms
 
 fix            freeze  frozen_atoms  setforce  0.0  0.0  0.0
 
@@ -83,43 +83,43 @@ WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src
 WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
 Per MPI rank memory allocation (min/avg/max) = 38.24 | 38.24 | 38.24 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
-         0  -59.629294      0              0             -28587.432    
-         1  -59.629294      0              0             -28587.432    
-Loop time of 0.244888 on 1 procs for 1 steps with 13 atoms
+         0  -59.629294      1.1334221      1.5938402     -28587.432    
+        68  -61.985174      3.3237811e-07  7.1215482e-07 -26385.434    
+Loop time of 5.40291 on 1 procs for 68 steps with 13 atoms
 
-94.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+98.5% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
-  Stopping criterion = search direction is not downhill
+  Stopping criterion = force tolerance
   Energy initial, next-to-last, final = 
-     -59.6292941887715  -59.6292941887715  -59.6292941887715
-  Force two-norm initial, final = 0 0
-  Force max component initial, final = 0 0
-  Final line search alpha, max atom move = 0 0
-  Iterations, force evaluations = 1 0
+     -59.6292941887715   -61.985173893669  -61.9851738936691
+  Force two-norm initial, final = 1.5938402 7.1215482e-07
+  Force max component initial, final = 1.1334221 3.3237811e-07
+  Final line search alpha, max atom move = 1 3.3237811e-07
+  Iterations, force evaluations = 68 114
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0.2428     | 0.2428     | 0.2428     |   0.0 | 99.15
-Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.0001122  | 0.0001122  | 0.0001122  |   0.0 |  0.05
+Pair    | 5.3777     | 5.3777     | 5.3777     |   0.0 | 99.53
+Neigh   | 0.00062103 | 0.00062103 | 0.00062103 |   0.0 |  0.01
+Comm    | 0.0046969  | 0.0046969  | 0.0046969  |   0.0 |  0.09
 Output  | 0          | 0          | 0          |   0.0 |  0.00
-Modify  | 2.7511e-05 | 2.7511e-05 | 2.7511e-05 |   0.0 |  0.01
-Other   |            | 0.001952   |            |       |  0.80
+Modify  | 0.0031314  | 0.0031314  | 0.0031314  |   0.0 |  0.06
+Other   |            | 0.01676    |            |       |  0.31
 
 Nlocal:             13 ave          13 max          13 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Nghost:            228 ave         228 max         228 min
+Nghost:            224 ave         224 max         224 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Neighs:              0 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-FullNghs:         1218 ave        1218 max        1218 min
+FullNghs:         1248 ave        1248 max        1248 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 1218
-Ave neighs/atom = 93.692308
-Neighbor list builds = 0
+Total # of neighbors = 1248
+Ave neighs/atom = 96
+Neighbor list builds = 2
 Dangerous builds = 0
 
 print "### Minimization complete ###"
@@ -131,9 +131,9 @@ variable       fmax_f    equal  fmax
 variable       natoms    equal  atoms
 
 print "  pe_final_eV     : ${pe_final}"
-  pe_final_eV     : -59.6292941887715
+  pe_final_eV     : -61.9851738936691
 print "  fmax_eV_per_Ang : ${fmax_f}"
-  fmax_eV_per_Ang : 0
+  fmax_eV_per_Ang : 3.32378107842368e-07
 print "  natoms          : ${natoms}"
   natoms          : 13
 
@@ -142,4 +142,4 @@ write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipe
 System init for write_data ...
 print "Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_2_relaxed.lammps"
 Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_2_relaxed.lammps
-Total wall time: 0:00:53
+Total wall time: 0:00:34
