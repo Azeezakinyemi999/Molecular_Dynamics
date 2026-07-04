@@ -7,7 +7,7 @@
     "E_IS": -65.1126702784995,
     "E_FS": -65.9905116523137,
     "delta_E": -0.8778413738142063,
-    "is_fs_dist": 2.0379067935074118,
+    "is_fs_dist": 2.0379067935074198,
     "neb_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/run_neb.py",
     "min_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/min_fs.lammps",
     "fsmin_sh": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/slurm_fsmin_s_1__s_0+s_1.sh",
