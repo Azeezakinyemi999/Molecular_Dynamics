@@ -379,9 +379,13 @@ class TestWriteChainedSlurmJobEdgeCases:
 
     # ── SCRIPT_PATH self-reference ────────────────────────────────────────
 
-    def test_script_path_realpath(self, legacy_script):
-        _, content = legacy_script
-        assert 'SCRIPT_PATH="$(realpath "$0")"' in content
+    def test_script_path_baked_absolute(self, legacy_script):
+        # $0 under sbatch is the spooled copy in /var/spool/slurmd, so the
+        # .done/.failed sentinels and resubmission must use the real script
+        # path baked in at generation time — never realpath "$0".
+        out, content = legacy_script
+        assert 'realpath "$0"' not in content
+        assert f'SCRIPT_PATH="{os.path.abspath(out)}"' in content
 
     # ── flush wait ────────────────────────────────────────────────────────
 

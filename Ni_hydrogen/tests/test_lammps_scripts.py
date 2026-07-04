@@ -638,11 +638,16 @@ class TestWriteNvtEquilRestartScript:
     def test_read_restart(self, equil_rst_script):
         assert 'read_restart   /r/nvt_300K.*.restart' in equil_rst_script
 
-    def test_remaining_equil_variable(self, equil_rst_script):
-        assert 'variable remaining_equil equal (500000 - step)' in equil_rst_script
+    def test_equil_run_upto(self, equil_rst_script):
+        # 'run N upto' runs to absolute step N (0 steps if already past it);
+        # replaces the remaining_equil variable, which could go negative.
+        assert 'run            500000  upto' in equil_rst_script
+        assert 'remaining_equil' not in equil_rst_script
 
-    def test_equil_run_uses_remaining_variable(self, equil_rst_script):
-        assert 'run            ${remaining_equil}' in equil_rst_script
+    def test_equil_no_ternary(self, equil_rst_script):
+        # LAMMPS variable formulas have no C-style ternary — a '?' in a
+        # formula crashes every restart leg (2026-07-03 smoke-test bug).
+        assert '?' not in equil_rst_script
 
     def test_equil_msd_append_yes(self, equil_rst_script):
         # equil MSD appends to msd_equil_file
@@ -695,12 +700,16 @@ class TestWriteNvtProdRestartScript:
     def test_read_restart(self, prod_rst_script):
         assert 'read_restart   /r/nvt_300K.*.restart' in prod_rst_script
 
-    def test_remaining_prod_variable_total(self, prod_rst_script):
+    def test_prod_run_upto_total(self, prod_rst_script):
         # total = n_equil + n_prod = 500000 + 1500000 = 2000000
-        assert '2000000 - step' in prod_rst_script
+        assert 'run            2000000  upto' in prod_rst_script
+        assert 'remaining_prod' not in prod_rst_script
 
-    def test_prod_run_uses_remaining_variable(self, prod_rst_script):
-        assert 'run            ${remaining_prod}' in prod_rst_script
+    def test_prod_no_ternary(self, prod_rst_script):
+        # The old '(N - step) > 0 ? (N - step) : 0' ternary is invalid
+        # LAMMPS syntax — it crashed every prod restart leg and truncated
+        # the production MSD files (2026-07-03 smoke-test bug).
+        assert '?' not in prod_rst_script
 
     def test_prod_dump_append_yes(self, prod_rst_script):
         assert 'dump_modify    prod_dump  sort id  append yes' in prod_rst_script
