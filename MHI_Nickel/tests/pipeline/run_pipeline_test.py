@@ -12,6 +12,9 @@ the cluster before committing to the full-scale production run:
   Stage 3 — H2* adsorption on 3 sites (auto_submit GPU array, ~10 min)
   Stage 4 — H* adsorption on 3 sites  (auto_submit GPU array, ~10 min)
   Stage 5 — NEB pipeline on ≤1 pair with 6 images (~30-60 min, polled)
+            Fallbacks if enumeration yields 0 pairs: (2a) loosened filter
+            bounds, (2b) one forced example pair from the pools; only if
+            both fail does Stage 7 use hardcoded barrier values.
   Stage 6 — Diffusivity NVT MD at 2 temperatures (minimal steps, ~30 min)
   Stage 7 — Permeation math: TST → KMC → permeability (pure Python, ~2 min)
   Summary — print pass/fail per stage; write summary.txt
@@ -87,6 +90,7 @@ from models.neb_workflow import (
     run_phase1_h2_adsorption,
     run_phase2_h_adsorption,
     orchestrate_neb_pipeline,
+    orchestrate_neb,
 )
 from models.diffusivity_workflow import generate_diffusivity_scripts
 from models.tst_rates import arrhenius_rate
@@ -379,6 +383,47 @@ def stage4_h_adsorption(s0: dict, s1: dict, s2: dict, s3: dict) -> dict:
 # Stage 5 — NEB pipeline (Section C, CPU jobs, polled)
 # ═════════════════════════════════════════════════════════════════════════════
 
+def _poll_and_parse_barrier(barrier_path: str) -> dict:
+    """Poll for a NEB barrier file, then parse and check it.
+
+    Shared by the normal enumerated path and the forced-pair fallbacks.
+    Returns dict(timed_out=bool, barrier_path=str|None).
+    """
+    timeout_sec = NEB_TIMEOUT_H * 3600
+    t0          = time.time()
+
+    print(f'\n  Polling for: {barrier_path}')
+    print(f'  Timeout: {NEB_TIMEOUT_H} h  |  poll every {NEB_POLL_SEC} s')
+
+    while not pathlib.Path(barrier_path).exists():
+        elapsed = time.time() - t0
+        if elapsed > timeout_sec:
+            print(f'\n  TIMEOUT after {elapsed/3600:.1f} h')
+            _check('neb_barrier_within_timeout', False,
+                   f'timed out at {elapsed/3600:.1f} h')
+            return dict(timed_out=True, barrier_path=None)
+        print(f'  [{time.strftime("%H:%M:%S")}] '
+              f'{elapsed/60:.0f} min elapsed — waiting...')
+        time.sleep(NEB_POLL_SEC)
+
+    _check('neb_barrier_file_written', True, barrier_path)
+
+    barrier = parse_barrier_file(barrier_path)
+    _check('neb_barrier_parseable',
+           bool(barrier) and 'E_abs' in barrier,
+           f"E_abs = {barrier.get('E_abs', 'N/A')} eV")
+    _check('neb_barrier_positive',
+           barrier.get('E_abs', -1.0) > 0,
+           f"E_abs = {barrier.get('E_abs', 'N/A')} eV")
+    _check('neb_converged',
+           barrier.get('converged') is True,
+           f"converged = {barrier.get('converged')}")
+
+    elapsed_min = (time.time() - t0) / 60
+    print(f'  NEB completed in {elapsed_min:.1f} min')
+    return dict(timed_out=False, barrier_path=barrier_path)
+
+
 def stage5_neb(s0: dict, s1: dict, s2: dict, s3: dict, s4: dict,
                work_dir: str) -> dict:
     _header('Stage 5: Surface NEB pipeline (≤1 pair, 6 images)')
@@ -420,55 +465,130 @@ def stage5_neb(s0: dict, s1: dict, s2: dict, s3: dict, s4: dict,
     _check('neb_dedup_ran', n_deduped >= 0,
            f'{n_deduped} combination(s) after proximity+label filter')
 
+    tier = 'enumerated'
+
+    # ── Fallback 2a: re-enumerate with loosened filter bounds ───────────────
     if n_jobs == 0:
-        print('\n  WARNING: n_jobs=0 — no NEB pairs within sep_min–sep_max range.')
+        print('\n  n_jobs=0 — no NEB pairs within the standard filters.')
+        print('  Fallback 2a: re-running enumeration with loosened bounds')
+        print('  (sep 0–1e6 Å, prox 1e6 Å, graph_dist_min 0 — TEST ONLY).')
+        try:
+            result2 = orchestrate_neb_pipeline(
+                phase1_h2_dir=h2_dir,
+                phase2_h_dir=h_dir,
+                phase3_sites_dir=sites_dir,
+                e_clean=s1['e_clean'],
+                outdir=neb_outdir,
+                slurm_opts={**SLURM_DEFAULTS, **GPU_SLURM},
+                neb_slurm_opts={**SLURM_DEFAULTS, **NEB_SLURM},
+                sep_min=0.0,
+                sep_max=1e6,
+                graph_dist_min=0,
+                prox_cutoff=1e6,
+                n_images=N_NEB_IMAGES,
+                neb_ftol=NEB_FTOL,
+                dry_run=False,
+                elem_str=ELEM_STR_7,
+                e2t=E2T_7,
+                masses=MASSES_7,
+            )
+            if result2['neb_result']['n_jobs'] > 0:
+                result     = result2
+                neb_result = result2['neb_result']
+                n_jobs     = neb_result['n_jobs']
+                tier       = 'fallback_2a_loosened_filters'
+        except Exception:
+            print('  Fallback 2a raised — continuing to 2b:')
+            traceback.print_exc()
+
+    # ── Fallback 2b: force one example pair directly from the pools ─────────
+    if n_jobs == 0:
+        print('\n  Fallback 2b: forcing one example NEB pair from the pools.')
+        try:
+            pools  = result['pools']
+            is_ids = [sid for sid in pools.get('is_xy', {})
+                      if sid in pools.get('is_energies', {})]
+            fs_ids = [sid for sid in pools.get('fs_xy', {})
+                      if sid in pools.get('fs_energies', {})]
+            if is_ids and len(fs_ids) >= 2:
+                is_sid = is_ids[0]
+                # pick the two closest FS sites (plain xy — tiny test cell)
+                best = None
+                for i in range(len(fs_ids)):
+                    for j in range(i + 1, len(fs_ids)):
+                        a, b = fs_ids[i], fs_ids[j]
+                        d = math.hypot(pools['fs_xy'][a][0] - pools['fs_xy'][b][0],
+                                       pools['fs_xy'][a][1] - pools['fs_xy'][b][1])
+                        if best is None or d < best[0]:
+                            best = (d, a, b)
+                sep, s1_id, s2_id = best
+                ix, iy = pools['is_xy'][is_sid]
+                fcx = (pools['fs_xy'][s1_id][0] + pools['fs_xy'][s2_id][0]) / 2.0
+                fcy = (pools['fs_xy'][s1_id][1] + pools['fs_xy'][s2_id][1]) / 2.0
+                E_IS = pools['is_energies'][is_sid]
+                E_FS = (pools['fs_energies'][s1_id]
+                        + pools['fs_energies'][s2_id] - s1['e_clean'])
+                combo = {
+                    'is_site'       : is_sid,
+                    'is_true_label' : pools.get('is_true_labels', {}).get(is_sid, is_sid),
+                    'fs_site1'      : s1_id,
+                    'fs_site2'      : s2_id,
+                    'fs_true_label1': pools.get('fs_true_labels', {}).get(s1_id, s1_id),
+                    'fs_true_label2': pools.get('fs_true_labels', {}).get(s2_id, s2_id),
+                    'is_xy'         : (ix, iy),
+                    'fs_centroid'   : (fcx, fcy),
+                    'is_fs_dist'    : float(math.hypot(ix - fcx, iy - fcy)),
+                    'E_IS'          : E_IS,
+                    'E_FS'          : E_FS,
+                    'delta_E'       : E_FS - E_IS,
+                    'fs_sep'        : float(sep),
+                    'graph_dist'    : -1,
+                    'label'         : f'{is_sid}__{s1_id}+{s2_id}',
+                }
+                print(f'  Forced pair: IS={is_sid}  FS=({s1_id}, {s2_id})  '
+                      f'sep={sep:.3f} Å')
+                neb_result = orchestrate_neb(
+                    [combo], pools, s1['e_clean'],
+                    outdir=neb_outdir,
+                    slurm_opts={**SLURM_DEFAULTS, **GPU_SLURM},
+                    neb_slurm_opts={**SLURM_DEFAULTS, **NEB_SLURM},
+                    n_images=N_NEB_IMAGES,
+                    neb_ftol=NEB_FTOL,
+                    dry_run=False,
+                    elem_str=ELEM_STR_7,
+                    e2t=E2T_7,
+                    masses=MASSES_7,
+                )
+                n_jobs = neb_result['n_jobs']
+                if n_jobs > 0:
+                    tier = 'fallback_2b_forced_pair'
+            else:
+                print(f'  Pools too small for a forced pair '
+                      f'(IS={len(is_ids)}, FS={len(fs_ids)}).')
+        except Exception:
+            print('  Fallback 2b raised — falling back to hardcoded barriers:')
+            traceback.print_exc()
+
+    # ── Tier 3: graceful skip → Stage 7 uses hardcoded barrier values ────────
+    if n_jobs == 0:
+        print('\n  WARNING: n_jobs=0 after both fallbacks.')
         print('  Likely causes:')
         print('    • All H2* dissociated on the small slab → IS pool empty')
         print('    • No H* with E_ads < 0 at e_h2_gas=0 → FS pool empty')
-        print('    • N_MAX_SITES=3 too small for a valid pair')
         print('  Code paths for pool loading, pair enumeration, and script')
-        print('  generation were all exercised. NEB submission skipped.')
+        print('  generation were all exercised. NEB submission skipped;')
+        print('  Stage 7 will use the hardcoded synthetic barrier values.')
         _check('neb_graceful_empty', True, 'n_jobs=0 handled without crash')
         return dict(n_jobs=0, skipped=True)
 
-    _check('neb_jobs_submitted', True, f'{n_jobs} pair(s) submitted')
+    if tier != 'enumerated':
+        _check('neb_fallback_pair_used', True, tier)
+    _check('neb_jobs_submitted', True, f'{n_jobs} pair(s) submitted [{tier}]')
 
-    # ── Poll for the first job's barrier file ──────────────────────────────
-    barrier_path = neb_result['neb_jobs'][0]['barrier_file']
-    timeout_sec  = NEB_TIMEOUT_H * 3600
-    t0           = time.time()
-
-    print(f'\n  Polling for: {barrier_path}')
-    print(f'  Timeout: {NEB_TIMEOUT_H} h  |  poll every {NEB_POLL_SEC} s')
-
-    while not pathlib.Path(barrier_path).exists():
-        elapsed = time.time() - t0
-        if elapsed > timeout_sec:
-            print(f'\n  TIMEOUT after {elapsed/3600:.1f} h')
-            _check('neb_barrier_within_timeout', False,
-                   f'timed out at {elapsed/3600:.1f} h')
-            return dict(n_jobs=n_jobs, skipped=False, timed_out=True)
-        print(f'  [{time.strftime("%H:%M:%S")}] '
-              f'{elapsed/60:.0f} min elapsed — waiting...')
-        time.sleep(NEB_POLL_SEC)
-
-    _check('neb_barrier_file_written', True, barrier_path)
-
-    barrier = parse_barrier_file(barrier_path)
-    _check('neb_barrier_parseable',
-           bool(barrier) and 'E_abs' in barrier,
-           f"E_abs = {barrier.get('E_abs', 'N/A')} eV")
-    _check('neb_barrier_positive',
-           barrier.get('E_abs', -1.0) > 0,
-           f"E_abs = {barrier.get('E_abs', 'N/A')} eV")
-    _check('neb_converged',
-           barrier.get('converged') is True,
-           f"converged = {barrier.get('converged')}")
-
-    elapsed_min = (time.time() - t0) / 60
-    print(f'  NEB completed in {elapsed_min:.1f} min')
-    return dict(n_jobs=n_jobs, skipped=False, timed_out=False,
-                barrier_path=barrier_path)
+    poll = _poll_and_parse_barrier(neb_result['neb_jobs'][0]['barrier_file'])
+    return dict(n_jobs=n_jobs, skipped=False,
+                timed_out=poll['timed_out'],
+                barrier_path=poll['barrier_path'], tier=tier)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
