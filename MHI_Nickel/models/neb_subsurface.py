@@ -166,6 +166,7 @@ def orchestrate_hopa_neb(
     spring_const: float = 1.0,
     neb_ftol: float = 0.05,
     dry_run: bool = True,
+    z_freeze_cutoff: float | None = None,
 ) -> dict:
     """Write Hop A NEB scripts (surface H* → subsurface-1 oct site).
 
@@ -224,6 +225,15 @@ def orchestrate_hopa_neb(
             'cuda_version': None,
         }
 
+    if z_freeze_cutoff is None:
+        # Auto: bottom 1/3 of the slab the IS structures were built from;
+        # falls back to the config constant if no IS structure is available.
+        if dedup_is_labels and os.path.exists(dedup_is_labels[0][1]):
+            from models.structure import compute_z_freeze_cutoff
+            z_freeze_cutoff = compute_z_freeze_cutoff(dedup_is_labels[0][1])
+        else:
+            z_freeze_cutoff = Z_FREEZE_CUTOFF
+
     G, subsurface_sites = subsurface_graph
     site_lookup = {s['site_id']: s for s in subsurface_sites}
 
@@ -277,7 +287,7 @@ def orchestrate_hopa_neb(
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=elem_str,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             ftol=FTOL,
         )
 
@@ -297,7 +307,7 @@ def orchestrate_hopa_neb(
             n_images=n_images,
             spring_const=spring_const,
             neb_ftol=neb_ftol,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             device='cpu',
             label_is=f'surface:{sid}',
             label_fs=f'sub1:{ss1_id}',
@@ -436,6 +446,7 @@ def orchestrate_hopb_neb(
     spring_const: float = 1.0,
     neb_ftol: float = 0.05,
     dry_run: bool = True,
+    z_freeze_cutoff: float | None = None,
 ) -> dict:
     """Write Hop B NEB scripts (subsurface-1 → subsurface-2 oct site).
 
@@ -493,6 +504,19 @@ def orchestrate_hopb_neb(
             'gpu': None,
             'cuda_version': None,
         }
+
+    if z_freeze_cutoff is None:
+        # Auto: bottom 1/3 of the relaxed Hop A slab; falls back to the
+        # config constant if the structure is not yet available.
+        _first_sub1 = (
+            os.path.join(hopa_outdir, hopa_jobs[0]['sid'], 'sub1_fs_relaxed.lammps')
+            if hopa_jobs else ''
+        )
+        if _first_sub1 and os.path.exists(_first_sub1):
+            from models.structure import compute_z_freeze_cutoff
+            z_freeze_cutoff = compute_z_freeze_cutoff(_first_sub1)
+        else:
+            z_freeze_cutoff = Z_FREEZE_CUTOFF
 
     G, subsurface_sites = subsurface_graph
     site_lookup = {s['site_id']: s for s in subsurface_sites}
@@ -562,7 +586,7 @@ def orchestrate_hopb_neb(
             mace_model=MACE_MODEL_LAMMPS,
             pair_suffix=PAIR_SUFFIX,
             elem_str=elem_str,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             ftol=FTOL,
         )
 
@@ -582,7 +606,7 @@ def orchestrate_hopb_neb(
             n_images=n_images,
             spring_const=spring_const,
             neb_ftol=neb_ftol,
-            z_freeze_cutoff=Z_FREEZE_CUTOFF,
+            z_freeze_cutoff=z_freeze_cutoff,
             device='cpu',
             label_is=f'sub1:{ss1_id}',
             label_fs=f'sub2:{ss2_id}',

@@ -585,6 +585,52 @@ def build_slab(
     return out_path, a0
 
 
+def compute_z_freeze_cutoff(slab_path: str, fraction: float = 1.0 / 3.0) -> float:
+    """
+    Z threshold that freezes the bottom ``fraction`` of the slab thickness.
+
+    Geometry-based replacement for a hardcoded cutoff: works for any layer
+    count and for oxide slabs whose atomic-plane count differs from the
+    ``layers`` argument passed to ``build_slab`` (one primitive repeat unit
+    can contain several planes).
+
+    Parameters
+    ----------
+    slab_path : str
+        Path to the slab LAMMPS data file.
+    fraction : float
+        Fraction of the slab thickness (from the bottom) to freeze.
+        Default 1/3 — for a 12-layer metal slab this freezes the bottom
+        4 layers, matching the historical 22.115 Å cutoff.
+
+    Notes
+    -----
+    For N equally spaced layers this freezes exactly round(N/3) of them
+    (8 → 3, 12 → 4, 13 → 4). The returned cutoff is snapped to the midpoint
+    of the interlayer gap it falls in, so it can never coincide with an
+    atomic plane — a raw thickness/3 cutoff lands exactly ON a plane
+    whenever N ≡ 1 (mod 3), and float noise could then split that layer.
+
+    Returns
+    -------
+    float
+        Z coordinate (Å) below which atoms should be frozen.
+    """
+    atoms = read(slab_path, format='lammps-data', atom_style='atomic')
+    zs = np.sort(atoms.get_positions()[:, 2])
+    raw = float(zs[0] + (zs[-1] - zs[0]) * fraction)
+
+    # Atoms within `pad` below the raw cutoff belong to a plane the cutoff
+    # grazes; count them as free (nearest-whole rule) and snap the cutoff to
+    # the midpoint of the gap between the frozen and free sides.
+    pad = 0.25  # Å — below thermal displacement, above float noise
+    frozen = zs[zs < raw - pad]
+    free   = zs[zs >= raw - pad]
+    if frozen.size and free.size:
+        return float((frozen[-1] + free[0]) / 2.0)
+    return raw
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 6 — Adsorbate placement
 # ═══════════════════════════════════════════════════════════════════════════════
