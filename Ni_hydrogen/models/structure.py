@@ -433,6 +433,37 @@ _CRYSTAL_STRUCT_MAP: dict[str, tuple[str, str]] = {
 }
 
 
+def is_pure_bcc_structure(struct_path: str) -> bool:
+    """True for single-element LAMMPS structures with a BCC crystal template.
+
+    Used to auto-skip pure BCC metals from the surface NEB and permeation
+    stages (Parts 1-2), which are only validated for FCC(111) geometry —
+    see GitHub #6. Detection is structural (via ``_CRYSTAL_STRUCT_MAP``),
+    not filename-based, so any future BCC metal added to a structure list
+    (e.g. Cr, Mo, W, V) is caught automatically. Multi-element structures
+    (alloys, oxides) always return False — they build from a different
+    code path in ``build_slab`` and are unaffected by this check.
+
+    Parameters
+    ----------
+    struct_path : str
+        Path to a LAMMPS data file (atomic style).
+
+    Returns
+    -------
+    bool
+        True if the structure is a single non-H element whose
+        ``_CRYSTAL_STRUCT_MAP`` entry is ``'bcc'``.
+    """
+    atoms = read(struct_path, format='lammps-data', atom_style='atomic')
+    atoms.wrap()
+    non_h = {s for s in atoms.get_chemical_symbols() if s != 'H'}
+    if len(non_h) != 1:
+        return False
+    elem = next(iter(non_h))
+    return _CRYSTAL_STRUCT_MAP.get(elem, (None,))[0] == 'bcc'
+
+
 def build_slab(
     bulk_min_path: str,
     miller: tuple[int, int, int],
