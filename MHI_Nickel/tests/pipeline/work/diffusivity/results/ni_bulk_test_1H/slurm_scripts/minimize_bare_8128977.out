@@ -1,4 +1,4 @@
-Node: d3233  Start: Fri Jul  3 07:28:54 PM EDT 2026
+Node: d3233  Start: Fri Jul  3 08:57:54 PM EDT 2026
 LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
 KOKKOS mode with Kokkos version 5.0.2 is enabled
   using double precision
@@ -10,8 +10,8 @@ Reading data file ...
   1 by 1 by 1 MPI processor grid
   reading atoms ...
   32 atoms
-  read_data CPU = 0.099 seconds
-W0703 19:29:39.901000 1201480 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+  read_data CPU = 0.028 seconds
+W0703 20:58:38.334000 1217480 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
 ### Minimization ###
 
 CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
@@ -45,30 +45,30 @@ WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src
 WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
 Per MPI rank memory allocation (min/avg/max) = 38.61 | 38.61 | 38.61 Mbytes
    Step         PotEng          Fmax          Fnorm          Press          Volume           Lx             Ly             Lz      
-         0  -175.60388      7.9722646e-16  2.5470158e-15 -8514.157       348.91366      7.04           7.04           7.04         
-         5  -175.60777      3.5485937e-15  1.3913712e-14 -1.1342943e-09  347.45394      7.0301687      7.0301687      7.0301687    
-Loop time of 1.12052 on 1 procs for 5 steps with 32 atoms
+         0  -175.60388      5.7179601e-16  1.7642918e-15 -8514.157       348.91366      7.04           7.04           7.04         
+         5  -175.60777      3.7550258e-15  1.3956027e-14 -1.158553e-09   347.45394      7.0301687      7.0301687      7.0301687    
+Loop time of 1.12844 on 1 procs for 5 steps with 32 atoms
 
-97.2% CPU use with 1 MPI tasks x 1 OpenMP threads
+96.3% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
   Stopping criterion = force tolerance
   Energy initial, next-to-last, final = 
      -175.603875712912  -175.607772109304  -175.607772109304
-  Force two-norm initial, final = 5.5625065 7.3912475e-13
-  Force max component initial, final = 5.5625065 7.3899378e-13
-  Final line search alpha, max atom move = 1 7.3899378e-13
+  Force two-norm initial, final = 5.5625065 7.5492737e-13
+  Force max component initial, final = 5.5625065 7.5479836e-13
+  Final line search alpha, max atom move = 1 7.5479836e-13
   Iterations, force evaluations = 5 9
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 1.1076     | 1.1076     | 1.1076     |   0.0 | 98.84
+Pair    | 1.1153     | 1.1153     | 1.1153     |   0.0 | 98.84
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.00053489 | 0.00053489 | 0.00053489 |   0.0 |  0.05
+Comm    | 0.0005573  | 0.0005573  | 0.0005573  |   0.0 |  0.05
 Output  | 0          | 0          | 0          |   0.0 |  0.00
 Modify  | 0          | 0          | 0          |   0.0 |  0.00
-Other   |            | 0.01243    |            |       |  1.11
+Other   |            | 0.01257    |            |       |  1.11
 
 Nlocal:             32 ave          32 max          32 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -89,10 +89,10 @@ MINIMIZATION_RESULTS_START
   Natoms              : 32
   Ecoh_eV_per_atom    : 5.48774287841575
   a0_Angstrom         : 1.40603373460552
-  Fmax_eV_per_Ang     : 3.54859371054506e-15
+  Fmax_eV_per_Ang     : 3.7550258041863e-15
 MINIMIZATION_RESULTS_END
 System init for write_restart ...
 System init for write_data ...
 Minimized structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/bulk_min.lammps
-Total wall time: 0:00:57
-End: Fri Jul  3 07:29:54 PM EDT 2026
+Total wall time: 0:00:54
+End: Fri Jul  3 08:58:52 PM EDT 2026

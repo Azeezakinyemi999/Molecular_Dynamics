@@ -1,49 +1,125 @@
 Working directory: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
-Node: c0625  Start: Fri Jul  3 07:17:51 PM EDT 2026
+Node: c0670  Start: Fri Jul  3 08:44:31 PM EDT 2026
 /home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
-Submitted batch job 8120618
+Submitted batch job 8128631
 /home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
-Submitted batch job 8120690
+Submitted batch job 8128809
 /home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
+  warnings.warn(
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/ase/io/lammpsdata.py:72: FutureWarning: "style" is deprecated; please use "atom_style".
+  warnings.warn(
+/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/diffusivity_post_processing.py:417: RuntimeWarning: invalid value encountered in log
+  y = np.log(D_arr)
+/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/diffusivity_post_processing.py:511: RuntimeWarning: invalid value encountered in log10
+  y_data = np.log10(D_arr)
 
 ============================================================
   Structure : ni_bulk_test   n_H : 1
 ============================================================
 
 --- Phase 1a: Minimise bare bulk ---
-Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/minimize_bare.sh → Job 8120715
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/minimize_bare.sh → Job 8128977
 Waiting for 1 jobs to finish (polling every 60s)...
-  [19:28:21] 0/1 done  — waiting: min_bare(pending)
-  [19:29:21] 0/1 done  — waiting: min_bare(running)
-  [19:30:22] 1/1 done
+  [20:56:58] 0/1 done  — waiting: min_bare(pending)
+  [20:57:58] 0/1 done  — waiting: min_bare(running)
+  [20:58:58] 1/1 done
 All jobs completed.
   [1a] Bare bulk minimisation done.  Output → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/bulk_min.lammps
 
 --- Phase 1b: NPT equilibration at each temperature ---
-Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_600K.sh → Job 8120728
-  Submitted NPT 600K  →  job 8120728
-Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_700K.sh → Job 8120729
-  Submitted NPT 700K  →  job 8120729
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_600K.sh → Job 8129030
+  Submitted NPT 600K  →  job 8129030
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_700K.sh → Job 8129031
+  Submitted NPT 700K  →  job 8129031
   Waiting for 2 NPT jobs ...
 Waiting for 2 jobs to finish (polling every 60s)...
-  [19:30:23] 0/2 done  — waiting: npt_600K(pending) npt_700K(pending)
-  [19:31:23] 1/2 done  — waiting: npt_700K(running)
-  [19:32:23] 1/2 done  — waiting: npt_700K(running)
-  [19:33:24] 2/2 done
+  [20:58:59] 0/2 done  — waiting: npt_600K(pending) npt_700K(pending)
+  [20:59:59] 0/2 done  — waiting: npt_600K(running) npt_700K(pending)
+  [21:00:59] 0/2 done  — waiting: npt_600K(running) npt_700K(pending)
+  [21:02:00] 1/2 done  — waiting: npt_700K(running)
+  [21:03:00] 1/2 done  — waiting: npt_700K(running)
+  [21:04:00] 2/2 done
 All jobs completed.
   All NPT jobs done.
 
 --- Phase 1b (cont.): Insert H and minimise at each temperature ---
+[a0] 1.408605 Å  (mean of last 6 frames, npt_boxdims_600K.dat)
+  [1b] T=600K  a0 = 1.4086 Å
+Bulk supercell : 32 atoms
+Cell           : 7.0600 x 7.0600 x 7.0600 Å
+a₀             : 1.408605 Å
+Octahedral candidates : 125
+  [1b] T=600K  inserted 1 H  min_H-metal=2.000 Å  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/600K/bulk_1H_initial.lammps
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/minimize_h_600K.sh → Job 8129288
+[a0] 1.408674 Å  (mean of last 6 frames, npt_boxdims_700K.dat)
+  [1b] T=700K  a0 = 1.4087 Å
+Bulk supercell : 32 atoms
+Cell           : 7.0617 x 7.0617 x 7.0617 Å
+a₀             : 1.408674 Å
+Octahedral candidates : 125
+  [1b] T=700K  inserted 1 H  min_H-metal=2.000 Å  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/700K/bulk_1H_initial.lammps
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/minimize_h_700K.sh → Job 8129289
+  Waiting for 2 bulk+H minimisation jobs ...
+Waiting for 2 jobs to finish (polling every 60s)...
+  [21:04:01] 0/2 done  — waiting: min_h_600K(pending) min_h_700K(pending)
+  [21:05:01] 0/2 done  — waiting: min_h_600K(running) min_h_700K(pending)
+  [21:06:01] 0/2 done  — waiting: min_h_600K(running) min_h_700K(pending)
+  [21:07:01] 1/2 done  — waiting: min_h_700K(running)
+  [21:08:02] 1/2 done  — waiting: min_h_700K(running)
+  [21:09:02] 2/2 done
+All jobs completed.
+  All bulk+H minimisations done.
+  Saved lattice_params_vs_T.json → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/lattice_params_vs_T.json
+
+--- Phase 2: NVT MD ---
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/600K/nvt_600K_chain.sh → Job 8129446
+  [2] Submitted NVT 600K  →  job 8129446
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/700K/nvt_700K_chain.sh → Job 8129457
+  [2] Submitted NVT 700K  →  job 8129457
+  Waiting for NVT jobs (polling .done sentinels) ...
+  NVT 600K complete
+  NVT 700K complete
+  All NVT jobs done.
+
+--- Phase 3: Post-processing ---
+[parse_dump] 21 frames  1 H atoms  box=7.04x7.04x7.04 Å  (nvt_600K.dump)
+[unwrap] 1 atoms  21 frames  box=7.04×7.04×7.04 Å
+[MSD] 11 origins  10 lags  MSD_max=0.073 Å²
+[D fit] D=-1.6407e-10 m²/s  σ=1.39e-10 m²/s  R²=0.2589
+T=600 K  D=-1.6407e-10 m²/s  σ_D=1.39e-10  R²=0.2589
+  T=600K   D=-1.6407e-10 m2/s   R2=0.2589
+[parse_dump] 21 frames  1 H atoms  box=7.04x7.04x7.04 Å  (nvt_700K.dump)
+[unwrap] 1 atoms  21 frames  box=7.04×7.04×7.04 Å
+[MSD] 11 origins  10 lags  MSD_max=0.578 Å²
+[D fit] D=1.2988e-09 m²/s  σ=4.81e-10 m²/s  R²=0.6460
+T=700 K  D=1.2988e-09 m²/s  σ_D=4.81e-10  R²=0.6460
+  T=700K   D=1.2988e-09 m2/s   R2=0.6460
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/analysis/diffusivity_table.txt
+  D(T) summary: 600K:-1.64e-10 | 700K:1.30e-09
+[diff_file] 2 T points  D=-1.64e-10–1.30e-09 m²/s  (diffusivity_table.txt)
+Arrhenius fit:  Ea = nan ± nan eV  |  D0 = nan ± nan m²/s  |  R² = nan
 Traceback (most recent call last):
-  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/diffusivity_run.py", line 227, in <module>
-    a0_T = get_lattice_parameter_from_dump(_npt_dump_T, n_last=50)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/structure.py", line 169, in get_lattice_parameter_from_dump
-    raise FileNotFoundError(f'{dump_file} not found.')
-FileNotFoundError: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/npt_boxdims_600K.dat not found.
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/diffusivity_run.py", line 434, in <module>
+    arr = run_arrhenius_pipeline(
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/diffusivity_post_processing.py", line 616, in run_arrhenius_pipeline
+    fig = plot_arrhenius(
+          ^^^^^^^^^^^^^^^
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/models/diffusivity_post_processing.py", line 521, in plot_arrhenius
+    ax.errorbar(x_data, y_data, yerr=y_err,
+  File "/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/matplotlib/_api/deprecation.py", line 453, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/matplotlib/__init__.py", line 1524, in inner
+    return func(
+           ^^^^^
+  File "/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/matplotlib/axes/_axes.py", line 3825, in errorbar
+    raise ValueError(
+ValueError: 'yerr' must not contain negative values
 
 ############################################################
-  PIPELINE SMOKE TEST — 2026-07-03 19:18:02
+  PIPELINE SMOKE TEST — 2026-07-03 20:44:41
   Work dir     : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work
   N_MAX_SITES  : 3
   N_NEB_IMAGES : 6  NEB_FTOL=0.1
@@ -63,12 +139,12 @@ FileNotFoundError: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/
   Stage 1: Slab CG minimisation with MACE (GPU SLURM job)
 ============================================================
   Submitting slab minimisation...
-Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_min.sh → Job 8120595
-  Job ID: 8120595  — waiting...
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_min.sh → Job 8128594
+  Job ID: 8128594  — waiting...
 Waiting for 1 jobs to finish (polling every 60s)...
-  [19:18:03] 0/1 done  — waiting: slab_min(pending)
-  [19:19:04] 0/1 done  — waiting: slab_min(running)
-  [19:20:04] 1/1 done
+  [20:44:42] 0/1 done  — waiting: slab_min(pending)
+  [20:45:42] 0/1 done  — waiting: slab_min(running)
+  [20:46:42] 1/1 done
 All jobs completed.
 [energy_log] PE=-58.028152 eV  Fmax=0.0000 eV/Å  (slab_min.log)
   [PASS] slab_relaxed_file — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_relaxed.lammps
@@ -100,12 +176,12 @@ Added H2 above site (2.489, 0.000) at z=16.213 Å
 Added H2 above site (1.245, 2.156) at z=16.213 Å
   z_top slab = 13.713 Å   height = 2.500 Å
 Auto-submit: 3 tasks, queue_max=4, concurrent=2
-  [19:20:05] Queue=0, submitting 0–2
+  [20:46:43] Queue=0, submitting 0–2
 All submitted. Waiting for queue to drain...
-  [19:20:10] 3 tasks remaining...
-  [19:21:10] 3 tasks remaining...
-  [19:22:10] 1 tasks remaining...
-  [19:23:10] 1 tasks remaining...
+  [20:46:48] 3 tasks remaining...
+  [20:47:48] 3 tasks remaining...
+  [20:48:48] 2 tasks remaining...
+  [20:49:49] 1 tasks remaining...
 
 Done.  3/3 tasks completed.
   Array script: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/run_h2_array.sh  (submitted)
@@ -131,12 +207,14 @@ Added H above site (2.489, 0.000) at z=16.213 Å
 Added H above site (1.245, 2.156) at z=16.213 Å
   z_top slab = 13.713 Å   height = 2.500 Å
 Auto-submit: 3 tasks, queue_max=4, concurrent=2
-  [19:24:11] Queue=0, submitting 0–2
+  [20:50:49] Queue=0, submitting 0–2
 All submitted. Waiting for queue to drain...
-  [19:24:16] 3 tasks remaining...
-  [19:25:16] 3 tasks remaining...
-  [19:26:16] 1 tasks remaining...
-  [19:27:17] 1 tasks remaining...
+  [20:50:55] 3 tasks remaining...
+  [20:51:55] 3 tasks remaining...
+  [20:52:55] 2 tasks remaining...
+  [20:53:55] 2 tasks remaining...
+  [20:54:56] 1 tasks remaining...
+  [20:55:56] 1 tasks remaining...
 
 Done.  3/3 tasks completed.
   Array script: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/run_h_array.sh  (submitted)
@@ -218,8 +296,8 @@ SECTION C COMPLETE
 
   Running diffusivity_run.py  (submits GPU sub-jobs and waits) …
   [FAIL] diffusivity_run_exit_0 — exit code 1
-  [FAIL] diff_msd_files_written — 0 msd_*.txt files found
-  [FAIL] diff_table_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/analysis/diffusivity_table.txt
+  [PASS] diff_msd_files_written — 2 msd_*.txt files found
+  [PASS] diff_table_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/analysis/diffusivity_table.txt
   [FAIL] diff_arrhenius_json_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/diffusivity_arrhenius.json
 
 ============================================================
@@ -229,12 +307,12 @@ SECTION C COMPLETE
   E_abs = 0.300 eV   E_des = 0.500 eV   T = 700 K
   [PASS] tst_k_entry_positive — k_entry = 6.920e+10 s⁻¹
   [PASS] tst_detailed_balance — k_fwd/k_rev = 2.7538e+01  expected 2.7538e+01
-[KMC] converged=True  steps=229  t=1.549e-10 s  θ=0.9313  C0=3.040e+28 atoms/m³
-  P=1.00e+04 Pa | θ=0.9313 | C0=3.040e+28 atoms/m³ | J=4.009e+24 atoms/m²/s | converged=True
-[KMC] converged=True  steps=144  t=8.537e-11 s  θ=0.9375  C0=3.243e+28 atoms/m³
+[KMC] converged=True  steps=156  t=1.636e-10 s  θ=0.9400  C0=2.837e+28 atoms/m³
+  P=1.00e+04 Pa | θ=0.9400 | C0=2.837e+28 atoms/m³ | J=3.741e+24 atoms/m²/s | converged=True
+[KMC] converged=True  steps=154  t=1.328e-10 s  θ=0.9375  C0=3.243e+28 atoms/m³
   P=1.00e+05 Pa | θ=0.9375 | C0=3.243e+28 atoms/m³ | J=4.276e+24 atoms/m²/s | converged=True
-[KMC] converged=True  steps=174  t=1.726e-10 s  θ=0.9387  C0=3.040e+28 atoms/m³
-  P=1.00e+06 Pa | θ=0.9387 | C0=3.040e+28 atoms/m³ | J=4.009e+24 atoms/m²/s | converged=True
+[KMC] converged=True  steps=183  t=1.327e-10 s  θ=0.9413  C0=3.040e+28 atoms/m³
+  P=1.00e+06 Pa | θ=0.9413 | C0=3.040e+28 atoms/m³ | J=4.009e+24 atoms/m²/s | converged=True
   [PASS] kmc_flux_positive — 3/3 pressures give J > 0
   [PASS] kmc_C0_positive — 3/3 pressures give C0 > 0
 [S0 opt1] S0=9.171e+28 atoms·m⁻³·Pa⁻⁰·⁵  (a0=3.5200 Å)
@@ -246,9 +324,9 @@ SECTION C COMPLETE
 ============================================================
   SUMMARY
 ============================================================
-  Wall time : 15.4 min (0.26 h)
-  Passed    : 24
-  Failed    : 4
+  Wall time : 30.4 min (0.51 h)
+  Passed    : 26
+  Failed    : 2
     [PASS] slab_raw_written
     [PASS] slab_relaxed_file
     [PASS] slab_log_parsed
@@ -267,6 +345,8 @@ SECTION C COMPLETE
     [PASS] neb_graceful_empty
     [PASS] diff_bulk_written
     [PASS] diffusivity_run_py_written
+    [PASS] diff_msd_files_written
+    [PASS] diff_table_written
     [PASS] tst_k_entry_positive
     [PASS] tst_detailed_balance
     [PASS] kmc_flux_positive
@@ -274,9 +354,7 @@ SECTION C COMPLETE
     [PASS] permeability_positive
     [PASS] permeation_summary_written
     [FAIL] diffusivity_run_exit_0
-    [FAIL] diff_msd_files_written
-    [FAIL] diff_table_written
     [FAIL] diff_arrhenius_json_written
 
   Summary written → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/summary.txt
-End: Fri Jul  3 07:33:25 PM EDT 2026  Exit code: 1
+End: Fri Jul  3 09:15:06 PM EDT 2026  Exit code: 1

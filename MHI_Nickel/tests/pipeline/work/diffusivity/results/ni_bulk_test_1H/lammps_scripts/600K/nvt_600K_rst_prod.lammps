@@ -1,0 +1,58 @@
+log            /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K.log  append
+
+# LAMMPS NVT bulk PROD-PHASE RESTART
+# T = 600 K  |  mid-production continuation
+# Skips equilibration; continues production from checkpoint.
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p p
+
+# Resume from most recent production-phase checkpoint.
+read_restart   /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/checkpoints/nvt_600K.*.restart
+
+restart        1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/checkpoints/nvt_600K.*.restart
+
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+group          H_atom  type 8
+group          metal   subtract all H_atom
+
+thermo         100
+thermo_style   custom step temp pe ke etotal press vol
+
+timestep       0.001
+
+# === PHASE 2: Continue Production ===
+dump           prod_dump  all  custom  100  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K.dump &
+               id type x y z
+dump_modify    prod_dump  sort id  append yes
+
+fix            nvt_prod  all  nvt  temp  600.0  600.0  0.1
+
+compute        msd_H     H_atom  msd
+fix            msd_prod  all  ave/time  1  1  100 &
+               c_msd_H[4]  file  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/msd_600K_prod.dat  mode scalar  append yes
+
+print "### Phase 2: Production continuation at 600 K (restart) ###"
+run            2500  upto
+print "### Phase 2 complete ###"
+
+variable  pe_final   equal  pe
+variable  temp_fin   equal  temp
+variable  press_fin  equal  press
+
+print "EQUIL_RESULTS_START"
+print "  T_K          : 600"
+print "  pe_final_eV  : ${pe_final}"
+print "  temp_final_K : ${temp_fin}"
+print "  press_final  : ${press_fin}"
+print "EQUIL_RESULTS_END"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K_phase2_prod.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/600K/nvt_600K.out
