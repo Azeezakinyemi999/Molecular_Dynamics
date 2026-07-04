@@ -632,7 +632,7 @@ class TestBuildSlabOxide:
                        masses=masses_nio, e2t=e2t_nio, out_path=out,
                        metal_type='oxide')
             z = ase_read(out, format='lammps-data',
-                         style='atomic').get_positions()[:, 2]
+                         atom_style='atomic').get_positions()[:, 2]
             thicknesses.append(float(z.max() - z.min()))
         assert thicknesses[0] == pytest.approx(thicknesses[1], abs=1e-6)
         assert abs(thicknesses[0] - 22.0) < 4.0

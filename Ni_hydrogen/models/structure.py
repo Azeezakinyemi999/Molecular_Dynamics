@@ -129,7 +129,7 @@ def get_lattice_parameter(
     """
     if not os.path.exists(bulk_min_path):
         raise FileNotFoundError(f'{bulk_min_path} not found.')
-    atoms = read(bulk_min_path, format='lammps-data', style='atomic')
+    atoms = read(bulk_min_path, format='lammps-data', atom_style='atomic')
     atoms.wrap()
     Lx = atoms.cell.lengths()[0]
     a0 = Lx / supercell_reps[0]
@@ -355,7 +355,7 @@ def insert_hydrogen(
         raise FileNotFoundError(f'{bulk_min_path} not found.')
 
     # ── Load minimized bulk ───────────────────────────────────────────────────
-    bulk_atoms = read(bulk_min_path, format='lammps-data', style='atomic')
+    bulk_atoms = read(bulk_min_path, format='lammps-data', atom_style='atomic')
     bulk_atoms.wrap()
     bulk_pos   = bulk_atoms.get_positions()
     bulk_syms  = np.array(bulk_atoms.get_chemical_symbols())
@@ -500,7 +500,7 @@ def build_slab(
     """
     from collections import Counter
 
-    bulk_atoms = read(bulk_min_path, format='lammps-data', style='atomic')
+    bulk_atoms = read(bulk_min_path, format='lammps-data', atom_style='atomic')
     bulk_atoms.wrap()
     bulk_syms = bulk_atoms.get_chemical_symbols()
     hkl_str   = ''.join(map(str, miller))
@@ -742,7 +742,7 @@ def add_adsorbate(
     if not os.path.exists(slab_path):
         raise FileNotFoundError(f'{slab_path} not found.')
 
-    slab = read(slab_path, format='lammps-data', style='atomic')
+    slab = read(slab_path, format='lammps-data', atom_style='atomic')
     slab.wrap()
     slab_pos  = slab.get_positions()
     slab_syms = list(slab.get_chemical_symbols())
@@ -839,7 +839,7 @@ def build_fs_raw_structure(
     if not os.path.exists(is_lammps):
         raise FileNotFoundError(f'{is_lammps} not found.')
 
-    slab     = read(is_lammps, format='lammps-data', style='atomic')
+    slab     = read(is_lammps, format='lammps-data', atom_style='atomic')
     slab.wrap()
     pos      = slab.get_positions()
     syms     = np.array(slab.get_chemical_symbols())
