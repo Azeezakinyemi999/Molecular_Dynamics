@@ -303,6 +303,8 @@ def run_phase3_site_enumeration(
     outdir: str,
     seed: int = 7,
     bond_cutoff: float = 3.2,
+    metal_type: str = 'alloy',
+    n_layers_total: int = 12,
 ) -> tuple[str, int]:
     """
     Section A Phase 3: Enumerate all high-symmetry adsorption sites via ACAT.
@@ -325,6 +327,11 @@ def run_phase3_site_enumeration(
         Random seed for ACAT enumeration. Default 7.
     bond_cutoff : float
         Bond distance cutoff for connectivity (Å). Default 3.2.
+    metal_type : str
+        'alloy'/'pure' → ACAT enumeration (unchanged); 'oxide' → geometric
+        ontop + M–O bridge enumeration. Default 'alloy'.
+    n_layers_total : int
+        Total atomic-plane count of the slab (metal path only). Default 12.
 
     Returns
     -------
@@ -339,6 +346,8 @@ def run_phase3_site_enumeration(
         relaxed_slab_path,
         seed=seed,
         bond_cutoff=bond_cutoff,
+        metal_type=metal_type,
+        n_layers_total=n_layers_total,
     )
     
     # Compute site environments (Level-1 and Level-2 neighbors)
@@ -516,6 +525,8 @@ def orchestrate_slab_prep(
         outdir=str(phase3_dir),
         seed=slab_seed,
         bond_cutoff=3.2,
+        metal_type=metal_type,
+        n_layers_total=layers,
     )
     
     result = {
