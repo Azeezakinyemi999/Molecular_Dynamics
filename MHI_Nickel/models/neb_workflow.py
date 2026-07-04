@@ -1438,7 +1438,7 @@ def enumerate_fs_pairs(
     e_clean: float,
     outdir: str,
     sep_min: float = 2.5,
-    sep_max: float = 6.0,
+    sep_max: float = 5.0,
     graph_dist_min: int = 2,
 ) -> list:
     """
@@ -1446,7 +1446,7 @@ def enumerate_fs_pairs(
 
     Filters applied per pair (s1, s2):
         - Both sites have valid XY coords and E_ads < 0.
-        - XY Euclidean separation: sep_min ≤ sep ≤ sep_max  (2.5–6.0 Å).
+        - XY Euclidean separation: sep_min ≤ sep ≤ sep_max  (2.5–5.0 Å).
         - graph_dist ≥ graph_dist_min (2) — rejects nearest-neighbour pairs.
           graph_dist = -1 (disconnected in site graph) is accepted.
 
@@ -2117,7 +2117,7 @@ def orchestrate_neb_pipeline(
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
     sep_min: float = 2.5,
-    sep_max: float = 6.0,
+    sep_max: float = 5.0,
     graph_dist_min: int = 2,
     prox_cutoff: float = 5.0,
     n_images: int = 18,
@@ -2151,7 +2151,7 @@ def orchestrate_neb_pipeline(
     neb_slurm_opts : dict, optional
         CPU SLURM config for ASE NEB. Default: short partition, no GPU.
     sep_min, sep_max : float
-        FS pair XY separation bounds (Å). Default 2.5–6.0.
+        FS pair XY separation bounds (Å). Default 2.5–5.0.
     graph_dist_min : int
         Minimum graph distance for FS pairs. Default 2.
     prox_cutoff : float
@@ -2278,7 +2278,7 @@ def orchestrate_full_neb_workflow(
     z_freeze_cutoff: float = 22.115,
     surf_timestep: float = 0.0005,
     sep_min: float = 2.5,
-    sep_max: float = 6.0,
+    sep_max: float = 5.0,
     graph_dist_min: int = 2,
     prox_cutoff: float = 5.0,
     n_images: int = 18,
