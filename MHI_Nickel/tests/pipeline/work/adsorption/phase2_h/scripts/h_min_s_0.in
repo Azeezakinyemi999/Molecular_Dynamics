@@ -17,8 +17,8 @@ pair_coeff     * * Al B C Cr Fe Mo Ni H
 neighbor       2.0 bin
 neigh_modify   every 1 delay 0 check yes
 
-# ── Freeze bottom layers (z ≤ 10.877039427763766 Å) ─────────────────────────────
-region         frozen_reg   block  INF INF  INF INF  EDGE  10.877039427763766
+# ── Freeze bottom layers (z ≤ 10.877039427763764 Å) ─────────────────────────────
+region         frozen_reg   block  INF INF  INF INF  EDGE  10.877039427763764
 group          frozen_atoms region frozen_reg
 group          free_atoms   subtract all frozen_atoms
 
