@@ -212,6 +212,15 @@ class TestGeneratePermeationScripts:
         assert 'from models.tst_rates import' in content
         assert 'from models.permeation import' in content
 
+    def test_connect_to_surface_cell_is_flattened(self, gen_result):
+        """Regression test: connect_to_surface/_periodic_xy_distance expect
+        a flat [Lx, Ly, Lz] array. ase.Atoms.get_cell() alone returns a 3x3
+        Cell object, whose cell[0] is a row vector, not a scalar -- this
+        crashed with 'TypeError: type numpy.ndarray doesn't define
+        __round__ method' the first time this script ever actually ran."""
+        _, _, content = gen_result
+        assert '_slab_atoms.get_cell().diagonal()' in content
+
     def test_all_six_phase_labels_in_body(self, gen_result):
         _, _, content = gen_result
         for phase in ('Phase 1', 'Phase 2', 'Phase 3',
