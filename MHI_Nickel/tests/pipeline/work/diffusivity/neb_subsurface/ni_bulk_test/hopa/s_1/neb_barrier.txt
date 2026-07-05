@@ -1,0 +1,21 @@
+IS          : surface:s_1
+FS          : sub1:ss_15
+N images    : 8 (6 intermediate + IS + FS)
+fmax_final  : 1.3967 eV/A
+Converged   : True
+
+E_IS    = 0.000000 eV
+E_FS    = -124.958163 eV
+E_abs   = 0.0000 eV
+E_des   = 124.9582 eV
+delta_E = -124.9582 eV
+
+Image energies:
+  IS    : 0.000000 eV  (+0.0000 eV)
+  img_1 : -125.224994 eV  (-125.2250 eV)
+  img_2 : -124.169264 eV  (-124.1693 eV)
+  img_3 : -123.368941 eV  (-123.3689 eV)
+  img_4 : -123.157344 eV  (-123.1573 eV)
+  img_5 : -123.541463 eV  (-123.5415 eV)
+  img_6 : -124.017601 eV  (-124.0176 eV)
+  FS    : -124.958163 eV  (-124.9582 eV)

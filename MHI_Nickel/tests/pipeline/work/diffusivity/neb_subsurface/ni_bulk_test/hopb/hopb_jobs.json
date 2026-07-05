@@ -1,0 +1,44 @@
+[
+  {
+    "sid": "s_0",
+    "ss1_id": "ss_3",
+    "ss2_id": "ss_22",
+    "hopb_is": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_0/sub1_fs_relaxed.lammps",
+    "e_is": -124.8649468604,
+    "sub2_xyz": [
+      4.978031739588554,
+      4.7408256424061195,
+      16.734965630944075
+    ],
+    "fs_raw": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/sub2_fs_raw.lammps",
+    "fs_relaxed": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/sub2_fs_relaxed.lammps",
+    "fsmin_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/min_fs.lammps",
+    "neb_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/run_hopb.py",
+    "fsmin_sh": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/slurm_fsmin_s_0.sh",
+    "neb_sh": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/slurm_neb_s_0.sh",
+    "barrier_file": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/neb_barrier.txt",
+    "path_file": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/neb_path.dat",
+    "job_dir": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0"
+  },
+  {
+    "sid": "s_1",
+    "ss1_id": "ss_15",
+    "ss2_id": "ss_6",
+    "hopb_is": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_1/sub1_fs_relaxed.lammps",
+    "e_is": -124.958162702314,
+    "sub2_xyz": [
+      2.489015869762106,
+      4.740825642392983,
+      16.73496563090338
+    ],
+    "fs_raw": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/sub2_fs_raw.lammps",
+    "fs_relaxed": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/sub2_fs_relaxed.lammps",
+    "fsmin_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/min_fs.lammps",
+    "neb_script": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/run_hopb.py",
+    "fsmin_sh": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/slurm_fsmin_s_1.sh",
+    "neb_sh": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/slurm_neb_s_1.sh",
+    "barrier_file": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/neb_barrier.txt",
+    "path_file": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/neb_path.dat",
+    "job_dir": "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1"
+  }
+]
