@@ -133,6 +133,53 @@ def test_metal_hopb_sub1_sub2_edges(tmp_path):
     assert all(s['site_type'] in ('oct', 'tet') for s in sub_sites)
 
 
+def test_metal_hopb_auto_derivation_matches_historical_10_11(tmp_path):
+    """N=12 must auto-derive subsurface_layers=(10, 11) — the historical
+    hardcoded default — through the REAL build_subsurface_graph(), not a
+    reimplementation of the formula."""
+    slab = fcc111('Ni', size=(2, 2, 12), vacuum=10.0)
+    slab_path, sites_path = _write_slab_and_sites(tmp_path, slab, 'ni12b')
+
+    _, sub_sites = build_subsurface_graph(slab_path, sites_path, seed=42)
+
+    layer_numbers = {s['layer_classification']: s['layer_number']
+                     for s in sub_sites}
+    assert layer_numbers.get('subsurface_1') == 11
+    assert layer_numbers.get('subsurface_2') == 10
+
+
+def test_metal_thin_slab_warns_and_degrades_without_crashing(tmp_path, capsys):
+    """N=3: n_frozen=round(3/3)=1, subsurface_1=2 (valid), subsurface_2=1
+    (collides with the frozen bottom layer). build_subsurface_graph must
+    warn, drop subsurface_2 entirely, and keep working for subsurface_1 —
+    not crash. This is the exact degenerate case the old smoke test's
+    3-layer slab hit silently before the Bug 14 fix (this is what
+    justified raising the smoke test's SLAB_LAYERS from 3 to 6)."""
+    slab = fcc111('Ni', size=(2, 2, 3), vacuum=10.0)
+    slab_path, sites_path = _write_slab_and_sites(tmp_path, slab, 'ni3')
+
+    G, sub_sites = build_subsurface_graph(slab_path, sites_path, seed=42)
+    captured = capsys.readouterr()
+
+    assert 'WARNING' in captured.out
+    assert 'subsurface_2' in captured.out
+
+    lc = {s['layer_classification'] for s in sub_sites}
+    assert 'subsurface_1' in lc
+    assert 'subsurface_2' not in lc   # dropped, not silently mis-assigned
+
+    # Hop B has no edges — degraded, not crashed
+    assert _count_edges(G, 'subsurface-subsurface') == 0
+
+    # find_sub2_neighbor must raise per-job (the existing, already-tested
+    # graceful-skip behaviour in orchestrate_hopb_neb), not crash the graph
+    from models.neb_subsurface import find_sub2_neighbor
+    sub1 = [s for s in sub_sites if s['layer_classification'] == 'subsurface_1']
+    assert sub1
+    with pytest.raises(ValueError, match='No subsurface_2 neighbor'):
+        find_sub2_neighbor(G, sub1[0]['site_id'], sub_sites)
+
+
 # ─── oxide path ───────────────────────────────────────────────────────────────
 
 def _nio_rocksalt_slab():
