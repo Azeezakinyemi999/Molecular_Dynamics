@@ -7,13 +7,16 @@ Covers:
   _hms_to_seconds           — 'HH:MM:SS' / 'D-HH:MM:SS' → int seconds
   write_slurm_job           — single-job SLURM script writer (all modes)
   write_chained_slurm_job   — edge cases not covered by test_nvt_restart.py
+  check_jobs                — squeue parsing, incl. SLURM array job ids
 
-All tests are offline — no sbatch, no squeue, no cluster.
+All tests are offline — no sbatch, no squeue, no cluster (subprocess.run
+is mocked for check_jobs tests).
 """
 
 import os
 import stat
 import sys
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -23,6 +26,7 @@ sys.path.insert(0, PROJECT_ROOT)
 from models.create_slurm import (
     write_slurm_job,
     write_chained_slurm_job,
+    check_jobs,
     _hms_to_seconds,
 )
 
@@ -506,3 +510,70 @@ class TestWriteChainedSlurmJobEdgeCases:
         assert 'N_EQUIL=2000000' in content
         assert 'LAST_STEP=' in content
         assert '"$LAST_STEP" -lt "$N_EQUIL"' in content
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# check_jobs — squeue parsing, including SLURM array job ids
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _mock_squeue(stdout):
+    return patch('models.create_slurm.subprocess.run',
+                 return_value=MagicMock(stdout=stdout))
+
+
+class TestCheckJobsArrayIds:
+    """Regression tests for a real bug found on the cluster: an array job
+    submitted via write_slurm_job(array_range=...) is tracked by its bare
+    parent job id (e.g. '8175100'), but squeue reports each array TASK as
+    '<jid>_<task_id>' (or a compact pending range '<jid>_[0-2]') -- the
+    bare id never appears verbatim. check_jobs' exact-match lookup missed
+    this entirely, so wait_for_jobs() returned 'done' on its very first
+    poll for any array submission, even with every task still queued —
+    Hop A/B NEB's real barriers were silently collected before the NEB
+    jobs had actually finished."""
+
+    def test_array_job_fully_running_is_not_done(self):
+        with _mock_squeue('8175100_1 RUNNING\n8175100_2 PENDING\n8175100_3 RUNNING\n'):
+            statuses = check_jobs({'hopa_neb': '8175100'}, verbose=False)
+        assert statuses['hopa_neb'] != 'done'
+
+    def test_array_job_compact_pending_range_is_not_done(self):
+        # SLURM shows an untouched pending array as one compact line
+        # before any task has started.
+        with _mock_squeue('8175100_[1-3] PENDING\n'):
+            statuses = check_jobs({'hopa_neb': '8175100'}, verbose=False)
+        assert statuses['hopa_neb'] != 'done'
+
+    def test_array_job_all_tasks_finished_is_done(self):
+        with _mock_squeue(''):
+            statuses = check_jobs({'hopa_neb': '8175100'}, verbose=False)
+        assert statuses['hopa_neb'] == 'done'
+
+    def test_array_job_partially_finished_is_not_done(self):
+        # 1 of 3 tasks left the queue; 2 still remain -- must still wait.
+        with _mock_squeue('8175100_2 RUNNING\n'):
+            statuses = check_jobs({'hopa_neb': '8175100'}, verbose=False)
+        assert statuses['hopa_neb'] != 'done'
+
+    def test_non_array_job_running_unaffected(self):
+        with _mock_squeue('999999 RUNNING\n'):
+            statuses = check_jobs({'slab_min': '999999'}, verbose=False)
+        assert statuses['slab_min'] == 'running'
+
+    def test_non_array_job_done_unaffected(self):
+        with _mock_squeue(''):
+            statuses = check_jobs({'slab_min': '999999'}, verbose=False)
+        assert statuses['slab_min'] == 'done'
+
+    def test_does_not_confuse_unrelated_job_id_prefix(self):
+        # '81751000' must not be mistaken for a task of array '8175100'.
+        with _mock_squeue('81751000 RUNNING\n'):
+            statuses = check_jobs({'hopa_neb': '8175100'}, verbose=False)
+        assert statuses['hopa_neb'] == 'done'
+
+    def test_mixed_array_and_non_array_jobs_tracked_independently(self):
+        with _mock_squeue('8175100_1 RUNNING\n999999 RUNNING\n'):
+            statuses = check_jobs(
+                {'hopa_neb': '8175100', 'slab_min': '999999'}, verbose=False)
+        assert statuses['hopa_neb'] != 'done'
+        assert statuses['slab_min'] != 'done'
