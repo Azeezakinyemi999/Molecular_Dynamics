@@ -5,12 +5,14 @@ Parsers for LAMMPS output files produced by this project's workflow.
 
 Public API
 ----------
-parse_minimization_log      NB02 — .log from energy minimization
-parse_surface_relaxation_log NB04 — .log from surface relaxation
-parse_equil_log             NB10 — .log from NVT bulk equilibration
-parse_thermo_series         NB10 — thermo columns from any LAMMPS log
-parse_lammps_dump           NB11 — .lammpstrj trajectory
-parse_diffusivity_file      NB12 — tabular D(T) results file
+parse_minimization_log        NB02 — .log from energy minimization
+parse_surface_relaxation_log  NB04 — .log from surface relaxation
+parse_equil_log               NB10 — .log from NVT bulk equilibration
+parse_energy_log              NB05/NB06 — adsorbate minimization log
+parse_dissociated_h2_log      NB05 — dissociative H2 minimization log
+parse_thermo_series           NB10 — thermo columns from any LAMMPS log
+parse_lammps_dump             NB11 — .lammpstrj trajectory
+parse_diffusivity_file        NB12 — tabular D(T) results file
 """
 
 from __future__ import annotations
@@ -270,6 +272,111 @@ def parse_energy_log(logfile):
         _Fmax = results.get('fmax_eV_per_Ang', float('nan'))
         print(f'[energy_log] PE={_PE:.6f} eV  Fmax={_Fmax:.4f} eV/Å  ({os.path.basename(logfile)})')
     return results if results else None
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Standalone — dissociative H2 adsorption log reader
+# ════════════════════════════════════════════════════════════════════════════
+
+def parse_dissociated_h2_log(logfile: str) -> dict | None:
+    """Extract initial/final energies and optional local barrier from a
+    dissociative-H2 minimization log.
+
+    When H2 dissociates spontaneously during energy minimization (i.e. the
+    H–H distance after relaxation exceeds the intact threshold), no NEB is
+    needed.  This function reads the per-step ``PotEng`` thermo output to
+    recover:
+
+    * ``e_initial_eV`` — potential energy at step 0 (H2 placed above surface).
+    * ``e_final_eV``   — potential energy at the last recorded thermo step
+      (= fully dissociated state).
+    * ``delta_e_eV``   — ``e_final_eV - e_initial_eV`` (reaction energy).
+    * ``e_max_eV``     — highest PE observed in the trajectory; equals
+      ``e_initial_eV`` if the energy decreases monotonically.
+    * ``apparent_barrier_eV`` — ``e_max_eV - e_initial_eV``; zero when the
+      relaxation is downhill throughout (option-2 sanity-check proxy).
+    * ``has_local_max`` — ``True`` if the trajectory contains a PE value
+      strictly above the initial energy (i.e. a non-zero apparent barrier).
+
+    Parameters
+    ----------
+    logfile : str
+        Path to the LAMMPS ``.log`` file produced by
+        ``models.lammps_script.write_adsorbate_min_script``.
+
+    Returns
+    -------
+    dict or None
+        Keys as described above.  Returns ``None`` if the file is absent,
+        cannot be parsed, or the thermo block contains fewer than two rows.
+
+    Notes
+    -----
+    The thermo header written by ``write_adsorbate_min_script`` is::
+
+        thermo_style   custom  step  pe  fmax  fnorm  press
+
+    so the ``PotEng`` column (``pe`` in the internal col_map) is the second
+    column (index 1 after the step column).
+    """
+    if not os.path.exists(logfile):
+        return None
+
+    pe_series: list[float] = []
+    in_thermo = False
+    pe_col_idx: int | None = None
+
+    _end_tokens = ('Loop time', 'Minimization stats', 'WARNING', 'CITE',
+                   '### Minimization complete')
+
+    with open(logfile) as f:
+        for raw in f:
+            line = raw.strip()
+
+            # thermo header
+            if line.startswith('Step'):
+                headers = line.split()
+                if 'PotEng' in headers:
+                    pe_col_idx = headers.index('PotEng')
+                    in_thermo = True
+                continue
+
+            # thermo end
+            if in_thermo and any(line.startswith(t) for t in _end_tokens):
+                in_thermo = False
+
+            # thermo data
+            if in_thermo and pe_col_idx is not None and line and line[0].isdigit():
+                parts = line.split()
+                if len(parts) > pe_col_idx:
+                    try:
+                        pe_series.append(float(parts[pe_col_idx]))
+                    except ValueError:
+                        pass
+
+    if len(pe_series) < 2:
+        return None
+
+    e_initial = pe_series[0]
+    e_final   = pe_series[-1]
+    e_max     = max(pe_series)
+    delta_e   = e_final - e_initial
+    apparent_barrier = e_max - e_initial
+    has_local_max    = apparent_barrier > 0.0
+
+    print(f'[diss_log] E_i={e_initial:.4f}  E_f={e_final:.4f}  '
+          f'dE={delta_e:.4f}  E_bar={apparent_barrier:.4f} eV'
+          f'  ({os.path.basename(logfile)})')
+    return {
+        'e_initial_eV'       : e_initial,
+        'e_final_eV'         : e_final,
+        'delta_e_eV'         : delta_e,
+        'e_max_eV'           : e_max,
+        'apparent_barrier_eV': apparent_barrier,
+        'has_local_max'      : has_local_max,
+    }
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # Standalone — thermo column reader
 # ════════════════════════════════════════════════════════════════════════════

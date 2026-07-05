@@ -38,6 +38,7 @@ from models.neb_workflow import (
     collect_neb_results,
     plot_barrier_heatmap,
     plot_mep_overlay,
+    resolve_dissociated_adsorption,
 )
 
 
@@ -456,3 +457,208 @@ class TestPlotMepOverlay:
         assert result is not None
         assert pathlib.Path(result).exists()
         assert result.endswith('mep_overlay.png')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. resolve_dissociated_adsorption
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Synthetic adsorbate minimization log — H2 dissociates monotonically
+_DISS_MIN_LOG = """\
+LAMMPS (29 Sep 2021)
+
+Step PotEng Fmax Fnorm Press
+0 -1200.0 5.20 8.10 10.0
+100 -1210.0 2.10 3.50 9.5
+200 -1220.0 0.12 0.18 9.0
+Loop time of 8.0
+
+### Minimization complete ###
+
+  pe_final_eV     : -1220.0
+  fmax_eV_per_Ang : 0.12
+  natoms          : 362
+"""
+
+# Synthetic log with a brief energy hump above E_initial
+_DISS_MIN_LOG_BARRIER = """\
+LAMMPS (29 Sep 2021)
+
+Step PotEng Fmax Fnorm Press
+0 -1200.0 5.20 8.10 10.0
+50 -1198.5 4.80 7.50 10.1
+100 -1210.0 2.10 3.50 9.5
+200 -1220.0 0.12 0.18 9.0
+Loop time of 8.0
+
+### Minimization complete ###
+
+  pe_final_eV     : -1220.0
+  fmax_eV_per_Ang : 0.12
+  natoms          : 362
+"""
+
+
+def _make_phase1_h2_dir(tmp_path, sites: dict) -> pathlib.Path:
+    """Create a minimal phase1_h2 dir with dissociated pool JSON and log files.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+    sites : dict
+        {site_id: (log_content, centroid, E_ads, true_label)}
+    """
+    p1 = tmp_path / 'phase1_h2'
+    result_dir = p1 / 'results'
+    result_dir.mkdir(parents=True)
+
+    diss_pool = {}
+    for sid, (log_txt, centroid, e_ads, true_label) in sites.items():
+        # write log file
+        (result_dir / f'h2_min_{sid}.log').write_text(log_txt)
+        diss_pool[sid] = {
+            'status'    : 'dissociated',
+            'centroid'  : centroid,
+            'E_ads'     : e_ads,
+            'true_label': true_label,
+        }
+
+    (p1 / 'H2_dissociated_pool.json').write_text(
+        json.dumps(diss_pool, indent=2)
+    )
+    return p1
+
+
+class TestResolveDisociatedAdsorption:
+
+    @pytest.fixture()
+    def two_site_result(self, tmp_path):
+        p1 = _make_phase1_h2_dir(tmp_path, {
+            's_4' : (_DISS_MIN_LOG,         [1.0, 2.0, 15.0], -0.5, 'Ni_atop'),
+            's_13': (_DISS_MIN_LOG_BARRIER,  [3.0, 4.0, 15.0], -0.3, 'Ni_bridge'),
+        })
+        return resolve_dissociated_adsorption(str(p1))
+
+    # ── return type ──────────────────────────────────────────────────────────
+
+    def test_returns_dict(self, two_site_result):
+        assert isinstance(two_site_result, dict)
+
+    def test_required_top_level_keys(self, two_site_result):
+        for key in ('results', 'n_resolved', 'n_failed', 'results_json'):
+            assert key in two_site_result
+
+    # ── counts ───────────────────────────────────────────────────────────────
+
+    def test_n_resolved_matches_parseable_sites(self, two_site_result):
+        assert two_site_result['n_resolved'] == 2
+
+    def test_n_failed_zero_when_all_logs_present(self, two_site_result):
+        assert two_site_result['n_failed'] == 0
+
+    # ── results list ─────────────────────────────────────────────────────────
+
+    def test_results_length(self, two_site_result):
+        assert len(two_site_result['results']) == 2
+
+    def test_ea_is_zero_for_all(self, two_site_result):
+        for r in two_site_result['results']:
+            assert r['Ea'] == 0.0
+
+    def test_status_is_dissociated_barrierless(self, two_site_result):
+        for r in two_site_result['results']:
+            assert r['status'] == 'dissociated_barrierless'
+
+    def test_delta_e_extracted_from_log(self, two_site_result):
+        # both logs go from -1200.0 to -1220.0 → delta_E = -20.0
+        for r in two_site_result['results']:
+            import math
+            assert math.isclose(r['delta_E'], -20.0)
+
+    def test_label_contains_site_id(self, two_site_result):
+        labels = {r['label'] for r in two_site_result['results']}
+        assert any('s_4' in lbl for lbl in labels)
+        assert any('s_13' in lbl for lbl in labels)
+
+    def test_label_contains_dissociated_suffix(self, two_site_result):
+        for r in two_site_result['results']:
+            assert 'DISSOCIATED' in r['label']
+
+    # ── monotonic vs apparent-barrier sites ──────────────────────────────────
+
+    def test_monotonic_site_has_no_local_max(self, two_site_result):
+        s4 = next(r for r in two_site_result['results'] if 's_4' in r['label'])
+        assert s4['has_local_max'] is False
+        import math
+        assert math.isclose(s4['apparent_barrier_eV'], 0.0)
+
+    def test_barrier_site_has_local_max(self, two_site_result):
+        s13 = next(r for r in two_site_result['results'] if 's_13' in r['label'])
+        assert s13['has_local_max'] is True
+        assert s13['apparent_barrier_eV'] > 0.0
+
+    # ── results_json written ──────────────────────────────────────────────────
+
+    def test_results_json_created(self, two_site_result, tmp_path):
+        assert pathlib.Path(two_site_result['results_json']).exists()
+
+    def test_results_json_is_valid(self, two_site_result):
+        with open(two_site_result['results_json']) as f:
+            data = json.load(f)
+        assert isinstance(data, list)
+        assert len(data) == 2
+
+    # ── missing log file ─────────────────────────────────────────────────────
+
+    def test_failed_count_incremented_when_log_missing(self, tmp_path):
+        p1 = _make_phase1_h2_dir(tmp_path, {
+            's_1': (_DISS_MIN_LOG, [0.0, 0.0, 15.0], -0.4, 'Ni_fcc'),
+        })
+        # remove the log file so parsing must fail
+        (p1 / 'results' / 'h2_min_s_1.log').unlink()
+        result = resolve_dissociated_adsorption(str(p1))
+        assert result['n_failed'] == 1
+        assert result['n_resolved'] == 0
+
+    def test_failed_entry_has_none_delta_e(self, tmp_path):
+        p1 = _make_phase1_h2_dir(tmp_path, {
+            's_1': (_DISS_MIN_LOG, [0.0, 0.0, 15.0], -0.4, 'Ni_fcc'),
+        })
+        (p1 / 'results' / 'h2_min_s_1.log').unlink()
+        result = resolve_dissociated_adsorption(str(p1))
+        assert result['results'][0]['delta_E'] is None
+        assert result['results'][0]['parse_failed'] is True
+
+    # ── fallback when H2_dissociated_pool.json absent ────────────────────────
+
+    def test_fallback_from_h2_site_coords(self, tmp_path):
+        p1 = tmp_path / 'phase1_h2'
+        result_dir = p1 / 'results'
+        result_dir.mkdir(parents=True)
+        (result_dir / 'h2_min_s_7.log').write_text(_DISS_MIN_LOG)
+
+        all_sites = {
+            's_7': {'status': 'dissociated', 'centroid': [0.0, 0.0, 15.0],
+                    'E_ads': -0.4, 'true_label': 'Ni_fcc'},
+            's_8': {'status': 'intact',      'centroid': [1.0, 0.0, 15.0],
+                    'E_ads': -0.2, 'true_label': 'Ni_bridge'},
+        }
+        (p1 / 'H2_site_coords.json').write_text(json.dumps(all_sites))
+        # note: H2_dissociated_pool.json NOT written
+        result = resolve_dissociated_adsorption(str(p1))
+        # only 's_7' (dissociated) should be processed
+        assert result['n_resolved'] == 1
+        assert len(result['results']) == 1
+
+    # ── empty dissociated pool ────────────────────────────────────────────────
+
+    def test_empty_pool_returns_zero_counts(self, tmp_path):
+        p1 = tmp_path / 'phase1_h2'
+        p1.mkdir(parents=True)
+        (p1 / 'H2_dissociated_pool.json').write_text('{}')
+        (p1 / 'results').mkdir()
+        result = resolve_dissociated_adsorption(str(p1))
+        assert result['n_resolved'] == 0
+        assert result['n_failed'] == 0
+        assert result['results'] == []
+
