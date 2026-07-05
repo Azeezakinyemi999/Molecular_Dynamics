@@ -1,5 +1,5 @@
 IS          : surface:s_0
-FS          : sub1:ss_3
+FS          : sub1:ss_2
 N images    : 8 (6 intermediate + IS + FS)
 fmax_final  : 0.9063 eV/A
 Converged   : True

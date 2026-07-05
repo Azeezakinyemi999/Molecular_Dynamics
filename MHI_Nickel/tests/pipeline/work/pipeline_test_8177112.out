@@ -1,0 +1,770 @@
+Working directory: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
+Node: c0585  Start: Sun Jul  5 06:42:22 AM EDT 2026
+Submitted batch job 8177135
+Submitted batch job 8177158
+
+============================================================
+  Structure : ni_bulk_test   n_H : 1
+============================================================
+
+--- Phase 1a: Minimise bare bulk ---
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/minimize_bare.sh → Job 8177191
+Waiting for 1 jobs to finish (polling every 60s)...
+  [06:54:42] 0/1 done  — waiting: min_bare(pending)
+  [06:55:42] 0/1 done  — waiting: min_bare(running)
+  [06:56:42] 1/1 done
+All jobs completed.
+  [1a] Bare bulk minimisation done.  Output → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/bulk_min.lammps
+
+--- Phase 1b: NPT equilibration at each temperature ---
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_600K.sh → Job 8177225
+  Submitted NPT 600K  →  job 8177225
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/npt_700K.sh → Job 8177226
+  Submitted NPT 700K  →  job 8177226
+  Waiting for 2 NPT jobs ...
+Waiting for 2 jobs to finish (polling every 60s)...
+  [06:56:42] 0/2 done  — waiting: npt_600K(pending) npt_700K(pending)
+  [06:57:43] 0/2 done  — waiting: npt_600K(running) npt_700K(running)
+  [06:58:43] 2/2 done
+All jobs completed.
+  All NPT jobs done.
+
+--- Phase 1b (cont.): Insert H and minimise at each temperature ---
+[a0] 1.408605 Å  (mean of last 6 frames, npt_boxdims_600K.dat)
+  [1b] T=600K  a0 = 1.4086 Å
+Bulk supercell : 32 atoms
+Cell           : 7.0600 x 7.0600 x 7.0600 Å
+a₀             : 1.408605 Å
+Octahedral candidates : 125
+  [1b] T=600K  inserted 1 H  min_H-metal=2.000 Å  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/600K/bulk_1H_initial.lammps
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/minimize_h_600K.sh → Job 8177239
+[a0] 1.408674 Å  (mean of last 6 frames, npt_boxdims_700K.dat)
+  [1b] T=700K  a0 = 1.4087 Å
+Bulk supercell : 32 atoms
+Cell           : 7.0617 x 7.0617 x 7.0617 Å
+a₀             : 1.408674 Å
+Octahedral candidates : 125
+  [1b] T=700K  inserted 1 H  min_H-metal=2.000 Å  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/700K/bulk_1H_initial.lammps
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/minimize_h_700K.sh → Job 8177240
+  Waiting for 2 bulk+H minimisation jobs ...
+Waiting for 2 jobs to finish (polling every 60s)...
+  [06:58:43] 0/2 done  — waiting: min_h_600K(pending) min_h_700K(pending)
+  [06:59:43] 0/2 done  — waiting: min_h_600K(running) min_h_700K(running)
+  [07:00:44] 2/2 done
+All jobs completed.
+  All bulk+H minimisations done.
+  Saved lattice_params_vs_T.json → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/lattice_params_vs_T.json
+
+--- Phase 2: NVT MD ---
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/600K/nvt_600K_chain.sh → Job 8177328
+  [2] Submitted NVT 600K  →  job 8177328
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/slurm_scripts/700K/nvt_700K_chain.sh → Job 8177329
+  [2] Submitted NVT 700K  →  job 8177329
+  Waiting for NVT jobs (polling .done sentinels) ...
+  NVT 600K complete
+  NVT 700K complete
+  All NVT jobs done.
+
+--- Phase 3: Post-processing ---
+[parse_dump] 21 frames  1 H atoms  box=7.04x7.04x7.04 Å  (nvt_600K.dump)
+[unwrap] 1 atoms  21 frames  box=7.04×7.04×7.04 Å
+[MSD] 11 origins  10 lags  MSD_max=0.073 Å²
+[D fit] D=-1.6407e-10 m²/s  σ=1.39e-10 m²/s  R²=0.2589
+T=600 K  D=-1.6407e-10 m²/s  σ_D=1.39e-10  R²=0.2589
+  T=600K   D=-1.6407e-10 m2/s   R2=0.2589
+[parse_dump] 21 frames  1 H atoms  box=7.04x7.04x7.04 Å  (nvt_700K.dump)
+[unwrap] 1 atoms  21 frames  box=7.04×7.04×7.04 Å
+[MSD] 11 origins  10 lags  MSD_max=0.578 Å²
+[D fit] D=1.2989e-09 m²/s  σ=4.81e-10 m²/s  R²=0.6460
+T=700 K  D=1.2989e-09 m²/s  σ_D=4.81e-10  R²=0.6460
+  T=700K   D=1.2989e-09 m2/s   R2=0.6460
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/analysis/diffusivity_table.txt
+  D(T) summary: 600K:-1.64e-10 | 700K:1.30e-09
+[diff_file] 2 T points  D=-1.64e-10–1.30e-09 m²/s  (diffusivity_table.txt)
+WARNING: dropping 1 invalid D(T) point(s) from Arrhenius fit (D ≤ 0 or non-finite): 600K (D=-1.641e-10)
+WARNING: < 2 valid D(T) points — Arrhenius fit and plot skipped.
+  Arrhenius: Ea=nan eV  D0=nan m²/s  R²=nan
+  Saved diffusivity_arrhenius.json → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/diffusivity_arrhenius.json
+
+============================================================
+  Structure : ni_bulk_test   n_H : 3
+============================================================
+
+--- Phase 1a: Minimise bare bulk ---
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/slurm_scripts/minimize_bare.sh → Job 8177335
+Waiting for 1 jobs to finish (polling every 60s)...
+  [07:03:45] 0/1 done  — waiting: min_bare(pending)
+  [07:04:46] 0/1 done  — waiting: min_bare(running)
+  [07:05:46] 1/1 done
+All jobs completed.
+  [1a] Bare bulk minimisation done.  Output → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/bulk_min.lammps
+
+--- Phase 1b: NPT equilibration at each temperature ---
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/slurm_scripts/npt_600K.sh → Job 8177341
+  Submitted NPT 600K  →  job 8177341
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/slurm_scripts/npt_700K.sh → Job 8177342
+  Submitted NPT 700K  →  job 8177342
+  Waiting for 2 NPT jobs ...
+Waiting for 2 jobs to finish (polling every 60s)...
+  [07:05:46] 0/2 done  — waiting: npt_600K(pending) npt_700K(pending)
+  [07:06:46] 0/2 done  — waiting: npt_600K(running) npt_700K(running)
+  [07:07:47] 2/2 done
+All jobs completed.
+  All NPT jobs done.
+
+--- Phase 1b (cont.): Insert H and minimise at each temperature ---
+[a0] 1.408605 Å  (mean of last 6 frames, npt_boxdims_600K.dat)
+  [1b] T=600K  a0 = 1.4086 Å
+Bulk supercell : 32 atoms
+Cell           : 7.0600 x 7.0600 x 7.0600 Å
+a₀             : 1.408605 Å
+Octahedral candidates : 125
+  [1b] T=600K  inserted 3 H  min_H-metal=1.687 Å  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/600K/bulk_3H_initial.lammps
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/slurm_scripts/minimize_h_600K.sh → Job 8177351
+[a0] 1.408674 Å  (mean of last 6 frames, npt_boxdims_700K.dat)
+  [1b] T=700K  a0 = 1.4087 Å
+Bulk supercell : 32 atoms
+Cell           : 7.0617 x 7.0617 x 7.0617 Å
+a₀             : 1.408674 Å
+Octahedral candidates : 125
+  [1b] T=700K  inserted 3 H  min_H-metal=1.686 Å  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/700K/bulk_3H_initial.lammps
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/slurm_scripts/minimize_h_700K.sh → Job 8177352
+  Waiting for 2 bulk+H minimisation jobs ...
+Waiting for 2 jobs to finish (polling every 60s)...
+  [07:07:47] 0/2 done  — waiting: min_h_600K(pending) min_h_700K(pending)
+  [07:08:47] 0/2 done  — waiting: min_h_600K(running) min_h_700K(running)
+  [07:09:48] 2/2 done
+All jobs completed.
+  All bulk+H minimisations done.
+  Saved lattice_params_vs_T.json → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/lattice_params_vs_T.json
+
+--- Phase 2: NVT MD ---
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/slurm_scripts/600K/nvt_600K_chain.sh → Job 8177363
+  [2] Submitted NVT 600K  →  job 8177363
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/slurm_scripts/700K/nvt_700K_chain.sh → Job 8177364
+  [2] Submitted NVT 700K  →  job 8177364
+  Waiting for NVT jobs (polling .done sentinels) ...
+  NVT 600K complete
+  NVT 700K complete
+  All NVT jobs done.
+
+--- Phase 3: Post-processing ---
+[parse_dump] 21 frames  3 H atoms  box=7.09x7.09x7.09 Å  (nvt_600K.dump)
+[unwrap] 3 atoms  21 frames  box=7.09×7.09×7.09 Å
+[MSD] 11 origins  10 lags  MSD_max=0.275 Å²
+[D fit] D=-3.3379e-10 m²/s  σ=1.73e-10 m²/s  R²=0.4827
+T=600 K  D=-3.3379e-10 m²/s  σ_D=1.73e-10  R²=0.4827
+  T=600K   D=-3.3379e-10 m2/s   R2=0.4827
+[parse_dump] 21 frames  3 H atoms  box=7.09x7.09x7.09 Å  (nvt_700K.dump)
+[unwrap] 3 atoms  21 frames  box=7.09×7.09×7.09 Å
+[MSD] 11 origins  10 lags  MSD_max=0.441 Å²
+[D fit] D=2.7590e-10 m²/s  σ=2.23e-10 m²/s  R²=0.2760
+T=700 K  D=2.7590e-10 m²/s  σ_D=2.23e-10  R²=0.2760
+  T=700K   D=2.7590e-10 m2/s   R2=0.2760
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/analysis/diffusivity_table.txt
+  D(T) summary: 600K:-3.34e-10 | 700K:2.76e-10
+[diff_file] 2 T points  D=-3.34e-10–2.76e-10 m²/s  (diffusivity_table.txt)
+WARNING: dropping 1 invalid D(T) point(s) from Arrhenius fit (D ≤ 0 or non-finite): 600K (D=-3.338e-10)
+WARNING: < 2 valid D(T) points — Arrhenius fit and plot skipped.
+  Arrhenius: Ea=nan eV  D0=nan m²/s  R²=nan
+  Saved diffusivity_arrhenius.json → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/diffusivity_arrhenius.json
+
+=== All structures and H concentrations complete ===
+Submitted batch job 8177371
+Submitted batch job 8177636
+Building subsurface graph …
+======================================================================
+  Building subsurface graph for seed 42
+======================================================================
+
+Step 1: 6 total layers detected -> frozen: bottom 2, subsurface_1: L5, subsurface_2 (bulk entry): L4
+
+Step 2: Voronoi tessellation via scipy...
+  Found 63 unique interstitial sites in the cell
+
+Step 3: Identifying 6 z-layers...
+  Layer z-centers: L1=10.00, L2=12.03, L3=13.92, L4=15.84, L5=17.75, L6=19.61
+
+Step 4: Assigning sites to layers...
+  Classified 26 sites in target layers
+  Total sites for NB08: 26
+
+Step 6: Building NetworkX graph...
+
+Step 7: Connecting to surface_sites.json...
+  Surface-subsurface connections: 11
+  Subsurface1-subsurface2 edges : 16  (Hop B)
+  Total graph nodes: 29
+  Total graph edges: 27
+
+======================================================================
+  subsurface_graph build complete
+======================================================================
+
+  subsurface-1 sites : 11
+  surface connections: 11
+[energy_log] PE=-125.489223 eV  Fmax=0.0000 eV/Å  (h_min_s_0.log)
+[energy_log] PE=-125.489223 eV  Fmax=0.0000 eV/Å  (h_min_s_1.log)
+[energy_log] PE=-125.523951 eV  Fmax=0.0000 eV/Å  (h_min_s_2.log)
+Dedup IS labels: 3
+
+── Phase 1: Hop A NEB ──────────────────────────────────────────────────
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_0/run_hopa.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_1/run_hopa.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_2/run_hopa.py
+[Hop A] 3 jobs (generated)
+  job_index   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/job_index.txt
+  fsmin array : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/hopa_fsmin_array.sh
+  neb array   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/hopa_neb_array.sh
+  jobs json   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/hopa_jobs.json
+  Hop A: 3 jobs  fsmin_array=/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/hopa_fsmin_array.sh
+  Submitting Hop A FS-min …
+Auto-submit: 3 tasks, queue_max=8, concurrent=4
+  [07:12:52] Queue=0, submitting 0–2
+All submitted. Waiting for queue to drain...
+  [07:12:57] 3 tasks remaining...
+  [07:13:57] 2 tasks remaining...
+
+Done.  2/3 tasks completed.
+Missing IDs : 2
+Resubmit   : sbatch --array=2%4 /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/hopa_fsmin_array.sh
+  Hop A FS-min done.
+  Submitting Hop A NEB …
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/hopa_neb_array.sh → Job 8177377
+Waiting for 1 jobs to finish (polling every 60s)...
+  [07:14:58] 0/1 done  — waiting: hopa_neb(pending)
+  [07:15:58] 0/1 done  — waiting: hopa_neb(running)
+  [07:16:58] 0/1 done  — waiting: hopa_neb(running)
+  [07:17:58] 0/1 done  — waiting: hopa_neb(running)
+  [07:18:59] 0/1 done  — waiting: hopa_neb(running)
+  [07:19:59] 0/1 done  — waiting: hopa_neb(running)
+  [07:20:59] 0/1 done  — waiting: hopa_neb(running)
+  [07:21:59] 0/1 done  — waiting: hopa_neb(running)
+  [07:22:59] 0/1 done  — waiting: hopa_neb(running)
+  [07:24:00] 0/1 done  — waiting: hopa_neb(running)
+  [07:25:00] 0/1 done  — waiting: hopa_neb(running)
+  [07:26:00] 0/1 done  — waiting: hopa_neb(running)
+  [07:27:00] 0/1 done  — waiting: hopa_neb(running)
+  [07:28:01] 0/1 done  — waiting: hopa_neb(running)
+  [07:29:01] 0/1 done  — waiting: hopa_neb(running)
+  [07:30:01] 0/1 done  — waiting: hopa_neb(running)
+  [07:31:01] 0/1 done  — waiting: hopa_neb(running)
+  [07:32:01] 0/1 done  — waiting: hopa_neb(running)
+  [07:33:02] 0/1 done  — waiting: hopa_neb(running)
+  [07:34:02] 0/1 done  — waiting: hopa_neb(running)
+  [07:35:02] 0/1 done  — waiting: hopa_neb(running)
+  [07:36:02] 0/1 done  — waiting: hopa_neb(running)
+  [07:37:03] 0/1 done  — waiting: hopa_neb(running)
+  [07:38:03] 0/1 done  — waiting: hopa_neb(running)
+  [07:39:03] 0/1 done  — waiting: hopa_neb(running)
+  [07:40:03] 0/1 done  — waiting: hopa_neb(running)
+  [07:41:04] 0/1 done  — waiting: hopa_neb(running)
+  [07:42:04] 0/1 done  — waiting: hopa_neb(running)
+  [07:43:04] 0/1 done  — waiting: hopa_neb(running)
+  [07:44:04] 0/1 done  — waiting: hopa_neb(running)
+  [07:45:04] 0/1 done  — waiting: hopa_neb(running)
+  [07:46:05] 0/1 done  — waiting: hopa_neb(running)
+  [07:47:05] 0/1 done  — waiting: hopa_neb(running)
+  [07:48:05] 0/1 done  — waiting: hopa_neb(running)
+  [07:49:06] 0/1 done  — waiting: hopa_neb(running)
+  [07:50:06] 0/1 done  — waiting: hopa_neb(running)
+  [07:51:06] 1/1 done
+All jobs completed.
+  Hop A NEB done.
+
+── Phase 2: Hop B NEB ──────────────────────────────────────────────────
+[sub2 neighbor] ss_2 → ss_3  dz=1.279 Å
+[energy_log] PE=-124.864947 eV  Fmax=0.0000 eV/Å  (fs_min.log)
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/run_hopb.py
+[sub2 neighbor] ss_16 → ss_8  dz=0.237 Å
+[energy_log] PE=-124.958163 eV  Fmax=0.0000 eV/Å  (fs_min.log)
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_1/run_hopb.py
+[Hop B] /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_2/sub1_fs_relaxed.lammps not found — skipping sid=s_2. Run Hop A FS-min on cluster first.
+[Hop B] 2 jobs (generated)
+  job_index   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/job_index.txt
+  fsmin array : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/hopb_fsmin_array.sh
+  neb array   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/hopb_neb_array.sh
+  jobs json   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/hopb_jobs.json
+  Hop B: 2 jobs  fsmin_array=/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/hopb_fsmin_array.sh
+  Submitting Hop B FS-min …
+Auto-submit: 2 tasks, queue_max=8, concurrent=4
+  [07:51:06] Queue=0, submitting 0–1
+All submitted. Waiting for queue to drain...
+  [07:51:11] 2 tasks remaining...
+
+Done.  1/2 tasks completed.
+Missing IDs : 1
+Resubmit   : sbatch --array=1%4 /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/hopb_fsmin_array.sh
+  Hop B FS-min done.
+  Submitting Hop B NEB …
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/hopb_neb_array.sh → Job 8177647
+Waiting for 1 jobs to finish (polling every 60s)...
+  [07:52:12] 0/1 done  — waiting: hopb_neb(pending)
+  [07:53:12] 0/1 done  — waiting: hopb_neb(running)
+  [07:54:12] 0/1 done  — waiting: hopb_neb(running)
+  [07:55:12] 0/1 done  — waiting: hopb_neb(running)
+  [07:56:13] 0/1 done  — waiting: hopb_neb(running)
+  [07:57:13] 0/1 done  — waiting: hopb_neb(running)
+  [07:58:13] 0/1 done  — waiting: hopb_neb(running)
+  [07:59:13] 1/1 done
+All jobs completed.
+  Hop B NEB done.
+
+── Phase 3: Vibrational frequencies ────────────────────────────────────
+[TS] image 4/7  E_max=-124.0533 eV  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_0/images/image_04_img_04.lammps
+[TS] image 4/7  E_max=-123.1573 eV  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_1/images/image_04_img_04.lammps
+[TS] image 2/7  E_max=-124.6377 eV  → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/images/image_02_img_02.lammps
+  Structures: 8 (IS + TS for both hops)
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_0_IS/vib_run.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_0_TS/vib_run.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_1_IS/vib_run.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_1_TS/vib_run.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_2_IS/vib_run.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopb_s_0_IS/vib_run.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopb_s_0_TS/vib_run.py
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopb_s_1_IS/vib_run.py
+[orchestrate_vibrations] 8 structures → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test  (scripts written (dry_run))
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_0_IS/vib_job.sh → Job 8177702
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_0_TS/vib_job.sh → Job 8177703
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_1_IS/vib_job.sh → Job 8177704
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_1_TS/vib_job.sh → Job 8177705
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_2_IS/vib_job.sh → Job 8177706
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopb_s_0_IS/vib_job.sh → Job 8177707
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopb_s_0_TS/vib_job.sh → Job 8177708
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopb_s_1_IS/vib_job.sh → Job 8177709
+  Submitted 8 vibration jobs.
+Waiting for 8 jobs to finish (polling every 60s)...
+  [07:59:14] 0/8 done  — waiting: hopa_s_0_IS(pending) hopa_s_0_TS(pending) hopa_s_1_IS(pending) hopa_s_1_TS(pending) hopa_s_2_IS(pending) hopb_s_0_IS(pending) hopb_s_0_TS(pending) hopb_s_1_IS(pending)
+  [08:00:15] 2/8 done  — waiting: hopa_s_0_TS(running) hopa_s_1_IS(running) hopa_s_2_IS(running) hopb_s_0_IS(pending) hopb_s_0_TS(pending) hopb_s_1_IS(pending)
+  [08:01:15] 7/8 done  — waiting: hopa_s_2_IS(running)
+  [08:02:15] 8/8 done
+All jobs completed.
+  Vibrations done.
+
+── Phase 4: TST rate constants ──────────────────────────────────────────
+[barrier] Ea=1.436 eV  E_des=0.812 eV  dE=0.624 eV  converged=True
+[barrier] Ea=2.332 eV  E_des=1.801 eV  dE=0.531 eV  converged=True
+[NEB results] loaded 2/3 jobs  (hop=hopa)
+[barrier] Ea=0.227 eV  E_des=0.320 eV  dE=-0.093 eV  converged=True
+[NEB results] loaded 1/2 jobs  (hop=hopb)
+  NEB results: 3 labels  IS: 5  TS: 3
+[vib] 21 real modes  0 imag modes  (vib_frequencies.json)
+[vib] 19 real modes  2 imag modes  (vib_frequencies.json)
+  hopa_s_0                  k_fwd=2.159e+03  k_rev=3.785e+08  Ea_zpe=1.484 eV  ν=6.27e+15 s⁻¹
+[vib] 21 real modes  0 imag modes  (vib_frequencies.json)
+[vib] 19 real modes  2 imag modes  (vib_frequencies.json)
+  hopa_s_1                  k_fwd=3.993e-06  k_rev=1.154e-01  Ea_zpe=2.341 eV  ν=1.85e+14 s⁻¹
+[vib] 21 real modes  0 imag modes  (vib_frequencies.json)
+[vib] 20 real modes  1 imag modes  (vib_frequencies.json)
+  hopb_s_0                  k_fwd=2.587e+09  k_rev=4.265e+08  Ea_zpe=0.262 eV  ν=4.09e+11 s⁻¹
+[rate_dict] 3 labels at T=600 K  (skipped=0)
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/rate_dict_T600K.json  (3 labels)
+  T= 600 K: 3 rates → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/rate_dict_T600K.json
+[vib] 21 real modes  0 imag modes  (vib_frequencies.json)
+[vib] 19 real modes  2 imag modes  (vib_frequencies.json)
+  hopa_s_0                  k_fwd=1.302e+05  k_rev=4.068e+09  Ea_zpe=1.484 eV  ν=6.27e+15 s⁻¹
+[vib] 21 real modes  0 imag modes  (vib_frequencies.json)
+[vib] 19 real modes  2 imag modes  (vib_frequencies.json)
+  hopa_s_1                  k_fwd=2.574e-03  k_rev=1.716e+01  Ea_zpe=2.341 eV  ν=1.85e+14 s⁻¹
+[vib] 21 real modes  0 imag modes  (vib_frequencies.json)
+[vib] 20 real modes  1 imag modes  (vib_frequencies.json)
+  hopb_s_0                  k_fwd=5.332e+09  k_rev=1.137e+09  Ea_zpe=0.262 eV  ν=4.09e+11 s⁻¹
+[rate_dict] 3 labels at T=700 K  (skipped=0)
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/rate_dict_T700K.json  (3 labels)
+  T= 700 K: 3 rates → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/rate_dict_T700K.json
+  Loaded lattice_params_vs_T.json: 2 temperatures
+  WARNING: diss_vib_rates.json not found — using raw barriers for diss/des rates
+  Auto-extracted DH_ENTRY_EV = 0.5777 eV (mean of 2 Hop A barriers)
+
+============================================================================
+H concentration: n_H = 1
+============================================================================
+  Loaded real diffusivity fit: D0=1.000e-07 m²/s  Ea=0.4000 eV
+
+── Phase 5 (n_H=1): KMC pressure sweeps ──────────────────────
+  WARNING: no diss rate source found — using placeholders at T=600 K
+  [600K] k_entry(Ni)=2.159e+03 s⁻¹  k_exit(Ni)=3.785e+08 s⁻¹
+[KMC] converged=True  steps=4049  t=4.009e-01 s  θ=0.1258  C0=0.000e+00 atoms/m³
+  P=1.00e+04 Pa | θ=0.1258 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+[KMC] converged=True  steps=4265  t=1.612e-01 s  θ=0.2497  C0=0.000e+00 atoms/m³
+  P=1.00e+05 Pa | θ=0.2497 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+[KMC] converged=True  steps=5094  t=1.399e-01 s  θ=0.3069  C0=3.162e+28 atoms/m³
+  P=1.00e+06 Pa | θ=0.3069 | C0=3.162e+28 atoms/m³ | J=1.381e+24 atoms/m²/s | converged=True
+  T= 600 K  a0=1.4086e-10 m  D=4.37e-11 m²/s  3/3 converged → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/permeation_sweep_T600K.json
+  WARNING: no diss rate source found — using placeholders at T=700 K
+  [700K] k_entry(Ni)=1.302e+05 s⁻¹  k_exit(Ni)=4.068e+09 s⁻¹
+[KMC] converged=True  steps=4079  t=5.227e-02 s  θ=0.0653  C0=0.000e+00 atoms/m³
+  P=1.00e+04 Pa | θ=0.0653 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+[KMC] converged=True  steps=4495  t=9.162e-03 s  θ=0.1163  C0=3.162e+28 atoms/m³
+  P=1.00e+05 Pa | θ=0.1163 | C0=3.162e+28 atoms/m³ | J=4.170e+24 atoms/m²/s | converged=True
+[KMC] converged=True  steps=4333  t=3.116e-03 s  θ=0.2346  C0=3.162e+28 atoms/m³
+  P=1.00e+06 Pa | θ=0.2346 | C0=3.162e+28 atoms/m³ | J=4.170e+24 atoms/m²/s | converged=True
+  T= 700 K  a0=1.4087e-10 m  D=1.32e-10 m²/s  3/3 converged → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/permeation_sweep_T700K.json
+
+── Phase 6 (n_H=1): Richardson-Sieverts permeability ─────────
+[S0 opt1] S0=1.431e+30 atoms·m⁻³·Pa⁻⁰·⁵  (a0=1.4086 Å)
+[Sieverts] S(600K)=1.105e+24  (S0=1.431e+30  dH=0.728 eV)
+[Phi] Φ=4.824e+13 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=4.824e+22 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt2] S(T=600K)=6.161e+22 atoms·m⁻³·Pa⁻⁰·⁵
+[Phi] Φ=2.690e+12 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=2.690e+21 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt3] S_mean=1.054e+25  S_std=1.826e+25  n_converged=3
+[Phi] Φ=4.603e+14 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=4.603e+23 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+  T= 600 K  Opt1(lattice):  S=1.105e+24  Phi=4.824e+13  J=4.824e+22 atoms/m²/s
+  T= 600 K  Opt2(TST):      S=6.161e+22  Phi=2.690e+12  J=2.690e+21 atoms/m²/s
+  T= 600 K  Opt3(KMC):      S=1.054e+25  Phi=4.603e+14  J=4.603e+23 atoms/m²/s
+[S0 opt1] S0=1.431e+30 atoms·m⁻³·Pa⁻⁰·⁵  (a0=1.4087 Å)
+[Sieverts] S(700K)=8.249e+24  (S0=1.431e+30  dH=0.728 eV)
+[Phi] Φ=1.088e+15 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=1.088e+24 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt2] S(T=700K)=1.265e+23 atoms·m⁻³·Pa⁻⁰·⁵
+[Phi] Φ=1.668e+13 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=1.668e+22 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt3] S_mean=4.387e+25  S_std=5.111e+25  n_converged=3
+[Phi] Φ=5.785e+15 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=5.785e+24 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+  T= 700 K  Opt1(lattice):  S=8.249e+24  Phi=1.088e+15  J=1.088e+24 atoms/m²/s
+  T= 700 K  Opt2(TST):      S=1.265e+23  Phi=1.668e+13  J=1.668e+22 atoms/m²/s
+  T= 700 K  Opt3(KMC):      S=4.387e+25  Phi=5.785e+15  J=5.785e+24 atoms/m²/s
+[S opt3] S_mean=1.054e+25  S_std=1.826e+25  n_converged=3
+[S opt3] S_mean=4.387e+25  S_std=5.111e+25  n_converged=3
+
+Arrhenius  S0=2.279e+29  dH_sol=0.516 eV  R²=1.0000 → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/solubility_arrhenius_kmc.json
+
+============================================================================
+H concentration: n_H = 3
+============================================================================
+  Loaded real diffusivity fit: D0=1.500e-07 m²/s  Ea=0.4200 eV
+  NOTE: Sieverts' law and Richardson's permeation formula assume dilute dissolved H. n_H=3 is not the dilute limit (n_H=1), so H-H interactions were present in this MD box and may make the derived solubility/permeability below an approximation. For a rigorous non-dilute treatment, use the raw KMC sweep data in permeation_sweep_T<T>K.json under /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H directly (flux J(P), coverage θ(P), concentration C0(P) vs pressure — no √P scaling assumed).
+
+── Phase 5 (n_H=3): KMC pressure sweeps ──────────────────────
+  WARNING: no diss rate source found — using placeholders at T=600 K
+  [600K] k_entry(Ni)=2.159e+03 s⁻¹  k_exit(Ni)=3.785e+08 s⁻¹
+[KMC] converged=True  steps=4046  t=4.004e-01 s  θ=0.1260  C0=3.162e+28 atoms/m³
+  P=1.00e+04 Pa | θ=0.1260 | C0=3.162e+28 atoms/m³ | J=1.407e+24 atoms/m²/s | converged=True
+[KMC] converged=True  steps=4000  t=1.502e-01 s  θ=0.2525  C0=0.000e+00 atoms/m³
+  P=1.00e+05 Pa | θ=0.2525 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+[KMC] converged=True  steps=4000  t=1.159e-01 s  θ=0.3059  C0=3.162e+28 atoms/m³
+  P=1.00e+06 Pa | θ=0.3059 | C0=3.162e+28 atoms/m³ | J=1.407e+24 atoms/m²/s | converged=True
+  T= 600 K  a0=1.4086e-10 m  D=4.45e-11 m²/s  3/3 converged → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/permeation_sweep_T600K.json
+  WARNING: no diss rate source found — using placeholders at T=700 K
+  [700K] k_entry(Ni)=1.302e+05 s⁻¹  k_exit(Ni)=4.068e+09 s⁻¹
+[KMC] converged=True  steps=4000  t=5.228e-02 s  θ=0.0639  C0=0.000e+00 atoms/m³
+  P=1.00e+04 Pa | θ=0.0639 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+[KMC] converged=True  steps=4000  t=8.096e-03 s  θ=0.1164  C0=0.000e+00 atoms/m³
+  P=1.00e+05 Pa | θ=0.1164 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+[KMC] converged=True  steps=4055  t=2.826e-03 s  θ=0.2369  C0=0.000e+00 atoms/m³
+  P=1.00e+06 Pa | θ=0.2369 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+  T= 700 K  a0=1.4087e-10 m  D=1.42e-10 m²/s  3/3 converged → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/permeation_sweep_T700K.json
+
+── Phase 6 (n_H=3): Richardson-Sieverts permeability ─────────
+[S0 opt1] S0=1.431e+30 atoms·m⁻³·Pa⁻⁰·⁵  (a0=1.4086 Å)
+[Sieverts] S(600K)=1.105e+24  (S0=1.431e+30  dH=0.728 eV)
+[Phi] Φ=4.915e+13 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=4.915e+22 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt2] S(T=600K)=6.161e+22 atoms·m⁻³·Pa⁻⁰·⁵
+[Phi] Φ=2.741e+12 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=2.741e+21 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt3] S_mean=1.160e+26  S_std=1.742e+26  n_converged=3
+[Phi] Φ=5.159e+15 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=5.159e+24 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+  T= 600 K  Opt1(lattice):  S=1.105e+24  Phi=4.915e+13  J=4.915e+22 atoms/m²/s
+  T= 600 K  Opt2(TST):      S=6.161e+22  Phi=2.741e+12  J=2.741e+21 atoms/m²/s
+  T= 600 K  Opt3(KMC):      S=1.160e+26  Phi=5.159e+15  J=5.159e+24 atoms/m²/s
+[S0 opt1] S0=1.431e+30 atoms·m⁻³·Pa⁻⁰·⁵  (a0=1.4087 Å)
+[Sieverts] S(700K)=8.249e+24  (S0=1.431e+30  dH=0.728 eV)
+[Phi] Φ=1.171e+15 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=1.171e+24 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt2] S(T=700K)=1.265e+23 atoms·m⁻³·Pa⁻⁰·⁵
+[Phi] Φ=1.796e+13 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=1.796e+22 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+[S opt3] S_mean=0.000e+00  S_std=0.000e+00  n_converged=3
+[Phi] Φ=0.000e+00 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+[Richardson] J=0.000e+00 atoms·m⁻²·s⁻¹  (P_high=1.00e+06 Pa  L=1.000e-06 m)
+  T= 700 K  Opt1(lattice):  S=8.249e+24  Phi=1.171e+15  J=1.171e+24 atoms/m²/s
+  T= 700 K  Opt2(TST):      S=1.265e+23  Phi=1.796e+13  J=1.796e+22 atoms/m²/s
+  T= 700 K  Opt3(KMC):      S=0.000e+00  Phi=0.000e+00  J=0.000e+00 atoms/m²/s
+[S opt3] S_mean=1.160e+26  S_std=1.742e+26  n_converged=3
+[S opt3] S_mean=0.000e+00  S_std=0.000e+00  n_converged=3
+
+Arrhenius  S0=nan  dH_sol=nan eV  R²=1.0000 → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/solubility_arrhenius_kmc.json
+=== permeation_run.py complete ===
+
+############################################################
+  PIPELINE SMOKE TEST — 2026-07-05 06:42:27
+  Work dir     : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work
+  SLAB_LAYERS  : 6
+  N_MAX_SITES  : 3
+  N_NEB_IMAGES : 6  NEB_FTOL=0.1
+  NEB timeout  : 3 h  (poll every 120 s)
+  DIFF temps   : [600, 700] K  n_H=[1, 3]  equil=500 prod=2000 steps
+############################################################
+
+
+============================================================
+  Stage 0: Build 2×2 Ni FCC(111) slab (6 layers)
+============================================================
+  [PASS] slab_raw_written — 24 atoms
+  z_freeze = 13.048 Å  (bottom round(6/3) layers frozen)
+  cell     = 4.978 × 4.978 × 30.161 Å
+
+============================================================
+  Stage 1: Slab CG minimisation with MACE (GPU SLURM job)
+============================================================
+  Submitting slab minimisation...
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_min.sh → Job 8177118
+  Job ID: 8177118  — waiting...
+Waiting for 1 jobs to finish (polling every 60s)...
+  [06:42:27] 0/1 done  — waiting: slab_min(pending)
+  [06:43:27] 0/1 done  — waiting: slab_min(running)
+  [06:44:27] 1/1 done
+All jobs completed.
+[energy_log] PE=-121.519084 eV  Fmax=0.0000 eV/Å  (slab_min.log)
+  [PASS] slab_relaxed_file — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_relaxed.lammps
+  [PASS] slab_log_parsed — e_clean = -121.5191 eV
+  [PASS] e_clean_finite
+  e_clean = -121.519084 eV
+
+============================================================
+  Stage 2: Surface sites (synthetic — ACAT tested in tests/functional/)
+============================================================
+  [SKIP] ACAT CustomSurface requires atoms_per_layer ≥ 4;
+         the 6-layer 2×2 smoke-test slab has only 4 atoms total
+         per layer but ACAT's heuristic (_n_layers_est=12) misdetects it.
+         ACAT site enumeration is covered by tests/functional/.
+         Writing synthetic ontop sites from Stage-0 geometry.
+  [PASS] sites_json_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/sites/surface_sites.json
+  [PASS] sites_nonzero — 3 synthetic ontop sites
+  [PASS] surface_graph_gml_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/sites/surface_graph.gml
+  surface_z = 20.161 Å  |  3 sites written
+
+============================================================
+  Stage 3: H2* adsorption (3 sites, GPU array)
+============================================================
+[Section B Phase 1] H2* adsorption (parallel): 3 sites
+Added H2 above site (0.000, 0.000) at z=22.117 Å
+  z_top slab = 19.617 Å   height = 2.500 Å
+Added H2 above site (2.489, 0.000) at z=22.117 Å
+  z_top slab = 19.617 Å   height = 2.500 Å
+Added H2 above site (1.245, 2.156) at z=22.117 Å
+  z_top slab = 19.617 Å   height = 2.500 Å
+Auto-submit: 3 tasks, queue_max=4, concurrent=2
+  [06:44:28] Queue=0, submitting 0–2
+All submitted. Waiting for queue to drain...
+  [06:44:33] 3 tasks remaining...
+  [06:45:33] 3 tasks remaining...
+  [06:46:34] 1 tasks remaining...
+
+Done.  3/3 tasks completed.
+  Array script: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/run_h2_array.sh  (submitted)
+[energy_log] PE=-128.654962 eV  Fmax=0.0000 eV/Å  (h2_min_s_0.log)
+[energy_log] PE=-128.654962 eV  Fmax=0.0000 eV/Å  (h2_min_s_1.log)
+[energy_log] PE=-128.633841 eV  Fmax=0.0000 eV/Å  (h2_min_s_2.log)
+  H2* energies     → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/h2_adsorption_energies.json
+  H2_site_coords   → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/H2_site_coords.json  (all 3 computed)
+  H2_intact_pool   → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/H2_intact_pool.json  (2 intact+Eads<0 / 0 dropped by energy / 1 dissociated)
+  [PASS] h2_status — submitted
+  [PASS] h2_n_computed — 3/3
+  [PASS] h2_intact_pool_written
+  H2 intact sites: 2  (e_h2_gas=0 → binding energies are proxies)
+
+============================================================
+  Stage 4: H* adsorption (3 sites, GPU array)
+============================================================
+[Section B Phase 2] H* adsorption: 3 sites
+Added H above site (0.000, 0.000) at z=22.117 Å
+  z_top slab = 19.617 Å   height = 2.500 Å
+Added H above site (2.489, 0.000) at z=22.117 Å
+  z_top slab = 19.617 Å   height = 2.500 Å
+Added H above site (1.245, 2.156) at z=22.117 Å
+  z_top slab = 19.617 Å   height = 2.500 Å
+Auto-submit: 3 tasks, queue_max=4, concurrent=2
+  [06:47:34] Queue=0, submitting 0–2
+All submitted. Waiting for queue to drain...
+  [06:47:39] 3 tasks remaining...
+  [06:48:39] 3 tasks remaining...
+  [06:49:40] 1 tasks remaining...
+
+Done.  3/3 tasks completed.
+  Array script: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/run_h_array.sh  (submitted)
+[energy_log] PE=-125.489223 eV  Fmax=0.0000 eV/Å  (h_min_s_0.log)
+[energy_log] PE=-125.489223 eV  Fmax=0.0000 eV/Å  (h_min_s_1.log)
+[energy_log] PE=-125.523951 eV  Fmax=0.0000 eV/Å  (h_min_s_2.log)
+  H* energies      → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/h_adsorption_energies.json
+  H_all_energies   → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/H_all_energies.json  (all 3 computed)
+  H_site_coords    → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/H_site_coords.json  (3 with E_ads < 0)
+  [PASS] h_status — submitted
+  [PASS] h_n_computed — 3/3
+  [PASS] h_site_coords_written
+
+============================================================
+  Stage 5: Surface NEB pipeline (≤1 pair, 6 images)
+============================================================
+
+================================================================================
+SECTION C: NEB Workflow
+================================================================================
+
+>>> Phase 1: Load pools
+[energy_log] PE=-128.654962 eV  Fmax=0.0000 eV/Å  (h2_min_s_1.log)
+[energy_log] PE=-128.633841 eV  Fmax=0.0000 eV/Å  (h2_min_s_2.log)
+[energy_log] PE=-125.489223 eV  Fmax=0.0000 eV/Å  (h_min_s_0.log)
+[energy_log] PE=-125.489223 eV  Fmax=0.0000 eV/Å  (h_min_s_1.log)
+[energy_log] PE=-125.523951 eV  Fmax=0.0000 eV/Å  (h_min_s_2.log)
+[Section C Phase 1] IS pool: 2 intact  (2 xy, 2 energies)
+                    FS pool: 3 (E<0)    (3 xy, 3 energies)
+
+>>> Phase 1b: FS pair enumeration
+[Section C Phase 1b] 3 FS sites → 1 raw pairs  (sep 2.0–5.0 Å, graph_dist≥2)
+
+>>> Phase 1c: FS pair deduplication
+[Section C Phase 1c] 1 raw → 1 unique pairs after fingerprint dedup
+
+>>> Phase 1d: IS site deduplication
+[Section C Phase 1d] 2 valid IS → 1 unique after fingerprint dedup
+
+>>> Phase 2: IS × FS cross-product
+[Section C Phase 2] 1 IS × 1 FS = 1 combinations
+
+>>> Phase 2b: Proximity filter + label dedup
+[Section C Phase 2b] 1 → 1 (prox<5.0 Å) → 1 (after label dedup) NEB jobs
+
+>>> Phase 3: NEB job generation
+[build_fs_raw_structure] z_fs = 21.298 Å  (metal max + 1.5 Å)
+  H1: (4.978, 1.712, 21.298)
+  H2: (2.489, 1.712, 21.298)
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/run_neb.py
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/slurm_fsmin_s_1__s_0+s_1.sh → Job 8177171
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/slurm_neb_s_1__s_0+s_1.sh → Job 8177172
+[Section C Phase 3] 1 NEB jobs  (submitted)
+  job_index      : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/job_index.txt
+  fsmin array sh : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/run_fsmin_array.sh
+  neb array sh   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/run_neb_array.sh
+  pairs json     : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/neb_pairs.json
+
+================================================================================
+SECTION C COMPLETE
+================================================================================
+  IS unique    : 1
+  FS unique    : 1
+  Combinations : 1
+  After filters: 1
+  NEB jobs     : 1
+  Summary      : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/section_c_summary.json
+  [PASS] neb_pools_loaded — IS=2  FS=3
+  [PASS] neb_dedup_ran — 1 combination(s) after proximity+label filter
+  [PASS] neb_jobs_submitted — 1 pair(s) submitted [enumerated]
+
+  Polling for: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/neb_barrier.txt
+  Timeout: 3 h  |  poll every 120 s
+  [06:50:40] 0 min elapsed — waiting...
+  [06:52:40] 2 min elapsed — waiting...
+  [PASS] neb_barrier_file_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/neb_barrier.txt
+[barrier] Ea=2.375 eV  E_des=0.645 eV  dE=1.730 eV  converged=True
+  [PASS] neb_barrier_parseable — E_abs = 2.3753 eV
+  [PASS] neb_barrier_positive — E_abs = 2.3753 eV
+  [PASS] neb_converged — converged = True
+  NEB completed in 4.0 min
+
+============================================================
+  Stage 6: Diffusivity NVT MD ([600, 700] K × n_H=[1, 3], minimal steps)
+============================================================
+  [PASS] diff_bulk_written — 32 atoms
+  [PASS] diffusivity_run_py_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/diffusivity_run.py
+
+  Running diffusivity_run.py  (submits GPU sub-jobs and waits) …
+  [PASS] diffusivity_run_exit_0 — exit code 0
+  [PASS] diff_msd_files_written_1H — 2 msd_*.txt files found
+  [PASS] diff_table_written_1H — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/analysis/diffusivity_table.txt
+  [PASS] diff_arrhenius_json_written_1H — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/diffusivity_arrhenius.json
+  [PASS] diff_arrhenius_graceful_nan_1H — 1 valid D point(s) at smoke scale — NaN fit is the designed graceful behaviour
+  [SMOKE-TEST FALLBACK] n_H=1: real fit was NaN — injected synthetic D0=1.000e-07 m²/s Ea=0.400 eV so Stage 7 can be tested. Real NaN result preserved at /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/diffusivity_arrhenius_REAL_NaN.json.
+  [PASS] diff_synthetic_fallback_injected_1H — D0=1.000e-07 Ea=0.400 eV (NOT a real fit)
+  n_H=1  Arrhenius: Ea=0.4000 eV  D0=1.000e-07 m²/s  R²=nan
+  [PASS] diff_msd_files_written_3H — 2 msd_*.txt files found
+  [PASS] diff_table_written_3H — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/analysis/diffusivity_table.txt
+  [PASS] diff_arrhenius_json_written_3H — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/diffusivity_arrhenius.json
+  [PASS] diff_arrhenius_graceful_nan_3H — 1 valid D point(s) at smoke scale — NaN fit is the designed graceful behaviour
+  [SMOKE-TEST FALLBACK] n_H=3: real fit was NaN — injected synthetic D0=1.500e-07 m²/s Ea=0.420 eV so Stage 7 can be tested. Real NaN result preserved at /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/diffusivity_arrhenius_REAL_NaN.json.
+  [PASS] diff_synthetic_fallback_injected_3H — D0=1.500e-07 Ea=0.420 eV (NOT a real fit)
+  n_H=3  Arrhenius: Ea=0.4200 eV  D0=1.500e-07 m²/s  R²=nan
+  [PASS] diff_per_nH_fits_independent — 1H: D0=1.000e-07 Ea=0.4000  vs  3H: D0=1.500e-07 Ea=0.4200
+
+============================================================
+  Stage 7: Permeation — real generate_permeation_scripts() (Hop A/B NEB, vibrations, KMC, permeability)
+============================================================
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/permeation/permeation_run.py
+  [PASS] permeation_run_py_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/permeation/permeation_run.py
+
+  Running permeation_run.py  (Hop A/B NEB + vibrations + KMC — submits real SLURM jobs and waits) …
+  [PASS] permeation_run_exit_0 — exit code 0
+  [PASS] permeation_sweep_written_1H_600K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/permeation_sweep_T600K.json
+  [PASS] permeability_written_1H_600K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/permeability_T600K.json
+  [PASS] permeation_sweep_written_1H_700K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/permeation_sweep_T700K.json
+  [PASS] permeability_written_1H_700K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/permeability_T700K.json
+  [PASS] dilute_limit_caveat_absent_1H — n_H=1 IS the dilute limit — no caveat expected
+  [PASS] permeation_sweep_written_3H_600K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/permeation_sweep_T600K.json
+  [PASS] permeability_written_3H_600K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/permeability_T600K.json
+  [PASS] permeation_sweep_written_3H_700K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/permeation_sweep_T700K.json
+  [PASS] permeability_written_3H_700K — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/permeability_T700K.json
+  [PASS] dilute_limit_caveat_present_3H — n_H>1 permeability output must carry the caveat
+  [PASS] permeability_uses_per_nH_diffusivity — 1H: D0=1e-07 Ea=0.4  vs  3H: D0=1.5e-07 Ea=0.42
+
+============================================================
+  SUMMARY
+============================================================
+  Wall time : 80.0 min (1.33 h)
+  Passed    : 47
+  Failed    : 0
+    [PASS] slab_raw_written
+    [PASS] slab_relaxed_file
+    [PASS] slab_log_parsed
+    [PASS] e_clean_finite
+    [PASS] sites_json_written
+    [PASS] sites_nonzero
+    [PASS] surface_graph_gml_written
+    [PASS] h2_status
+    [PASS] h2_n_computed
+    [PASS] h2_intact_pool_written
+    [PASS] h_status
+    [PASS] h_n_computed
+    [PASS] h_site_coords_written
+    [PASS] neb_pools_loaded
+    [PASS] neb_dedup_ran
+    [PASS] neb_jobs_submitted
+    [PASS] neb_barrier_file_written
+    [PASS] neb_barrier_parseable
+    [PASS] neb_barrier_positive
+    [PASS] neb_converged
+    [PASS] diff_bulk_written
+    [PASS] diffusivity_run_py_written
+    [PASS] diffusivity_run_exit_0
+    [PASS] diff_msd_files_written_1H
+    [PASS] diff_table_written_1H
+    [PASS] diff_arrhenius_json_written_1H
+    [PASS] diff_arrhenius_graceful_nan_1H
+    [PASS] diff_synthetic_fallback_injected_1H
+    [PASS] diff_msd_files_written_3H
+    [PASS] diff_table_written_3H
+    [PASS] diff_arrhenius_json_written_3H
+    [PASS] diff_arrhenius_graceful_nan_3H
+    [PASS] diff_synthetic_fallback_injected_3H
+    [PASS] diff_per_nH_fits_independent
+    [PASS] permeation_run_py_written
+    [PASS] permeation_run_exit_0
+    [PASS] permeation_sweep_written_1H_600K
+    [PASS] permeability_written_1H_600K
+    [PASS] permeation_sweep_written_1H_700K
+    [PASS] permeability_written_1H_700K
+    [PASS] dilute_limit_caveat_absent_1H
+    [PASS] permeation_sweep_written_3H_600K
+    [PASS] permeability_written_3H_600K
+    [PASS] permeation_sweep_written_3H_700K
+    [PASS] permeability_written_3H_700K
+    [PASS] dilute_limit_caveat_present_3H
+    [PASS] permeability_uses_per_nH_diffusivity
+
+  Summary written → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/summary.txt
+End: Sun Jul  5 08:02:24 AM EDT 2026  Exit code: 0

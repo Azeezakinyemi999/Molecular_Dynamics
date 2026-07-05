@@ -6,7 +6,7 @@ from ase.io import read
 from ase.vibrations import Vibrations
 from mace.calculators import MACECalculator
 
-STRUCTURE  = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_1/images/image_03_img_03.lammps'
+STRUCTURE  = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_1/images/image_04_img_04.lammps'
 MACE_MODEL = '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model'
 OUTDIR     = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_1_TS'
 DELTA      = 0.01

@@ -1,0 +1,40 @@
+Node: c0586  Start: Sun Jul  5 07:52:38 AM EDT 2026
+Job: 8177648  |  Node: c0586  |  Sun Jul  5 07:52:38 AM EDT 2026
+No restart file found -- starting fresh.
+Error while loading libcue_ops.so: libcuda.so.1: cannot open shared object file: No such file or directory
+IDPP interpolation done
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+
+Phase 1: regular NEB  (5000 steps, fmax=0.300 eV/Å)
+Phase 1 done: 17 steps
+Wrote OVITO trajectory: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/hopb_phase1.extxyz
+
+Phase 2: CINEB  (10000 steps, fmax=0.100 eV/Å)
+Phase 2 done: 154 steps
+Wrote OVITO trajectory: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/hopb_phase2.extxyz
+
+Results
+  E_IS    : -124.864947 eV
+  E_FS    : -124.958163 eV
+  E_abs   : 0.2272 eV
+  E_des   : 0.3204 eV
+  delta_E : -0.0932 eV
+  fmax    : 0.4744 eV/Å
+  Converged: True
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/neb_barrier.txt
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/neb_path.dat
+Wrote 8 image structures → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb/s_0/images/
+Command block exited with code 0 at Sun Jul  5 07:58:34 AM EDT 2026
+LAMMPS converged (exit 0). Simulation complete.
+End: Sun Jul  5 07:58:34 AM EDT 2026
