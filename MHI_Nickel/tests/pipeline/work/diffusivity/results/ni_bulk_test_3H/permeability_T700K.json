@@ -1,0 +1,30 @@
+{
+  "T_K": 700,
+  "n_H": 3,
+  "D0_m2s": 1.5e-07,
+  "E_D_eV": 0.42,
+  "dH_sol_eV": 0.7277,
+  "a0_m": 1.4086736666666667e-10,
+  "dH_diss_eV": 0.3,
+  "dH_entry_eV": 0.5777,
+  "option1": {
+    "S": 8.249343637772311e+24,
+    "Phi": 1171234193621875.5,
+    "J": 1.1712341936218755e+24
+  },
+  "option2": {
+    "S": 1.264862056166796e+23,
+    "Phi": 17958394697174.742,
+    "J": 1.7958394697174743e+22
+  },
+  "option3": {
+    "S": 0.0,
+    "Phi": 0.0,
+    "J": 0.0,
+    "S_std": 0.0,
+    "n_converged": 3
+  },
+  "P_high_Pa": 1000000.0,
+  "L_m": 1e-06,
+  "dilute_limit_caveat": "Sieverts' law and Richardson's permeation formula assume dilute dissolved H. n_H=3 is not the dilute limit (n_H=1), so H-H interactions were present in this MD box and may make the derived solubility/permeability below an approximation. For a rigorous non-dilute treatment, use the raw KMC sweep data in permeation_sweep_T<T>K.json under /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H directly (flux J(P), coverage \u03b8(P), concentration C0(P) vs pressure \u2014 no \u221aP scaling assumed)."
+}

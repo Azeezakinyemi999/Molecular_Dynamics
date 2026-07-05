@@ -1,0 +1,121 @@
+Node: d3233  Start: Sun Jul  5 07:08:19 AM EDT 2026
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+Reading data file ...
+  orthogonal box = (0 0 0) to (7.0617252 7.0617252 7.0617252)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  35 atoms
+  read_data CPU = 0.022 seconds
+W0705 07:08:50.994000 1650620 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+### Minimization ###
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+- KOKKOS package: https://doi.org/10.1145/3731599.3767498
+The log file lists these citations in BibTeX format.
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 8
+  ghost atom cutoff = 8
+  binsize = 8, bins = 1 1 1
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair mliap/kk, perpetual
+      attributes: full, newton on, kokkos_device
+      pair build: full/bin/kk/device
+      stencil: full/bin/3d
+      bin: kk/device
+Setting up cg/kk style minimization ...
+  Unit style    : metal
+  Current step  : 0
+WARNING: Energy due to 1 extra global DOFs will be included in minimizer energies
+ (src/KOKKOS/min_kokkos.cpp:94)
+WARNING: Fix MINIMIZE/kk not compatible with sending data in Kokkos communication (src/KOKKOS/comm_kokkos.cpp:842)
+WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
+WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 38.72 | 38.72 | 38.72 Mbytes
+   Step         PotEng          Fmax          Fnorm          Press          Volume           Lx             Ly             Lz      
+         0  -161.88658      120.92265      172.15328      202770.46      352.15385      7.0617252      7.0617252      7.0617252    
+        10  -165.25684      99.506068      141.96054      115636.24      362.82447      7.1323425      7.1323425      7.1323425    
+        20  -168.90355      78.603297      112.12964      40299.522      373.70848      7.2029597      7.2029597      7.2029597    
+        30  -175.79414      34.855933      50.149141     -5953.9782      373.70848      7.2029597      7.2029597      7.2029597    
+        40  -181.68778      8.1957516      13.141041     -4886.9742      364.98413      7.1464659      7.1464659      7.1464659    
+        50  -183.09901      3.6609589      6.6908667      2609.2996      360.67334      7.118219       7.118219       7.118219     
+        60  -183.71423      2.3169841      4.4342019     -5981.2008      360.67334      7.118219       7.118219       7.118219     
+        70  -183.955        1.9538754      3.7367052      2121.1506      358.53073      7.1040956      7.1040956      7.1040956    
+        80  -184.24622      1.5082557      2.7692458     -2330.7577      358.53073      7.1040956      7.1040956      7.1040956    
+        90  -184.42246      1.2589493      2.1773758     -4976.3974      358.53073      7.1040956      7.1040956      7.1040956    
+       100  -184.93694      0.47039269     0.75687666     971.39065      356.29751      7.0893148      7.0893148      7.0893148    
+       110  -185.17648      0.22181178     0.4517238      2485.124       355.68418      7.0852446      7.0852446      7.0852446    
+       120  -185.19263      0.022024196    0.088704838    913.87223      355.92564      7.0868475      7.0868475      7.0868475    
+       130  -185.19308      0.0024829455   0.0077887051   8.3387837      356.08377      7.0878969      7.0878969      7.0878969    
+       140  -185.19309      0.0015646934   0.0061611885   1.8632011      356.08492      7.0879046      7.0879046      7.0879046    
+       150  -185.19309      0.00049044204  0.0018677991   1.1044341      356.08508      7.0879056      7.0879056      7.0879056    
+       160  -185.19309      9.4432705e-05  0.00036982273  0.23319122     356.08519      7.0879064      7.0879064      7.0879064    
+       170  -185.19309      4.3256857e-05  0.00015005426  0.17593289     356.08519      7.0879064      7.0879064      7.0879064    
+       180  -185.19309      1.8761829e-05  6.3489384e-05  0.17608772     356.08519      7.0879064      7.0879064      7.0879064    
+       190  -185.19309      1.0948126e-05  3.4690004e-05  0.18144582     356.08519      7.0879064      7.0879064      7.0879064    
+       200  -185.19309      7.0106643e-06  1.9596055e-05  0.13934938     356.0852       7.0879064      7.0879064      7.0879064    
+       210  -185.19309      4.2245053e-06  1.48938e-05    0.091636935    356.08521      7.0879065      7.0879065      7.0879065    
+       220  -185.19309      2.0380824e-07  6.7614602e-07  0.0025200487   356.08523      7.0879066      7.0879066      7.0879066    
+       230  -185.19309      2.6272212e-09  9.7177164e-09  4.8790865e-06  356.08523      7.0879066      7.0879066      7.0879066    
+       232  -185.19309      1.8164222e-09  5.787836e-09   5.9150369e-08  356.08523      7.0879066      7.0879066      7.0879066    
+Loop time of 12.9772 on 1 procs for 232 steps with 35 atoms
+
+98.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = force tolerance
+  Energy initial, next-to-last, final = 
+     -161.886584192241  -185.193088645842  -185.193088645842
+  Force two-norm initial, final = 217.97663 5.7879694e-09
+  Force max component initial, final = 133.70512 1.8164222e-09
+  Final line search alpha, max atom move = 1 1.8164222e-09
+  Iterations, force evaluations = 232 363
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 12.551     | 12.551     | 12.551     |   0.0 | 96.71
+Neigh   | 0.00049566 | 0.00049566 | 0.00049566 |   0.0 |  0.00
+Comm    | 0.018111   | 0.018111   | 0.018111   |   0.0 |  0.14
+Output  | 0.0027573  | 0.0027573  | 0.0027573  |   0.0 |  0.02
+Modify  | 0          | 0          | 0          |   0.0 |  0.00
+Other   |            | 0.4051     |            |       |  3.12
+
+Nlocal:             35 ave          35 max          35 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1187 ave        1187 max        1187 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:         7530 ave        7530 max        7530 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 7530
+Ave neighs/atom = 215.14286
+Neighbor list builds = 1
+Dangerous builds = 0
+### Minimization complete ###
+MINIMIZATION_RESULTS_START
+  Total_energy_eV     : -185.193088645842
+  Natoms              : 35
+  Ecoh_eV_per_atom    : 5.29123110416691
+  a0_Angstrom         : 1.41758131671792
+  Fmax_eV_per_Ang     : 1.81642222790712e-09
+MINIMIZATION_RESULTS_END
+System init for write_restart ...
+System init for write_data ...
+Minimized structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/700K/bulk_min_h.lammps
+Total wall time: 0:00:56
+End: Sun Jul  5 07:09:17 AM EDT 2026

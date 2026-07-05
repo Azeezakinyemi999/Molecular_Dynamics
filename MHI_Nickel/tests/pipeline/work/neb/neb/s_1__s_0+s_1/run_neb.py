@@ -13,12 +13,17 @@ _ld = os.environ.get("LD_LIBRARY_PATH", "")
 os.environ["LD_LIBRARY_PATH"] = ":".join(
     p for p in _ld.split(":") if "stubs" not in p)
 
+_parent = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel'
+if _parent not in sys.path:
+    sys.path.insert(0, _parent)
+
 from pathlib import Path as _Path
 from ase.io import read, Trajectory as _Trajectory
 from ase.mep import NEB
 from ase.optimize import MDMin
 from ase.calculators.singlepoint import SinglePointCalculator
 from mace.calculators import MACECalculator
+from models.structure import write_lammps_data
 
 # ── Parameters injected from notebook ─────────────────────────────
 MACE_MODEL      = "/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model"
@@ -26,6 +31,8 @@ NEB_IS_FILE     = "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/
 FS_RELAXED_DATA = "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/neb_final_relaxed.lammps"
 Z_FREEZE_CUTOFF = 22.115    # Å — frozen layer threshold
 E_IS            = -128.654961998568               # eV — from LAMMPS IS minimisation
+MASSES          = {1: (26.9815, 'Al'), 2: (10.811, 'B'), 3: (12.011, 'C'), 4: (51.9961, 'Cr'), 5: (55.845, 'Fe'), 6: (95.96, 'Mo'), 7: (58.6934, 'Ni'), 8: (1.008, 'H')}
+E2T             = {'Al': 1, 'B': 2, 'C': 3, 'Cr': 4, 'Fe': 5, 'Mo': 6, 'Ni': 7, 'H': 8}
 def _parse_pe_final(log_path):
     _val = None
     with open(log_path) as _f:
@@ -223,11 +230,27 @@ print(f"Wrote: {BARRIER_FILE}")
 print(f"Wrote: {PATH_FILE}")
 
 # ── Write per-image LAMMPS data files ─────────────────────────────
+# write_lammps_data (this project's canonical writer, used
+# everywhere else) always includes a real Masses section. A bare
+# ase.io.write with no masses does not, and a later ase.io.read of
+# such a file, with no explicit type-to-element override, then
+# falls back to treating the raw atom type id as the atomic
+# number -- with this project's E2T_7 mapping (Ni=7, H=8) that
+# silently collides with real elements (N=7, O=8) instead of
+# erroring, and vib_run.py found "0 H atoms" on a structure that
+# actually has exactly one.
 os.makedirs(IMAGES_DIR, exist_ok=True)
-from ase.io import write as _ase_write
 _n = len(images)
 for _i, _img in enumerate(images):
     _lbl  = "IS" if _i == 0 else ("FS" if _i == _n - 1 else f"img_{_i:02d}")
     _path = os.path.join(IMAGES_DIR, f"image_{_i:02d}_{_lbl}.lammps")
-    _ase_write(_path, _img, format="lammps-data", atom_style="atomic")
+    write_lammps_data(
+        symbols=_img.get_chemical_symbols(),
+        positions=_img.get_positions(),
+        cell_lengths=_img.cell.diagonal(),
+        masses=MASSES,
+        e2t=E2T,
+        out_path=_path,
+        comment=f"NEB image {_i} ({_lbl})",
+    )
 print(f"Wrote {_n} image structures → {IMAGES_DIR}/")

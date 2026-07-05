@@ -1,0 +1,4 @@
+Node: d3233  Start: Sun Jul  5 07:51:20 AM EDT 2026
+sed: -e expression #1, char 2: invalid usage of line address 0
+bash: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopb//slurm_fsmin_.sh: No such file or directory
+End: Sun Jul  5 07:51:20 AM EDT 2026
