@@ -81,6 +81,25 @@ DIFF_DUMP_EVERY    = 100
 DIFF_THERMO_EVERY  = 100
 DIFF_RESTART_EVERY = 1000
 
+# SMOKE-TEST-ONLY synthetic diffusivity fallback. At this tiny scale (2000
+# MD steps / 2 ps, 1-3 H atoms) a NaN Arrhenius fit is statistically
+# expected (see diff_arrhenius_graceful_nan_*H below) — Part 3's real code
+# already handles that correctly by design (skip gracefully, never fake a
+# result). But Stage 7 (Part 2's real code) needs a VALID per-n_H fit to
+# get past Phase 4 into the KMC/permeability phases, which are the actual
+# point of testing Stage 7 for real. When the real fit is NaN, stage6
+# injects one of these clearly-labelled synthetic values so those phases
+# still get exercised — this lives ONLY in the test harness; production
+# code (models/permeation.py:resolve_nh_diffusivity) always skips on NaN,
+# unconditionally, with no equivalent fallback. Values differ per n_H so
+# the per-n_H-independence check further down stays meaningful even when
+# synthetic (literature-plausible dilute H-in-Ni; n_H=3 nudged slightly to
+# represent H-H site-blocking, not a fitted value).
+DIFF_SYNTHETIC_FALLBACK = {
+    1: dict(D0_m2s=1.0e-7, E_D_eV=0.40),
+    3: dict(D0_m2s=1.5e-7, E_D_eV=0.42),
+}
+
 # ─── permeation stage parameters ─────────────────────────────────────────────
 PERM_P_VALS_PA    = [1e4, 1e5, 1e6]   # 0.1, 1, 10 bar
 PERM_A0_M         = 3.52e-10          # Ni lattice constant (m)
@@ -717,6 +736,34 @@ def stage6_diffusivity(work_dir: str) -> dict:
                        Ea != Ea and D0 != D0,   # NaN != NaN
                        f'{n_valid} valid D point(s) at smoke scale — '
                        f'NaN fit is the designed graceful behaviour')
+
+                if n_h in DIFF_SYNTHETIC_FALLBACK:
+                    _fb = DIFF_SYNTHETIC_FALLBACK[n_h]
+                    _real_backup = run_root / 'diffusivity_arrhenius_REAL_NaN.json'
+                    if not _real_backup.exists():
+                        arr_json.rename(_real_backup)
+                    _fallback = dict(arr)
+                    _fallback.update(_fb)
+                    _fallback['SMOKE_TEST_SYNTHETIC_FALLBACK'] = True
+                    _fallback['fallback_reason'] = (
+                        f'Real Arrhenius fit was NaN ({n_valid} valid D '
+                        f'point(s) at smoke scale) — synthetic D0/Ea '
+                        f'injected by the TEST HARNESS ONLY so Stage 7 '
+                        f'(real Hop A/B NEB + KMC + permeability) can '
+                        f'still be exercised end-to-end. Production code '
+                        f'(resolve_nh_diffusivity) never does this — see '
+                        f'{_real_backup.name} for the real (NaN) result.'
+                    )
+                    with open(arr_json, 'w') as f:
+                        json.dump(_fallback, f, indent=2)
+                    arr_jsons[n_h] = _fallback
+                    Ea, D0 = _fb['E_D_eV'], _fb['D0_m2s']
+                    print(f'  [SMOKE-TEST FALLBACK] n_H={n_h}: real fit was '
+                          f'NaN — injected synthetic D0={D0:.3e} m²/s '
+                          f'Ea={Ea:.3f} eV so Stage 7 can be tested. Real '
+                          f'NaN result preserved at {_real_backup}.')
+                    _check(f'diff_synthetic_fallback_injected_{n_h}H', True,
+                           f'D0={D0:.3e} Ea={Ea:.3f} eV (NOT a real fit)')
             print(f'  n_H={n_h}  Arrhenius: Ea={Ea:.4f} eV  '
                   f'D0={D0:.3e} m²/s  R²={R2:.4f}')
 
