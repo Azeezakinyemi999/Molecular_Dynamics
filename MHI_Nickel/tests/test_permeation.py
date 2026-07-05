@@ -10,6 +10,7 @@ Covers:
   sieverts_solubility, permeability, richardson_flux
 """
 
+import json
 import math
 import sys
 import pathlib
@@ -31,6 +32,7 @@ from models.permeation import (
     sieverts_solubility,
     permeability,
     richardson_flux,
+    resolve_nh_diffusivity,
 )
 
 
@@ -409,3 +411,96 @@ class TestRichardsonFlux:
         J_neg  = richardson_flux(self._PHI, 10000.0, -500.0, self._L)
         J_zero = richardson_flux(self._PHI, 10000.0,    0.0, self._L)
         assert J_neg == pytest.approx(J_zero, rel=1e-10)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 10. resolve_nh_diffusivity — Part 2 <-> Part 3 handoff, no-placeholder logic
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestResolveNhDiffusivity:
+
+    def _write_fit(self, tmp_path, stem, n_h, D0=None, Ea=None, omit=False):
+        nh_dir = tmp_path / 'results' / f'{stem}_{n_h}H'
+        nh_dir.mkdir(parents=True)
+        if not omit:
+            payload = {}
+            if D0 is not None:
+                payload['D0_m2s'] = D0
+            if Ea is not None:
+                payload['E_D_eV'] = Ea
+            (nh_dir / 'diffusivity_arrhenius.json').write_text(json.dumps(payload))
+        return nh_dir
+
+    def test_missing_file_not_ready(self, tmp_path):
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        assert res['ready'] is False
+        assert res['D0_m2s'] is None and res['E_D_eV'] is None
+        assert 'not found' in res['message']
+
+    def test_missing_file_reports_correct_path(self, tmp_path):
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 3)
+        expected = str(tmp_path / 'results' / 'ni_bulk_test_3H'
+                        / 'diffusivity_arrhenius.json')
+        assert res['diff_file'] == expected
+
+    def test_valid_fit_is_ready(self, tmp_path):
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=1.2e-8, Ea=0.35)
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        assert res['ready'] is True
+        assert res['D0_m2s'] == pytest.approx(1.2e-8)
+        assert res['E_D_eV'] == pytest.approx(0.35)
+        assert res['message'] is None
+
+    def test_nan_d0_not_ready(self, tmp_path):
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=float('nan'), Ea=0.35)
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        assert res['ready'] is False
+        assert 'no valid D0/Ea' in res['message']
+
+    def test_nan_ea_not_ready(self, tmp_path):
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=1.2e-8, Ea=float('nan'))
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        assert res['ready'] is False
+
+    def test_missing_d0_key_not_ready(self, tmp_path):
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=None, Ea=0.35)
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        assert res['ready'] is False
+
+    def test_missing_ea_key_not_ready(self, tmp_path):
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=1.2e-8, Ea=None)
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        assert res['ready'] is False
+
+    def test_dilute_limit_n_h_1_has_no_caveat(self, tmp_path):
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=1.2e-8, Ea=0.35)
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        assert res['dilute_note'] is None
+
+    def test_non_dilute_n_h_gt_1_has_caveat(self, tmp_path):
+        self._write_fit(tmp_path, 'ni_bulk_test', 3, D0=1.2e-8, Ea=0.35)
+        res = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 3)
+        assert res['dilute_note'] is not None
+        assert 'dilute' in res['dilute_note'].lower()
+        assert 'n_H=3' in res['dilute_note']
+
+    def test_different_n_h_use_independent_paths(self, tmp_path):
+        # Direct regression proof for the per-n_H Arrhenius overwrite bug:
+        # two different n_H values must resolve to two different directories.
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=1.0e-8, Ea=0.30)
+        self._write_fit(tmp_path, 'ni_bulk_test', 3, D0=2.0e-8, Ea=0.40)
+        res1 = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        res3 = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 3)
+        assert res1['nh_dir'] != res3['nh_dir']
+        assert res1['diff_file'] != res3['diff_file']
+        assert res1['D0_m2s'] != res3['D0_m2s']
+        assert res1['E_D_eV'] != res3['E_D_eV']
+
+    def test_one_n_h_missing_does_not_affect_the_other(self, tmp_path):
+        # Only n_H=1 has a fit written; n_H=3 must independently report
+        # "not found" rather than accidentally reading n_H=1's file.
+        self._write_fit(tmp_path, 'ni_bulk_test', 1, D0=1.0e-8, Ea=0.30)
+        res1 = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 1)
+        res3 = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 3)
+        assert res1['ready'] is True
+        assert res3['ready'] is False
