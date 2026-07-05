@@ -36,12 +36,13 @@ _SLURM = dict(partition='sharing', time='00:20:00')
 def _generate(tmp_path, name, **kwargs):
     out = str(tmp_path / name)
     generate_permeation_scripts(
-        work_dir=str(tmp_path), relaxed_slab_path='/x/slab.lammps',
+        work_dir=str(tmp_path), stem='test_metal',
+        relaxed_slab_path='/x/slab.lammps',
         surface_sites_json='/x/surface_sites.json',
         phase2_h_dir=str(tmp_path), sub_neb_dir=str(tmp_path),
         vib_dir=str(tmp_path), results_dir=str(tmp_path),
-        temperatures=[700], p_vals_pa=[1e5], a0_m=3.52e-10, l_m=1e-3,
-        d0_m2s=1.5e-7, e_d_ev=0.4, dh_diss_ev=None, dh_entry_ev=None,
+        temperatures=[700], n_h_values=[1], p_vals_pa=[1e5],
+        a0_m=3.52e-10, l_m=1e-3, dh_diss_ev=None, dh_entry_ev=None,
         nx=10, ny=10, seed=42, kmc_max_steps=1000,
         gpu_slurm_cfg=_SLURM, neb_slurm_cfg=_SLURM, vib_slurm_cfg=_SLURM,
         n_images=6, spring_const=1.0, neb_ftol=0.1, out_py=out,
