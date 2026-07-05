@@ -188,6 +188,92 @@ class TestGenerateDiffusivityScripts:
         _, _, content = gen_result
         assert 'lattice_params_vs_T.json' in content
 
+    def test_per_combo_try_except_wraps_full_body(self, gen_result):
+        """The try/except must span the WHOLE per-(struct, n_H) body — from
+        right after `run_name = ...` through the final Arrhenius-json print —
+        not just a leading fragment of it. A partial wrap would leave later
+        phases (NVT, post-processing) able to crash the entire run again."""
+        _, _, content = gen_result
+        run_name_idx = content.index("run_name = f'{struct_stem}_{n_h}H'")
+        try_idx      = content.index('try:', run_name_idx)
+        except_idx   = content.index('except Exception as _exc:', try_idx)
+        saved_idx    = content.rindex("print(f'  Saved diffusivity_arrhenius.json")
+        assert run_name_idx < try_idx < saved_idx < except_idx
+
+    def test_failure_manifest_and_nonzero_exit_in_body(self, gen_result):
+        _, _, content = gen_result
+        assert 'diffusivity_failures.json' in content
+        assert 'sys.exit(1)' in content
+
+
+class TestDiffusivityFailureIsolation:
+    """Behavioral proof (not just generated-text matching) that one
+    structure's failure no longer kills the whole diffusivity_run.py run —
+    see [[project_pipeline_test_bugs]] on the pre-fix diffusivity_workflow.py
+    main loop having zero per-structure isolation."""
+
+    def test_one_bad_structure_does_not_block_others(self, tmp_path, monkeypatch):
+        import json
+
+        work_dir = str(tmp_path / 'work')
+        os.makedirs(work_dir, exist_ok=True)
+        out_py = str(tmp_path / 'diffusivity_run.py')
+
+        struct_a = str(tmp_path / 'A_supercell.lammps')
+        struct_b = str(tmp_path / 'B_supercell.lammps')
+        pathlib.Path(struct_a).write_text('dummy')
+        pathlib.Path(struct_b).write_text('dummy')
+
+        generate_diffusivity_scripts(
+            input_structures=[struct_a, struct_b],
+            n_h_values=[1, 3],
+            temperatures=[400],
+            work_dir=work_dir,
+            nvt_wall_time='24:00:00',
+            cutoff='23:55:00',
+            gpu_partition='multigpu',
+            gpu_time='24:00:00',
+            timestep_ps=0.0005,
+            tau_t_ps=0.1,
+            n_equil_steps=100,
+            n_prod_steps=100,
+            thermo_every=10,
+            dump_every=10,
+            velocity_seed=42,
+            restart_every=100,
+            out_py=out_py,
+        )
+
+        # Stub every SLURM/LAMMPS side-effecting call as a no-op. None of
+        # them ever produce `bulk_min.lammps`, so Phase 1a's `_require_file`
+        # check deterministically raises for EVERY (struct, n_H) combo —
+        # proving the loop keeps going regardless, rather than proving
+        # anything about Phase 1a itself (already covered by the real
+        # cluster smoke test).
+        monkeypatch.setattr('models.create_slurm.write_slurm_job', lambda **kw: None)
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job', lambda *a, **kw: 'fakejid')
+        monkeypatch.setattr('models.create_slurm.wait_for_jobs', lambda *a, **kw: None)
+        monkeypatch.setattr('models.lammps_script.write_minimization_script', lambda **kw: None)
+
+        src = pathlib.Path(out_py).read_text()
+        with pytest.raises(SystemExit) as exc_info:
+            exec(compile(src, out_py, 'exec'), {'__name__': '__main__'})
+        assert exc_info.value.code == 1
+
+        failures_path = os.path.join(work_dir, 'diffusivity_failures.json')
+        assert os.path.exists(failures_path)
+        failures = json.loads(pathlib.Path(failures_path).read_text())
+
+        # All 4 (struct, n_H) combos were attempted despite each one failing —
+        # the pre-fix behavior would have stopped after the very first one.
+        assert len(failures) == 4
+        run_names = {f['run_name'] for f in failures}
+        assert run_names == {
+            'A_supercell_1H', 'A_supercell_3H',
+            'B_supercell_1H', 'B_supercell_3H',
+        }
+        assert all('Expected output missing' in f['error'] for f in failures)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. generate_orchestrator_sh

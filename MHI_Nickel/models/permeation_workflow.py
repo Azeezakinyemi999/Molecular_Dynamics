@@ -381,6 +381,19 @@ else:
     _DH_SOL = _DH_DISS_USED / 2.0 + _DH_ENTRY_USED
 _P_HIGH = max(P_VALS_PA)
 
+# Tracks what actually got produced across all n_H, since every skip below is
+# a `continue` (never a raise) by design — the fail-loud signal for the
+# orchestrator has to come from checking this at the end, not from an
+# exception, or a metal that silently produced zero output would still
+# report success. See [[project_pipeline_test_bugs]].
+_PERM_STATUS = {
+    'stem':                STEM,
+    'n_h_requested':       list(N_H_VALUES),
+    'phase6_ready':        _PHASE6_READY,
+    'n_h_skipped':         [],
+    'permeability_written': [],
+}
+
 for _n_h in N_H_VALUES:
     print(f'\n{"="*76}\nH concentration: n_H = {_n_h}\n{"="*76}')
     _res_nh = resolve_nh_diffusivity(WORK_DIR, STEM, _n_h)
@@ -388,6 +401,7 @@ for _n_h in N_H_VALUES:
 
     if not _res_nh['ready']:
         print(f"  ERROR: {_res_nh['message']}")
+        _PERM_STATUS['n_h_skipped'].append({'n_h': _n_h, 'reason': _res_nh['message']})
         continue
     _D0_nh, _ED_nh = _res_nh['D0_m2s'], _res_nh['E_D_eV']
     _dilute_note = _res_nh['dilute_note']
@@ -550,6 +564,7 @@ for _n_h in N_H_VALUES:
             _perm_payload['dilute_limit_caveat'] = _dilute_note
         with open(_perm_f, 'w') as _f:
             json.dump(_perm_payload, _f, indent=2)
+        _PERM_STATUS['permeability_written'].append(f'{_n_h}H_T{int(_T)}K')
         print(f'  T={_T:4.0f} K  Opt1(lattice):  S={_S1:.3e}  Phi={_Phi1:.3e}  J={_J1:.3e} atoms/m²/s')
         print(f'  T={_T:4.0f} K  Opt2(TST):      S={_S2:.3e}  Phi={_Phi2:.3e}  J={_J2:.3e} atoms/m²/s')
         print(f'  T={_T:4.0f} K  Opt3(KMC):      S={_S3:.3e}  Phi={_Phi3:.3e}  J={_J3:.3e} atoms/m²/s')
@@ -591,7 +606,17 @@ for _n_h in N_H_VALUES:
     else:
         print(f'WARNING: fewer than 2 valid temperatures for n_H={_n_h} — Arrhenius S₀ fit skipped.')
 
-print('=== permeation_run.py complete ===')
+_status_path = os.path.join(RESULTS_DIR, 'permeation_status.json')
+with open(_status_path, 'w') as _f:
+    json.dump(_PERM_STATUS, _f, indent=2)
+
+if not _PERM_STATUS['permeability_written']:
+    print(f'\n*** FAILED: no permeability results were produced for any (n_H, T) '
+          f'combination — see {_status_path} ***')
+    sys.exit(1)
+else:
+    print(f'\n=== permeation_run.py complete: '
+          f'{len(_PERM_STATUS["permeability_written"])} permeability result(s) written ===')
 """
 
 
