@@ -314,6 +314,8 @@ def orchestrate_hopa_neb(
             label_fs=f'sub1:{ss1_id}',
             traj_phase1=traj_p1,
             traj_phase2=traj_p2,
+            masses=masses,
+            e2t=e2t,
         )
 
         # 4a. GPU SLURM: FS-min
@@ -613,6 +615,8 @@ def orchestrate_hopb_neb(
             label_fs=f'sub2:{ss2_id}',
             traj_phase1=traj_p1,
             traj_phase2=traj_p2,
+            masses=masses,
+            e2t=e2t,
         )
 
         # 4a. GPU SLURM: FS-min
