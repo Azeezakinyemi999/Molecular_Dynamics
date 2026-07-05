@@ -41,6 +41,7 @@ from models.permeation_workflow import (
 
 _PERM_CFG = dict(
     work_dir='/work',
+    stem='test_metal',
     relaxed_slab_path='/work/slab/relaxed.lammps',
     surface_sites_json='/work/slab/surface_sites.json',
     phase2_h_dir='/work/neb/h_atoms',
@@ -48,11 +49,10 @@ _PERM_CFG = dict(
     vib_dir='/work/vib',
     results_dir='/work/results/permeation',
     temperatures=[600, 800, 1000],
+    n_h_values=[1, 3, 5, 10],
     p_vals_pa=[100.0, 1000.0, 10000.0],
     a0_m=3.52e-10,
     l_m=1e-3,
-    d0_m2s=1e-7,
-    e_d_ev=0.4,
     dh_diss_ev=0.2,
     dh_entry_ev=0.15,
     nx=10,
@@ -184,10 +184,17 @@ class TestGeneratePermeationScripts:
         assert 'P_VALS_PA' in content
         assert '10000.0' in content
 
-    def test_diffusivity_params_embedded(self, gen_result):
+    def test_n_h_values_embedded(self, gen_result):
         _, _, content = gen_result
-        assert 'D0_M2S' in content
-        assert 'E_D_EV' in content
+        assert 'N_H_VALUES' in content
+        assert '[1, 3, 5, 10]' in content
+
+    def test_no_diffusivity_placeholder_embedded(self, gen_result):
+        """D0/Ea are loaded per-(stem, n_H) at runtime from Part 3's real
+        fit — no global placeholder constant should be injected at all."""
+        _, _, content = gen_result
+        assert 'D0_M2S' not in content
+        assert 'E_D_EV' not in content
 
     def test_kmc_grid_params_embedded(self, gen_result):
         _, _, content = gen_result

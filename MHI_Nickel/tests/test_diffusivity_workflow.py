@@ -175,6 +175,15 @@ class TestGenerateDiffusivityScripts:
         _, _, content = gen_result
         assert 'diffusivity_arrhenius.json' in content
 
+    def test_arrhenius_json_path_is_per_run_not_shared(self, gen_result):
+        """Each (stem, n_H) must write its own diffusivity_arrhenius.json —
+        previously this was shared across all n_H for a structure, so every
+        H-concentration but the last silently overwrote the others' fits."""
+        _, _, content = gen_result
+        assert "os.path.join(dirs['root'], 'diffusivity_arrhenius.json')" in content
+        # must NOT be the old shared per-stem-only path
+        assert "os.path.join(WORK_DIR, 'results', struct_stem, 'diffusivity_arrhenius.json')" not in content
+
     def test_lattice_params_json_save_in_body(self, gen_result):
         _, _, content = gen_result
         assert 'lattice_params_vs_T.json' in content

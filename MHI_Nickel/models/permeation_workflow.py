@@ -258,13 +258,20 @@ for _T in TEMPERATURES:
     print(f'  T={_T:4.0f} K: {len(_rd)} rates → {_out_json}')
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Phase 5 — KMC pressure sweeps
+# Phases 5-6 — Per H-concentration: KMC pressure sweeps + permeability
 # ══════════════════════════════════════════════════════════════════════════════
-print('\n── Phase 5: KMC pressure sweeps ──────────────────────────────────────────')
+# Bulk diffusivity genuinely depends on H loading (H-H site blocking), unlike
+# Phases 1-4 above (surface/subsurface entry, dissociation), which are
+# independent of bulk H concentration and were computed once, per stem.
+# So Phases 5-6 run once per N_H_VALUES entry, each using that concentration's
+# own MD-fitted Arrhenius diffusivity from Part 3 — never a placeholder. If a
+# concentration's fit is missing or invalid, that concentration is skipped
+# entirely (loud error, no output files for it), not faked.
 _DISS_JSON = os.path.join(WORK_DIR, 'neb', 'diss_jobs.json')
 _NU_DISS   = 1e13   # s⁻¹ — fallback prefactor when ZPE rates unavailable
 
-# T-dependent lattice parameter from Part 3 NPT MD
+# T-dependent lattice parameter from Part 3 NPT MD (n_H-independent — the
+# bare-bulk NPT that produces this has no H in it).
 _LAT_JSON_5 = os.path.join(RESULTS_DIR, 'lattice_params_vs_T.json')
 if os.path.exists(_LAT_JSON_5):
     with open(_LAT_JSON_5) as _f:
@@ -275,7 +282,9 @@ else:
     _a0_dict = {}
     print(f'  WARNING: lattice_params_vs_T.json not found — using fixed A0_M={A0_M} m')
 
-# ZPE-corrected dissociation rates from Part 1 Phase E
+# ZPE-corrected dissociation rates from Part 1 Phase E (n_H-independent —
+# see GitHub issue on collect_neb_results never being called; this is
+# expected to be absent today).
 _DISS_VIB_JSON = os.path.join(WORK_DIR, 'neb', 'diss_vib_rates.json')
 _diss_vib = {}   # {tuple(pair): {Ea_zpe, Ed_zpe, nu}}
 if os.path.exists(_DISS_VIB_JSON):
@@ -291,96 +300,8 @@ if os.path.exists(_DISS_VIB_JSON):
 else:
     print(f'  WARNING: diss_vib_rates.json not found — using raw barriers for diss/des rates')
 
-for _T in TEMPERATURES:
-    _out = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
-    if os.path.exists(_out):
-        print(f'  T={_T:4.0f} K  KMC sweep already done — skipping')
-        continue
-
-    with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
-        _tst = json.load(_f)
-
-    _kBT = _KB_EV * _T
-    _a0_T = _a0_dict.get(_T, A0_M)
-    _k_diss, _k_des, _k_entry, _k_exit = {}, {}, {}, {}
-
-    for _lbl, _r in _tst.items():
-        if _lbl.startswith('hopa_'):
-            _sid = _lbl[len('hopa_'):]
-            _matched = False
-            for _el in _slab_species:
-                if _el in _sid:
-                    _k_entry[_el] = _r['k_forward']
-                    _k_exit[_el]  = _r['k_reverse']
-                    _matched = True
-                    break
-            if not _matched:
-                # Bare site ids (s_NN) carry no element name — resolve via
-                # the site's level1 composition from surface_sites.json.
-                _comp = _sid2comp.get(_sid, '')
-                for _el in _slab_species:
-                    if _el in _comp:
-                        _k_entry.setdefault(_el, _r['k_forward'])
-                        _k_exit.setdefault(_el, _r['k_reverse'])
-
-    if _diss_vib:
-        for _pkey5, _dv5 in _diss_vib.items():
-            _k_diss[_pkey5] = np.exp(-_dv5['Ea_zpe'] / _kBT)
-            _k_des[_pkey5]  = _dv5['nu'] * np.exp(-_dv5['Ed_zpe'] / _kBT)
-    elif os.path.exists(_DISS_JSON):
-        with open(_DISS_JSON) as _f:
-            _diss = json.load(_f)
-        for _job in _diss:
-            _bf = _job.get('barrier_file', '')
-            if not os.path.exists(_bf):
-                continue
-            _bd   = parse_barrier_file(_bf)
-            _pair = tuple(sorted(_job['sid'].replace('-', '').split('_')[:2]))
-            _k_diss[_pair] = np.exp(-_bd['E_abs'] / _kBT)
-            _k_des[_pair]  = _NU_DISS * np.exp(-_bd['E_des'] / _kBT)
-    else:
-        print(f'  WARNING: no diss rate source found — using placeholders at T={_T} K')
-        # element_pair keys are sorted tuples; cover every species pair
-        # actually present in this slab (metal or oxide).
-        for _pair in itertools.combinations_with_replacement(
-                sorted(_slab_species), 2):
-            _k_diss[_pair] = np.exp(-0.5  / _kBT)
-            _k_des[_pair]  = _NU_DISS * np.exp(-1.2 / _kBT)
-
-    for _el, _ke in _k_entry.items():
-        print(f'  [{_T:.0f}K] k_entry({_el})={_ke:.3e} s⁻¹  k_exit({_el})={_k_exit.get(_el, float("nan")):.3e} s⁻¹')
-    _rate_dict = {'k_diss': _k_diss, 'k_des': _k_des,
-                  'k_entry': _k_entry, 'k_exit': _k_exit}
-    _D_T = arrhenius_diffusivity(D0_M2S, E_D_EV, _T)
-    np.random.seed(SEED)
-    _sweep = sweep_pressure(
-        P_vals_Pa  = P_VALS_PA,
-        rate_dict  = _rate_dict,
-        D_m2s      = _D_T,
-        L_m        = L_M,
-        T_K        = _T,
-        a0_m       = _a0_T,
-        nx         = NX,
-        ny         = NY,
-        seed       = SEED,
-        composition = _kmc_composition,
-        kmc_kwargs = {'window': 2000, 'rtol': 0.02, 'max_steps': KMC_MAX_STEPS},
-    )
-    _sweep['T_K']   = _T
-    _sweep['D_m2s'] = _D_T
-    _sweep['a0_m']  = _a0_T
-    with open(_out, 'w') as _f:
-        json.dump(_sweep, _f, indent=2)
-    _conv = sum(1 for c in _sweep.get('converged', []) if c)
-    print(f'  T={_T:4.0f} K  a0={_a0_T:.4e} m  D={_D_T:.2e} m²/s  '
-          f'{_conv}/{len(P_VALS_PA)} converged → {_out}')
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Phase 6 — Richardson-Sieverts permeability (all three S₀ options)
-# ══════════════════════════════════════════════════════════════════════════════
-print('\n── Phase 6: Richardson-Sieverts permeability ────────────────────────────')
-
-# Auto-extract DH values from NEB results if not set manually
+# Auto-extract DH values from NEB results if not set manually (n_H-independent
+# — used only by Phase 6 Option 1 below).
 _DH_DISS_USED  = DH_DISS_EV
 _DH_ENTRY_USED = DH_ENTRY_EV
 
@@ -406,17 +327,154 @@ if _DH_DISS_USED is None:
             print(f'  Auto-extracted DH_DISS_EV  = {_DH_DISS_USED:.4f} eV '
                   f'(mean of {len(_diss_de6)} converged diss barriers)')
 
-if _DH_DISS_USED is None or _DH_ENTRY_USED is None:
-    print('WARNING: DH_DISS_EV or DH_ENTRY_EV could not be determined — skipping Phase 6.')
+_PHASE6_READY = _DH_DISS_USED is not None and _DH_ENTRY_USED is not None
+if not _PHASE6_READY:
+    print('WARNING: DH_DISS_EV or DH_ENTRY_EV could not be determined — Phase 6 '
+          '(permeability) will be skipped for every H-concentration.')
     print('  Fill DH_DISS_EV and DH_ENTRY_EV in permeation.ipynb Cell 2 and regenerate.')
 else:
     _DH_SOL = _DH_DISS_USED / 2.0 + _DH_ENTRY_USED
-    _P_HIGH = max(P_VALS_PA)
+_P_HIGH = max(P_VALS_PA)
+
+for _n_h in N_H_VALUES:
+    print(f'\n{"="*76}\nH concentration: n_H = {_n_h}\n{"="*76}')
+    _nh_dir = os.path.join(WORK_DIR, 'results', f'{STEM}_{_n_h}H')
+    _diff_f = os.path.join(_nh_dir, 'diffusivity_arrhenius.json')
+
+    if not os.path.exists(_diff_f):
+        print(f'  ERROR: {_diff_f} not found — Part 3 has not produced a '
+              f'diffusivity fit for n_H={_n_h}. Skipping this concentration '
+              f'entirely (no permeability computed, nothing fabricated).')
+        continue
+    with open(_diff_f) as _f:
+        _diff_fit = json.load(_f)
+    _D0_nh, _ED_nh = _diff_fit.get('D0_m2s'), _diff_fit.get('E_D_eV')
+    if _D0_nh is None or _ED_nh is None or _D0_nh != _D0_nh or _ED_nh != _ED_nh:
+        print(f'  ERROR: {_diff_f} has no valid D0/Ea (NaN or missing — Part 3 '
+              f'likely could not fit an Arrhenius relation for n_H={_n_h}, '
+              f'e.g. fewer than 2 valid temperatures). Skipping this '
+              f'concentration entirely.')
+        continue
+    print(f'  Loaded real diffusivity fit: D0={_D0_nh:.3e} m²/s  Ea={_ED_nh:.4f} eV')
+
+    _dilute_note = None
+    if _n_h > 1:
+        _dilute_note = (
+            f"Sieverts' law and Richardson's permeation formula assume dilute "
+            f"dissolved H. n_H={_n_h} is not the dilute limit (n_H=1), so H-H "
+            f"interactions were present in this MD box and may make the "
+            f"derived solubility/permeability below an approximation. For a "
+            f"rigorous non-dilute treatment, use the raw KMC sweep data in "
+            f"permeation_sweep_T<T>K.json under {_nh_dir} directly "
+            f"(flux J(P), coverage θ(P), concentration C0(P) vs pressure — "
+            f"no √P scaling assumed)."
+        )
+        print(f'  NOTE: {_dilute_note}')
+
+    os.makedirs(_nh_dir, exist_ok=True)
+
+    # ── Phase 5: KMC pressure sweeps for this n_H ────────────────────────────
+    print(f'\n── Phase 5 (n_H={_n_h}): KMC pressure sweeps ──────────────────────')
+    for _T in TEMPERATURES:
+        _out = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
+        if os.path.exists(_out):
+            print(f'  T={_T:4.0f} K  KMC sweep already done — skipping')
+            continue
+
+        with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
+            _tst = json.load(_f)
+
+        _kBT = _KB_EV * _T
+        _a0_T = _a0_dict.get(_T, A0_M)
+        _k_diss, _k_des, _k_entry, _k_exit = {}, {}, {}, {}
+
+        for _lbl, _r in _tst.items():
+            if _lbl.startswith('hopa_'):
+                _sid = _lbl[len('hopa_'):]
+                _matched = False
+                for _el in _slab_species:
+                    if _el in _sid:
+                        _k_entry[_el] = _r['k_forward']
+                        _k_exit[_el]  = _r['k_reverse']
+                        _matched = True
+                        break
+                if not _matched:
+                    # Bare site ids (s_NN) carry no element name — resolve via
+                    # the site's level1 composition from surface_sites.json.
+                    _comp = _sid2comp.get(_sid, '')
+                    for _el in _slab_species:
+                        if _el in _comp:
+                            _k_entry.setdefault(_el, _r['k_forward'])
+                            _k_exit.setdefault(_el, _r['k_reverse'])
+
+        if _diss_vib:
+            for _pkey5, _dv5 in _diss_vib.items():
+                _k_diss[_pkey5] = np.exp(-_dv5['Ea_zpe'] / _kBT)
+                _k_des[_pkey5]  = _dv5['nu'] * np.exp(-_dv5['Ed_zpe'] / _kBT)
+        elif os.path.exists(_DISS_JSON):
+            with open(_DISS_JSON) as _f:
+                _diss = json.load(_f)
+            for _job in _diss:
+                _bf = _job.get('barrier_file', '')
+                if not os.path.exists(_bf):
+                    continue
+                _bd   = parse_barrier_file(_bf)
+                _pair = tuple(sorted(_job['sid'].replace('-', '').split('_')[:2]))
+                _k_diss[_pair] = np.exp(-_bd['E_abs'] / _kBT)
+                _k_des[_pair]  = _NU_DISS * np.exp(-_bd['E_des'] / _kBT)
+        else:
+            print(f'  WARNING: no diss rate source found — using placeholders at T={_T} K')
+            # element_pair keys are sorted tuples; cover every species pair
+            # actually present in this slab (metal or oxide).
+            for _pair in itertools.combinations_with_replacement(
+                    sorted(_slab_species), 2):
+                _k_diss[_pair] = np.exp(-0.5  / _kBT)
+                _k_des[_pair]  = _NU_DISS * np.exp(-1.2 / _kBT)
+
+        for _el, _ke in _k_entry.items():
+            print(f'  [{_T:.0f}K] k_entry({_el})={_ke:.3e} s⁻¹  k_exit({_el})={_k_exit.get(_el, float("nan")):.3e} s⁻¹')
+        _rate_dict = {'k_diss': _k_diss, 'k_des': _k_des,
+                      'k_entry': _k_entry, 'k_exit': _k_exit}
+        _D_T = arrhenius_diffusivity(_D0_nh, _ED_nh, _T)
+        np.random.seed(SEED)
+        _sweep = sweep_pressure(
+            P_vals_Pa  = P_VALS_PA,
+            rate_dict  = _rate_dict,
+            D_m2s      = _D_T,
+            L_m        = L_M,
+            T_K        = _T,
+            a0_m       = _a0_T,
+            nx         = NX,
+            ny         = NY,
+            seed       = SEED,
+            composition = _kmc_composition,
+            kmc_kwargs = {'window': 2000, 'rtol': 0.02, 'max_steps': KMC_MAX_STEPS},
+        )
+        _sweep['T_K']   = _T
+        _sweep['D_m2s'] = _D_T
+        _sweep['a0_m']  = _a0_T
+        _sweep['n_H']   = _n_h
+        if _dilute_note:
+            _sweep['dilute_limit_caveat'] = _dilute_note
+        with open(_out, 'w') as _f:
+            json.dump(_sweep, _f, indent=2)
+        _conv = sum(1 for c in _sweep.get('converged', []) if c)
+        print(f'  T={_T:4.0f} K  a0={_a0_T:.4e} m  D={_D_T:.2e} m²/s  '
+              f'{_conv}/{len(P_VALS_PA)} converged → {_out}')
+
+    # ── Phase 6: Richardson-Sieverts permeability for this n_H ───────────────
+    if not _PHASE6_READY:
+        continue
+    print(f'\n── Phase 6 (n_H={_n_h}): Richardson-Sieverts permeability ─────────')
 
     for _T in TEMPERATURES:
-        with open(os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')) as _f:
+        _sweep_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
+        if not os.path.exists(_sweep_f):
+            print(f'  T={_T:4.0f} K  no sweep file — skipping permeability')
+            continue
+        with open(_sweep_f) as _f:
             _sw = json.load(_f)
-        _D_T  = arrhenius_diffusivity(D0_M2S, E_D_EV, _T)
+        _D_T  = arrhenius_diffusivity(_D0_nh, _ED_nh, _T)
         _a0_T6 = _a0_dict.get(_T, A0_M)
         _kBT6  = _KB_EV * _T
 
@@ -452,27 +510,30 @@ else:
         _Phi3 = permeability(_D_T, _S3)
         _J3   = richardson_flux(_Phi3, _P_HIGH, 0.0, L_M)
 
-        _perm_f = os.path.join(RESULTS_DIR, f'permeability_T{int(_T)}K.json')
+        _perm_f = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
+        _perm_payload = {
+            'T_K': _T, 'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
+            'dH_sol_eV': _DH_SOL, 'a0_m': _a0_T6,
+            'dH_diss_eV': _DH_DISS_USED, 'dH_entry_eV': _DH_ENTRY_USED,
+            'option1': {'S': _S1, 'Phi': _Phi1, 'J': _J1},
+            'option2': {'S': _S2, 'Phi': _Phi2, 'J': _J2},
+            'option3': {'S': _S3, 'Phi': _Phi3, 'J': _J3,
+                        'S_std':       _kmc_sol['S_std'],
+                        'n_converged': _kmc_sol['n_converged']},
+            'P_high_Pa': _P_HIGH, 'L_m': L_M,
+        }
+        if _dilute_note:
+            _perm_payload['dilute_limit_caveat'] = _dilute_note
         with open(_perm_f, 'w') as _f:
-            json.dump({
-                'T_K': _T, 'D0_m2s': D0_M2S, 'E_D_eV': E_D_EV,
-                'dH_sol_eV': _DH_SOL, 'a0_m': _a0_T6,
-                'dH_diss_eV': _DH_DISS_USED, 'dH_entry_eV': _DH_ENTRY_USED,
-                'option1': {'S': _S1, 'Phi': _Phi1, 'J': _J1},
-                'option2': {'S': _S2, 'Phi': _Phi2, 'J': _J2},
-                'option3': {'S': _S3, 'Phi': _Phi3, 'J': _J3,
-                            'S_std':       _kmc_sol['S_std'],
-                            'n_converged': _kmc_sol['n_converged']},
-                'P_high_Pa': _P_HIGH, 'L_m': L_M,
-            }, _f, indent=2)
+            json.dump(_perm_payload, _f, indent=2)
         print(f'  T={_T:4.0f} K  Opt1(lattice):  S={_S1:.3e}  Phi={_Phi1:.3e}  J={_J1:.3e} atoms/m²/s')
         print(f'  T={_T:4.0f} K  Opt2(TST):      S={_S2:.3e}  Phi={_Phi2:.3e}  J={_J2:.3e} atoms/m²/s')
         print(f'  T={_T:4.0f} K  Opt3(KMC):      S={_S3:.3e}  Phi={_Phi3:.3e}  J={_J3:.3e} atoms/m²/s')
 
-    # Multi-T Arrhenius S₀ fit from KMC
+    # Multi-T Arrhenius S₀ fit from KMC, for this n_H
     _S_arr, _T_arr = [], []
     for _T in TEMPERATURES:
-        _sw_f = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
+        _sw_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
         if not os.path.exists(_sw_f):
             continue
         with open(_sw_f) as _f:
@@ -492,30 +553,27 @@ else:
         _ss_res  = np.sum((np.log(_S_np) - _log_pred) ** 2)
         _ss_tot  = np.sum((np.log(_S_np) - np.mean(np.log(_S_np))) ** 2)
         _r2      = 1.0 - _ss_res / _ss_tot if _ss_tot > 0.0 else 1.0
-        _sol_out = os.path.join(RESULTS_DIR, 'solubility_arrhenius_kmc.json')
+        _sol_out = os.path.join(_nh_dir, 'solubility_arrhenius_kmc.json')
         with open(_sol_out, 'w') as _f:
             json.dump({'T_K_arr':       _T_arr,
                        'S_mean_arr':    _S_arr,
                        'S0_kmc':        _S0_kmc,
                        'dH_sol_kmc_eV': _dH_kmc,
                        'r2_fit':        _r2,
-                       'D0_m2s':        D0_M2S,
-                       'E_D_eV':        E_D_EV}, _f, indent=2)
+                       'n_H':           _n_h,
+                       'D0_m2s':        _D0_nh,
+                       'E_D_eV':        _ED_nh}, _f, indent=2)
         print(f'\nArrhenius  S0={_S0_kmc:.3e}  dH_sol={_dH_kmc:.3f} eV  R²={_r2:.4f} → {_sol_out}')
     else:
-        print('WARNING: fewer than 2 valid temperatures — Arrhenius S₀ fit skipped.')
+        print(f'WARNING: fewer than 2 valid temperatures for n_H={_n_h} — Arrhenius S₀ fit skipped.')
 
-# Save Arrhenius diffusivity params so kmc_calculation.ipynb Cell 1 can load them
-_diff_out = os.path.join(RESULTS_DIR, 'diffusivity_arrhenius.json')
-with open(_diff_out, 'w') as _f:
-    json.dump({'D0_m2s': D0_M2S, 'E_D_eV': E_D_EV}, _f, indent=2)
-print(f'\nSaved diffusivity Arrhenius params → {_diff_out}')
 print('=== permeation_run.py complete ===')
 """
 
 
 def generate_permeation_scripts(
     work_dir,
+    stem,
     relaxed_slab_path,
     surface_sites_json,
     phase2_h_dir,
@@ -523,11 +581,10 @@ def generate_permeation_scripts(
     vib_dir,
     results_dir,
     temperatures,
+    n_h_values,
     p_vals_pa,
     a0_m,
     l_m,
-    d0_m2s,
-    e_d_ev,
     dh_diss_ev,
     dh_entry_ev,
     nx,
@@ -568,8 +625,11 @@ Phases:
   2 — Hop B NEB  (subsurface-1 → subsurface-2 oct)
   3 — Vibrational frequencies (IS + TS, both hops)
   4 — TST rate constants at each temperature
-  5 — KMC pressure sweeps at each temperature
-  6 — Richardson-Sieverts permeability (all three S0 options)
+  5 — KMC pressure sweeps at each temperature, once per H-concentration
+  6 — Richardson-Sieverts permeability (all three S0 options), once per
+      H-concentration, each using that concentration's own Part-3-fitted
+      bulk diffusivity (no placeholder — a missing/invalid fit skips that
+      concentration entirely rather than substituting a fake value)
 
 Generated by calculation/permeation.ipynb — do not edit by hand.
 """
@@ -583,6 +643,7 @@ if _parent not in sys.path:
     sys.path.insert(0, _parent)
 
 WORK_DIR           = {work_dir!r}
+STEM               = {stem!r}
 RELAXED_SLAB_PATH  = {relaxed_slab_path!r}
 SURFACE_SITES_JSON = {surface_sites_json!r}
 PHASE2_H_DIR       = {phase2_h_dir!r}
@@ -591,12 +652,11 @@ VIB_DIR            = {vib_dir!r}
 RESULTS_DIR        = {results_dir!r}
 
 TEMPERATURES   = {temperatures!r}
+N_H_VALUES     = {n_h_values!r}
 P_VALS_PA      = {p_vals_pa!r}
 A0_M           = {a0_m!r}
 L_M            = {l_m!r}
 
-D0_M2S         = {d0_m2s!r}    # m²/s — Arrhenius pre-exponential
-E_D_EV         = {e_d_ev!r}    # eV   — diffusion activation energy
 DH_DISS_EV     = {dh_diss_ev!r}   # eV  — dissociation NEB delta_E (fill after NEB)
 DH_ENTRY_EV    = {dh_entry_ev!r}  # eV  — Hop A delta_E (fill after NEB)
 

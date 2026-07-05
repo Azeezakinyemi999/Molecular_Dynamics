@@ -540,8 +540,10 @@ for struct_path in INPUT_STRUCTURES:
         )
         print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
 
-        # Save Arrhenius params so Part 2 (permeation_run.py) can load them
-        _arr_out = os.path.join(WORK_DIR, 'results', struct_stem, 'diffusivity_arrhenius.json')
+        # Save Arrhenius params so Part 2 (permeation_run.py) can load them.
+        # Per (stem, n_h) — NOT shared across H-concentrations, since D0/Ea
+        # genuinely differ with H loading (see GitHub issue on the overwrite bug).
+        _arr_out = os.path.join(dirs['root'], 'diffusivity_arrhenius.json')
         os.makedirs(os.path.dirname(_arr_out), exist_ok=True)
         with open(_arr_out, 'w') as _f:
             _json_lat.dump({
