@@ -20,16 +20,59 @@ Section B — Local analysis (Phase 4 cells in permeation.ipynb)
 """
 
 import os
+import glob
 import json
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from models.parsers import parse_energy_log
+
 try:
     from IPython.display import display as _display
 except ImportError:
     _display = print
+
+
+def collect_dedup_is_labels(phase2_h_dir: str) -> list:
+    """
+    Build ``(sid, is_path, e_is)`` triples for Hop A's NEB.
+
+    ``e_is`` is the ABSOLUTE relaxed total energy of each H* adsorption
+    structure (from Part 1's own ``h_min_{sid}.log``) — not a binding or
+    adsorption energy. Hop A's NEB needs the same absolute-energy
+    reference ``E_FS`` uses (parsed from ``fs_min.log``); a placeholder
+    like ``0.0`` here would silently produce reaction energies and
+    barriers offset by the slab's entire total energy (~100+ eV), since
+    0.0 sits nowhere near this structure's real energy scale.
+
+    Sites whose ``h_min_{sid}.log`` is missing or unparseable are skipped
+    with a warning — never assigned a fabricated energy.
+
+    Parameters
+    ----------
+    phase2_h_dir : str
+        Directory containing ``h_atom_{sid}_relaxed.lammps`` and
+        ``h_min_{sid}.log`` for each surface site (Part 1 Section B
+        Phase 2 output).
+
+    Returns
+    -------
+    list of (sid, is_path, e_is)
+        Sorted by ``sid``. Sites with no parseable log are omitted.
+    """
+    dedup_is_labels = []
+    for p in sorted(glob.glob(os.path.join(phase2_h_dir, 'h_atom_*_relaxed.lammps'))):
+        sid = os.path.basename(p).replace('h_atom_', '').replace('_relaxed.lammps', '')
+        log_p = os.path.join(phase2_h_dir, f'h_min_{sid}.log')
+        parsed = parse_energy_log(log_p) if os.path.exists(log_p) else None
+        if not parsed or 'pe_final_eV' not in parsed:
+            print(f'  WARNING: could not parse E_IS for sid={sid} from {log_p} '
+                  f'— skipping (no fabricated energy).')
+            continue
+        dedup_is_labels.append((sid, p, parsed['pe_final_eV']))
+    return dedup_is_labels
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -70,6 +113,7 @@ from models.permeation import (
     richardson_flux,
     resolve_nh_diffusivity,
 )
+from models.permeation_workflow import collect_dedup_is_labels
 from models.parsers import parse_barrier_file
 from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
 
@@ -116,10 +160,7 @@ if METAL_TYPE == 'oxide':
     print(f'  KMC surface composition (oxide): {_kmc_composition}')
 
 # ── Collect dedup IS labels ────────────────────────────────────────────────────
-dedup_is_labels = [
-    (os.path.basename(p).replace('h_atom_', '').replace('_relaxed.lammps', ''), p, 0.0)
-    for p in sorted(glob.glob(os.path.join(PHASE2_H_DIR, 'h_atom_*_relaxed.lammps')))
-]
+dedup_is_labels = collect_dedup_is_labels(PHASE2_H_DIR)
 print(f'Dedup IS labels: {len(dedup_is_labels)}')
 if not dedup_is_labels:
     raise FileNotFoundError(
