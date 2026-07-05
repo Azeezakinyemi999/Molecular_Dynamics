@@ -1,6 +1,6 @@
-Pipeline smoke test — 2026-07-05 01:40:01
-Wall time : 32.7 min
-Passed    : 41 / 45
+Pipeline smoke test — 2026-07-05 04:19:53
+Wall time : 66.8 min
+Passed    : 40 / 45
 
 PASS  slab_raw_written
 PASS  slab_relaxed_file
@@ -33,7 +33,6 @@ PASS  diff_synthetic_fallback_injected_1H
 PASS  diff_msd_files_written_3H
 PASS  diff_table_written_3H
 PASS  diff_arrhenius_json_written_3H
-PASS  diff_Ea_positive_3H
 PASS  diff_D0_positive_3H
 PASS  diff_R2_reasonable_3H
 PASS  diff_per_nH_fits_independent
@@ -43,6 +42,7 @@ PASS  permeation_sweep_written_1H_600K
 PASS  permeation_sweep_written_1H_700K
 PASS  permeation_sweep_written_3H_600K
 PASS  permeation_sweep_written_3H_700K
+FAIL  diff_Ea_positive_3H
 FAIL  permeability_written_1H_600K
 FAIL  permeability_written_1H_700K
 FAIL  permeability_written_3H_600K

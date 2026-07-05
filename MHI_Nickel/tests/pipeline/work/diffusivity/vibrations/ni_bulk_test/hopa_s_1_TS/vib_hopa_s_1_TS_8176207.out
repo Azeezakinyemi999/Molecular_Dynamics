@@ -1,0 +1,9 @@
+Node: c0596  Start: Sun Jul  5 04:17:22 AM EDT 2026
+Error while loading libcue_ops.so: libcuda.so.1: cannot open shared object file: No such file or directory
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+Traceback (most recent call last):
+  File "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_1_TS/vib_run.py", line 30, in <module>
+    raise RuntimeError(
+RuntimeError: Expected exactly 1 H atom, found 0
+End: Sun Jul  5 04:17:34 AM EDT 2026

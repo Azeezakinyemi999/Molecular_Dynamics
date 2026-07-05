@@ -25,7 +25,7 @@ MACE_MODEL      = "/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.
 NEB_IS_FILE     = "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/results/h_atom_s_0_relaxed.lammps"
 FS_RELAXED_DATA = "/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/neb_subsurface/ni_bulk_test/hopa/s_0/sub1_fs_relaxed.lammps"
 Z_FREEZE_CUTOFF = 12.92770007046936    # Å — frozen layer threshold
-E_IS            = 0.0               # eV — from LAMMPS IS minimisation
+E_IS            = -125.489222957711               # eV — from LAMMPS IS minimisation
 def _parse_pe_final(log_path):
     _val = None
     with open(log_path) as _f:

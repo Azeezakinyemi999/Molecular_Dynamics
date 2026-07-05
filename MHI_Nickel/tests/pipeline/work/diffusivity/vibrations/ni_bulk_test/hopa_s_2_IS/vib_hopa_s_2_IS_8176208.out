@@ -1,0 +1,35 @@
+Node: c0669  Start: Sun Jul  5 04:17:26 AM EDT 2026
+Error while loading libcue_ops.so: libcuda.so.1: cannot open shared object file: No such file or directory
+/home/akinyemi.az/miniforge3/envs/mace-lammps/lib/python3.11/site-packages/mace/calculators/mace.py:226: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+Displacing 7 atoms: H @ 24 metals @ [21, 22, 17, 23, 20, 18]
+---------------------
+  #    meV     cm^-1
+---------------------
+  0    7.1      57.6
+  1    7.5      60.1
+  2    8.7      70.3
+  3   11.2      90.4
+  4   12.2      98.1
+  5   13.7     110.2
+  6   14.1     113.6
+  7   15.9     128.4
+  8   17.0     136.8
+  9   18.4     148.8
+ 10   19.1     153.8
+ 11   21.3     171.4
+ 12   21.9     176.2
+ 13   22.2     179.4
+ 14   23.6     190.5
+ 15   24.1     194.4
+ 16   27.4     221.4
+ 17   31.8     256.6
+ 18  138.5    1117.4
+ 19  156.3    1260.8
+ 20  194.0    1565.1
+---------------------
+Zero-point energy: 0.403 eV
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/vibrations/ni_bulk_test/hopa_s_2_IS/vib_frequencies.json
+Real modes ( 21 ): [57.598739282840405, 60.09722880316118, 70.27341785934628, 90.35071610322824, 98.14774694746644] ...
+Imag modes ( 0 ): []
+End: Sun Jul  5 04:18:03 AM EDT 2026

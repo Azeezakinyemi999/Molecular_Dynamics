@@ -24,7 +24,7 @@ Reading data file ...
   32 atoms
   reading velocities ...
   32 velocities
-  read_data CPU = 0.009 seconds
+  read_data CPU = 0.008 seconds
 
 
 
@@ -82,20 +82,20 @@ Per MPI rank memory allocation (min/avg/max) = 37.49 | 37.49 | 37.49 Mbytes
        300   0.3            8.3801377     -175.52688      0.033579752   -128.64266      347.73505      7.0320641      7.0320641      7.0320641    
        400   0.4            27.309258     -175.5274       0.10942996     190.37767      347.69511      7.0317949      7.0317949      7.0317949    
        500   0.5            33.158174     -175.40305      0.13286694    -168.45157      348.13895      7.0347857      7.0347857      7.0347857    
-Loop time of 16.4456 on 1 procs for 500 steps with 32 atoms
+Loop time of 16.4827 on 1 procs for 500 steps with 32 atoms
 
-Performance: 2.627 ns/day, 9.136 hours/ns, 30.403 timesteps/s, 972.903 atom-step/s
-98.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+Performance: 2.621 ns/day, 9.157 hours/ns, 30.335 timesteps/s, 970.713 atom-step/s
+99.0% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 16.352     | 16.352     | 16.352     |   0.0 | 99.43
+Pair    | 16.388     | 16.388     | 16.388     |   0.0 | 99.43
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.02247    | 0.02247    | 0.02247    |   0.0 |  0.14
-Output  | 0.0002417  | 0.0002417  | 0.0002417  |   0.0 |  0.00
-Modify  | 0.049426   | 0.049426   | 0.049426   |   0.0 |  0.30
-Other   |            | 0.02113    |            |       |  0.13
+Comm    | 0.023406   | 0.023406   | 0.023406   |   0.0 |  0.14
+Output  | 0.00026756 | 0.00026756 | 0.00026756 |   0.0 |  0.00
+Modify  | 0.049729   | 0.049729   | 0.049729   |   0.0 |  0.30
+Other   |            | 0.02133    |            |       |  0.13
 
 Nlocal:             32 ave          32 max          32 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -136,20 +136,20 @@ Per MPI rank memory allocation (min/avg/max) = 41.9 | 41.9 | 41.9 Mbytes
        800   0.8            130.31324     -175.1116       0.52217358     547.41709      349.20623      7.0419672      7.0419672      7.0419672    
        900   0.9            299.28878     -175.20218      1.1992695     -5469.9348      350.31574      7.0494172      7.0494172      7.0494172    
       1000   1              355.6326      -174.51309      1.4250428     -2895.0419      352.15385      7.0617252      7.0617252      7.0617252    
-Loop time of 14.6131 on 1 procs for 500 steps with 32 atoms
+Loop time of 14.6441 on 1 procs for 500 steps with 32 atoms
 
-Performance: 2.956 ns/day, 8.118 hours/ns, 34.216 timesteps/s, 1.095 katom-step/s
-99.2% CPU use with 1 MPI tasks x 1 OpenMP threads
+Performance: 2.950 ns/day, 8.136 hours/ns, 34.143 timesteps/s, 1.093 katom-step/s
+99.3% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 14.312     | 14.312     | 14.312     |   0.0 | 97.94
+Pair    | 14.34      | 14.34      | 14.34      |   0.0 | 97.92
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.026932   | 0.026932   | 0.026932   |   0.0 |  0.18
-Output  | 0.00071905 | 0.00071905 | 0.00071905 |   0.0 |  0.00
-Modify  | 0.2536     | 0.2536     | 0.2536     |   0.0 |  1.74
-Other   |            | 0.01961    |            |       |  0.13
+Comm    | 0.027858   | 0.027858   | 0.027858   |   0.0 |  0.19
+Output  | 0.00072994 | 0.00072994 | 0.00072994 |   0.0 |  0.00
+Modify  | 0.2561     | 0.2561     | 0.2561     |   0.0 |  1.75
+Other   |            | 0.01983    |            |       |  0.14
 
 Nlocal:             32 ave          32 max          32 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -178,5 +178,5 @@ write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipe
 System init for write_restart ...
 write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/bulk_min_npt_final_700K.lammps
 System init for write_data ...
-Total wall time: 0:01:01
+Total wall time: 0:00:54
 

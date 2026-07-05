@@ -10,11 +10,11 @@
   ],
   "D_arr": [
     -1.640714e-10,
-    1.298815e-09
+    1.298804e-09
   ],
   "D_err_arr": [
     1.388015e-10,
-    4.807291e-10
+    4.807153e-10
   ],
   "SMOKE_TEST_SYNTHETIC_FALLBACK": true,
   "fallback_reason": "Real Arrhenius fit was NaN (1 valid D point(s) at smoke scale) \u2014 synthetic D0/Ea injected by the TEST HARNESS ONLY so Stage 7 (real Hop A/B NEB + KMC + permeability) can still be exercised end-to-end. Production code (resolve_nh_diffusivity) never does this \u2014 see diffusivity_arrhenius_REAL_NaN.json for the real (NaN) result."

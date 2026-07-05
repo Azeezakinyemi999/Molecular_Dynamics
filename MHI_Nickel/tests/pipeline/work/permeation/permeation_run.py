@@ -95,6 +95,7 @@ from models.permeation import (
     richardson_flux,
     resolve_nh_diffusivity,
 )
+from models.permeation_workflow import collect_dedup_is_labels
 from models.parsers import parse_barrier_file
 from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
 
@@ -141,10 +142,7 @@ if METAL_TYPE == 'oxide':
     print(f'  KMC surface composition (oxide): {_kmc_composition}')
 
 # ── Collect dedup IS labels ────────────────────────────────────────────────────
-dedup_is_labels = [
-    (os.path.basename(p).replace('h_atom_', '').replace('_relaxed.lammps', ''), p, 0.0)
-    for p in sorted(glob.glob(os.path.join(PHASE2_H_DIR, 'h_atom_*_relaxed.lammps')))
-]
+dedup_is_labels = collect_dedup_is_labels(PHASE2_H_DIR)
 print(f'Dedup IS labels: {len(dedup_is_labels)}')
 if not dedup_is_labels:
     raise FileNotFoundError(

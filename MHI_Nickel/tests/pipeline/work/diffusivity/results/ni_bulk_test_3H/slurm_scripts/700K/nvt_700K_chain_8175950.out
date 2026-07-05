@@ -1,0 +1,158 @@
+Job: 8175950  |  Node: d3233  |  Sun Jul  5 03:38:58 AM EDT 2026
+No restart file found -- starting fresh.
+LAMMPS (11 Feb 2026 - Development - patch_11Feb2026-99-gb75dfcc930-modified)
+KOKKOS mode with Kokkos version 5.0.2 is enabled
+  using double precision
+  using view layout = legacy
+  will use up to 1 GPU(s) per node
+  using 1 OpenMP thread(s) per MPI task
+Reading data file ...
+  orthogonal box = (-0.013090684 -0.013090684 -0.013090684) to (7.0748159 7.0748159 7.0748159)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  35 atoms
+  reading velocities ...
+  35 velocities
+  read_data CPU = 0.014 seconds
+W0705 03:39:10.431000 1598295 site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+3 atoms in group H_atom
+32 atoms in group metal
+### Phase 1: Equilibration 0 ps at 700 K ###
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+- KOKKOS package: https://doi.org/10.1145/3731599.3767498
+The log file lists these citations in BibTeX format.
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 8
+  ghost atom cutoff = 8
+  binsize = 8, bins = 1 1 1
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair mliap/kk, perpetual
+      attributes: full, newton on, kokkos_device
+      pair build: full/bin/kk/device
+      stencil: full/bin/3d
+      bin: kk/device
+Setting up Verlet run ...
+  Unit style    : metal
+  Current step  : 0
+  Time step     : 0.001
+WARNING: Fix STORE/ATOM not compatible with sending data in Kokkos communication (src/KOKKOS/comm_kokkos.cpp:842)
+WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
+WARNING: Fix STORE/ATOM not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 38.05 | 38.05 | 38.05 Mbytes
+   Step          Temp          PotEng         KinEng         TotEng         Press          Volume    
+         0   700           -185.19309      3.0763915     -182.1167       9227.982       356.08523    
+       100   397.67893     -183.31874      1.7477372     -181.571        35958.168      356.08523    
+       200   489.24701     -182.92401      2.1501647     -180.77384      43585.365      356.08523    
+       300   413.62638     -181.55898      1.8178238     -179.74115      62007.978      356.08523    
+       400   665.32974     -181.73725      2.9240211     -178.81323      58165.352      356.08523    
+       500   682.18834     -181.48732      2.998112      -178.48921      61358.067      356.08523    
+Loop time of 16.8028 on 1 procs for 500 steps with 35 atoms
+
+Performance: 2.571 ns/day, 9.335 hours/ns, 29.757 timesteps/s, 1.041 katom-step/s
+98.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 16.52      | 16.52      | 16.52      |   0.0 | 98.32
+Neigh   | 0.0019969  | 0.0019969  | 0.0019969  |   0.0 |  0.01
+Comm    | 0.028629   | 0.028629   | 0.028629   |   0.0 |  0.17
+Output  | 0.0010243  | 0.0010243  | 0.0010243  |   0.0 |  0.01
+Modify  | 0.22989    | 0.22989    | 0.22989    |   0.0 |  1.37
+Other   |            | 0.02095    |            |       |  0.12
+
+Nlocal:             35 ave          35 max          35 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1175 ave        1175 max        1175 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:         7366 ave        7366 max        7366 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 7366
+Ave neighs/atom = 210.45714
+Neighbor list builds = 4
+Dangerous builds = 0
+### Phase 1 complete ###
+System init for write_restart ...
+System init for write_data ...
+### Phase 2: Production 2 ps at 700 K ###
+Setting up Verlet run ...
+  Unit style    : metal
+  Current step  : 500
+  Time step     : 0.001
+WARNING: Fix STORE/ATOM not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
+WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
+Per MPI rank memory allocation (min/avg/max) = 42.81 | 42.81 | 42.81 Mbytes
+   Step          Temp          PotEng         KinEng         TotEng         Press          Volume    
+       500   682.18834     -181.48732      2.998112      -178.48921      61358.067      356.08523    
+       600   824.62167     -182.55381      3.6240843     -178.92972      48383.172      356.08523    
+       700   693.99493     -182.85567      3.0500001     -179.80567      44296.402      356.08523    
+       800   665.79609     -182.81015      2.9260706     -179.88408      44601.42       356.08523    
+       900   621.13539     -182.31972      2.7297937     -179.58992      50353.677      356.08523    
+      1000   680.24549     -182.2413       2.9895734     -179.25173      49538.112      356.08523    
+      1100   713.06161     -182.18724      3.1337952     -179.05345      50196.651      356.08523    
+      1200   725.8424      -182.55705      3.1899648     -179.36708      46386.177      356.08523    
+      1300   688.90281     -183.24481      3.027621      -180.21718      33218.336      356.08523    
+      1400   540.42586     -182.74577      2.3750878     -180.37069      40328.603      356.08523    
+      1500   680.19862     -182.59654      2.9893675     -179.60717      42967.4        356.08523    
+      1600   800.616       -182.55187      3.5185832     -179.03328      45877.615      356.08523    
+      1700   699.67349     -182.18696      3.0749565     -179.112        51646.894      356.08523    
+      1800   704.12366     -182.58787      3.0945143     -179.49336      43554.05       356.08523    
+      1900   688.78502     -183.09604      3.0271034     -180.06894      34573.518      356.08523    
+      2000   465.48595     -183.02241      2.0457386     -180.97667      34950.89       356.08523    
+      2100   553.24528     -183.2702       2.4314272     -180.83877      30816.154      356.08523    
+      2200   669.54738     -182.98752      2.9425569     -180.04496      38901.017      356.08523    
+      2300   696.88653     -182.70992      3.0627082     -179.64721      44151.944      356.08523    
+      2400   694.62434     -182.20282      3.0527663     -179.15005      50865.867      356.08523    
+      2500   860.97579     -182.59813      3.7838551     -178.81428      45517.371      356.08523    
+Loop time of 58.6028 on 1 procs for 2000 steps with 35 atoms
+
+Performance: 2.949 ns/day, 8.139 hours/ns, 34.128 timesteps/s, 1.194 katom-step/s
+99.3% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 57.48      | 57.48      | 57.48      |   0.0 | 98.08
+Neigh   | 0.0049231  | 0.0049231  | 0.0049231  |   0.0 |  0.01
+Comm    | 0.11269    | 0.11269    | 0.11269    |   0.0 |  0.19
+Output  | 0.01546    | 0.01546    | 0.01546    |   0.0 |  0.03
+Modify  | 0.90984    | 0.90984    | 0.90984    |   0.0 |  1.55
+Other   |            | 0.08017    |            |       |  0.14
+
+Nlocal:             35 ave          35 max          35 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           1187 ave        1187 max        1187 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:         7462 ave        7462 max        7462 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 7462
+Ave neighs/atom = 213.2
+Neighbor list builds = 10
+Dangerous builds = 0
+### Phase 2 complete ###
+EQUIL_RESULTS_START
+  T_K          : 700
+  pe_final_eV  : -182.598132193978
+  temp_final_K : 860.975794931818
+  press_final  : 45517.3709182119
+EQUIL_RESULTS_END
+System init for write_restart ...
+System init for write_data ...
+Total wall time: 0:01:37
+Command block exited with code 0 at Sun Jul  5 03:40:37 AM EDT 2026
+LAMMPS converged (exit 0). Simulation complete.
