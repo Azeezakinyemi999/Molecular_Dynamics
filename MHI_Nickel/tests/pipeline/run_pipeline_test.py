@@ -6,20 +6,28 @@ Minimal end-to-end pipeline smoke test for the H-in-Ni permeation workflow.
 Uses the smallest practical structures to validate the full code path on
 the cluster before committing to the full-scale production run:
 
-  Stage 0 — Build 2×2 Ni FCC(111) slab (3 layers, 12 atoms) with ASE
+  Stage 0 — Build 2×2 Ni FCC(111) slab (SLAB_LAYERS layers) with ASE.
+            Layer count auto-derives subsurface_1/subsurface_2 in Stage 7
+            via build_subsurface_graph — see models/subsurface_graph.py.
   Stage 1 — CG-minimise the slab with MACE (1 GPU SLURM job, ~5 min)
   Stage 2 — Write synthetic surface_sites.json (ACAT tested in tests/functional/)
   Stage 3 — H2* adsorption on 3 sites (auto_submit GPU array, ~10 min)
   Stage 4 — H* adsorption on 3 sites  (auto_submit GPU array, ~10 min)
   Stage 5 — NEB pipeline on ≤1 pair with 6 images (~30-60 min, polled)
             Fallbacks if enumeration yields 0 pairs: (2a) loosened filter
-            bounds, (2b) one forced example pair from the pools; only if
-            both fail does Stage 7 use hardcoded barrier values.
-  Stage 6 — Diffusivity NVT MD at 2 temperatures (minimal steps, ~30 min)
-  Stage 7 — Permeation math: TST → KMC → permeability (pure Python, ~2 min)
+            bounds, (2b) one forced example pair from the pools.
+  Stage 6 — Diffusivity NVT MD at 2 temperatures × n_H=[1,3] (minimal steps,
+            ~30 min). Regression-tests the per-n_H Arrhenius overwrite fix:
+            each n_H must land in its own results/{stem}_{n_H}H/ file.
+  Stage 7 — Permeation (Part 2, real): calls generate_permeation_scripts()
+            and executes the generated script for real — Hop A NEB, Hop B
+            NEB, vibrational frequencies, TST rates, KMC pressure sweeps,
+            and Richardson-Sieverts permeability, once per n_H (~1-2 h).
+            Regression-tests the per-n_H bulk-diffusivity fix: each n_H's
+            permeability must embed its OWN D0/Ea, never a shared value.
   Summary — print pass/fail per stage; write summary.txt
 
-Total estimated wall time: ~2–3 hours (vs. weeks for full run).
+Total estimated wall time: ~3–4 hours (vs. weeks for full run).
 
 Usage:
     # Recommended — submit as SLURM CPU job so the orchestrator persists:
@@ -53,8 +61,18 @@ NEB_FTOL       = 0.10   # relaxed convergence for test (production: 0.05 eV/Å)
 NEB_POLL_SEC   = 120    # seconds between barrier-file polls
 NEB_TIMEOUT_H  = 3      # hours before NEB poll gives up
 
+# Surface slab layer count — shared by Stage 0 (build) and Stage 2 (synthetic
+# site reconstruction) so they can never drift apart. 6 layers gives
+# build_subsurface_graph's auto-derived roles (Part 2, Stage 7) a clean
+# 2-layer margin above the frozen bottom round(6/3)=2 layers: subsurface_1=
+# L5 (Hop A target), subsurface_2=L4 (Hop B / bulk-entry target). 3 layers
+# (the old value) collides subsurface_2 with the frozen region — see
+# models/subsurface_graph.py's auto-derivation warning.
+SLAB_LAYERS = 6
+
 # ─── diffusivity stage parameters ────────────────────────────────────────────
 DIFF_TEMPERATURES  = [600, 700]   # two temps required for Arrhenius fit
+DIFF_N_H_VALUES    = [1, 3]       # regression-tests the per-n_H Arrhenius fix
 DIFF_N_EQUIL       = 500          # NVT equilibration steps (production: ~50 k)
 DIFF_N_PROD        = 2000         # NVT production steps   (production: ~500 k)
 DIFF_NPT_HEAT      = 500          # NPT heating steps
@@ -63,11 +81,21 @@ DIFF_DUMP_EVERY    = 100
 DIFF_THERMO_EVERY  = 100
 DIFF_RESTART_EVERY = 1000
 
+# ─── permeation stage parameters ─────────────────────────────────────────────
+PERM_P_VALS_PA    = [1e4, 1e5, 1e6]   # 0.1, 1, 10 bar
+PERM_A0_M         = 3.52e-10          # Ni lattice constant (m)
+PERM_L_M          = 1.0e-6            # 1 µm membrane thickness
+PERM_DH_DISS_EV   = 0.30              # explicit — auto-source (ranked_barriers.json)
+                                       # is GitHub #7's known gap, not under test here
+PERM_NX, PERM_NY  = 4, 4
+PERM_SEED         = 42
+PERM_KMC_MAX_STEPS = 10_000
+
 WORK_DIR = str(PROJECT_ROOT / 'tests' / 'pipeline' / 'work')
 
 # SLURM — shared GPU partition for short adsorption jobs
 GPU_SLURM = {'partition': 'sharing', 'time': '00:20:00'}
-# NEB runs CPU-only on the short partition
+# NEB (and, reused, vibrations) run CPU-only on the short partition
 NEB_SLURM = {'partition': 'short', 'time': '01:00:00',
               'gpu': None, 'cuda_version': None}
 
@@ -81,8 +109,9 @@ from models.config import (
     SLURM_DEFAULTS, LAMMPS_CMD,
     MACE_MODEL_LAMMPS, PAIR_STYLE, PAIR_SUFFIX,
     KOKKOS_FLAGS, ADS_MIN_ETOL, ADS_MIN_FTOL, ADS_MIN_MAXITER, ADS_MIN_MAXEVAL,
+    SPRING_CONST,
 )
-from models.structure import write_lammps_data
+from models.structure import write_lammps_data, compute_z_freeze_cutoff
 from models.lammps_script import write_adsorbate_min_script
 from models.create_slurm import write_slurm_job, submit_slurm_job, wait_for_jobs
 from models.parsers import parse_energy_log, parse_barrier_file
@@ -93,13 +122,7 @@ from models.neb_workflow import (
     orchestrate_neb,
 )
 from models.diffusivity_workflow import generate_diffusivity_scripts
-from models.tst_rates import arrhenius_rate
-from models.permeation import (
-    sweep_pressure,
-    arrhenius_diffusivity,
-    lattice_site_S0,
-    permeability,
-)
+from models.permeation_workflow import generate_permeation_scripts
 
 # ─── pass/fail tracker ───────────────────────────────────────────────────────
 
@@ -130,7 +153,7 @@ def _header(title: str):
 # ═════════════════════════════════════════════════════════════════════════════
 
 def stage0_build_slab(work_dir: str) -> dict:
-    _header('Stage 0: Build 2×2 Ni FCC(111) slab (3 layers, 12 atoms)')
+    _header(f'Stage 0: Build 2×2 Ni FCC(111) slab ({SLAB_LAYERS} layers)')
 
     slab_dir = pathlib.Path(work_dir) / 'slab'
     slab_dir.mkdir(parents=True, exist_ok=True)
@@ -141,18 +164,12 @@ def stage0_build_slab(work_dir: str) -> dict:
     slab_in  = str(slab_dir / 'slab_min.in')
     slab_sh  = str(slab_dir / 'slab_min.sh')
 
-    # 3 layers: FCC(111) ABC stacking period is 3 — ACAT requires n_layers % 3 == 0.
-    # 4 layers fails (4 % 3 = 1); 3 layers is the minimal valid choice.
-    slab = fcc111('Ni', size=(2, 2, 3), vacuum=10.0)
+    slab = fcc111('Ni', size=(2, 2, SLAB_LAYERS), vacuum=10.0)
     slab.wrap()
 
     pos  = slab.get_positions()
     cell = slab.get_cell().lengths()   # [Lx, Ly, Lz]
     syms = slab.get_chemical_symbols() # all 'Ni'
-
-    # z_freeze_cutoff: midpoint between the two bottom layers
-    z_vals   = sorted(set(round(float(z), 3) for z in pos[:, 2]))
-    z_freeze = (z_vals[0] + z_vals[1]) / 2.0
 
     write_lammps_data(
         symbols=syms,
@@ -161,11 +178,16 @@ def stage0_build_slab(work_dir: str) -> dict:
         masses=MASSES_7,
         e2t=E2T_7,
         out_path=raw_slab,
-        comment='2x2 Ni FCC(111) 4-layer pipeline test slab',
+        comment=f'2x2 Ni FCC(111) {SLAB_LAYERS}-layer pipeline test slab',
     )
-
     _check('slab_raw_written', _exists(raw_slab), f'{len(slab)} atoms')
-    print(f'  z_freeze = {z_freeze:.3f} Å  (bottom layer frozen)')
+
+    # Auto bottom-1/3 freeze cutoff — same round(N/3) formula
+    # build_subsurface_graph's layer-role auto-derivation assumes.
+    z_freeze = compute_z_freeze_cutoff(raw_slab)
+
+    print(f'  z_freeze = {z_freeze:.3f} Å  '
+          f'(bottom round({SLAB_LAYERS}/3) layers frozen)')
     print(f'  cell     = {cell[0]:.3f} × {cell[1]:.3f} × {cell[2]:.3f} Å')
 
     return dict(
@@ -238,14 +260,14 @@ def stage2_enumerate_sites(s0: dict, work_dir: str) -> dict:
     _header('Stage 2: Surface sites (synthetic — ACAT tested in tests/functional/)')
 
     print('  [SKIP] ACAT CustomSurface requires atoms_per_layer ≥ 4;')
-    print('         the 3-layer 2×2 smoke-test slab has only 4 atoms total per')
-    print('         layer but ACAT\'s heuristic (_n_layers_est=12) misdetects 1.')
+    print(f'         the {SLAB_LAYERS}-layer 2×2 smoke-test slab has only 4 atoms total')
+    print('         per layer but ACAT\'s heuristic (_n_layers_est=12) misdetects it.')
     print('         ACAT site enumeration is covered by tests/functional/.')
     print('         Writing synthetic ontop sites from Stage-0 geometry.')
 
-    # Reconstruct the same 3-layer slab used in Stage 0 to get exact positions.
+    # Reconstruct the same slab used in Stage 0 to get exact positions.
     # Top layer = 4 atoms for a 2×2 cell; we keep N_MAX_SITES of them.
-    _slab  = fcc111('Ni', size=(2, 2, 3), vacuum=10.0)
+    _slab  = fcc111('Ni', size=(2, 2, SLAB_LAYERS), vacuum=10.0)
     _slab.wrap()
     _pos   = _slab.get_positions()
     _cell  = _slab.get_cell()
@@ -596,14 +618,16 @@ def stage5_neb(s0: dict, s1: dict, s2: dict, s3: dict, s4: dict,
 # ═════════════════════════════════════════════════════════════════════════════
 
 def stage6_diffusivity(work_dir: str) -> dict:
-    _header(f'Stage 6: Diffusivity NVT MD ({DIFF_TEMPERATURES} K, minimal steps)')
+    _header(f'Stage 6: Diffusivity NVT MD ({DIFF_TEMPERATURES} K × '
+            f'n_H={DIFF_N_H_VALUES}, minimal steps)')
 
     diff_dir = pathlib.Path(work_dir) / 'diffusivity'
     diff_dir.mkdir(parents=True, exist_ok=True)
+    struct_stem = 'ni_bulk_test'
 
     # ── Build a tiny orthogonal FCC Ni bulk (32 atoms) ────────────────────────
     ni = ase_bulk('Ni', 'fcc', a=3.52, cubic=True).repeat([2, 2, 2])
-    bulk_path = str(diff_dir / 'ni_bulk_test.lammps')
+    bulk_path = str(diff_dir / f'{struct_stem}.lammps')
     write_lammps_data(
         symbols=ni.get_chemical_symbols(),
         positions=ni.get_positions(),
@@ -616,10 +640,13 @@ def stage6_diffusivity(work_dir: str) -> dict:
     _check('diff_bulk_written', _exists(bulk_path), f'{len(ni)} atoms')
 
     # ── Generate diffusivity_run.py with embedded minimal config ──────────────
+    # n_h_values=[1, 3] regression-tests the per-n_H Arrhenius overwrite fix:
+    # before the fix, every n_H shared one results/{stem}/ path, so the
+    # second run silently clobbered the first's fit.
     out_py = str(diff_dir / 'diffusivity_run.py')
     generate_diffusivity_scripts(
         input_structures=[bulk_path],
-        n_h_values=[1],
+        n_h_values=DIFF_N_H_VALUES,
         temperatures=DIFF_TEMPERATURES,
         work_dir=str(diff_dir),
         nvt_wall_time='00:20:00',
@@ -652,181 +679,209 @@ def stage6_diffusivity(work_dir: str) -> dict:
     _check('diffusivity_run_exit_0', ret.returncode == 0,
            f'exit code {ret.returncode}')
 
-    # ── Check expected output files ───────────────────────────────────────────
-    struct_stem = 'ni_bulk_test'
-    run_name    = f'{struct_stem}_1H'
-    analysis_dir = diff_dir / 'results' / run_name / 'analysis'
-    msd_files    = list(analysis_dir.glob('msd_*.txt')) if analysis_dir.exists() else []
-    diff_table   = analysis_dir / 'diffusivity_table.txt'
-    arr_json     = diff_dir / 'results' / struct_stem / 'diffusivity_arrhenius.json'
+    # ── Check expected output files, once per n_H ─────────────────────────────
+    arr_jsons: dict[int, dict] = {}
+    for n_h in DIFF_N_H_VALUES:
+        run_name     = f'{struct_stem}_{n_h}H'
+        run_root     = diff_dir / 'results' / run_name
+        analysis_dir = run_root / 'analysis'
+        msd_files    = list(analysis_dir.glob('msd_*.txt')) if analysis_dir.exists() else []
+        diff_table   = analysis_dir / 'diffusivity_table.txt'
+        arr_json     = run_root / 'diffusivity_arrhenius.json'
 
-    _check('diff_msd_files_written', len(msd_files) >= len(DIFF_TEMPERATURES),
-           f'{len(msd_files)} msd_*.txt files found')
-    _check('diff_table_written', _exists(str(diff_table)), str(diff_table))
-    _check('diff_arrhenius_json_written', _exists(str(arr_json)), str(arr_json))
+        _check(f'diff_msd_files_written_{n_h}H',
+               len(msd_files) >= len(DIFF_TEMPERATURES),
+               f'{len(msd_files)} msd_*.txt files found')
+        _check(f'diff_table_written_{n_h}H', _exists(str(diff_table)), str(diff_table))
+        _check(f'diff_arrhenius_json_written_{n_h}H', _exists(str(arr_json)), str(arr_json))
 
-    if arr_json.exists():
-        with open(arr_json) as f:
-            arr = json.load(f)
-        Ea  = arr.get('E_D_eV', float('nan'))
-        D0  = arr.get('D0_m2s', float('nan'))
-        R2  = arr.get('R2_fit', float('nan'))
-        D_arr   = arr.get('D_arr', [])
-        n_valid = sum(1 for d in D_arr
-                      if isinstance(d, (int, float)) and d == d and d > 0)
-        if n_valid >= 2:
-            _check('diff_Ea_positive', Ea > 0, f'Ea = {Ea:.4f} eV')
-            _check('diff_D0_positive', D0 > 0, f'D0 = {D0:.3e} m²/s')
-            _check('diff_R2_reasonable', R2 > 0.5, f'R² = {R2:.4f}')
+        if arr_json.exists():
+            with open(arr_json) as f:
+                arr = json.load(f)
+            arr_jsons[n_h] = arr
+            Ea  = arr.get('E_D_eV', float('nan'))
+            D0  = arr.get('D0_m2s', float('nan'))
+            R2  = arr.get('R2_fit', float('nan'))
+            D_arr   = arr.get('D_arr', [])
+            n_valid = sum(1 for d in D_arr
+                          if isinstance(d, (int, float)) and d == d and d > 0)
+            if n_valid >= 2:
+                _check(f'diff_Ea_positive_{n_h}H', Ea > 0, f'Ea = {Ea:.4f} eV')
+                _check(f'diff_D0_positive_{n_h}H', D0 > 0, f'D0 = {D0:.3e} m²/s')
+                _check(f'diff_R2_reasonable_{n_h}H', R2 > 0.5, f'R² = {R2:.4f}')
+            else:
+                # At smoke scale (few H atoms, 2 ps) a negative-D noise point
+                # is statistically expected; the pipeline must drop it and
+                # write a NaN fit gracefully instead of crashing.
+                _check(f'diff_arrhenius_graceful_nan_{n_h}H',
+                       Ea != Ea and D0 != D0,   # NaN != NaN
+                       f'{n_valid} valid D point(s) at smoke scale — '
+                       f'NaN fit is the designed graceful behaviour')
+            print(f'  n_H={n_h}  Arrhenius: Ea={Ea:.4f} eV  '
+                  f'D0={D0:.3e} m²/s  R²={R2:.4f}')
+
+    # ── Direct proof Bug 1 (shared-path overwrite) is fixed ───────────────────
+    # Both n_H's files must exist independently (already checked above — the
+    # pre-fix code had exactly one shared path, so only one file could ever
+    # exist). When both fits are numerically valid, they must also differ,
+    # since D0/Ea genuinely depend on H loading.
+    if len(arr_jsons) == len(DIFF_N_H_VALUES) and len(DIFF_N_H_VALUES) >= 2:
+        _n_a, _n_b = DIFF_N_H_VALUES[0], DIFF_N_H_VALUES[1]
+        _a, _b = arr_jsons[_n_a], arr_jsons[_n_b]
+        _both_valid = (_a.get('D0_m2s') == _a.get('D0_m2s')  # not NaN
+                       and _b.get('D0_m2s') == _b.get('D0_m2s'))
+        if _both_valid:
+            _check('diff_per_nH_fits_independent',
+                   _a.get('D0_m2s') != _b.get('D0_m2s')
+                   or _a.get('E_D_eV') != _b.get('E_D_eV'),
+                   f'{_n_a}H: D0={_a.get("D0_m2s"):.3e} Ea={_a.get("E_D_eV"):.4f}  vs  '
+                   f'{_n_b}H: D0={_b.get("D0_m2s"):.3e} Ea={_b.get("E_D_eV"):.4f}')
         else:
-            # At smoke scale (1 H atom, 2 ps) a negative-D noise point is
-            # statistically expected; the pipeline must drop it and write a
-            # NaN fit gracefully instead of crashing (the 2026-07-03 bug).
-            _check('diff_arrhenius_graceful_nan',
-                   Ea != Ea and D0 != D0,   # NaN != NaN
-                   f'{n_valid} valid D point(s) at smoke scale — '
-                   f'NaN fit is the designed graceful behaviour')
-        print(f'  Arrhenius: Ea={Ea:.4f} eV  D0={D0:.3e} m²/s  R²={R2:.4f}')
+            print(f'  [SKIP] diff_per_nH_fits_independent — one or both fits '
+                  f'are NaN at smoke scale (graceful, not a failure)')
 
-    return dict(diff_dir=str(diff_dir), arr_json=str(arr_json))
+    return dict(diff_dir=str(diff_dir), struct_stem=struct_stem,
+                arr_jsons={n_h: str(diff_dir / 'results' / f'{struct_stem}_{n_h}H'
+                                     / 'diffusivity_arrhenius.json')
+                           for n_h in DIFF_N_H_VALUES})
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Stage 7 — Permeation math: TST → KMC → permeability (pure Python)
+# Stage 7 — Permeation (Part 2, real): Hop A/B NEB + vibrations + KMC + Φ
 # ═════════════════════════════════════════════════════════════════════════════
 
-def stage7_permeation_math(s5: dict, work_dir: str) -> dict:
-    _header('Stage 7: Permeation math — TST → KMC → permeability (pure Python)')
+def stage7_permeation(s0: dict, s2: dict, s4: dict, s6: dict,
+                      work_dir: str) -> dict:
+    _header('Stage 7: Permeation — real generate_permeation_scripts() '
+            '(Hop A/B NEB, vibrations, KMC, permeability)')
 
-    KB_EV  = 8.617333262e-5   # eV / K
-    T_K    = 700.0
-    A0_M   = 3.52e-10         # Ni lattice constant (m)
-    L_M    = 1.0e-6           # 1 µm membrane thickness
-    D0_M2S = 1.0e-7           # bulk diffusion pre-exponential
-    E_D_EV = 0.40             # bulk diffusion barrier (eV)
-    NU_TST = 1.0e13           # attempt frequency (s⁻¹)
+    if not all(k in s6 for k in ('diff_dir', 'struct_stem', 'arr_jsons')):
+        print('  [SKIP] Stage 6 did not complete — Part 3 diffusivity fits '
+              'are Part 2\'s required input (no placeholder D0/Ea).')
+        _check('permeation_prereqs_available', False, 'Stage 6 result incomplete')
+        return {}
 
-    # ── Untested-process rates ────────────────────────────────────────────────
-    # Hop A (surface -> subsurface entry/exit) and surface diffusion are not
-    # computed anywhere in this smoke test — they live in Part 2's
-    # permeation_workflow.py. Keep them as FIXED synthetic constants
-    # regardless of what Stage 5 finds. Previously these were derived from
-    # the Stage-5 dissociation barrier, which produced extreme, non-physical
-    # rate ratios (e.g. k_exit/k_entry ~1e9, zero KMC subsurface occupancy)
-    # whenever the real NEB happened to find a strongly exothermic
-    # (near-zero reverse barrier) dissociation path — a different, unrelated
-    # physical process being mistaken for this one.
-    ENTRY_EV     = 0.30   # synthetic Hop-A entry barrier (eV)
-    EXIT_EV      = 0.50   # synthetic Hop-A exit barrier (eV)
-    SURF_DIFF_EV = 0.20   # synthetic surface-diffusion barrier (eV)
+    stem          = s6['struct_stem']
+    perm_work_dir = s6['diff_dir']   # same WORK_DIR Part 3 wrote results/ under
+    perm_dir      = pathlib.Path(work_dir) / 'permeation'
+    perm_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Dissociation barrier: real NEB result from Stage 5, or synthetic ───
-    # This IS the process Stage 5's NEB measures (H2* -> 2H* surface hop),
-    # so it feeds k_diss/k_des directly — no unrelated hop borrows it.
-    E_ABS = 0.30   # fallback dissociation barrier (eV)
-    E_DES = 0.50   # fallback recombination barrier (eV)
-    source = 'synthetic (Stage 5 skipped or no NEB pairs)'
+    sub_neb_dir = os.path.join(perm_work_dir, 'neb_subsurface', stem)
+    vib_dir     = os.path.join(perm_work_dir, 'vibrations', stem)
+    results_dir = os.path.join(perm_work_dir, 'results', stem)
+    out_py      = str(perm_dir / 'permeation_run.py')
 
-    if (not s5.get('skipped', True)
-            and not s5.get('timed_out', True)
-            and s5.get('barrier_path')):
-        bf = pathlib.Path(s5['barrier_path'])
-        if bf.exists():
-            bd = parse_barrier_file(str(bf))
-            if bd and bd.get('E_abs', 0) > 0:
-                E_ABS  = bd['E_abs']
-                E_DES  = bd.get('E_des', E_ABS + 0.20)
-                source = f'real NEB barrier from {bf.name}'
-
-    print(f'  Barrier source : {source}')
-    print(f'  E_abs (diss) = {E_ABS:.3f} eV   E_des (assoc) = {E_DES:.3f} eV   T = {T_K:.0f} K')
-    print(f'  Hop-A entry/exit (synthetic, untested here): '
-          f'{ENTRY_EV:.2f}/{EXIT_EV:.2f} eV')
-
-    # ── TST rates ─────────────────────────────────────────────────────────────
-    k_diss      = arrhenius_rate(NU_TST, E_ABS, T_K)
-    k_des       = arrhenius_rate(NU_TST, E_DES, T_K)
-    k_entry     = arrhenius_rate(NU_TST, ENTRY_EV, T_K)
-    k_exit      = arrhenius_rate(NU_TST, EXIT_EV, T_K)
-    k_surf_diff = arrhenius_rate(NU_TST, SURF_DIFF_EV, T_K)
-
-    _check('tst_k_entry_positive', k_entry > 0,
-           f'k_entry = {k_entry:.3e} s⁻¹')
-    db_ratio   = k_entry / k_exit
-    db_expect  = math.exp((EXIT_EV - ENTRY_EV) / (KB_EV * T_K))
-    _check('tst_detailed_balance',
-           abs(db_ratio - db_expect) / db_expect < 1e-6,
-           f'k_fwd/k_rev = {db_ratio:.4e}  expected {db_expect:.4e}')
-
-    rate_dict = {
-        'k_diss':      {('Ni', 'Ni'): k_diss},
-        'k_des':       {('Ni', 'Ni'): k_des},
-        'k_surf_diff': {('Ni', 'Ni'): k_surf_diff},
-        'k_entry':     {'Ni': k_entry},
-        'k_exit':      {'Ni': k_exit},
-    }
-
-    # ── KMC pressure sweep (4×4 pure-Ni grid, 3 pressures, short run) ────────
-    D_T    = arrhenius_diffusivity(D0_M2S, E_D_EV, T_K)
-    P_VALS = [1e4, 1e5, 1e6]   # 0.1, 1, 10 bar
-
-    sweep = sweep_pressure(
-        P_vals_Pa  = P_VALS,
-        rate_dict  = rate_dict,
-        D_m2s      = D_T,
-        L_m        = L_M,
-        T_K        = T_K,
-        a0_m       = A0_M,
-        nx         = 4,
-        ny         = 4,
-        composition = {'Ni': 1.0},
-        seed       = 42,
-        kmc_kwargs = {'window': 50, 'max_steps': 10_000},
+    generate_permeation_scripts(
+        work_dir=perm_work_dir,
+        stem=stem,
+        relaxed_slab_path=s0['slab_out'],
+        surface_sites_json=s2['sites_json'],
+        phase2_h_dir=os.path.join(s4['result']['outdir'], 'results'),
+        sub_neb_dir=sub_neb_dir,
+        vib_dir=vib_dir,
+        results_dir=results_dir,
+        temperatures=DIFF_TEMPERATURES,
+        n_h_values=DIFF_N_H_VALUES,
+        p_vals_pa=PERM_P_VALS_PA,
+        a0_m=PERM_A0_M,
+        l_m=PERM_L_M,
+        # dh_diss_ev explicit: its auto-source (ranked_barriers.json) is a
+        # known separately-tracked gap (GitHub #7), not what this test
+        # verifies. dh_entry_ev=None exercises the REAL auto-extraction
+        # from this run's own Hop A NEB results.
+        dh_diss_ev=PERM_DH_DISS_EV,
+        dh_entry_ev=None,
+        nx=PERM_NX, ny=PERM_NY,
+        seed=PERM_SEED,
+        kmc_max_steps=PERM_KMC_MAX_STEPS,
+        gpu_slurm_cfg={**SLURM_DEFAULTS, **GPU_SLURM},
+        neb_slurm_cfg={**SLURM_DEFAULTS, **NEB_SLURM},
+        vib_slurm_cfg={**SLURM_DEFAULTS, **NEB_SLURM},   # vibrations: CPU too
+        n_images=N_NEB_IMAGES,
+        spring_const=SPRING_CONST,
+        neb_ftol=NEB_FTOL,
+        out_py=out_py,
+        elem_str=ELEM_STR_7,
+        e2t=E2T_7,
+        masses=MASSES_7,
+        metal_type='alloy',
     )
+    _check('permeation_run_py_written', _exists(out_py), out_py)
 
-    n_J_pos = sum(1 for j in sweep['J_vals'] if j > 0)
-    n_C_pos = sum(1 for c in sweep['C0_vals'] if c > 0)
-    _check('kmc_flux_positive',   n_J_pos > 0,
-           f'{n_J_pos}/{len(P_VALS)} pressures give J > 0')
-    _check('kmc_C0_positive',     n_C_pos > 0,
-           f'{n_C_pos}/{len(P_VALS)} pressures give C0 > 0')
+    # ── Run the orchestrator as a subprocess — submits real Hop A/B NEB and
+    # vibration SLURM jobs and blocks until they (and the KMC sweeps) finish.
+    env = os.environ.copy()
+    env['PYTHONPATH'] = str(PROJECT_ROOT) + os.pathsep + env.get('PYTHONPATH', '')
+    print('\n  Running permeation_run.py  (Hop A/B NEB + vibrations + KMC — '
+          'submits real SLURM jobs and waits) …')
+    ret = subprocess.run([sys.executable, out_py], env=env)
+    _check('permeation_run_exit_0', ret.returncode == 0,
+           f'exit code {ret.returncode}')
 
-    # ── Permeability from the KMC surface concentration ──────────────────────
-    # Use the pressure with the LARGEST C0: with a high real entry barrier
-    # (k_entry ~ a few s⁻¹) the short KMC run can stochastically record zero
-    # entry events at any single pressure, so the last pressure alone is not
-    # a reliable estimator.
-    S0     = lattice_site_S0(A0_M)
-    i_best = max(range(len(P_VALS)), key=lambda i: sweep['C0_vals'][i])
-    C0_best = sweep['C0_vals'][i_best]
-    P_best  = P_VALS[i_best]
-    S_est  = C0_best / math.sqrt(P_best) if C0_best > 0 else 0.0
-    Phi    = permeability(D_T, S_est)
+    # ── Which n_H concentrations had a valid (non-NaN) Part-3 fit? Part 2
+    # skips the rest entirely by design — that's not a smoke-test failure.
+    n_h_ready = {}
+    for n_h in DIFF_N_H_VALUES:
+        ready = False
+        if _exists(s6['arr_jsons'][n_h]):
+            with open(s6['arr_jsons'][n_h]) as f:
+                a = json.load(f)
+            d0, ea = a.get('D0_m2s'), a.get('E_D_eV')
+            ready = (d0 == d0 and ea == ea)   # NaN-safe
+        n_h_ready[n_h] = ready
+        if not ready:
+            print(f'  [INFO] n_H={n_h}: Part 3 diffusivity fit invalid/NaN at '
+                  f'smoke scale — Part 2 correctly skips it (no placeholder).')
 
-    _check('permeability_positive', Phi > 0, f'Φ = {Phi:.3e} mol m⁻¹ s⁻¹ Pa⁻⁰·⁵')
-    print(f'  D({T_K:.0f}K) = {D_T:.3e} m²/s   S_est = {S_est:.3e}   Φ = {Phi:.3e}')
+    perm_data: dict[int, dict] = {n_h: {} for n_h in DIFF_N_H_VALUES}
+    for n_h in DIFF_N_H_VALUES:
+        if not n_h_ready[n_h]:
+            continue
+        nh_dir = pathlib.Path(perm_work_dir) / 'results' / f'{stem}_{n_h}H'
+        for T in DIFF_TEMPERATURES:
+            sweep_f = nh_dir / f'permeation_sweep_T{int(T)}K.json'
+            perm_f  = nh_dir / f'permeability_T{int(T)}K.json'
+            _check(f'permeation_sweep_written_{n_h}H_{int(T)}K',
+                   _exists(str(sweep_f)), str(sweep_f))
+            _check(f'permeability_written_{n_h}H_{int(T)}K',
+                   _exists(str(perm_f)), str(perm_f))
+            if perm_f.exists():
+                with open(perm_f) as f:
+                    perm_data[n_h][T] = json.load(f)
 
-    # ── Save summary JSON ─────────────────────────────────────────────────────
-    perm_out = pathlib.Path(work_dir) / 'permeation_math_summary.json'
-    with open(perm_out, 'w') as f:
-        json.dump({
-            'T_K': T_K,
-            'barrier_source': source,
-            'E_abs_eV': E_ABS,
-            'E_des_eV': E_DES,
-            'k_entry_s1': k_entry,
-            'k_exit_s1':  k_exit,
-            'D_m2s':      D_T,
-            'S0_m3_pasqrt': S0,
-            'S_est_m3_pasqrt': S_est,
-            'Phi_mol_m_s_Pasqrt': Phi,
-            'J_vals':  sweep['J_vals'],
-            'C0_vals': sweep['C0_vals'],
-            'converged': sweep['converged'],
-        }, f, indent=2)
-    _check('permeation_summary_written', _exists(str(perm_out)), '')
+        if perm_data[n_h]:
+            has_caveat = any('dilute_limit_caveat' in d
+                              for d in perm_data[n_h].values())
+            if n_h > 1:
+                _check(f'dilute_limit_caveat_present_{n_h}H', has_caveat,
+                       'n_H>1 permeability output must carry the caveat')
+            else:
+                _check(f'dilute_limit_caveat_absent_{n_h}H', not has_caveat,
+                       'n_H=1 IS the dilute limit — no caveat expected')
+        else:
+            print(f'  [SKIP] dilute_limit_caveat check for n_H={n_h} — no '
+                  f'permeability file produced (Phase 6 may be globally '
+                  f'skipped; see DH_ENTRY_EV auto-extraction messages above)')
 
-    return dict(Phi=Phi, D_T=D_T, S_est=S_est)
+    # ── Direct proof Bug 2 (global placeholder bulk diffusivity) is fixed:
+    # each n_H's permeability JSON must embed that concentration's OWN
+    # D0/Ea from Part 3 — never a shared placeholder.
+    _ready = [n for n in DIFF_N_H_VALUES if perm_data.get(n)]
+    if len(_ready) >= 2:
+        _n_a, _n_b = _ready[0], _ready[1]
+        _T0 = DIFF_TEMPERATURES[0]
+        _da, _db = perm_data[_n_a].get(_T0), perm_data[_n_b].get(_T0)
+        if _da and _db:
+            _check('permeability_uses_per_nH_diffusivity',
+                   _da.get('D0_m2s') != _db.get('D0_m2s')
+                   or _da.get('E_D_eV') != _db.get('E_D_eV'),
+                   f'{_n_a}H: D0={_da.get("D0_m2s")} Ea={_da.get("E_D_eV")}  vs  '
+                   f'{_n_b}H: D0={_db.get("D0_m2s")} Ea={_db.get("E_D_eV")}')
+    else:
+        print('  [SKIP] permeability_uses_per_nH_diffusivity — fewer than 2 '
+              'n_H concentrations produced a permeability file at smoke scale')
+
+    return dict(perm_dir=str(perm_dir), perm_data=perm_data)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -838,10 +893,11 @@ def main() -> int:
     print(f'\n{"#"*60}')
     print(f'  PIPELINE SMOKE TEST — {time.strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'  Work dir     : {WORK_DIR}')
+    print(f'  SLAB_LAYERS  : {SLAB_LAYERS}')
     print(f'  N_MAX_SITES  : {N_MAX_SITES}')
     print(f'  N_NEB_IMAGES : {N_NEB_IMAGES}  NEB_FTOL={NEB_FTOL}')
     print(f'  NEB timeout  : {NEB_TIMEOUT_H} h  (poll every {NEB_POLL_SEC} s)')
-    print(f'  DIFF temps   : {DIFF_TEMPERATURES} K  '
+    print(f'  DIFF temps   : {DIFF_TEMPERATURES} K  n_H={DIFF_N_H_VALUES}  '
           f'equil={DIFF_N_EQUIL} prod={DIFF_N_PROD} steps')
     print(f'{"#"*60}\n')
 
@@ -892,19 +948,20 @@ def main() -> int:
         traceback.print_exc()
         _FAIL.append('neb_stage_exception')
 
+    s6 = {}
     try:
-        stage6_diffusivity(WORK_DIR)
+        s6 = stage6_diffusivity(WORK_DIR)
     except Exception:
         print('[WARN] Stage 6 raised an exception:')
         traceback.print_exc()
         _FAIL.append('diffusivity_stage_exception')
 
     try:
-        stage7_permeation_math(s5, WORK_DIR)
+        stage7_permeation(s0, s2, s4, s6, WORK_DIR)
     except Exception:
         print('[WARN] Stage 7 raised an exception:')
         traceback.print_exc()
-        _FAIL.append('permeation_math_stage_exception')
+        _FAIL.append('permeation_stage_exception')
 
     # ── Summary ──────────────────────────────────────────────────────────────
     elapsed = time.time() - t_start
