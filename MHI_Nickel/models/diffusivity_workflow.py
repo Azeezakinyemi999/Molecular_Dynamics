@@ -168,6 +168,8 @@ def _require_file(path, hint):
             f'  The SLURM job that should have written it likely failed. {hint}'
         )
 
+_FAILURES = []
+
 # ── main loop ─────────────────────────────────────────────────────────────────
 for struct_path in INPUT_STRUCTURES:
     struct_stem = os.path.splitext(os.path.basename(struct_path))[0]
@@ -178,164 +180,34 @@ for struct_path in INPUT_STRUCTURES:
 
     for n_h in N_H_VALUES:
         run_name = f'{struct_stem}_{n_h}H'
-        print(f'\n{"="*60}')
-        print(f'  Structure : {struct_stem}   n_H : {n_h}')
-        print(f'{"="*60}')
+        try:
+            print(f'\n{"="*60}')
+            print(f'  Structure : {struct_stem}   n_H : {n_h}')
+            print(f'{"="*60}')
 
-        dirs = make_run_dirs(
-            name=run_name,
-            temperatures=TEMPERATURES,
-            base_dir=os.path.join(WORK_DIR, 'results'),
-        )
-
-        phase1_lmp_dir = os.path.join(dirs['root'], 'lammps_scripts')
-        phase1_sh_dir  = os.path.join(dirs['root'], 'slurm_scripts')
-        os.makedirs(phase1_lmp_dir, exist_ok=True)
-        os.makedirs(phase1_sh_dir,  exist_ok=True)
-
-        # ── Phase 1a ─────────────────────────────────────────────────────────
-        print('\n--- Phase 1a: Minimise bare bulk ---')
-
-        min_bare_lmp = os.path.join(phase1_lmp_dir, 'minimize_bare.lammps')
-        min_bare_out = os.path.join(dirs['structures'], 'bulk_min.lammps')
-        min_bare_sh  = os.path.join(phase1_sh_dir,  'minimize_bare.sh')
-
-        if not os.path.exists(min_bare_out):
-            write_minimization_script(
-                bulk_input=struct_path,
-                min_output=min_bare_out,
-                out_path=min_bare_lmp,
-                pair_style=PAIR_STYLE,
-                mace_model=MACE_MODEL_LAMMPS,
-                pair_suffix=PAIR_SUFFIX,
-                elem_str=_ELEM_STR,
-                etol=MIN_ETOL,
-                ftol=MIN_FTOL,
-                maxiter=MIN_MAXITER,
-                maxeval=MIN_MAXEVAL,
+            dirs = make_run_dirs(
+                name=run_name,
+                temperatures=TEMPERATURES,
+                base_dir=os.path.join(WORK_DIR, 'results'),
             )
-            write_slurm_job(
-                job_name=f'min_bare_{run_name}',
-                slurm_config=SHORT_GPU_SLURM_CFG,
-                out_path=min_bare_sh,
-                runner='lmp',
-                lammps_cmd=LAMMPS_CMD,
-                kokkos_flags=KOKKOS_FLAGS,
-                script_path=min_bare_lmp,
-            )
-            jid = submit_slurm_job(min_bare_sh)
-            wait_for_jobs({'min_bare': jid})
-            _require_file(min_bare_out,
-                          f'Check the min_bare job log in {phase1_sh_dir}.')
-            print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
-        else:
-            print(f'  [1a] Already exists: {min_bare_out} — skipping')
 
-        # ── Phase 1b — Step A: NPT at every T in parallel ────────────────────
-        print('\n--- Phase 1b: NPT equilibration at each temperature ---')
+            phase1_lmp_dir = os.path.join(dirs['root'], 'lammps_scripts')
+            phase1_sh_dir  = os.path.join(dirs['root'], 'slurm_scripts')
+            os.makedirs(phase1_lmp_dir, exist_ok=True)
+            os.makedirs(phase1_sh_dir,  exist_ok=True)
 
-        npt_job_ids     = {}
-        npt_final_paths = {}
-        npt_stem = os.path.splitext(min_bare_out)[0]
+            # ── Phase 1a ─────────────────────────────────────────────────────────
+            print('\n--- Phase 1a: Minimise bare bulk ---')
 
-        for T in TEMPERATURES:
-            npt_lmp  = os.path.join(phase1_lmp_dir, f'npt_{T}K.lammps')
-            npt_dump = os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat')
-            npt_sh   = os.path.join(phase1_sh_dir,  f'npt_{T}K.sh')
-            npt_final_paths[T] = f'{npt_stem}_npt_final_{T}K.lammps'
+            min_bare_lmp = os.path.join(phase1_lmp_dir, 'minimize_bare.lammps')
+            min_bare_out = os.path.join(dirs['structures'], 'bulk_min.lammps')
+            min_bare_sh  = os.path.join(phase1_sh_dir,  'minimize_bare.sh')
 
-            npt_rst_lmp          = os.path.join(phase1_lmp_dir, f'npt_restart_{T}K.lammps')
-            npt_after_heat_rst   = f'{os.path.splitext(npt_dump)[0]}_after_heat.restart'
-
-            if not os.path.exists(npt_final_paths[T]):
-                write_npt_script(
-                    min_output=min_bare_out,
-                    npt_dump=npt_dump,
-                    out_path=npt_lmp,
-                    pair_style=PAIR_STYLE,
-                    mace_model=MACE_MODEL_LAMMPS,
-                    pair_suffix=PAIR_SUFFIX,
-                    elem_str=_ELEM_STR,
-                    target_t=T,
-                    timestep=TIMESTEP_PS,
-                    thermo_damp=TAU_T_PS,
-                    baro_damp=NPT_BARO_DAMP,
-                    heat_steps=NPT_HEAT_STEPS,
-                    npt_steps=NPT_PROD_STEPS,
-                    dump_every=NPT_DUMP_EVERY,
-                )
-                write_npt_restart_script(
-                    restart_file=npt_after_heat_rst,
-                    npt_dump=npt_dump,
-                    min_output=min_bare_out,
-                    out_path=npt_rst_lmp,
-                    pair_style=PAIR_STYLE,
-                    mace_model=MACE_MODEL_LAMMPS,
-                    pair_suffix=PAIR_SUFFIX,
-                    elem_str=_ELEM_STR,
-                    target_t=T,
-                    timestep=TIMESTEP_PS,
-                    thermo_damp=TAU_T_PS,
-                    baro_damp=NPT_BARO_DAMP,
-                    npt_steps=NPT_PROD_STEPS,
-                    dump_every=NPT_DUMP_EVERY,
-                )
-                write_chained_slurm_job(
-                    job_name=f'npt_{T}K_{run_name}',
-                    slurm_config=SHORT_GPU_SLURM_CFG,
-                    out_path=npt_sh,
-                    first_commands=[f'{LAMMPS_CMD} {KK} -in {npt_lmp}'],
-                    restart_commands=[f'{LAMMPS_CMD} {KK} -in {npt_rst_lmp}'],
-                    restart_glob=npt_after_heat_rst,
-                    cutoff=SHORT_GPU_CUTOFF,
-                    work_dir=WORK_DIR,
-                )
-                npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
-                print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
-            else:
-                print(f'  [1b] NPT {T}K already done — skipping')
-
-        print(f'  Waiting for {len(npt_job_ids)} NPT jobs ...')
-        wait_for_jobs(npt_job_ids)
-        for T in TEMPERATURES:
-            _require_file(npt_final_paths[T],
-                          f'Check the npt_{T}K job log in {phase1_sh_dir}.')
-            _require_file(os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat'),
-                          f'Check the npt_{T}K job log in {phase1_sh_dir}.')
-        print('  All NPT jobs done.')
-
-        # ── Phase 1b — Step B: insert H at a0(T), minimise ───────────────────
-        print('\n--- Phase 1b (cont.): Insert H and minimise at each temperature ---')
-
-        min_h_job_ids = {}
-        T_to_bulk_h   = {}
-        _a0_by_T      = {}   # collect a0(T) in Å for each temperature
-
-        for T in TEMPERATURES:
-            _npt_dump_T = os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat')
-            a0_T = get_lattice_parameter_from_dump(_npt_dump_T, n_last=50)
-            _a0_by_T[T] = a0_T
-            print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å')
-
-            min_h_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
-            min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
-            min_h_sh_T  = os.path.join(phase1_sh_dir,  f'minimize_h_{T}K.sh')
-            T_to_bulk_h[T] = min_h_out_T
-
-            if not os.path.exists(min_h_out_T):
-                bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
-                    bulk_min_path=npt_final_paths[T],
-                    n_h=n_h,
-                    masses=_MASSES,
-                    e2t=_E2T,
-                    out_dir=os.path.join(dirs['structures'], f'{T}K'),
-                    a0=a0_T,
-                )
-                print(f'  [1b] T={T}K  inserted {n_h} H  min_H-metal={_min_hm_T:.3f} Å  → {bulk_h_path_T}')
+            if not os.path.exists(min_bare_out):
                 write_minimization_script(
-                    bulk_input=bulk_h_path_T,
-                    min_output=min_h_out_T,
-                    out_path=min_h_lmp_T,
+                    bulk_input=struct_path,
+                    min_output=min_bare_out,
+                    out_path=min_bare_lmp,
                     pair_style=PAIR_STYLE,
                     mace_model=MACE_MODEL_LAMMPS,
                     pair_suffix=PAIR_SUFFIX,
@@ -346,219 +218,365 @@ for struct_path in INPUT_STRUCTURES:
                     maxeval=MIN_MAXEVAL,
                 )
                 write_slurm_job(
-                    job_name=f'min_h_{T}K_{run_name}',
+                    job_name=f'min_bare_{run_name}',
                     slurm_config=SHORT_GPU_SLURM_CFG,
-                    out_path=min_h_sh_T,
+                    out_path=min_bare_sh,
                     runner='lmp',
                     lammps_cmd=LAMMPS_CMD,
                     kokkos_flags=KOKKOS_FLAGS,
-                    script_path=min_h_lmp_T,
+                    script_path=min_bare_lmp,
                 )
-                min_h_job_ids[f'min_h_{T}K'] = submit_slurm_job(min_h_sh_T)
+                jid = submit_slurm_job(min_bare_sh)
+                wait_for_jobs({'min_bare': jid})
+                _require_file(min_bare_out,
+                              f'Check the min_bare job log in {phase1_sh_dir}.')
+                print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
             else:
-                print(f'  [1b] bulk+H min {T}K already done — skipping')
+                print(f'  [1a] Already exists: {min_bare_out} — skipping')
 
-        print(f'  Waiting for {len(min_h_job_ids)} bulk+H minimisation jobs ...')
-        wait_for_jobs(min_h_job_ids)
-        for T in TEMPERATURES:
-            _require_file(T_to_bulk_h[T],
-                          f'Check the min_h_{T}K job log in {phase1_sh_dir}.')
-        print('  All bulk+H minimisations done.')
+            # ── Phase 1b — Step A: NPT at every T in parallel ────────────────────
+            print('\n--- Phase 1b: NPT equilibration at each temperature ---')
 
-        # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
-        _lat_out = os.path.join(WORK_DIR, 'results', struct_stem, 'lattice_params_vs_T.json')
-        os.makedirs(os.path.dirname(_lat_out), exist_ok=True)
-        with open(_lat_out, 'w') as _f:
-            _json_lat.dump({'temperatures': list(_a0_by_T.keys()),
-                            'a0_m': [v * 1e-10 for v in _a0_by_T.values()]}, _f, indent=2)
-        print(f'  Saved lattice_params_vs_T.json → {_lat_out}')
+            npt_job_ids     = {}
+            npt_final_paths = {}
+            npt_stem = os.path.splitext(min_bare_out)[0]
 
-        # ── Phase 2 ──────────────────────────────────────────────────────────
-        print('\n--- Phase 2: NVT MD ---')
-        chain_sh_by_T = {}
+            for T in TEMPERATURES:
+                npt_lmp  = os.path.join(phase1_lmp_dir, f'npt_{T}K.lammps')
+                npt_dump = os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat')
+                npt_sh   = os.path.join(phase1_sh_dir,  f'npt_{T}K.sh')
+                npt_final_paths[T] = f'{npt_stem}_npt_final_{T}K.lammps'
 
-        for T in TEMPERATURES:
-            lmp_dir = dirs[T]['lammps_scripts']
-            sh_dir  = dirs[T]['slurm_scripts']
-            res_dir = dirs[T]['results']
-            rst_dir = os.path.join(res_dir, 'checkpoints')
-            os.makedirs(rst_dir, exist_ok=True)
+                npt_rst_lmp          = os.path.join(phase1_lmp_dir, f'npt_restart_{T}K.lammps')
+                npt_after_heat_rst   = f'{os.path.splitext(npt_dump)[0]}_after_heat.restart'
 
-            nvt_lmp           = os.path.join(lmp_dir, f'nvt_{T}K.lammps')
-            nvt_equil_rst_lmp = os.path.join(lmp_dir, f'nvt_{T}K_rst_equil.lammps')
-            nvt_prod_rst_lmp  = os.path.join(lmp_dir, f'nvt_{T}K_rst_prod.lammps')
-            traj_file         = os.path.join(res_dir, f'nvt_{T}K.dump')
-            out_file          = os.path.join(res_dir, f'nvt_{T}K.out')
-            log_file          = os.path.join(res_dir, f'nvt_{T}K.log')
-            msd_equil_file    = os.path.join(res_dir, f'msd_{T}K_equil.dat')
-            msd_prod_file     = os.path.join(res_dir, f'msd_{T}K_prod.dat')
-            rst_glob          = os.path.join(rst_dir, f'nvt_{T}K.*.restart')
-            chain_sh          = os.path.join(sh_dir,  f'nvt_{T}K_chain.sh')
-            chain_sh_by_T[T]  = chain_sh
-
-            if not os.path.exists(chain_sh + '.done'):
-                write_nvt_bulk_script(
-                    bulk_h_file=T_to_bulk_h[T],
-                    traj_file=traj_file,
-                    out_file=out_file,
-                    msd_equil_file=msd_equil_file,
-                    msd_prod_file=msd_prod_file,
-                    out_path=nvt_lmp,
-                    pair_style=PAIR_STYLE,
-                    mace_model=MACE_MODEL_LAMMPS,
-                    pair_suffix=PAIR_SUFFIX,
-                    elem_str=_ELEM_STR,
-                    temperature=T,
-                    h_type=_E2T['H'],
-                    timestep=TIMESTEP_PS,
-                    tau_t=TAU_T_PS,
-                    n_equil=N_EQUIL_STEPS,
-                    n_prod=N_PROD_STEPS,
-                    thermo_every=THERMO_EVERY,
-                    dump_every=DUMP_EVERY,
-                    velocity_seed=VELOCITY_SEED,
-                    restart_dir=rst_dir,
-                    restart_every=RESTART_EVERY,
-                )
-                write_nvt_equil_restart_script(
-                    restart_file=rst_glob,
-                    traj_file=traj_file,
-                    out_file=out_file,
-                    msd_equil_file=msd_equil_file,
-                    msd_prod_file=msd_prod_file,
-                    log_file=log_file,
-                    out_path=nvt_equil_rst_lmp,
-                    pair_style=PAIR_STYLE,
-                    mace_model=MACE_MODEL_LAMMPS,
-                    pair_suffix=PAIR_SUFFIX,
-                    elem_str=_ELEM_STR,
-                    temperature=T,
-                    h_type=_E2T['H'],
-                    timestep=TIMESTEP_PS,
-                    tau_t=TAU_T_PS,
-                    n_equil=N_EQUIL_STEPS,
-                    n_prod=N_PROD_STEPS,
-                    thermo_every=THERMO_EVERY,
-                    dump_every=DUMP_EVERY,
-                    restart_dir=rst_dir,
-                    restart_every=RESTART_EVERY,
-                )
-                write_nvt_prod_restart_script(
-                    restart_file=rst_glob,
-                    traj_file=traj_file,
-                    out_file=out_file,
-                    msd_prod_file=msd_prod_file,
-                    log_file=log_file,
-                    out_path=nvt_prod_rst_lmp,
-                    pair_style=PAIR_STYLE,
-                    mace_model=MACE_MODEL_LAMMPS,
-                    pair_suffix=PAIR_SUFFIX,
-                    elem_str=_ELEM_STR,
-                    temperature=T,
-                    h_type=_E2T['H'],
-                    timestep=TIMESTEP_PS,
-                    tau_t=TAU_T_PS,
-                    n_equil=N_EQUIL_STEPS,
-                    n_prod=N_PROD_STEPS,
-                    thermo_every=THERMO_EVERY,
-                    dump_every=DUMP_EVERY,
-                    restart_dir=rst_dir,
-                    restart_every=RESTART_EVERY,
-                )
-                write_chained_slurm_job(
-                    job_name=f'nvt_{T}K_{run_name}',
-                    slurm_config=GPU_SLURM_CFG,
-                    out_path=chain_sh,
-                    first_commands=[
-                        f'{LAMMPS_CMD} {KK} -in {nvt_lmp} -log {log_file}',
-                    ],
-                    equil_restart_commands=[
-                        f'{LAMMPS_CMD} {KK} -in {nvt_equil_rst_lmp} -log /dev/null',
-                    ],
-                    prod_restart_commands=[
-                        f'{LAMMPS_CMD} {KK} -in {nvt_prod_rst_lmp} -log /dev/null',
-                    ],
-                    n_equil=N_EQUIL_STEPS,
-                    restart_glob=rst_glob,
-                    cutoff=CUTOFF,
-                    work_dir=WORK_DIR,
-                )
-                # Stale failure sentinel from an earlier attempt would make the
-                # polling loop below abort before the new job even starts.
-                if os.path.exists(chain_sh + '.failed'):
-                    os.remove(chain_sh + '.failed')
-                job_id = submit_slurm_job(chain_sh)
-                print(f'  [2] Submitted NVT {T}K  →  job {job_id}')
-            else:
-                print(f'  [2] NVT {T}K already done — skipping')
-
-        print('  Waiting for NVT jobs (polling .done sentinels) ...')
-        import time as _time
-        pending = set(TEMPERATURES)
-        while pending:
-            for T in list(pending):
-                if os.path.exists(chain_sh_by_T[T] + '.done'):
-                    pending.discard(T)
-                    print(f'  NVT {T}K complete')
-                elif os.path.exists(chain_sh_by_T[T] + '.failed'):
-                    raise RuntimeError(
-                        f'NVT {T}K chain job failed (sentinel: '
-                        f'{chain_sh_by_T[T]}.failed). Check the chain job '
-                        f'logs next to that script. Aborting instead of '
-                        f'polling forever.'
+                if not os.path.exists(npt_final_paths[T]):
+                    write_npt_script(
+                        min_output=min_bare_out,
+                        npt_dump=npt_dump,
+                        out_path=npt_lmp,
+                        pair_style=PAIR_STYLE,
+                        mace_model=MACE_MODEL_LAMMPS,
+                        pair_suffix=PAIR_SUFFIX,
+                        elem_str=_ELEM_STR,
+                        target_t=T,
+                        timestep=TIMESTEP_PS,
+                        thermo_damp=TAU_T_PS,
+                        baro_damp=NPT_BARO_DAMP,
+                        heat_steps=NPT_HEAT_STEPS,
+                        npt_steps=NPT_PROD_STEPS,
+                        dump_every=NPT_DUMP_EVERY,
                     )
-            if pending:
-                _time.sleep(60)
-        print('  All NVT jobs done.')
+                    write_npt_restart_script(
+                        restart_file=npt_after_heat_rst,
+                        npt_dump=npt_dump,
+                        min_output=min_bare_out,
+                        out_path=npt_rst_lmp,
+                        pair_style=PAIR_STYLE,
+                        mace_model=MACE_MODEL_LAMMPS,
+                        pair_suffix=PAIR_SUFFIX,
+                        elem_str=_ELEM_STR,
+                        target_t=T,
+                        timestep=TIMESTEP_PS,
+                        thermo_damp=TAU_T_PS,
+                        baro_damp=NPT_BARO_DAMP,
+                        npt_steps=NPT_PROD_STEPS,
+                        dump_every=NPT_DUMP_EVERY,
+                    )
+                    write_chained_slurm_job(
+                        job_name=f'npt_{T}K_{run_name}',
+                        slurm_config=SHORT_GPU_SLURM_CFG,
+                        out_path=npt_sh,
+                        first_commands=[f'{LAMMPS_CMD} {KK} -in {npt_lmp}'],
+                        restart_commands=[f'{LAMMPS_CMD} {KK} -in {npt_rst_lmp}'],
+                        restart_glob=npt_after_heat_rst,
+                        cutoff=SHORT_GPU_CUTOFF,
+                        work_dir=WORK_DIR,
+                    )
+                    npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
+                    print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
+                else:
+                    print(f'  [1b] NPT {T}K already done — skipping')
 
-        # ── Phase 3 ──────────────────────────────────────────────────────────
-        print('\n--- Phase 3: Post-processing ---')
-        analysis_dir = os.path.join(dirs['root'], 'analysis')
-        os.makedirs(analysis_dir, exist_ok=True)
+            print(f'  Waiting for {len(npt_job_ids)} NPT jobs ...')
+            wait_for_jobs(npt_job_ids)
+            for T in TEMPERATURES:
+                _require_file(npt_final_paths[T],
+                              f'Check the npt_{T}K job log in {phase1_sh_dir}.')
+                _require_file(os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat'),
+                              f'Check the npt_{T}K job log in {phase1_sh_dir}.')
+            print('  All NPT jobs done.')
 
-        D_vals, D_errs, R2_vals = [], [], []
-        for T in TEMPERATURES:
-            dump   = os.path.join(dirs[T]['results'], f'nvt_{T}K.dump')
-            result = run_diffusivity_pipeline(
-                dump_file=dump,
-                temperature=T,
-                h_type=_E2T['H'],
+            # ── Phase 1b — Step B: insert H at a0(T), minimise ───────────────────
+            print('\n--- Phase 1b (cont.): Insert H and minimise at each temperature ---')
+
+            min_h_job_ids = {}
+            T_to_bulk_h   = {}
+            _a0_by_T      = {}   # collect a0(T) in Å for each temperature
+
+            for T in TEMPERATURES:
+                _npt_dump_T = os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat')
+                a0_T = get_lattice_parameter_from_dump(_npt_dump_T, n_last=50)
+                _a0_by_T[T] = a0_T
+                print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å')
+
+                min_h_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
+                min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
+                min_h_sh_T  = os.path.join(phase1_sh_dir,  f'minimize_h_{T}K.sh')
+                T_to_bulk_h[T] = min_h_out_T
+
+                if not os.path.exists(min_h_out_T):
+                    bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
+                        bulk_min_path=npt_final_paths[T],
+                        n_h=n_h,
+                        masses=_MASSES,
+                        e2t=_E2T,
+                        out_dir=os.path.join(dirs['structures'], f'{T}K'),
+                        a0=a0_T,
+                    )
+                    print(f'  [1b] T={T}K  inserted {n_h} H  min_H-metal={_min_hm_T:.3f} Å  → {bulk_h_path_T}')
+                    write_minimization_script(
+                        bulk_input=bulk_h_path_T,
+                        min_output=min_h_out_T,
+                        out_path=min_h_lmp_T,
+                        pair_style=PAIR_STYLE,
+                        mace_model=MACE_MODEL_LAMMPS,
+                        pair_suffix=PAIR_SUFFIX,
+                        elem_str=_ELEM_STR,
+                        etol=MIN_ETOL,
+                        ftol=MIN_FTOL,
+                        maxiter=MIN_MAXITER,
+                        maxeval=MIN_MAXEVAL,
+                    )
+                    write_slurm_job(
+                        job_name=f'min_h_{T}K_{run_name}',
+                        slurm_config=SHORT_GPU_SLURM_CFG,
+                        out_path=min_h_sh_T,
+                        runner='lmp',
+                        lammps_cmd=LAMMPS_CMD,
+                        kokkos_flags=KOKKOS_FLAGS,
+                        script_path=min_h_lmp_T,
+                    )
+                    min_h_job_ids[f'min_h_{T}K'] = submit_slurm_job(min_h_sh_T)
+                else:
+                    print(f'  [1b] bulk+H min {T}K already done — skipping')
+
+            print(f'  Waiting for {len(min_h_job_ids)} bulk+H minimisation jobs ...')
+            wait_for_jobs(min_h_job_ids)
+            for T in TEMPERATURES:
+                _require_file(T_to_bulk_h[T],
+                              f'Check the min_h_{T}K job log in {phase1_sh_dir}.')
+            print('  All bulk+H minimisations done.')
+
+            # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
+            _lat_out = os.path.join(WORK_DIR, 'results', struct_stem, 'lattice_params_vs_T.json')
+            os.makedirs(os.path.dirname(_lat_out), exist_ok=True)
+            with open(_lat_out, 'w') as _f:
+                _json_lat.dump({'temperatures': list(_a0_by_T.keys()),
+                                'a0_m': [v * 1e-10 for v in _a0_by_T.values()]}, _f, indent=2)
+            print(f'  Saved lattice_params_vs_T.json → {_lat_out}')
+
+            # ── Phase 2 ──────────────────────────────────────────────────────────
+            print('\n--- Phase 2: NVT MD ---')
+            chain_sh_by_T = {}
+
+            for T in TEMPERATURES:
+                lmp_dir = dirs[T]['lammps_scripts']
+                sh_dir  = dirs[T]['slurm_scripts']
+                res_dir = dirs[T]['results']
+                rst_dir = os.path.join(res_dir, 'checkpoints')
+                os.makedirs(rst_dir, exist_ok=True)
+
+                nvt_lmp           = os.path.join(lmp_dir, f'nvt_{T}K.lammps')
+                nvt_equil_rst_lmp = os.path.join(lmp_dir, f'nvt_{T}K_rst_equil.lammps')
+                nvt_prod_rst_lmp  = os.path.join(lmp_dir, f'nvt_{T}K_rst_prod.lammps')
+                traj_file         = os.path.join(res_dir, f'nvt_{T}K.dump')
+                out_file          = os.path.join(res_dir, f'nvt_{T}K.out')
+                log_file          = os.path.join(res_dir, f'nvt_{T}K.log')
+                msd_equil_file    = os.path.join(res_dir, f'msd_{T}K_equil.dat')
+                msd_prod_file     = os.path.join(res_dir, f'msd_{T}K_prod.dat')
+                rst_glob          = os.path.join(rst_dir, f'nvt_{T}K.*.restart')
+                chain_sh          = os.path.join(sh_dir,  f'nvt_{T}K_chain.sh')
+                chain_sh_by_T[T]  = chain_sh
+
+                if not os.path.exists(chain_sh + '.done'):
+                    write_nvt_bulk_script(
+                        bulk_h_file=T_to_bulk_h[T],
+                        traj_file=traj_file,
+                        out_file=out_file,
+                        msd_equil_file=msd_equil_file,
+                        msd_prod_file=msd_prod_file,
+                        out_path=nvt_lmp,
+                        pair_style=PAIR_STYLE,
+                        mace_model=MACE_MODEL_LAMMPS,
+                        pair_suffix=PAIR_SUFFIX,
+                        elem_str=_ELEM_STR,
+                        temperature=T,
+                        h_type=_E2T['H'],
+                        timestep=TIMESTEP_PS,
+                        tau_t=TAU_T_PS,
+                        n_equil=N_EQUIL_STEPS,
+                        n_prod=N_PROD_STEPS,
+                        thermo_every=THERMO_EVERY,
+                        dump_every=DUMP_EVERY,
+                        velocity_seed=VELOCITY_SEED,
+                        restart_dir=rst_dir,
+                        restart_every=RESTART_EVERY,
+                    )
+                    write_nvt_equil_restart_script(
+                        restart_file=rst_glob,
+                        traj_file=traj_file,
+                        out_file=out_file,
+                        msd_equil_file=msd_equil_file,
+                        msd_prod_file=msd_prod_file,
+                        log_file=log_file,
+                        out_path=nvt_equil_rst_lmp,
+                        pair_style=PAIR_STYLE,
+                        mace_model=MACE_MODEL_LAMMPS,
+                        pair_suffix=PAIR_SUFFIX,
+                        elem_str=_ELEM_STR,
+                        temperature=T,
+                        h_type=_E2T['H'],
+                        timestep=TIMESTEP_PS,
+                        tau_t=TAU_T_PS,
+                        n_equil=N_EQUIL_STEPS,
+                        n_prod=N_PROD_STEPS,
+                        thermo_every=THERMO_EVERY,
+                        dump_every=DUMP_EVERY,
+                        restart_dir=rst_dir,
+                        restart_every=RESTART_EVERY,
+                    )
+                    write_nvt_prod_restart_script(
+                        restart_file=rst_glob,
+                        traj_file=traj_file,
+                        out_file=out_file,
+                        msd_prod_file=msd_prod_file,
+                        log_file=log_file,
+                        out_path=nvt_prod_rst_lmp,
+                        pair_style=PAIR_STYLE,
+                        mace_model=MACE_MODEL_LAMMPS,
+                        pair_suffix=PAIR_SUFFIX,
+                        elem_str=_ELEM_STR,
+                        temperature=T,
+                        h_type=_E2T['H'],
+                        timestep=TIMESTEP_PS,
+                        tau_t=TAU_T_PS,
+                        n_equil=N_EQUIL_STEPS,
+                        n_prod=N_PROD_STEPS,
+                        thermo_every=THERMO_EVERY,
+                        dump_every=DUMP_EVERY,
+                        restart_dir=rst_dir,
+                        restart_every=RESTART_EVERY,
+                    )
+                    write_chained_slurm_job(
+                        job_name=f'nvt_{T}K_{run_name}',
+                        slurm_config=GPU_SLURM_CFG,
+                        out_path=chain_sh,
+                        first_commands=[
+                            f'{LAMMPS_CMD} {KK} -in {nvt_lmp} -log {log_file}',
+                        ],
+                        equil_restart_commands=[
+                            f'{LAMMPS_CMD} {KK} -in {nvt_equil_rst_lmp} -log /dev/null',
+                        ],
+                        prod_restart_commands=[
+                            f'{LAMMPS_CMD} {KK} -in {nvt_prod_rst_lmp} -log /dev/null',
+                        ],
+                        n_equil=N_EQUIL_STEPS,
+                        restart_glob=rst_glob,
+                        cutoff=CUTOFF,
+                        work_dir=WORK_DIR,
+                    )
+                    # Stale failure sentinel from an earlier attempt would make the
+                    # polling loop below abort before the new job even starts.
+                    if os.path.exists(chain_sh + '.failed'):
+                        os.remove(chain_sh + '.failed')
+                    job_id = submit_slurm_job(chain_sh)
+                    print(f'  [2] Submitted NVT {T}K  →  job {job_id}')
+                else:
+                    print(f'  [2] NVT {T}K already done — skipping')
+
+            print('  Waiting for NVT jobs (polling .done sentinels) ...')
+            import time as _time
+            pending = set(TEMPERATURES)
+            while pending:
+                for T in list(pending):
+                    if os.path.exists(chain_sh_by_T[T] + '.done'):
+                        pending.discard(T)
+                        print(f'  NVT {T}K complete')
+                    elif os.path.exists(chain_sh_by_T[T] + '.failed'):
+                        raise RuntimeError(
+                            f'NVT {T}K chain job failed (sentinel: '
+                            f'{chain_sh_by_T[T]}.failed). Check the chain job '
+                            f'logs next to that script. Aborting instead of '
+                            f'polling forever.'
+                        )
+                if pending:
+                    _time.sleep(60)
+            print('  All NVT jobs done.')
+
+            # ── Phase 3 ──────────────────────────────────────────────────────────
+            print('\n--- Phase 3: Post-processing ---')
+            analysis_dir = os.path.join(dirs['root'], 'analysis')
+            os.makedirs(analysis_dir, exist_ok=True)
+
+            D_vals, D_errs, R2_vals = [], [], []
+            for T in TEMPERATURES:
+                dump   = os.path.join(dirs[T]['results'], f'nvt_{T}K.dump')
+                result = run_diffusivity_pipeline(
+                    dump_file=dump,
+                    temperature=T,
+                    h_type=_E2T['H'],
+                    outdir=analysis_dir,
+                )
+                D_vals.append(result['D'])
+                D_errs.append(result['sigma_D'])
+                R2_vals.append(result['R2'])
+                print(f'  T={T}K   D={result["D"]:.4e} m2/s   R2={result["R2"]:.4f}')
+
+            table_path = os.path.join(analysis_dir, 'diffusivity_table.txt')
+            save_diffusivity_table(TEMPERATURES, D_vals, D_errs, R2_vals, table_path)
+
+            print(f'  D(T) summary: {" | ".join(f"{T:.0f}K:{D:.2e}" for T, D in zip(TEMPERATURES, D_vals))}')
+            arr = run_arrhenius_pipeline(
+                diffusivity_file=table_path,
                 outdir=analysis_dir,
             )
-            D_vals.append(result['D'])
-            D_errs.append(result['sigma_D'])
-            R2_vals.append(result['R2'])
-            print(f'  T={T}K   D={result["D"]:.4e} m2/s   R2={result["R2"]:.4f}')
+            print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
 
-        table_path = os.path.join(analysis_dir, 'diffusivity_table.txt')
-        save_diffusivity_table(TEMPERATURES, D_vals, D_errs, R2_vals, table_path)
+            # Save Arrhenius params so Part 2 (permeation_run.py) can load them.
+            # Per (stem, n_h) — NOT shared across H-concentrations, since D0/Ea
+            # genuinely differ with H loading (see GitHub issue on the overwrite bug).
+            _arr_out = os.path.join(dirs['root'], 'diffusivity_arrhenius.json')
+            os.makedirs(os.path.dirname(_arr_out), exist_ok=True)
+            with open(_arr_out, 'w') as _f:
+                _json_lat.dump({
+                    'D0_m2s':     arr['D0'],
+                    'E_D_eV':     arr['Ea'],
+                    'D0_err':     arr['D0_err'],
+                    'E_D_err_eV': arr['Ea_err'],
+                    'R2_fit':     arr['R2'],
+                    'T_K_arr':    [float(t) for t in arr['T_arr']],
+                    'D_arr':      [float(d) for d in arr['D_arr']],
+                    'D_err_arr':  [float(e) for e in arr['D_err_arr']],
+                }, _f, indent=2)
+            print(f'  Saved diffusivity_arrhenius.json → {_arr_out}')
+        except Exception as _exc:
+            print(f'\n  *** FAILED: {run_name}: {_exc} ***')
+            print(f'  Skipping remaining phases for {run_name}; continuing with next (structure, n_H).')
+            _FAILURES.append({'run_name': run_name, 'struct': struct_stem, 'n_h': n_h, 'error': str(_exc)})
+            continue
 
-        print(f'  D(T) summary: {" | ".join(f"{T:.0f}K:{D:.2e}" for T, D in zip(TEMPERATURES, D_vals))}')
-        arr = run_arrhenius_pipeline(
-            diffusivity_file=table_path,
-            outdir=analysis_dir,
-        )
-        print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
+_failures_path = os.path.join(WORK_DIR, 'diffusivity_failures.json')
+with open(_failures_path, 'w') as _f:
+    _json_lat.dump(_FAILURES, _f, indent=2)
 
-        # Save Arrhenius params so Part 2 (permeation_run.py) can load them.
-        # Per (stem, n_h) — NOT shared across H-concentrations, since D0/Ea
-        # genuinely differ with H loading (see GitHub issue on the overwrite bug).
-        _arr_out = os.path.join(dirs['root'], 'diffusivity_arrhenius.json')
-        os.makedirs(os.path.dirname(_arr_out), exist_ok=True)
-        with open(_arr_out, 'w') as _f:
-            _json_lat.dump({
-                'D0_m2s':     arr['D0'],
-                'E_D_eV':     arr['Ea'],
-                'D0_err':     arr['D0_err'],
-                'E_D_err_eV': arr['Ea_err'],
-                'R2_fit':     arr['R2'],
-                'T_K_arr':    [float(t) for t in arr['T_arr']],
-                'D_arr':      [float(d) for d in arr['D_arr']],
-                'D_err_arr':  [float(e) for e in arr['D_err_arr']],
-            }, _f, indent=2)
-        print(f'  Saved diffusivity_arrhenius.json → {_arr_out}')
-
-print('\n=== All structures and H concentrations complete ===')
+if _FAILURES:
+    print(f'\n=== Completed with {len(_FAILURES)} failure(s) — see {_failures_path} ===')
+    for _fail in _FAILURES:
+        print(f'  FAILED: {_fail["run_name"]}: {_fail["error"]}')
+    sys.exit(1)
+else:
+    print('\n=== All structures and H concentrations complete ===')
 """
 
     os.makedirs(os.path.dirname(os.path.abspath(out_py)), exist_ok=True)
