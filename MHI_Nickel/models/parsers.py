@@ -365,8 +365,8 @@ def parse_dissociated_h2_log(logfile: str) -> dict | None:
     has_local_max    = apparent_barrier > 0.0
 
     print(f'[diss_log] E_i={e_initial:.4f}  E_f={e_final:.4f}  '
-          f'dE={delta_e:.4f}  E_bar={apparent_barrier:.4f} eV'
-          f'  ({os.path.basename(logfile)})')
+          f'dE={delta_e:.4f}  E_bar={apparent_barrier:.4f} eV  '
+          f'({os.path.basename(logfile)})')
     return {
         'e_initial_eV'       : e_initial,
         'e_final_eV'         : e_final,

@@ -1034,7 +1034,8 @@ def resolve_dissociated_adsorption(
         })
 
     # Sort by delta_E (most exothermic first); entries with None delta_E go last
-    results.sort(key=lambda x: (x['delta_E'] is None, x['delta_E'] or 0.0))
+    results.sort(key=lambda x: (x['delta_E'] is None,
+                                x['delta_E'] if x['delta_E'] is not None else float('inf')))
 
     results_json = str(out_path / 'dissociated_results.json')
     with open(results_json, 'w') as f:
