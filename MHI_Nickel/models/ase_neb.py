@@ -456,6 +456,8 @@ def write_ase_neb_script(
     images_dir: str | None = None,
     traj_phase1: str | None = None,
     traj_phase2: str | None = None,
+    masses: dict | None = None,
+    e2t: dict | None = None,
 ) -> str:
     """Write a self-contained Python script that runs ASE CINEB on a cluster node.
 
@@ -510,12 +512,28 @@ def write_ase_neb_script(
         Descriptive label for FS (written to barrier file header).
     out_path : str
         Path where the generated ``.py`` script is written.
+    masses : dict, optional
+        ``{atom_type: (mass_amu, element_symbol)}`` used to write each
+        per-image structure with :func:`models.structure.write_lammps_data`
+        (the same canonical writer used everywhere else in this codebase),
+        so the files carry a real ``Masses`` section and round-trip
+        correctly when read later (e.g. by the vibration scripts). Default
+        ``None`` resolves to ``MASSES_7``.
+    e2t : dict, optional
+        ``{element_symbol: atom_type}`` paired with ``masses``. Default
+        ``None`` resolves to ``E2T_7``.
 
     Returns
     -------
     str
         Path to the written script (``out_path``).
     """
+    from models.config import MASSES_7, E2T_7
+    if masses is None:
+        masses = MASSES_7
+    if e2t is None:
+        e2t = E2T_7
+
     if e_fs is None and fs_log_file is None:
         raise ValueError(
             'write_ase_neb_script: provide either e_fs (float) or '
@@ -523,6 +541,10 @@ def write_ase_neb_script(
         )
     if images_dir is None:
         images_dir = os.path.dirname(os.path.abspath(out_path))
+
+    # Project root, so the generated script (run standalone on a cluster
+    # node) can import models.structure.write_lammps_data.
+    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     if fs_log_file is not None:
         # Accumulate last valid float — LAMMPS echoes the `print` command itself
@@ -564,12 +586,17 @@ def write_ase_neb_script(
         os.environ["LD_LIBRARY_PATH"] = ":".join(
             p for p in _ld.split(":") if "stubs" not in p)
 
+        _parent = {_project_root!r}
+        if _parent not in sys.path:
+            sys.path.insert(0, _parent)
+
         from pathlib import Path as _Path
         from ase.io import read, Trajectory as _Trajectory
         from ase.mep import NEB
         from ase.optimize import MDMin
         from ase.calculators.singlepoint import SinglePointCalculator
         from mace.calculators import MACECalculator
+        from models.structure import write_lammps_data
 
         # ── Parameters injected from notebook ─────────────────────────────
         MACE_MODEL      = "{mace_model_path}"
@@ -577,6 +604,8 @@ def write_ase_neb_script(
         FS_RELAXED_DATA = "{fs_file}"
         Z_FREEZE_CUTOFF = {z_freeze_cutoff}    # Å — frozen layer threshold
         E_IS            = {e_is}               # eV — from LAMMPS IS minimisation
+        MASSES          = {masses!r}
+        E2T             = {e2t!r}
         %%EFS_BLOCK%%
         N_IMAGES        = {n_images}           # intermediate images
         SPRING_CONST    = {spring_const}       # eV/Å²
@@ -761,13 +790,29 @@ def write_ase_neb_script(
         print(f"Wrote: {{PATH_FILE}}")
 
         # ── Write per-image LAMMPS data files ─────────────────────────────
+        # write_lammps_data (this project's canonical writer, used
+        # everywhere else) always includes a real Masses section. A bare
+        # ase.io.write with no masses does not, and a later ase.io.read of
+        # such a file, with no explicit type-to-element override, then
+        # falls back to treating the raw atom type id as the atomic
+        # number -- with this project's E2T_7 mapping (Ni=7, H=8) that
+        # silently collides with real elements (N=7, O=8) instead of
+        # erroring, and vib_run.py found "0 H atoms" on a structure that
+        # actually has exactly one.
         os.makedirs(IMAGES_DIR, exist_ok=True)
-        from ase.io import write as _ase_write
         _n = len(images)
         for _i, _img in enumerate(images):
             _lbl  = "IS" if _i == 0 else ("FS" if _i == _n - 1 else f"img_{{_i:02d}}")
             _path = os.path.join(IMAGES_DIR, f"image_{{_i:02d}}_{{_lbl}}.lammps")
-            _ase_write(_path, _img, format="lammps-data", atom_style="atomic")
+            write_lammps_data(
+                symbols=_img.get_chemical_symbols(),
+                positions=_img.get_positions(),
+                cell_lengths=_img.cell.diagonal(),
+                masses=MASSES,
+                e2t=E2T,
+                out_path=_path,
+                comment=f"NEB image {{_i}} ({{_lbl}})",
+            )
         print(f"Wrote {{_n}} image structures → {{IMAGES_DIR}}/")
     """).replace('%%EFS_BLOCK%%', efs_block)
 
@@ -806,6 +851,8 @@ def run_neb_pipeline(
     images_dir: str | None = None,
     traj_phase1: str | None = None,
     traj_phase2: str | None = None,
+    masses: dict | None = None,
+    e2t: dict | None = None,
 ) -> str:
     """Write a complete, ready-to-submit ASE CINEB job script.
 
@@ -861,6 +908,14 @@ def run_neb_pipeline(
         Human-readable label for IS written to the barrier file header.
     label_fs : str
         Human-readable label for FS written to the barrier file header.
+    masses : dict, optional
+        ``{atom_type: (mass_amu, element_symbol)}`` passed through to
+        :func:`write_ase_neb_script` for writing per-image structures with
+        :func:`models.structure.write_lammps_data`. Default ``None``
+        resolves to ``MASSES_7``.
+    e2t : dict, optional
+        ``{element_symbol: atom_type}`` paired with ``masses``. Default
+        ``None`` resolves to ``E2T_7``.
 
     Returns
     -------
@@ -915,4 +970,6 @@ def run_neb_pipeline(
         images_dir=images_dir,
         traj_phase1=traj_phase1,
         traj_phase2=traj_phase2,
+        masses=masses,
+        e2t=e2t,
     )

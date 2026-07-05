@@ -1922,6 +1922,8 @@ def orchestrate_neb(
             label_fs=f'FS:{s1}+{s2}',
             traj_phase1=traj_p1,
             traj_phase2=traj_p2,
+            masses=masses,
+            e2t=e2t,
         )
 
         # 5a. GPU SLURM: LAMMPS FS minimization only
