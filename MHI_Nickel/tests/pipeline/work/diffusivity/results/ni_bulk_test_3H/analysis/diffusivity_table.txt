@@ -1,0 +1,8 @@
+# Hydrogen self-diffusivity from MSD linear fit
+# D = slope/6  (Einstein relation, 3D)
+# Fit window: 20-80% of trajectory
+#
+#      T_K        D (m2/s)    sigma_D (m2/s)        R2
+# ========  ==============  ================  ========
+     600.0    1.977612e-10      9.522954e-11    0.5188
+     700.0   -2.481779e-10      3.616474e-10    0.1053

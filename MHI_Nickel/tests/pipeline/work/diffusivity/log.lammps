@@ -7,7 +7,7 @@ KOKKOS mode with Kokkos version 5.0.2 is enabled
 package kokkos
 package kokkos newton on neigh half
 # ════════════════════════════════════════════════════
-# LAMMPS NPT — Lattice Parameter at 600 K
+# LAMMPS NPT — Lattice Parameter at 700 K
 # Notebook 02
 # ════════════════════════════════════════════════════
 
@@ -16,7 +16,7 @@ atom_style     atomic
 newton         on
 boundary       p p p
 
-read_data      /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/bulk_min.lammps
+read_data      /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/bulk_min.lammps
 Reading data file ...
   orthogonal box = (0.0049156635 0.0049156635 0.0049156635) to (7.0350843 7.0350843 7.0350843)
   1 by 1 by 1 MPI processor grid
@@ -24,7 +24,7 @@ Reading data file ...
   32 atoms
   reading velocities ...
   32 velocities
-  read_data CPU = 0.011 seconds
+  read_data CPU = 0.025 seconds
 
 
 
@@ -41,8 +41,8 @@ velocity       all create 10.0 12345 mom yes rot yes dist gaussian
 thermo         100
 thermo_style   custom step time temp pe ke press vol lx ly lz
 
-# ── Stage 1: Heat 10 K → 600 K over 0 ps ──────────────
-fix            heat all npt temp 10.0 600.0 0.1                iso 0.0 0.0 1.0
+# ── Stage 1: Heat 10 K → 700 K over 0 ps ──────────────
+fix            heat all npt temp 10.0 700.0 0.1                iso 0.0 0.0 1.0
 run            500
 
 CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
@@ -77,25 +77,25 @@ Neighbor list info ...
 Per MPI rank memory allocation (min/avg/max) = 37.49 | 37.49 | 37.49 Mbytes
    Step          Time           Temp          PotEng         KinEng         Press          Volume           Lx             Ly             Lz      
          0   0              10            -175.60777      0.040070645    123.18227      347.45394      7.0301687      7.0301687      7.0301687    
-       100   0.1            5.7383986     -175.58051      0.022994133   -100.01111      347.57046      7.0309545      7.0309545      7.0309545    
-       200   0.2            8.6869159     -175.56959      0.034809032    63.347864      347.5782       7.0310066      7.0310066      7.0310066    
-       300   0.3            8.3446758     -175.52744      0.033437654   -123.94431      347.73257      7.0320474      7.0320474      7.0320474    
-       400   0.4            27.117931     -175.52821      0.1086633      178.38506      347.6946       7.0317914      7.0317914      7.0317914    
-       500   0.5            32.780847     -175.40532      0.13135497    -164.20383      348.13101      7.0347322      7.0347322      7.0347322    
-Loop time of 17.1911 on 1 procs for 500 steps with 32 atoms
+       100   0.1            5.750268      -175.58049      0.023041695   -100.13613      347.57059      7.0309554      7.0309554      7.0309554    
+       200   0.2            8.719343      -175.56943      0.03493897     64.285842      347.57859      7.0310093      7.0310093      7.0310093    
+       300   0.3            8.3801377     -175.52688      0.033579752   -128.64266      347.73505      7.0320641      7.0320641      7.0320641    
+       400   0.4            27.309258     -175.5274       0.10942996     190.37767      347.69511      7.0317949      7.0317949      7.0317949    
+       500   0.5            33.158174     -175.40305      0.13286694    -168.45157      348.13895      7.0347857      7.0347857      7.0347857    
+Loop time of 16.6146 on 1 procs for 500 steps with 32 atoms
 
-Performance: 2.513 ns/day, 9.551 hours/ns, 29.085 timesteps/s, 930.714 atom-step/s
-98.7% CPU use with 1 MPI tasks x 1 OpenMP threads
+Performance: 2.600 ns/day, 9.230 hours/ns, 30.094 timesteps/s, 963.007 atom-step/s
+98.9% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 17.097     | 17.097     | 17.097     |   0.0 | 99.45
+Pair    | 16.521     | 16.521     | 16.521     |   0.0 | 99.43
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.023228   | 0.023228   | 0.023228   |   0.0 |  0.14
-Output  | 0.00027456 | 0.00027456 | 0.00027456 |   0.0 |  0.00
-Modify  | 0.049381   | 0.049381   | 0.049381   |   0.0 |  0.29
-Other   |            | 0.02135    |            |       |  0.12
+Comm    | 0.022655   | 0.022655   | 0.022655   |   0.0 |  0.14
+Output  | 0.0002532  | 0.0002532  | 0.0002532  |   0.0 |  0.00
+Modify  | 0.049845   | 0.049845   | 0.049845   |   0.0 |  0.30
+Other   |            | 0.02135    |            |       |  0.13
 
 Nlocal:             32 ave          32 max          32 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -114,42 +114,42 @@ unfix          heat
 print "### Heating complete ###"
 ### Heating complete ###
 
-write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/npt_boxdims_600K_after_heat.restart
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/npt_boxdims_700K_after_heat.restart
 System init for write_restart ...
-write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/bulk_min_npt_after_heat.lammps
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/bulk_min_npt_after_heat.lammps
 System init for write_data ...
 
-# ── Stage 2: NPT production at 600 K (0 ps) ────────────
-fix            npt_run all npt temp 600.0 600.0 0.1                iso 0.0 0.0 1.0
+# ── Stage 2: NPT production at 700 K (0 ps) ────────────
+fix            npt_run all npt temp 700.0 700.0 0.1                iso 0.0 0.0 1.0
 
 variable       lx_val  equal  lx
 variable       ly_val  equal  ly
 variable       lz_val  equal  lz
-fix            boxdump all ave/time 1 1 100 v_lx_val v_ly_val v_lz_val                file /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/npt_boxdims_600K.dat
+fix            boxdump all ave/time 1 1 100 v_lx_val v_ly_val v_lz_val                file /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/npt_boxdims_700K.dat
 
 run            500
 Per MPI rank memory allocation (min/avg/max) = 41.9 | 41.9 | 41.9 Mbytes
    Step          Time           Temp          PotEng         KinEng         Press          Volume           Lx             Ly             Lz      
-       500   0.5            32.780847     -175.40532      0.13135497    -164.20383      348.13101      7.0347322      7.0347322      7.0347322    
-       600   0.6            50.982167     -175.36617      0.20428883     1099.97        348.06187      7.0342665      7.0342665      7.0342665    
-       700   0.7            67.406381     -175.22083      0.27010172     884.72641      348.61917      7.0380188      7.0380188      7.0380188    
-       800   0.8            127.39692     -175.12218      0.51048767     875.60068      349.10983      7.0413191      7.0413191      7.0413191    
-       900   0.9            290.24436     -175.2134       1.1630279     -6121.6467      350.37297      7.0498011      7.0498011      7.0498011    
-      1000   1              340.70955     -174.55946      1.3652451     -2455.4498      351.89944      7.0600242      7.0600242      7.0600242    
-Loop time of 15.4691 on 1 procs for 500 steps with 32 atoms
+       500   0.5            33.158174     -175.40305      0.13286694    -168.45157      348.13895      7.0347857      7.0347857      7.0347857    
+       600   0.6            51.718403     -175.36331      0.20723898     1074.553       348.07584      7.0343606      7.0343606      7.0343606    
+       700   0.7            68.692405     -175.21474      0.2752549      1079.9866      348.60705      7.0379372      7.0379372      7.0379372    
+       800   0.8            130.31324     -175.1116       0.52217358     547.41709      349.20623      7.0419672      7.0419672      7.0419672    
+       900   0.9            299.28878     -175.20218      1.1992695     -5469.9348      350.31574      7.0494172      7.0494172      7.0494172    
+      1000   1              355.6326      -174.51309      1.4250428     -2895.0419      352.15385      7.0617252      7.0617252      7.0617252    
+Loop time of 14.8039 on 1 procs for 500 steps with 32 atoms
 
-Performance: 2.793 ns/day, 8.594 hours/ns, 32.322 timesteps/s, 1.034 katom-step/s
-99.0% CPU use with 1 MPI tasks x 1 OpenMP threads
+Performance: 2.918 ns/day, 8.224 hours/ns, 33.775 timesteps/s, 1.081 katom-step/s
+99.3% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 15.164     | 15.164     | 15.164     |   0.0 | 98.03
+Pair    | 14.499     | 14.499     | 14.499     |   0.0 | 97.94
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.027211   | 0.027211   | 0.027211   |   0.0 |  0.18
-Output  | 0.00073112 | 0.00073112 | 0.00073112 |   0.0 |  0.00
-Modify  | 0.25703    | 0.25703    | 0.25703    |   0.0 |  1.66
-Other   |            | 0.0203     |            |       |  0.13
+Comm    | 0.027031   | 0.027031   | 0.027031   |   0.0 |  0.18
+Output  | 0.00072108 | 0.00072108 | 0.00072108 |   0.0 |  0.00
+Modify  | 0.2577     | 0.2577     | 0.2577     |   0.0 |  1.74
+Other   |            | 0.01991    |            |       |  0.13
 
 Nlocal:             32 ave          32 max          32 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -167,15 +167,16 @@ Dangerous builds = 0
 
 unfix          npt_run
 unfix          boxdump
-print "### NPT complete at 600 K ###"
-### NPT complete at 600 K ###
+print "### NPT complete at 700 K ###"
+### NPT complete at 700 K ###
 
 variable       a0_npt  equal  lx/5.0
-print "NPT_RESULT: a0_at_600K = ${a0_npt} Angstrom"
-NPT_RESULT: a0_at_600K = 1.41200484748343 Angstrom
+print "NPT_RESULT: a0_at_700K = ${a0_npt} Angstrom"
+NPT_RESULT: a0_at_700K = 1.4123450430387 Angstrom
 
-write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/npt_boxdims_600K_final.restart
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/npt_boxdims_700K_final.restart
 System init for write_restart ...
-write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/bulk_min_npt_final_600K.lammps
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_3H/structures/bulk_min_npt_final_700K.lammps
 System init for write_data ...
-Total wall time: 0:01:03
+Total wall time: 0:01:09
+
