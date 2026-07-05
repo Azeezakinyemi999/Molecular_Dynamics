@@ -253,6 +253,76 @@ class TestGeneratePermeationScripts:
         assert 'DH_DISS_EV' in content
         assert 'DH_ENTRY_EV' in content
 
+    def test_status_tracking_structure_in_body(self, gen_result):
+        """Structural shape of the success-tracking fix: _PERM_STATUS must be
+        initialized before the n_H loop, every `continue` path that skips a
+        result must record into it, and the final decision must be based on
+        whether anything was actually written — not an unconditional success
+        message. See [[project_pipeline_test_bugs]]."""
+        _, _, content = gen_result
+        status_init_idx  = content.index("_PERM_STATUS = {")
+        loop_idx         = content.index('for _n_h in N_H_VALUES:')
+        ready_skip_idx   = content.index("_PERM_STATUS['n_h_skipped'].append")
+        written_idx      = content.index("_PERM_STATUS['permeability_written'].append")
+        status_write_idx = content.index("permeation_status.json")
+        exit_check_idx   = content.index("if not _PERM_STATUS['permeability_written']:")
+        exit_call_idx    = content.index('sys.exit(1)', exit_check_idx)
+        else_idx         = content.index('else:', exit_call_idx)
+
+        assert status_init_idx < loop_idx < ready_skip_idx < written_idx
+        assert written_idx < status_write_idx < exit_check_idx < exit_call_idx < else_idx
+
+
+class TestPermeationSuccessTracking:
+    """Behavioral proof that a metal producing zero permeability results
+    now exits nonzero, instead of silently reporting success — the exact
+    gap pipeline_run.py's `_rc2 != 0` check relied on being meaningful.
+    See [[project_pipeline_test_bugs]]."""
+
+    def _tail_slice(self, content):
+        marker = '_P_HIGH = max(P_VALS_PA)'
+        idx = content.index(marker)
+        return content[idx:]
+
+    def test_zero_results_exits_nonzero_and_records_reasons(self, tmp_path):
+        out_py = str(tmp_path / 'permeation_run.py')
+        _cfg = {**_PERM_CFG, 'n_h_values': [1, 3]}
+        generate_permeation_scripts(**_cfg, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        tail = self._tail_slice(content)
+
+        results_dir = str(tmp_path / 'results')
+        os.makedirs(results_dir, exist_ok=True)
+        status_path = os.path.join(results_dir, 'permeation_status.json')
+
+        def _fake_resolve(work_dir, stem, n_h):
+            return {
+                'ready': False,
+                'nh_dir': os.path.join(results_dir, f'{stem}_{n_h}H'),
+                'message': f'no diffusivity_arrhenius.json for n_H={n_h}',
+            }
+
+        ns = {
+            'os': os, 'json': json, 'sys': sys,
+            'N_H_VALUES': [1, 3],
+            'STEM': 'test_metal',
+            'WORK_DIR': str(tmp_path / 'work'),
+            'RESULTS_DIR': results_dir,
+            'resolve_nh_diffusivity': _fake_resolve,
+            'P_VALS_PA': _PERM_CFG['p_vals_pa'],
+            '_PHASE6_READY': True,
+        }
+        with pytest.raises(SystemExit) as exc_info:
+            exec(compile(tail, out_py, 'exec'), ns)
+        assert exc_info.value.code == 1
+
+        assert os.path.exists(status_path)
+        status = json.loads(pathlib.Path(status_path).read_text())
+        assert status['permeability_written'] == []
+        assert {s['n_h'] for s in status['n_h_skipped']} == {1, 3}
+        assert all('no diffusivity_arrhenius.json' in s['reason']
+                   for s in status['n_h_skipped'])
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. generate_permeation_sh
