@@ -60,7 +60,8 @@ def find_sub2_neighbor(G, ss1_id: str, subsurface_sites: list) -> str:
     if best_id is None:
         raise ValueError(
             f'No subsurface_2 neighbor found for {ss1_id}. '
-            f'Check that build_subsurface_graph included subsurface_layers=(10, 11).'
+            f'build_subsurface_graph may have warned that subsurface_2 falls '
+            f'inside the frozen region — increase the slab z-layer count.'
         )
     print(f'[sub2 neighbor] {ss1_id} → {best_id}  dz={best_dz:.3f} Å')
     return best_id
