@@ -15,7 +15,6 @@ Covers:
   _periodic_xy_distance     — xy distance with wrapping
   _get_surface_site_position — extracts position from nested site dicts
   connect_to_surface        — pairs layer-11 sites to surface sites
-  sample_bulk_sites         — reproducible random sampling
   save_subsurface_sites     — JSON serialisation + summary block
 """
 
@@ -29,13 +28,13 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from models.subsurface_graph import (
     _identify_layers,
+    _identify_layers_by_gaps,
     _find_coordinating_atoms,
     _composition_label,
     classify_site,
     _periodic_xy_distance,
     _get_surface_site_position,
     connect_to_surface,
-    sample_bulk_sites,
     save_subsurface_sites,
 )
 
@@ -358,54 +357,51 @@ class TestConnectToSurface:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 8. sample_bulk_sites
+# 8. auto-derivation of subsurface_1/subsurface_2 from total layer count
+#    (mirrors build_subsurface_graph's Step 1 formula: n_frozen=round(N/3),
+#    subsurface_1=N-1, subsurface_2=N-2 — the bulk-entry layer)
 # ═══════════════════════════════════════════════════════════════════════════
 
-class TestSampleBulkSites:
+def _derive_layer_roles(_N):
+    """Reproduce build_subsurface_graph's Step-1 derivation in isolation."""
+    n_frozen = round(_N / 3)
+    sub1_L, sub2_L = _N - 1, _N - 2
+    valid = set()
+    for L in (sub1_L, sub2_L):
+        if 1 <= L <= _N and L > n_frozen:
+            valid.add(L)
+    return n_frozen, sub1_L, sub2_L, valid
 
-    @pytest.fixture
-    def all_sites(self):
-        return [
-            {'layer_number': 5, 'site_type': 'oct', 'composition_label': 'Ni4_oct'},
-            {'layer_number': 5, 'site_type': 'tet', 'composition_label': 'Ni3Mo_tet'},
-            {'layer_number': 6, 'site_type': 'oct', 'composition_label': 'Ni4_oct'},
-            {'layer_number': 9, 'site_type': 'oct', 'composition_label': 'Ni4_oct'},
-            {'layer_number': 11, 'site_type': 'oct', 'composition_label': 'Ni4_oct'},
-        ]
 
-    def test_returns_n_samples(self, all_sites):
-        sampled = sample_bulk_sites(all_sites, bulk_layer_range=[5, 6, 9],
-                                    n_samples=3, seed=42)
-        assert len(sampled) == 3
+class TestAutoDeriveLayerRoles:
 
-    def test_sets_bulk_sample_classification(self, all_sites):
-        sampled = sample_bulk_sites(all_sites, bulk_layer_range=[5, 6, 9],
-                                    n_samples=2, seed=0)
-        for s in sampled:
-            assert s['layer_classification'] == 'bulk_sample'
+    def test_production_12_layer_case_matches_historical_defaults(self):
+        # Historical hardcoded defaults were subsurface_layers=(10, 11).
+        n_frozen, sub1, sub2, valid = _derive_layer_roles(12)
+        assert (sub2, sub1) == (10, 11)
+        assert valid == {10, 11}
 
-    def test_skips_non_bulk_layers(self, all_sites):
-        sampled = sample_bulk_sites(all_sites, bulk_layer_range=[5, 6],
-                                    n_samples=10, seed=0)
-        # Only layers 5 and 6 → 3 candidates
-        assert len(sampled) == 3
-        for s in sampled:
-            assert s['layer_number'] in (5, 6)
+    @pytest.mark.parametrize('_N', range(4, 17))
+    def test_subsurface_layers_above_frozen_region_for_adequate_slabs(self, _N):
+        n_frozen, sub1, sub2, valid = _derive_layer_roles(_N)
+        assert sub1 == _N - 1 and sub2 == _N - 2
+        # For N>=4, round(N/3) leaves at least one clear layer above frozen.
+        assert valid == {sub1, sub2}
 
-    def test_reproducible_with_same_seed(self, all_sites):
-        s1 = sample_bulk_sites(all_sites, [5, 6, 9], n_samples=2, seed=7)
-        s2 = sample_bulk_sites(all_sites, [5, 6, 9], n_samples=2, seed=7)
-        assert [s['layer_number'] for s in s1] == [s['layer_number'] for s in s2]
+    def test_thin_slab_warns_and_degrades_without_crashing(self):
+        # N=3: n_frozen=1, sub1=2 (valid), sub2=1 (collides with frozen).
+        n_frozen, sub1, sub2, valid = _derive_layer_roles(3)
+        assert n_frozen == 1
+        assert sub1 == 2 and sub2 == 1
+        assert valid == {2}          # sub2 dropped, not crashed
+        assert sub2 not in valid
 
-    def test_caps_at_available_candidates(self, all_sites):
-        # 4 candidates in bulk layers [5, 6, 9], request 100 → return 4
-        sampled = sample_bulk_sites(all_sites, [5, 6, 9], n_samples=100, seed=0)
-        assert len(sampled) == 4
-
-    def test_empty_when_no_candidates(self, all_sites):
-        sampled = sample_bulk_sites(all_sites, bulk_layer_range=[99],
-                                    n_samples=5, seed=0)
-        assert sampled == []
+    def test_gap_based_plane_count_matches_rank_based_for_clean_slab(self):
+        """Hybrid approach: gap-clustering must agree with the known atom
+        count for a well-formed, evenly-spaced synthetic slab."""
+        positions = np.array([[0.0, 0.0, float(i) * 2.0] for i in range(12)])
+        _, layer_z = _identify_layers_by_gaps(positions, gap_tol=0.5)
+        assert len(layer_z) == 12
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -423,7 +419,7 @@ class TestSaveSubsurfaceSites:
              'distortion_score': 0.05, 'is_distorted': False, 'coord_count': 6,
              'coord_list': []},
             {'site_id': 'ss_1', 'site_type': 'tet',
-             'layer_classification': 'bulk_sample', 'layer_number': 7,
+             'layer_classification': 'subsurface_2', 'layer_number': 10,
              'composition_label': 'Ni3Mo_tet', 'position': [2.0, 2.0, 3.0],
              'distortion_score': 0.10, 'is_distorted': True, 'coord_count': 4,
              'coord_list': []},

@@ -7,12 +7,13 @@ subsurface_graph.py
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 2 in the Project 2 pipeline.
 #
-# Builds the subsurface representation: locates octahedral and tetrahedral
-# interstitial sites in subsurface layers (10, 11) via scipy Voronoi
-# tessellation, randomly samples bulk-reference sites from interior layers
-# (5-9), classifies each site by coordination geometry and local composition,
-# connects layer-11 sites to the surface sites above them, and saves the
-# result to subsurface_sites.json.
+# Builds the subsurface representation: auto-detects the slab's total layer
+# count, derives subsurface_1 (Hop A target) and subsurface_2 (Hop B /
+# bulk-entry target) as the two layers immediately above the frozen bottom
+# fraction, locates octahedral and tetrahedral interstitial sites in those
+# layers via scipy Voronoi tessellation, classifies each site by coordination
+# geometry and local composition, connects subsurface_1 sites to the surface
+# sites above them, and saves the result to subsurface_sites.json.
 #
 # INPUT:   clean slab LAMMPS data file
 #          surface_sites.json  (produced by surface_graph.py)
@@ -32,10 +33,12 @@ Module for identifying and labeling subsurface octahedral and tetrahedral
 interstitial sites in a Hastelloy N slab.
 
 Used by Notebook 08 (subsurface H absorption energy) to:
-  1. Find oct/tet interstitial sites in subsurface layers (10, 11)
-  2. Sample bulk-like oct/tet sites in layers 5-9 for E_abs(bulk) reference
+  1. Auto-derive subsurface_1/subsurface_2 layer numbers from the slab's
+     real detected layer count (bottom round(N/3) frozen, matching
+     models.structure.compute_z_freeze_cutoff)
+  2. Find oct/tet interstitial sites in those two layers
   3. Classify each site (oct vs tet, composition, distortion)
-  4. Connect subsurface sites (layer 11) to surface sites above
+  4. Connect subsurface_1 sites to surface sites above
   5. Output a subsurface_sites.json and an augmented NetworkX graph
 
 Design: Path C (standalone). Does not import from surface_graph.py.
@@ -207,7 +210,8 @@ def _slab_to_atoms(slab_path):
 def find_voronoi_sites(slab_path,
                       clustering_tol=CLUSTERING_TOL_DEFAULT,
                       min_dist=MIN_DIST_DEFAULT,
-                      layer_mode='rank'):
+                      layer_mode='rank',
+                      n_layers=12):
     """
     Find interstitial sites using ``scipy.spatial.Voronoi`` with PBC handling.
 
@@ -226,9 +230,14 @@ def find_voronoi_sites(slab_path,
         Discard vertices within this distance of any atom in Å.
         Default ``MIN_DIST_DEFAULT`` (0.5).
     layer_mode : str, optional
-        ``'rank'`` (default) — equal-count rank binning assuming 12 layers
-        (metal slabs, unchanged behaviour).  ``'gaps'`` — gap-based plane
-        detection for slabs with unequal plane populations (oxides).
+        ``'rank'`` (default) — equal-count rank binning into ``n_layers``
+        layers (metal slabs).  ``'gaps'`` — gap-based plane detection for
+        slabs with unequal plane populations (oxides).
+    n_layers : int, optional
+        Total layer count for the ``'rank'`` z-smoothing pass.  Must match
+        the slab's real detected plane count — a mismatch here would smooth
+        atoms into the wrong layer means. Ignored when ``layer_mode='gaps'``.
+        Default 12.
 
     Returns
     -------
@@ -258,7 +267,7 @@ def find_voronoi_sites(slab_path,
     if layer_mode == 'gaps':
         _layer_map, _layer_z = _identify_layers_by_gaps(metal_positions)
     else:
-        _layer_map, _layer_z = _identify_layers(metal_positions)
+        _layer_map, _layer_z = _identify_layers(metal_positions, n_layers=n_layers)
     smoothed_positions = metal_positions.copy()
     for _i in range(len(smoothed_positions)):
         smoothed_positions[_i, 2] = _layer_z[_layer_map[_i]]
@@ -603,55 +612,6 @@ def connect_to_surface(subsurface_sites, surface_sites_data, cell,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# BULK SAMPLING
-# ─────────────────────────────────────────────────────────────────────────────
-
-def sample_bulk_sites(all_sites, bulk_layer_range, n_samples, seed):
-    """
-    Randomly sample ``n_samples`` sites from bulk-like layers.
-
-    Parameters
-    ----------
-    all_sites : list of dict
-        All classified sites (typically from layers 5–11).
-    bulk_layer_range : iterable of int
-        Layer numbers to sample from, e.g. ``[5, 6, 7, 8, 9]``.
-    n_samples : int
-        Number of sites to sample.  Capped at available candidates.
-    seed : int
-        Random seed for reproducibility.
-
-    Returns
-    -------
-    sampled : list of dict
-        Shallow copies of the sampled sites with
-        ``layer_classification`` set to ``'bulk_sample'``.
-    """
-    bulk_layers_set = set(bulk_layer_range)
-    bulk_candidates = [
-        s for s in all_sites
-        if s["layer_number"] in bulk_layers_set
-    ]
-
-    if len(bulk_candidates) == 0:
-        return []
-
-    rng = np.random.default_rng(seed)
-    n_sample_actual = min(n_samples, len(bulk_candidates))
-    indices = rng.choice(
-        len(bulk_candidates), size=n_sample_actual, replace=False
-    )
-
-    sampled = []
-    for i in indices:
-        site = dict(bulk_candidates[i])  # shallow copy
-        site["layer_classification"] = "bulk_sample"
-        sampled.append(site)
-
-    return sampled
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # MAIN ORCHESTRATOR
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -659,10 +619,8 @@ def build_subsurface_graph(
     slab_path,
     surface_sites_json_path,
     seed,
-    n_layers_total=12,
-    subsurface_layers=(10, 11),
-    bulk_sample_layers=(5, 6, 7, 8, 9),
-    n_bulk_samples=15,
+    n_layers_total=None,
+    subsurface_layers=None,
     clustering_tol=CLUSTERING_TOL_DEFAULT,
     min_dist=MIN_DIST_DEFAULT,
     coord_cutoff=COORD_CUTOFF_DEFAULT,
@@ -674,14 +632,19 @@ def build_subsurface_graph(
     Top-level orchestrator. Returns the augmented graph and site list.
 
     Steps:
-      1. Read slab, identify 12 layers by z-binning.
+      1. Auto-detect the slab's total layer count and derive layer roles:
+         bottom ``round(N/3)`` layers are frozen (same fraction as
+         :func:`models.structure.compute_z_freeze_cutoff`), the next layer
+         up is ``subsurface_1`` (Hop A target), and the layer above that is
+         ``subsurface_2`` — the bulk-entry layer (Hop B target; once H
+         reaches it, ``ΔH_entry`` from Hop B is what Sieverts' law uses,
+         and long-range bulk diffusion is handled separately by
+         ``diffusivity_workflow.py``).
       2. Run scipy.spatial.Voronoi to find all interstitial sites.
-      3. Filter to sites in target layers (5-11).
+      3. Filter to sites in ``{subsurface_1, subsurface_2}``.
       4. Classify each as oct/tet with composition label.
-      5. Subsurface (10, 11): keep all.
-         Bulk (5-9): randomly sample n_bulk_samples.
-      6. Load surface_sites.json, connect layer-11 sites to surface sites.
-      7. Build NetworkX graph and return it with the sites list.
+      5. Load surface_sites.json, connect subsurface_1 sites to surface sites.
+      6. Build NetworkX graph and return it with the sites list.
 
     Parameters
     ----------
@@ -690,15 +653,17 @@ def build_subsurface_graph(
     surface_sites_json_path : str
         Path to ``surface_sites.json`` produced by NB04b.
     seed : int
-        Random seed for bulk-site sampling reproducibility.
-    n_layers_total : int, optional
-        Expected total number of layers in the slab.  Default 12.
-    subsurface_layers : tuple of int, optional
-        Layers to enumerate fully.  Default ``(10, 11)``.
-    bulk_sample_layers : tuple of int, optional
-        Layers to randomly sample from.  Default ``(5, 6, 7, 8, 9)``.
-    n_bulk_samples : int, optional
-        Number of bulk reference sites to sample.  Default 15.
+        Random seed (kept for API/reproducibility compatibility; no longer
+        consumes randomness now that bulk sampling has been removed).
+    n_layers_total : int or None, optional
+        Total number of layers in the slab.  When ``None`` (default),
+        auto-detected via gap-based z-plane clustering
+        (:func:`_identify_layers_by_gaps`) — works for any slab height,
+        metal or oxide, without a hand-tuned constant.
+    subsurface_layers : tuple of int or None, optional
+        ``(subsurface_2_layer, subsurface_1_layer)``.  When ``None``
+        (default), auto-derived as ``(N-2, N-1)`` where ``N`` is the
+        detected/given total layer count.
     clustering_tol : float, optional
         Voronoi vertex clustering tolerance in Å.
         Default ``CLUSTERING_TOL_DEFAULT`` (0.75).
@@ -715,19 +680,20 @@ def build_subsurface_graph(
         Tolerance for layer identification (kept for compatibility).
         Default 0.5.
     metal_type : str, optional
-        ``'alloy'``/``'pure'`` — unchanged behaviour (rank-based 12-layer
-        binning, oct/tet-only sites).  ``'oxide'`` — gap-based plane
-        detection with auto-derived subsurface/bulk layer indices, and ALL
-        Voronoi interstitials retained (labelled ``'interstitial'`` when
-        outside the FCC oct/tet coordination rules).  Default ``'alloy'``.
+        ``'alloy'``/``'pure'`` — rank-based layer binning (immune to
+        thermal/alloy z-scatter), oct/tet-only sites.  ``'oxide'`` —
+        gap-based plane detection end-to-end, and ALL Voronoi interstitials
+        retained (labelled ``'interstitial'`` when outside the FCC oct/tet
+        coordination rules).  Default ``'alloy'``.
 
     Returns
     -------
     G : networkx.Graph
         Augmented graph containing surface site nodes (from JSON), subsurface
-        site nodes, and ``'surface-subsurface'`` edges.
+        site nodes, ``'surface-subsurface'`` edges, and
+        ``'subsurface-subsurface'`` (Hop B) edges.
     subsurface_sites : list of dict
-        All classified subsurface and bulk-sample sites with full metadata.
+        All classified subsurface_1/subsurface_2 sites with full metadata.
     """
     print(f"=" * 70)
     print(f"  Building subsurface graph for seed {seed}")
@@ -735,15 +701,50 @@ def build_subsurface_graph(
 
     _is_oxide = (metal_type == 'oxide')
 
-    # Step 1: Find all Voronoi sites
-    print(f"\nStep 1: Voronoi tessellation via scipy...")
+    # Step 1: auto-detect the total layer count up front (needed before
+    # Voronoi so the rank-path z-smoothing bins atoms into the right number
+    # of layers). Gap-based clustering is cheap — no Voronoi involved — and
+    # is used purely as a layer *counter* here; the oxide path also uses it
+    # for the actual atom→layer binning further down, while the metal path
+    # re-bins with the rank-based method (immune to alloy z-scatter).
+    if n_layers_total is None:
+        _probe_atoms = _slab_to_atoms(slab_path)
+        _probe_elem = np.array(_probe_atoms.get_chemical_symbols())
+        _probe_pos = _probe_atoms.get_positions()[_probe_elem != 'H']
+        _, _probe_layer_z = _identify_layers_by_gaps(_probe_pos)
+        _N = len(_probe_layer_z)
+    else:
+        _N = n_layers_total
+
+    n_frozen = round(_N / 3)
+    if subsurface_layers is not None:
+        _sub2_L, _sub1_L = min(subsurface_layers), max(subsurface_layers)
+    else:
+        _sub1_L, _sub2_L = _N - 1, _N - 2
+
+    print(f"\nStep 1: {_N} total layers detected -> frozen: bottom "
+          f"{n_frozen}, subsurface_1: L{_sub1_L}, "
+          f"subsurface_2 (bulk entry): L{_sub2_L}")
+
+    target_layers = set()
+    for _name, _L in (('subsurface_1', _sub1_L), ('subsurface_2', _sub2_L)):
+        if 1 <= _L <= _N and _L > n_frozen:
+            target_layers.add(_L)
+        else:
+            print(f"  WARNING: {_name} (layer {_L}) falls inside the frozen "
+                  f"bottom {n_frozen} of {_N} layers (or outside the slab) — "
+                  f"increase the slab's z-layer count to separate {_name} "
+                  f"from the frozen region. Proceeding without it.")
+
+    # Step 2: Find all Voronoi sites
+    print(f"\nStep 2: Voronoi tessellation via scipy...")
     sites_cart, structure, atoms = find_voronoi_sites(
         slab_path, clustering_tol=clustering_tol, min_dist=min_dist,
-        layer_mode='gaps' if _is_oxide else 'rank',
+        layer_mode='gaps' if _is_oxide else 'rank', n_layers=_N,
     )
     print(f"  Found {len(sites_cart)} unique interstitial sites in the cell")
 
-    # Step 2: Identify layers
+    # Step 3: Identify layers
     metal_positions = atoms.get_positions()
     metal_elements  = np.array(atoms.get_chemical_symbols())
 
@@ -755,28 +756,18 @@ def build_subsurface_graph(
     if _is_oxide:
         # Gap-based plane detection — oxide planes have unequal atom counts
         # and the plane count is unrelated to the repeat-unit count.
-        print(f"\nStep 2: Identifying z-layers by gap detection (oxide)...")
+        print(f"\nStep 3: Identifying z-layers by gap detection (oxide)...")
         layer_map, layer_z = _identify_layers_by_gaps(metal_positions)
-        _N = len(layer_z)
-        # Top plane (_N) is the surface itself; sub1/sub2 are the first two
-        # planes beneath it — mirrors the metal convention (11, 10) of 12.
-        subsurface_layers  = (_N - 2, _N - 1)
-        bulk_sample_layers = tuple(range(max(2, _N - 7), _N - 2))
-        print(f"  {_N} planes detected → subsurface_layers={subsurface_layers}"
-              f"  bulk_sample_layers={bulk_sample_layers}")
     else:
-        print(f"\nStep 2: Identifying {n_layers_total} z-layers...")
-        layer_map, layer_z = _identify_layers(
-            metal_positions, n_layers=n_layers_total
-        )
+        print(f"\nStep 3: Identifying {_N} z-layers...")
+        layer_map, layer_z = _identify_layers(metal_positions, n_layers=_N)
     print(f"  Layer z-centers: " +
           ", ".join(f"L{k}={v:.2f}" for k, v in sorted(layer_z.items())))
 
     cell = atoms.cell.diagonal()
 
-    # Step 3: Assign each Voronoi site to a layer (by nearest atomic plane)
-    print(f"\nStep 3: Assigning sites to layers...")
-    target_layers = set(subsurface_layers) | set(bulk_sample_layers)
+    # Step 4: Assign each Voronoi site to a layer (by nearest atomic plane)
+    print(f"\nStep 4: Assigning sites to layers...")
 
     all_classified_sites = []
     for site_idx, site_pos in enumerate(sites_cart):
@@ -787,7 +778,7 @@ def build_subsurface_graph(
         if nearest_layer not in target_layers:
             continue
 
-        # Step 4: Classify the site.  On the oxide path unmatched
+        # Classify the site.  On the oxide path unmatched
         # coordination counts become 'interstitial' (kept) instead of
         # 'unknown' (discarded) — FCC oct/tet rules don't apply there.
         clf = classify_site(
@@ -817,27 +808,18 @@ def build_subsurface_graph(
 
     print(f"  Classified {len(all_classified_sites)} sites in target layers")
 
-    # Step 4: Assign final layer_classification
+    # Step 5: Assign final layer_classification
     subsurface_sites_final = []
     for s in all_classified_sites:
         L = s["layer_number"]
-        if L == max(subsurface_layers):     # typically layer 11
+        if L == _sub1_L:
             s["layer_classification"] = "subsurface_1"
             subsurface_sites_final.append(s)
-        elif L in subsurface_layers:        # typically layer 10
+        elif L == _sub2_L:
             s["layer_classification"] = "subsurface_2"
             subsurface_sites_final.append(s)
-        # bulk layers handled below by sampling
 
-    # Step 5: Bulk sampling
-    print(f"\nStep 5: Sampling {n_bulk_samples} bulk-like sites from layers "
-          f"{list(bulk_sample_layers)}...")
-    bulk_samples = sample_bulk_sites(
-        all_classified_sites, bulk_sample_layers, n_bulk_samples, seed
-    )
-    subsurface_sites_final.extend(bulk_samples)
-    print(f"  Total sites for NB08: {len(subsurface_sites_final)} "
-          f"(subsurface + bulk samples)")
+    print(f"  Total sites for NB08: {len(subsurface_sites_final)}")
 
     # Reassign site_ids cleanly: ss_0, ss_1, ...
     for new_idx, s in enumerate(subsurface_sites_final):
