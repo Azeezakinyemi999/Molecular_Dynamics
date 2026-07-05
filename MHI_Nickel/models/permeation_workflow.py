@@ -86,7 +86,10 @@ with open(SURFACE_SITES_JSON) as _f:
 G, subsurface_sites = build_subsurface_graph(RELAXED_SLAB_PATH, SURFACE_SITES_JSON, seed=42,
                                              metal_type=METAL_TYPE)
 _slab_atoms = _ase_read(RELAXED_SLAB_PATH, format='lammps-data', atom_style='atomic')
-_cell = _slab_atoms.get_cell()
+# connect_to_surface (and _periodic_xy_distance) expect a flat [Lx, Ly, Lz]
+# array, not ASE's 3x3 Cell object -- .get_cell() alone made cell[0] a row
+# vector, breaking round(dx / cell[0]) the first time this ever ran for real.
+_cell = _slab_atoms.get_cell().diagonal()
 surface_connections = connect_to_surface(subsurface_sites, _surf_data, _cell)
 _sub1_n = sum(1 for s in subsurface_sites if s.get('layer_classification') == 'subsurface_1')
 print(f'  subsurface-1 sites : {_sub1_n}')
