@@ -415,7 +415,16 @@ def check_jobs(
         if jid_str in queued:
             statuses[label] = queued[jid_str]   # 'running' or 'pending'
         else:
-            statuses[label] = 'done'             # not in queue → finished
+            # SLURM array jobs never appear as the bare parent id in
+            # squeue -- each task reports as '<jid>_<task_id>' (or a
+            # compact pending range like '<jid>_[0-2]'), so the exact
+            # match above always misses array submissions. Without this
+            # fallback, an array job still fully queued/running gets
+            # reported 'done' on the very first poll, and wait_for_jobs()
+            # returns instantly instead of actually waiting.
+            array_tasks = [s for qid, s in queued.items()
+                           if qid.startswith(jid_str + '_')]
+            statuses[label] = array_tasks[0] if array_tasks else 'done'
 
     if verbose:
         print(f'{"Label":>10s}  {"Job ID":>10s}  {"Status"}')
