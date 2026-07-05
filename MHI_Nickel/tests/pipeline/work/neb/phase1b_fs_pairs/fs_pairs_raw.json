@@ -2,10 +2,10 @@
   {
     "site1": "s_0",
     "site2": "s_1",
-    "sep": 2.4890158697999993,
+    "sep": 2.4890158698,
     "graph_dist": -1,
-    "combined_eads": -7.962359788880391,
-    "E_FS": -65.9905116523137,
+    "combined_eads": -7.940278331746995,
+    "E_FS": -129.459362123583,
     "label": "s_0+s_1",
     "true_label1": "ontop_Ni1",
     "true_label2": "ontop_Ni1"

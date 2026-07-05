@@ -24,7 +24,7 @@ Reading data file ...
   33 atoms
   reading velocities ...
   33 velocities
-  read_data CPU = 0.036 seconds
+  read_data CPU = 0.029 seconds
 
 restart        1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/700K/checkpoints/nvt_700K.*.restart
 
@@ -100,20 +100,20 @@ Per MPI rank memory allocation (min/avg/max) = 37.98 | 37.98 | 37.98 Mbytes
        300   500.54093     -175.86319      2.0703998     -173.79279      59056.701      349.54537    
        400   757.33985     -176.05236      3.1326035     -172.91975      54908.248      349.54537    
        500   658.34856     -175.20113      2.7231434     -172.47798      67230.989      349.54537    
-Loop time of 16.7784 on 1 procs for 500 steps with 33 atoms
+Loop time of 16.8273 on 1 procs for 500 steps with 33 atoms
 
-Performance: 2.575 ns/day, 9.321 hours/ns, 29.800 timesteps/s, 983.410 atom-step/s
-98.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+Performance: 2.567 ns/day, 9.348 hours/ns, 29.714 timesteps/s, 980.552 atom-step/s
+99.0% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 16.506     | 16.506     | 16.506     |   0.0 | 98.37
+Pair    | 16.549     | 16.549     | 16.549     |   0.0 | 98.35
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.023938   | 0.023938   | 0.023938   |   0.0 |  0.14
-Output  | 0.0010287  | 0.0010287  | 0.0010287  |   0.0 |  0.01
-Modify  | 0.22742    | 0.22742    | 0.22742    |   0.0 |  1.36
-Other   |            | 0.02027    |            |       |  0.12
+Comm    | 0.024114   | 0.024114   | 0.024114   |   0.0 |  0.14
+Output  | 0.0010649  | 0.0010649  | 0.0010649  |   0.0 |  0.01
+Modify  | 0.23193    | 0.23193    | 0.23193    |   0.0 |  1.38
+Other   |            | 0.02084    |            |       |  0.12
 
 Nlocal:             33 ave          33 max          33 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -162,35 +162,35 @@ Per MPI rank memory allocation (min/avg/max) = 42.44 | 42.44 | 42.44 Mbytes
        800   621.64444     -176.44823      2.5713232     -173.87691      50097.373      349.54537    
        900   777.68295     -176.80181      3.2167491     -173.58506      47334.003      349.54537    
       1000   711.83099     -176.1379       2.9443641     -173.19353      55168.204      349.54537    
-      1100   843.48951     -176.28867      3.4889464     -172.79973      53353.978      349.54537    
-      1200   627.29375     -175.34796      2.5946906     -172.75327      68255.832      349.54537    
+      1100   843.48951     -176.28867      3.4889464     -172.79973      53353.979      349.54537    
+      1200   627.29375     -175.34796      2.5946906     -172.75327      68255.833      349.54537    
       1300   635.47502     -175.97591      2.628531      -173.34738      54882.955      349.54537    
-      1400   556.58838     -176.22153      2.3022302     -173.9193       52029.374      349.54537    
+      1400   556.58837     -176.22153      2.3022302     -173.9193       52029.374      349.54537    
       1500   597.08327     -176.30729      2.4697302     -173.83756      51250.621      349.54537    
-      1600   618.58594     -175.56987      2.5586722     -173.0112       63510.037      349.54537    
-      1700   837.48557     -176.01715      3.4641122     -172.55304      58919.367      349.54537    
-      1800   729.5201      -175.76823      3.017532      -172.7507       60569.085      349.54537    
-      1900   817.73911     -176.46398      3.3824344     -173.08154      50760.402      349.54537    
-      2000   659.91905     -176.01839      2.7296394     -173.28875      57223.861      349.54537    
-      2100   649.6485      -175.96494      2.6871571     -173.27779      55464.427      349.54537    
-      2200   652.53489     -175.88762      2.6990961     -173.18853      60626.025      349.54537    
-      2300   757.69071     -176.22944      3.1340548     -173.09538      54085.592      349.54537    
-      2400   723.81355     -176.13161      2.9939278     -173.13768      52239.029      349.54537    
-      2500   666.45749     -176.0262       2.7566845     -173.26952      56262.674      349.54537    
-Loop time of 58.545 on 1 procs for 2000 steps with 33 atoms
+      1600   618.58594     -175.56987      2.5586723     -173.0112       63510.037      349.54537    
+      1700   837.48558     -176.01715      3.4641122     -172.55304      58919.366      349.54537    
+      1800   729.52013     -175.76823      3.0175321     -172.7507       60569.085      349.54537    
+      1900   817.73912     -176.46398      3.3824345     -173.08154      50760.402      349.54537    
+      2000   659.91915     -176.01839      2.7296398     -173.28875      57223.855      349.54537    
+      2100   649.64813     -175.96494      2.6871556     -173.27779      55464.463      349.54537    
+      2200   652.53225     -175.88761      2.6990852     -173.18853      60626.097      349.54537    
+      2300   757.68138     -176.2294       3.1340161     -173.09538      54086.192      349.54537    
+      2400   724.05989     -176.13268      2.9949468     -173.13773      52228.321      349.54537    
+      2500   660.04176     -176.00005      2.730147      -173.2699       56726.305      349.54537    
+Loop time of 58.7011 on 1 procs for 2000 steps with 33 atoms
 
-Performance: 2.952 ns/day, 8.131 hours/ns, 34.162 timesteps/s, 1.127 katom-step/s
-99.3% CPU use with 1 MPI tasks x 1 OpenMP threads
+Performance: 2.944 ns/day, 8.153 hours/ns, 34.071 timesteps/s, 1.124 katom-step/s
+99.2% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 57.406     | 57.406     | 57.406     |   0.0 | 98.05
-Neigh   | 0.0029303  | 0.0029303  | 0.0029303  |   0.0 |  0.01
-Comm    | 0.11209    | 0.11209    | 0.11209    |   0.0 |  0.19
-Output  | 0.038054   | 0.038054   | 0.038054   |   0.0 |  0.06
-Modify  | 0.90659    | 0.90659    | 0.90659    |   0.0 |  1.55
-Other   |            | 0.07981    |            |       |  0.14
+Pair    | 57.466     | 57.466     | 57.466     |   0.0 | 97.90
+Neigh   | 0.0024271  | 0.0024271  | 0.0024271  |   0.0 |  0.00
+Comm    | 0.11227    | 0.11227    | 0.11227    |   0.0 |  0.19
+Output  | 0.11385    | 0.11385    | 0.11385    |   0.0 |  0.19
+Modify  | 0.92537    | 0.92537    | 0.92537    |   0.0 |  1.58
+Other   |            | 0.08094    |            |       |  0.14
 
 Nlocal:             33 ave          33 max          33 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -198,12 +198,12 @@ Nghost:           1093 ave        1093 max        1093 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Neighs:              0 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-FullNghs:         6684 ave        6684 max        6684 min
+FullNghs:         6682 ave        6682 max        6682 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 6684
-Ave neighs/atom = 202.54545
-Neighbor list builds = 6
+Total # of neighbors = 6682
+Ave neighs/atom = 202.48485
+Neighbor list builds = 5
 Dangerous builds = 0
 print "### Phase 2 complete ###"
 ### Phase 2 complete ###
@@ -217,11 +217,11 @@ EQUIL_RESULTS_START
 print "  T_K          : 700"
   T_K          : 700
 print "  pe_final_eV  : ${pe_final}"
-  pe_final_eV  : -176.026202331854
+  pe_final_eV  : -176.00004788016
 print "  temp_final_K : ${temp_fin}"
-  temp_final_K : 666.457490206833
+  temp_final_K : 660.041756697405
 print "  press_final  : ${press_fin}"
-  press_final  : 56262.6738207944
+  press_final  : 56726.3053699811
 print "EQUIL_RESULTS_END"
 EQUIL_RESULTS_END
 
@@ -229,4 +229,4 @@ write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipe
 System init for write_restart ...
 write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/results/700K/nvt_700K.out
 System init for write_data ...
-Total wall time: 0:01:51
+Total wall time: 0:02:04

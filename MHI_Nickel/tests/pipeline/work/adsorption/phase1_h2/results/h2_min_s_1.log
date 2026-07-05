@@ -19,11 +19,11 @@ boundary       p p f
 
 read_data      /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/structures/slab_h2_s_1.lammps
 Reading data file ...
-  orthogonal box = (0 0 0) to (4.9780317 4.9780317 24.064546)
+  orthogonal box = (0 0 0) to (4.9780317 4.9780317 30.161365)
   1 by 1 by 1 MPI processor grid
   reading atoms ...
-  14 atoms
-  read_data CPU = 0.007 seconds
+  26 atoms
+  read_data CPU = 0.013 seconds
 
 pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
 pair_coeff     * * Al B C Cr Fe Mo Ni H
@@ -31,12 +31,12 @@ pair_coeff     * * Al B C Cr Fe Mo Ni H
 neighbor       2.0 bin
 neigh_modify   every 1 delay 0 check yes
 
-# ── Freeze bottom layers (z ≤ 10.877039427763764 Å) ─────────────────────────────
-region         frozen_reg   block  INF INF  INF INF  EDGE  10.877039427763764
+# ── Freeze bottom layers (z ≤ 12.937141094725071 Å) ─────────────────────────────
+region         frozen_reg   block  INF INF  INF INF  EDGE  12.937141094725071
 group          frozen_atoms region frozen_reg
-4 atoms in group frozen_atoms
+8 atoms in group frozen_atoms
 group          free_atoms   subtract all frozen_atoms
-10 atoms in group free_atoms
+18 atoms in group free_atoms
 
 fix            freeze  frozen_atoms  setforce  0.0  0.0  0.0
 
@@ -81,44 +81,44 @@ WARNING: Fix MINIMIZE/kk not compatible with sending data in Kokkos communicatio
 WARNING: Fix with atom-based arrays not compatible with sending data in Kokkos communication, switching to legacy exchange/border communication (src/KOKKOS/comm_kokkos.cpp:849)
 WARNING: Fix MINIMIZE/kk not (yet) compatible with Kokkos sorting on device (src/KOKKOS/atom_kokkos.cpp:219)
 WARNING: Fix with atom-based arrays not (yet) compatible with Kokkos sorting on device, switching to legacy host sorting (src/KOKKOS/atom_kokkos.cpp:225)
-Per MPI rank memory allocation (min/avg/max) = 38.25 | 38.25 | 38.25 Mbytes
+Per MPI rank memory allocation (min/avg/max) = 38.4 | 38.4 | 38.4 Mbytes
    Step         PotEng          Fmax          Fnorm          Press     
-         0  -64.76986       0.52639801     0.77669653    -25908.1      
-        73  -65.11267       4.1155008e-07  9.3774418e-07 -25363.326    
-Loop time of 6.2425 on 1 procs for 73 steps with 14 atoms
+         0  -128.25915      0.52643806     0.77568279    -43285.394    
+        88  -128.65496      4.0543487e-07  8.1794396e-07 -42819.459    
+Loop time of 7.127 on 1 procs for 88 steps with 26 atoms
 
 98.5% CPU use with 1 MPI tasks x 1 OpenMP threads
 
 Minimization stats:
   Stopping criterion = force tolerance
   Energy initial, next-to-last, final = 
-     -64.7698599035093  -65.1126702784994  -65.1126702784995
-  Force two-norm initial, final = 0.77669653 9.3774418e-07
-  Force max component initial, final = 0.52639801 4.1155008e-07
-  Final line search alpha, max atom move = 1 4.1155008e-07
-  Iterations, force evaluations = 73 141
+     -128.259146048626  -128.654961998568  -128.654961998568
+  Force two-norm initial, final = 0.77568279 8.1794396e-07
+  Force max component initial, final = 0.52643806 4.0543487e-07
+  Final line search alpha, max atom move = 1 4.0543487e-07
+  Iterations, force evaluations = 88 172
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 6.2148     | 6.2148     | 6.2148     |   0.0 | 99.56
+Pair    | 7.0937     | 7.0937     | 7.0937     |   0.0 | 99.53
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.0056912  | 0.0056912  | 0.0056912  |   0.0 |  0.09
+Comm    | 0.0070288  | 0.0070288  | 0.0070288  |   0.0 |  0.10
 Output  | 0          | 0          | 0          |   0.0 |  0.00
-Modify  | 0.0037453  | 0.0037453  | 0.0037453  |   0.0 |  0.06
-Other   |            | 0.01824    |            |       |  0.29
+Modify  | 0.0046407  | 0.0046407  | 0.0046407  |   0.0 |  0.07
+Other   |            | 0.02168    |            |       |  0.30
 
-Nlocal:             14 ave          14 max          14 min
+Nlocal:             26 ave          26 max          26 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Nghost:            247 ave         247 max         247 min
+Nghost:            447 ave         447 max         447 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Neighs:              0 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-FullNghs:         1370 ave        1370 max        1370 min
+FullNghs:         3562 ave        3562 max        3562 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 1370
-Ave neighs/atom = 97.857143
+Total # of neighbors = 3562
+Ave neighs/atom = 137
 Neighbor list builds = 0
 Dangerous builds = 0
 
@@ -131,15 +131,15 @@ variable       fmax_f    equal  fmax
 variable       natoms    equal  atoms
 
 print "  pe_final_eV     : ${pe_final}"
-  pe_final_eV     : -65.1126702784995
+  pe_final_eV     : -128.654961998568
 print "  fmax_eV_per_Ang : ${fmax_f}"
-  fmax_eV_per_Ang : 4.11550075241074e-07
+  fmax_eV_per_Ang : 4.054348709578e-07
 print "  natoms          : ${natoms}"
-  natoms          : 14
+  natoms          : 26
 
 unfix          freeze
 write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/results/h2_s_1_relaxed.lammps
 System init for write_data ...
 print "Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/results/h2_s_1_relaxed.lammps"
 Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/results/h2_s_1_relaxed.lammps
-Total wall time: 0:00:33
+Total wall time: 0:00:30

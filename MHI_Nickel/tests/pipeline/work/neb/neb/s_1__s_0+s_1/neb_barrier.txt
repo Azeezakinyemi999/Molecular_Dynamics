@@ -4,18 +4,18 @@ N images    : 8 (6 intermediate + IS + FS)
 fmax_final  : 0.0000 eV/A
 Converged   : True
 
-E_IS    = -65.112670 eV
-E_FS    = -63.866010 eV
-E_abs   = 1.2467 eV
-E_des   = 0.0000 eV
-delta_E = 1.2467 eV
+E_IS    = -128.654962 eV
+E_FS    = -126.924775 eV
+E_abs   = 2.3753 eV
+E_des   = 0.6451 eV
+delta_E = 1.7302 eV
 
 Image energies:
-  IS    : -65.112670 eV  (+0.0000 eV)
-  img_1 : -64.921876 eV  (+0.1908 eV)
-  img_2 : -64.578607 eV  (+0.5341 eV)
-  img_3 : -64.282399 eV  (+0.8303 eV)
-  img_4 : -64.099983 eV  (+1.0127 eV)
-  img_5 : -63.994869 eV  (+1.1178 eV)
-  img_6 : -63.918515 eV  (+1.1942 eV)
-  FS    : -63.866010 eV  (+1.2467 eV)
+  IS    : -128.654962 eV  (+0.0000 eV)
+  img_1 : -128.083222 eV  (+0.5717 eV)
+  img_2 : -127.213972 eV  (+1.4410 eV)
+  img_3 : -126.594793 eV  (+2.0602 eV)
+  img_4 : -126.279711 eV  (+2.3753 eV)
+  img_5 : -126.352128 eV  (+2.3028 eV)
+  img_6 : -126.659001 eV  (+1.9960 eV)
+  FS    : -126.924775 eV  (+1.7302 eV)
