@@ -599,7 +599,7 @@ from ase.io import read as ase_read
 from models.lammps_script import write_adsorbate_min_script
 from models.structure import add_adsorbate
 from models.energetics import calc_binding_energy, rank_sites
-from models.parsers import parse_energy_log
+from models.parsers import parse_energy_log, parse_dissociated_h2_log
 from models.config import (
     LAMMPS_CMD, MACE_MODEL_LAMMPS, PAIR_STYLE, PAIR_SUFFIX,
     KOKKOS_FLAGS, ELEM_STR_7, MASSES_7, E2T_7,
@@ -865,15 +865,23 @@ def run_phase1_h2_adsorption(
     with open(intact_pool_path, 'w') as f:
         json.dump(intact_pool, f, indent=2)
 
+    # H2_dissociated_pool.json — spontaneously dissociated sites (no NEB required)
+    dissociated_pool = {sid: v for sid, v in is_pool.items()
+                        if v['status'] == 'dissociated'}
+    dissociated_pool_path = phase_dir / 'H2_dissociated_pool.json'
+    with open(dissociated_pool_path, 'w') as f:
+        json.dump(dissociated_pool, f, indent=2)
+
     result = {
-        'h2_energies'     : h2_energies,
-        'ranked_sites'    : ranked,
-        'is_pool'         : is_pool,
-        'intact_pool'     : intact_pool,
-        'n_sites_computed': len(h2_energies),
-        'n_sites_total'   : len(sites),
-        'outdir'          : str(phase_dir),
-        'status'          : status,
+        'h2_energies'      : h2_energies,
+        'ranked_sites'     : ranked,
+        'is_pool'          : is_pool,
+        'intact_pool'      : intact_pool,
+        'dissociated_pool' : dissociated_pool,
+        'n_sites_computed' : len(h2_energies),
+        'n_sites_total'    : len(sites),
+        'outdir'           : str(phase_dir),
+        'status'           : status,
     }
 
     out_json = phase_dir / 'h2_adsorption_energies.json'
@@ -882,11 +890,170 @@ def run_phase1_h2_adsorption(
 
     n_intact_all = sum(1 for v in is_pool.values() if v['status'] == 'intact')
     n_intact     = len(intact_pool)
-    n_diss       = sum(1 for v in is_pool.values() if v['status'] == 'dissociated')
-    print(f"  H2* energies     → {out_json}")
-    print(f"  H2_site_coords   → {h2_coords_path}  (all {len(is_pool)} computed)")
-    print(f"  H2_intact_pool   → {intact_pool_path}  ({n_intact} intact+Eads<0 / {n_intact_all - n_intact} dropped by energy / {n_diss} dissociated)")
+    n_diss       = len(dissociated_pool)
+    print(f"  H2* energies       → {out_json}")
+    print(f"  H2_site_coords     → {h2_coords_path}  (all {len(is_pool)} computed)")
+    print(f"  H2_intact_pool     → {intact_pool_path}  ({n_intact} intact+Eads<0 / {n_intact_all - n_intact} dropped by energy / {n_diss} dissociated)")
+    print(f"  H2_dissociated_pool→ {dissociated_pool_path}  ({n_diss} dissociated)")
     return result
+
+
+# -----------------------SECTION B: Phase 1b: Resolve Dissociated Adsorption -----------------------
+
+def resolve_dissociated_adsorption(
+    phase1_h2_dir: str,
+    outdir: str | None = None,
+) -> dict:
+    """
+    Section B Phase 1b: Resolve energetics for spontaneously dissociated H2 sites.
+
+    For sites where H2 dissociated during energy minimization (no NEB needed),
+    this function applies the barrierless approximation:
+
+    * Transition energy  Ea     = 0 eV  (barrierless — option 1 from issue #9)
+    * Reaction energy  delta_E  = E_final − E_initial  (from the per-step thermo
+      in the minimization log)
+    * An ``apparent_barrier_eV`` sanity-check value is also stored: this is the
+      highest PE found along the relaxation trajectory minus the initial PE.
+      A non-zero value does **not** constitute a true saddle point but can flag
+      cases where the "zero barrier" assumption may deserve closer inspection
+      (option 2 from issue #9).
+
+    Parameters
+    ----------
+    phase1_h2_dir : str
+        Section B Phase 1 output directory — must contain
+        ``H2_dissociated_pool.json`` and a ``results/`` subdirectory with
+        ``h2_min_{site_id}.log`` files.
+    outdir : str, optional
+        Directory for ``dissociated_results.json``.  Defaults to
+        ``phase1_h2_dir``.
+
+    Returns
+    -------
+    dict
+        {
+          'results'    : list of per-site dicts (see below),
+          'n_resolved' : int — sites with both E_initial and E_final parsed,
+          'n_failed'   : int — sites where log parsing failed,
+          'results_json': str — path to ``dissociated_results.json``,
+        }
+
+    Each entry in ``results`` contains:
+
+    .. code-block:: python
+
+        {
+            'label'              : str,   # e.g. 's_4__DISSOCIATED'
+            'site_id'            : str,
+            'true_label'         : str,
+            'centroid'           : list,
+            'E_ads'              : float,  # H2 adsorption energy (eV)
+            'Ea'                 : 0.0,    # barrierless assumption
+            'delta_E'            : float,  # E_final - E_initial (eV)
+            'e_initial_eV'       : float,
+            'e_final_eV'         : float,
+            'apparent_barrier_eV': float,  # sanity-check proxy
+            'has_local_max'      : bool,
+            'status'             : 'dissociated_barrierless',
+        }
+
+    Notes
+    -----
+    Source: issue #9 — "Handle dissociative H2 adsorption without invoking NEB".
+    """
+    p1 = Path(phase1_h2_dir)
+    result_dir = p1 / 'results'
+
+    # Load dissociated pool
+    diss_pool_path = p1 / 'H2_dissociated_pool.json'
+    if not diss_pool_path.exists():
+        # Fallback: derive from H2_site_coords.json
+        coords_path = p1 / 'H2_site_coords.json'
+        if not coords_path.exists():
+            raise FileNotFoundError(
+                f'Neither H2_dissociated_pool.json nor H2_site_coords.json '
+                f'found in {phase1_h2_dir}'
+            )
+        with open(coords_path) as f:
+            all_sites = json.load(f)
+        dissociated_pool = {sid: v for sid, v in all_sites.items()
+                            if v.get('status') == 'dissociated'}
+    else:
+        with open(diss_pool_path) as f:
+            dissociated_pool = json.load(f)
+
+    out_path = Path(outdir) if outdir else p1
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    results    = []
+    n_resolved = 0
+    n_failed   = 0
+
+    print(f'[Section B Phase 1b] Resolving {len(dissociated_pool)} dissociated sites '
+          f'(barrierless, Ea=0)')
+
+    for sid, info in dissociated_pool.items():
+        log_path = str(result_dir / f'h2_min_{sid}.log')
+        parsed   = parse_dissociated_h2_log(log_path)
+
+        if parsed is None:
+            n_failed += 1
+            results.append({
+                'label'              : f'{sid}__DISSOCIATED',
+                'site_id'            : sid,
+                'true_label'         : info.get('true_label', sid),
+                'centroid'           : info.get('centroid'),
+                'E_ads'              : info.get('E_ads'),
+                'Ea'                 : 0.0,
+                'delta_E'            : None,
+                'e_initial_eV'       : None,
+                'e_final_eV'         : None,
+                'apparent_barrier_eV': None,
+                'has_local_max'      : None,
+                'status'             : 'dissociated_barrierless',
+                'parse_failed'       : True,
+            })
+            continue
+
+        n_resolved += 1
+        results.append({
+            'label'              : f'{sid}__DISSOCIATED',
+            'site_id'            : sid,
+            'true_label'         : info.get('true_label', sid),
+            'centroid'           : info.get('centroid'),
+            'E_ads'              : info.get('E_ads'),
+            'Ea'                 : 0.0,
+            'delta_E'            : parsed['delta_e_eV'],
+            'e_initial_eV'       : parsed['e_initial_eV'],
+            'e_final_eV'         : parsed['e_final_eV'],
+            'apparent_barrier_eV': parsed['apparent_barrier_eV'],
+            'has_local_max'      : parsed['has_local_max'],
+            'status'             : 'dissociated_barrierless',
+            'parse_failed'       : False,
+        })
+
+    # Sort by delta_E (most exothermic first); entries with None delta_E go last
+    results.sort(key=lambda x: (x['delta_E'] is None,
+                                x['delta_E'] if x['delta_E'] is not None else float('inf')))
+
+    results_json = str(out_path / 'dissociated_results.json')
+    with open(results_json, 'w') as f:
+        json.dump(results, f, indent=2)
+
+    n_with_max = sum(1 for r in results if r.get('has_local_max'))
+    print(f'  resolved  : {n_resolved}  (Ea=0, delta_E from log)')
+    print(f'  failed    : {n_failed}  (log parse error)')
+    print(f'  sanity    : {n_with_max}/{n_resolved} sites show apparent_barrier > 0 eV '
+          f'(non-monotonic relaxation)')
+    print(f'  results   → {results_json}')
+
+    return {
+        'results'    : results,
+        'n_resolved' : n_resolved,
+        'n_failed'   : n_failed,
+        'results_json': results_json,
+    }
 
 
 # -----------------------SECTION B: Phase 2: H* Adsorption Energy -----------------------
@@ -1206,6 +1373,12 @@ def orchestrate_adsorption_energies(
         z_freeze_cutoff=z_freeze_cutoff,
     )
 
+    print(f"\n>>> PHASE 1b: Dissociated H2 Adsorption (barrierless, Ea=0)")
+    p1b = resolve_dissociated_adsorption(
+        phase1_h2_dir=str(Path(outdir) / 'phase1_h2'),
+        outdir=str(Path(outdir) / 'phase1_h2'),
+    )
+
     print(f"\n>>> PHASE 2: H* Adsorption Energy")
     p2 = run_phase2_h_adsorption(
         surface_sites_json=surface_sites_json,
@@ -1223,25 +1396,29 @@ def orchestrate_adsorption_energies(
 
     summary_path = Path(outdir) / 'adsorption_summary.json'
     summary = {
-        'phase1'     : p1,
-        'phase2'     : p2,
-        'is_pool'    : p1.get('is_pool', {}),
-        'fs_pool'    : p2.get('fs_pool', {}),
-        'summary_json': str(summary_path),
-        'status'     : p1['status'],
+        'phase1'            : p1,
+        'phase1b_dissociated': p1b,
+        'phase2'            : p2,
+        'is_pool'           : p1.get('is_pool', {}),
+        'dissociated_pool'  : p1.get('dissociated_pool', {}),
+        'fs_pool'           : p2.get('fs_pool', {}),
+        'summary_json'      : str(summary_path),
+        'status'            : p1['status'],
     }
     with open(summary_path, 'w') as f:
         json.dump(summary, f, indent=2)
 
-    n_is = len(p1.get('is_pool', {}))
-    n_fs = len(p2.get('fs_pool', {}))
+    n_is   = len(p1.get('intact_pool', {}))
+    n_diss = len(p1.get('dissociated_pool', {}))
+    n_fs   = len(p2.get('fs_pool', {}))
     print(f"\n{'='*80}")
     print(f"SECTION B COMPLETE")
     print(f"{'='*80}")
     print(f"  H2* energies : {p1['n_sites_computed']}/{p1['n_sites_total']} sites")
     print(f"  H* energies  : {p2['n_sites_computed']}/{p2['n_sites_total']} sites")
-    print(f"  IS pool (H2* intact)  : {n_is} sites  → {Path(outdir)/'phase1_h2'/'H2_site_coords.json'}")
-    print(f"  FS pool (E_ads < 0)   : {n_fs} sites  → {Path(outdir)/'phase2_h'/'H_site_coords.json'}")
+    print(f"  IS pool (H2* intact)       : {n_is} sites  → {Path(outdir)/'phase1_h2'/'H2_intact_pool.json'}")
+    print(f"  Dissociated (barrierless)  : {n_diss} sites  → {Path(outdir)/'phase1_h2'/'dissociated_results.json'}")
+    print(f"  FS pool (E_ads < 0)        : {n_fs} sites  → {Path(outdir)/'phase2_h'/'H_site_coords.json'}")
     print(f"  Summary: {summary_path}")
     return summary
 

@@ -32,6 +32,7 @@ from models.parsers import (
     parse_surface_relaxation_log,
     parse_equil_log,
     parse_energy_log,
+    parse_dissociated_h2_log,
     parse_thermo_series,
     parse_lammps_dump,
     parse_diffusivity_file,
@@ -634,3 +635,132 @@ class TestParseNebPath:
         f = _write(tmp_path / 'partial.dat', txt)
         frac, _, _ = parse_neb_path(f)
         assert len(frac) == 2
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 10. parse_dissociated_h2_log
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Synthetic adsorbate minimization log — H2 dissociates (energy drops monotonically)
+_DISS_LOG_MONOTONIC = """\
+LAMMPS (29 Sep 2021)
+
+Step PotEng Fmax Fnorm Press
+0 -1200.0 5.20 8.10 10.0
+100 -1210.0 2.10 3.50 9.5
+200 -1218.0 0.80 1.20 9.1
+300 -1220.0 0.12 0.18 9.0
+Loop time of 8.0
+
+### Minimization complete ###
+
+  pe_final_eV     : -1220.0
+  fmax_eV_per_Ang : 0.12
+  natoms          : 362
+"""
+
+# Synthetic log — apparent local maximum (energy rises briefly then falls)
+_DISS_LOG_WITH_BARRIER = """\
+LAMMPS (29 Sep 2021)
+
+Step PotEng Fmax Fnorm Press
+0 -1200.0 5.20 8.10 10.0
+50  -1198.0 4.80 7.50 10.1
+100 -1210.0 2.10 3.50 9.5
+200 -1220.0 0.12 0.18 9.0
+Loop time of 8.0
+
+### Minimization complete ###
+
+  pe_final_eV     : -1220.0
+  fmax_eV_per_Ang : 0.12
+  natoms          : 362
+"""
+
+# Log with only a single thermo row (should return None)
+_DISS_LOG_SINGLE_ROW = """\
+Step PotEng Fmax Fnorm Press
+0 -1200.0 5.20 8.10 10.0
+Loop time of 0.1
+"""
+
+
+class TestParseDissociatedH2Log:
+
+    @pytest.fixture()
+    def result_monotonic(self, tmp_path):
+        f = _write(tmp_path / 'h2_min_s_1.log', _DISS_LOG_MONOTONIC)
+        return parse_dissociated_h2_log(f)
+
+    @pytest.fixture()
+    def result_with_barrier(self, tmp_path):
+        f = _write(tmp_path / 'h2_min_s_2.log', _DISS_LOG_WITH_BARRIER)
+        return parse_dissociated_h2_log(f)
+
+    # ── return type ──────────────────────────────────────────────────────────
+
+    def test_returns_dict(self, result_monotonic):
+        assert isinstance(result_monotonic, dict)
+
+    def test_required_keys_present(self, result_monotonic):
+        for key in ('e_initial_eV', 'e_final_eV', 'delta_e_eV',
+                    'e_max_eV', 'apparent_barrier_eV', 'has_local_max'):
+            assert key in result_monotonic, f'missing key: {key}'
+
+    # ── monotonic (downhill) log ──────────────────────────────────────────────
+
+    def test_e_initial_is_first_pe(self, result_monotonic):
+        assert math.isclose(result_monotonic['e_initial_eV'], -1200.0)
+
+    def test_e_final_is_last_pe(self, result_monotonic):
+        assert math.isclose(result_monotonic['e_final_eV'], -1220.0)
+
+    def test_delta_e_is_e_final_minus_e_initial(self, result_monotonic):
+        expected = -1220.0 - (-1200.0)   # -20.0
+        assert math.isclose(result_monotonic['delta_e_eV'], expected)
+
+    def test_delta_e_negative_for_exothermic(self, result_monotonic):
+        assert result_monotonic['delta_e_eV'] < 0.0
+
+    def test_e_max_equals_e_initial_for_monotonic(self, result_monotonic):
+        assert math.isclose(result_monotonic['e_max_eV'], -1200.0)
+
+    def test_apparent_barrier_zero_for_monotonic(self, result_monotonic):
+        assert math.isclose(result_monotonic['apparent_barrier_eV'], 0.0)
+
+    def test_has_local_max_false_for_monotonic(self, result_monotonic):
+        assert result_monotonic['has_local_max'] is False
+
+    # ── log with apparent local maximum ──────────────────────────────────────
+
+    def test_e_initial_with_barrier(self, result_with_barrier):
+        assert math.isclose(result_with_barrier['e_initial_eV'], -1200.0)
+
+    def test_e_final_with_barrier(self, result_with_barrier):
+        assert math.isclose(result_with_barrier['e_final_eV'], -1220.0)
+
+    def test_e_max_is_peak(self, result_with_barrier):
+        # step=50 has PE=-1198.0, which is the highest value
+        assert math.isclose(result_with_barrier['e_max_eV'], -1198.0)
+
+    def test_apparent_barrier_positive(self, result_with_barrier):
+        # -1198.0 - (-1200.0) = 2.0 eV
+        assert math.isclose(result_with_barrier['apparent_barrier_eV'], 2.0)
+
+    def test_has_local_max_true(self, result_with_barrier):
+        assert result_with_barrier['has_local_max'] is True
+
+    # ── edge cases ───────────────────────────────────────────────────────────
+
+    def test_missing_file_returns_none(self, tmp_path):
+        result = parse_dissociated_h2_log(str(tmp_path / 'nonexistent.log'))
+        assert result is None
+
+    def test_single_thermo_row_returns_none(self, tmp_path):
+        f = _write(tmp_path / 'single.log', _DISS_LOG_SINGLE_ROW)
+        assert parse_dissociated_h2_log(f) is None
+
+    def test_empty_file_returns_none(self, tmp_path):
+        f = _write(tmp_path / 'empty.log', '')
+        assert parse_dissociated_h2_log(f) is None
+
