@@ -68,6 +68,7 @@ from models.permeation import (
     sieverts_solubility,
     permeability,
     richardson_flux,
+    resolve_nh_diffusivity,
 )
 from models.parsers import parse_barrier_file
 from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
@@ -338,37 +339,16 @@ _P_HIGH = max(P_VALS_PA)
 
 for _n_h in N_H_VALUES:
     print(f'\n{"="*76}\nH concentration: n_H = {_n_h}\n{"="*76}')
-    _nh_dir = os.path.join(WORK_DIR, 'results', f'{STEM}_{_n_h}H')
-    _diff_f = os.path.join(_nh_dir, 'diffusivity_arrhenius.json')
+    _res_nh = resolve_nh_diffusivity(WORK_DIR, STEM, _n_h)
+    _nh_dir = _res_nh['nh_dir']
 
-    if not os.path.exists(_diff_f):
-        print(f'  ERROR: {_diff_f} not found — Part 3 has not produced a '
-              f'diffusivity fit for n_H={_n_h}. Skipping this concentration '
-              f'entirely (no permeability computed, nothing fabricated).')
+    if not _res_nh['ready']:
+        print(f"  ERROR: {_res_nh['message']}")
         continue
-    with open(_diff_f) as _f:
-        _diff_fit = json.load(_f)
-    _D0_nh, _ED_nh = _diff_fit.get('D0_m2s'), _diff_fit.get('E_D_eV')
-    if _D0_nh is None or _ED_nh is None or _D0_nh != _D0_nh or _ED_nh != _ED_nh:
-        print(f'  ERROR: {_diff_f} has no valid D0/Ea (NaN or missing — Part 3 '
-              f'likely could not fit an Arrhenius relation for n_H={_n_h}, '
-              f'e.g. fewer than 2 valid temperatures). Skipping this '
-              f'concentration entirely.')
-        continue
+    _D0_nh, _ED_nh = _res_nh['D0_m2s'], _res_nh['E_D_eV']
+    _dilute_note = _res_nh['dilute_note']
     print(f'  Loaded real diffusivity fit: D0={_D0_nh:.3e} m²/s  Ea={_ED_nh:.4f} eV')
-
-    _dilute_note = None
-    if _n_h > 1:
-        _dilute_note = (
-            f"Sieverts' law and Richardson's permeation formula assume dilute "
-            f"dissolved H. n_H={_n_h} is not the dilute limit (n_H=1), so H-H "
-            f"interactions were present in this MD box and may make the "
-            f"derived solubility/permeability below an approximation. For a "
-            f"rigorous non-dilute treatment, use the raw KMC sweep data in "
-            f"permeation_sweep_T<T>K.json under {_nh_dir} directly "
-            f"(flux J(P), coverage θ(P), concentration C0(P) vs pressure — "
-            f"no √P scaling assumed)."
-        )
+    if _dilute_note:
         print(f'  NOTE: {_dilute_note}')
 
     os.makedirs(_nh_dir, exist_ok=True)
