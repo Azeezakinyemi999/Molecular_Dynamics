@@ -1,0 +1,314 @@
+Working directory: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel
+Node: c0639  Start: Sat Jul  4 05:24:11 PM EDT 2026
+Submitted batch job 8166964
+Submitted batch job 8167082
+
+============================================================
+  Structure : ni_bulk_test   n_H : 1
+============================================================
+
+--- Phase 1a: Minimise bare bulk ---
+  [1a] Already exists: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/structures/bulk_min.lammps — skipping
+
+--- Phase 1b: NPT equilibration at each temperature ---
+  [1b] NPT 600K already done — skipping
+  [1b] NPT 700K already done — skipping
+  Waiting for 0 NPT jobs ...
+Waiting for 0 jobs to finish (polling every 60s)...
+  [17:29:35] 0/0 done
+All jobs completed.
+  All NPT jobs done.
+
+--- Phase 1b (cont.): Insert H and minimise at each temperature ---
+[a0] 1.408605 Å  (mean of last 6 frames, npt_boxdims_600K.dat)
+  [1b] T=600K  a0 = 1.4086 Å
+  [1b] bulk+H min 600K already done — skipping
+[a0] 1.408674 Å  (mean of last 6 frames, npt_boxdims_700K.dat)
+  [1b] T=700K  a0 = 1.4087 Å
+  [1b] bulk+H min 700K already done — skipping
+  Waiting for 0 bulk+H minimisation jobs ...
+Waiting for 0 jobs to finish (polling every 60s)...
+  [17:29:35] 0/0 done
+All jobs completed.
+  All bulk+H minimisations done.
+  Saved lattice_params_vs_T.json → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/lattice_params_vs_T.json
+
+--- Phase 2: NVT MD ---
+  [2] NVT 600K already done — skipping
+  [2] NVT 700K already done — skipping
+  Waiting for NVT jobs (polling .done sentinels) ...
+  NVT 600K complete
+  NVT 700K complete
+  All NVT jobs done.
+
+--- Phase 3: Post-processing ---
+[parse_dump] 21 frames  1 H atoms  box=7.04x7.04x7.04 Å  (nvt_600K.dump)
+[unwrap] 1 atoms  21 frames  box=7.04×7.04×7.04 Å
+[MSD] 11 origins  10 lags  MSD_max=0.073 Å²
+[D fit] D=-1.6407e-10 m²/s  σ=1.39e-10 m²/s  R²=0.2589
+T=600 K  D=-1.6407e-10 m²/s  σ_D=1.39e-10  R²=0.2589
+  T=600K   D=-1.6407e-10 m2/s   R2=0.2589
+[parse_dump] 21 frames  1 H atoms  box=7.04x7.04x7.04 Å  (nvt_700K.dump)
+[unwrap] 1 atoms  21 frames  box=7.04×7.04×7.04 Å
+[MSD] 11 origins  10 lags  MSD_max=0.578 Å²
+[D fit] D=1.2989e-09 m²/s  σ=4.81e-10 m²/s  R²=0.6459
+T=700 K  D=1.2989e-09 m²/s  σ_D=4.81e-10  R²=0.6459
+  T=700K   D=1.2989e-09 m2/s   R2=0.6459
+Wrote: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/analysis/diffusivity_table.txt
+  D(T) summary: 600K:-1.64e-10 | 700K:1.30e-09
+[diff_file] 2 T points  D=-1.64e-10–1.30e-09 m²/s  (diffusivity_table.txt)
+WARNING: dropping 1 invalid D(T) point(s) from Arrhenius fit (D ≤ 0 or non-finite): 600K (D=-1.641e-10)
+WARNING: < 2 valid D(T) points — Arrhenius fit and plot skipped.
+  Arrhenius: Ea=nan eV  D0=nan m²/s  R²=nan
+  Saved diffusivity_arrhenius.json → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/diffusivity_arrhenius.json
+
+=== All structures and H concentrations complete ===
+
+############################################################
+  PIPELINE SMOKE TEST — 2026-07-04 17:24:20
+  Work dir     : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work
+  N_MAX_SITES  : 3
+  N_NEB_IMAGES : 6  NEB_FTOL=0.1
+  NEB timeout  : 3 h  (poll every 120 s)
+  DIFF temps   : [600, 700] K  equil=500 prod=2000 steps
+############################################################
+
+
+============================================================
+  Stage 0: Build 2×2 Ni FCC(111) slab (3 layers, 12 atoms)
+============================================================
+  [PASS] slab_raw_written — 12 atoms
+  z_freeze = 11.016 Å  (bottom layer frozen)
+  cell     = 4.978 × 4.978 × 24.065 Å
+
+============================================================
+  Stage 1: Slab CG minimisation with MACE (GPU SLURM job)
+============================================================
+  Submitting slab minimisation...
+Submitted /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_min.sh → Job 8166949
+  Job ID: 8166949  — waiting...
+Waiting for 1 jobs to finish (polling every 60s)...
+  [17:24:21] 0/1 done  — waiting: slab_min(pending)
+  [17:25:21] 1/1 done
+All jobs completed.
+[energy_log] PE=-58.028152 eV  Fmax=0.0000 eV/Å  (slab_min.log)
+  [PASS] slab_relaxed_file — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/slab/slab_relaxed.lammps
+  [PASS] slab_log_parsed — e_clean = -58.0282 eV
+  [PASS] e_clean_finite
+  e_clean = -58.028152 eV
+
+============================================================
+  Stage 2: Surface sites (synthetic — ACAT tested in tests/functional/)
+============================================================
+  [SKIP] ACAT CustomSurface requires atoms_per_layer ≥ 4;
+         the 3-layer 2×2 smoke-test slab has only 4 atoms total per
+         layer but ACAT's heuristic (_n_layers_est=12) misdetects 1.
+         ACAT site enumeration is covered by tests/functional/.
+         Writing synthetic ontop sites from Stage-0 geometry.
+  [PASS] sites_json_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/sites/surface_sites.json
+  [PASS] sites_nonzero — 3 synthetic ontop sites
+  [PASS] surface_graph_gml_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/sites/surface_graph.gml
+  surface_z = 14.065 Å  |  3 sites written
+
+============================================================
+  Stage 3: H2* adsorption (3 sites, GPU array)
+============================================================
+[Section B Phase 1] H2* adsorption (parallel): 3 sites
+Added H2 above site (0.000, 0.000) at z=16.213 Å
+  z_top slab = 13.713 Å   height = 2.500 Å
+Added H2 above site (2.489, 0.000) at z=16.213 Å
+  z_top slab = 13.713 Å   height = 2.500 Å
+Added H2 above site (1.245, 2.156) at z=16.213 Å
+  z_top slab = 13.713 Å   height = 2.500 Å
+Auto-submit: 3 tasks, queue_max=4, concurrent=2
+  [17:25:21] Queue=0, submitting 0–2
+All submitted. Waiting for queue to drain...
+  [17:25:26] 3 tasks remaining...
+  [17:26:27] 1 tasks remaining...
+
+Done.  3/3 tasks completed.
+  Array script: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/run_h2_array.sh  (submitted)
+[energy_log] PE=-65.112670 eV  Fmax=0.0000 eV/Å  (h2_min_s_0.log)
+[energy_log] PE=-65.112670 eV  Fmax=0.0000 eV/Å  (h2_min_s_1.log)
+[energy_log] PE=-65.098586 eV  Fmax=0.0000 eV/Å  (h2_min_s_2.log)
+  H2* energies     → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/h2_adsorption_energies.json
+  H2_site_coords   → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/H2_site_coords.json  (all 3 computed)
+  H2_intact_pool   → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase1_h2/H2_intact_pool.json  (2 intact+Eads<0 / 0 dropped by energy / 1 dissociated)
+  [PASS] h2_status — submitted
+  [PASS] h2_n_computed — 3/3
+  [PASS] h2_intact_pool_written
+  H2 intact sites: 2  (e_h2_gas=0 → binding energies are proxies)
+
+============================================================
+  Stage 4: H* adsorption (3 sites, GPU array)
+============================================================
+[Section B Phase 2] H* adsorption: 3 sites
+Added H above site (0.000, 0.000) at z=16.213 Å
+  z_top slab = 13.713 Å   height = 2.500 Å
+Added H above site (2.489, 0.000) at z=16.213 Å
+  z_top slab = 13.713 Å   height = 2.500 Å
+Added H above site (1.245, 2.156) at z=16.213 Å
+  z_top slab = 13.713 Å   height = 2.500 Å
+Auto-submit: 3 tasks, queue_max=4, concurrent=2
+  [17:27:27] Queue=0, submitting 0–2
+All submitted. Waiting for queue to drain...
+  [17:27:33] 3 tasks remaining...
+  [17:28:33] 1 tasks remaining...
+
+Done.  3/3 tasks completed.
+  Array script: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/run_h_array.sh  (submitted)
+[energy_log] PE=-62.009332 eV  Fmax=0.0000 eV/Å  (h_min_s_0.log)
+[energy_log] PE=-62.009332 eV  Fmax=0.0000 eV/Å  (h_min_s_1.log)
+[energy_log] PE=-61.985174 eV  Fmax=0.0000 eV/Å  (h_min_s_2.log)
+  H* energies      → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/h_adsorption_energies.json
+  H_all_energies   → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/H_all_energies.json  (all 3 computed)
+  H_site_coords    → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/adsorption/phase2_h/H_site_coords.json  (3 with E_ads < 0)
+  [PASS] h_status — submitted
+  [PASS] h_n_computed — 3/3
+  [PASS] h_site_coords_written
+
+============================================================
+  Stage 5: Surface NEB pipeline (≤1 pair, 6 images)
+============================================================
+
+================================================================================
+SECTION C: NEB Workflow
+================================================================================
+
+>>> Phase 1: Load pools
+[energy_log] PE=-65.112670 eV  Fmax=0.0000 eV/Å  (h2_min_s_1.log)
+[energy_log] PE=-65.098586 eV  Fmax=0.0000 eV/Å  (h2_min_s_2.log)
+[energy_log] PE=-62.009332 eV  Fmax=0.0000 eV/Å  (h_min_s_0.log)
+[energy_log] PE=-62.009332 eV  Fmax=0.0000 eV/Å  (h_min_s_1.log)
+[energy_log] PE=-61.985174 eV  Fmax=0.0000 eV/Å  (h_min_s_2.log)
+[Section C Phase 1] IS pool: 2 intact  (2 xy, 2 energies)
+                    FS pool: 3 (E<0)    (3 xy, 3 energies)
+
+>>> Phase 1b: FS pair enumeration
+[Section C Phase 1b] 3 FS sites → 1 raw pairs  (sep 2.0–5.0 Å, graph_dist≥2)
+
+>>> Phase 1c: FS pair deduplication
+[Section C Phase 1c] 1 raw → 1 unique pairs after fingerprint dedup
+
+>>> Phase 1d: IS site deduplication
+[Section C Phase 1d] 2 valid IS → 1 unique after fingerprint dedup
+
+>>> Phase 2: IS × FS cross-product
+[Section C Phase 2] 1 IS × 1 FS = 1 combinations
+
+>>> Phase 2b: Proximity filter + label dedup
+[Section C Phase 2b] 1 → 1 (prox<5.0 Å) → 1 (after label dedup) NEB jobs
+
+>>> Phase 3: NEB job generation
+[build_fs_raw_structure] z_fs = 15.330 Å  (metal max + 1.5 Å)
+  H1: (0.000, 3.307, 15.330)
+  H2: (2.489, 3.307, 15.330)
+Written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/run_neb.py
+  NEB s_1__s_0+s_1: already done (/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/neb_barrier.txt) — skipping submission
+[Section C Phase 3] 1 NEB jobs  (submitted)
+  job_index      : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/job_index.txt
+  fsmin array sh : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/run_fsmin_array.sh
+  neb array sh   : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/run_neb_array.sh
+  pairs json     : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/neb_pairs.json
+
+================================================================================
+SECTION C COMPLETE
+================================================================================
+  IS unique    : 1
+  FS unique    : 1
+  Combinations : 1
+  After filters: 1
+  NEB jobs     : 1
+  Summary      : /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/section_c_summary.json
+  [PASS] neb_pools_loaded — IS=2  FS=3
+  [PASS] neb_dedup_ran — 1 combination(s) after proximity+label filter
+  [PASS] neb_jobs_submitted — 1 pair(s) submitted [enumerated]
+
+  Polling for: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/neb_barrier.txt
+  Timeout: 3 h  |  poll every 120 s
+  [PASS] neb_barrier_file_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/neb/neb/s_1__s_0+s_1/neb_barrier.txt
+[barrier] Ea=1.247 eV  E_des=0.000 eV  dE=1.247 eV  converged=True
+  [PASS] neb_barrier_parseable — E_abs = 1.2467 eV
+  [PASS] neb_barrier_positive — E_abs = 1.2467 eV
+  [PASS] neb_converged — converged = True
+  NEB completed in 0.0 min
+
+============================================================
+  Stage 6: Diffusivity NVT MD ([600, 700] K, minimal steps)
+============================================================
+  [PASS] diff_bulk_written — 32 atoms
+  [PASS] diffusivity_run_py_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/diffusivity_run.py
+
+  Running diffusivity_run.py  (submits GPU sub-jobs and waits) …
+  [PASS] diffusivity_run_exit_0 — exit code 0
+  [PASS] diff_msd_files_written — 2 msd_*.txt files found
+  [PASS] diff_table_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test_1H/analysis/diffusivity_table.txt
+  [PASS] diff_arrhenius_json_written — /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/diffusivity/results/ni_bulk_test/diffusivity_arrhenius.json
+  [PASS] diff_arrhenius_graceful_nan — 1 valid D point(s) at smoke scale — NaN fit is the designed graceful behaviour
+  Arrhenius: Ea=nan eV  D0=nan m²/s  R²=nan
+
+============================================================
+  Stage 7: Permeation math — TST → KMC → permeability (pure Python)
+============================================================
+[barrier] Ea=1.247 eV  E_des=0.000 eV  dE=1.247 eV  converged=True
+  Barrier source : real NEB barrier from neb_barrier.txt
+  E_abs (diss) = 1.247 eV   E_des (assoc) = 0.000 eV   T = 700 K
+  Hop-A entry/exit (synthetic, untested here): 0.30/0.50 eV
+  [PASS] tst_k_entry_positive — k_entry = 6.920e+10 s⁻¹
+  [PASS] tst_detailed_balance — k_fwd/k_rev = 2.7538e+01  expected 2.7538e+01
+[KMC] converged=True  steps=488  t=2.135e-11 s  θ=0.2075  C0=8.106e+27 atoms/m³
+  P=1.00e+04 Pa | θ=0.2075 | C0=8.106e+27 atoms/m³ | J=1.069e+24 atoms/m²/s | converged=True
+[KMC] converged=True  steps=126  t=1.124e-12 s  θ=0.4100  C0=0.000e+00 atoms/m³
+  P=1.00e+05 Pa | θ=0.4100 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+[KMC] converged=True  steps=104  t=3.123e-13 s  θ=0.6500  C0=0.000e+00 atoms/m³
+  P=1.00e+06 Pa | θ=0.6500 | C0=0.000e+00 atoms/m³ | J=0.000e+00 atoms/m²/s | converged=True
+  [PASS] kmc_flux_positive — 1/3 pressures give J > 0
+  [PASS] kmc_C0_positive — 1/3 pressures give C0 > 0
+[S0 opt1] S0=9.171e+28 atoms·m⁻³·Pa⁻⁰·⁵  (a0=3.5200 Å)
+[Phi] Φ=1.069e+16 atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵
+  [PASS] permeability_positive — Φ = 1.069e+16 mol m⁻¹ s⁻¹ Pa⁻⁰·⁵
+  D(700K) = 1.319e-10 m²/s   S_est = 8.106e+25   Φ = 1.069e+16
+  [PASS] permeation_summary_written
+
+============================================================
+  SUMMARY
+============================================================
+  Wall time : 5.3 min (0.09 h)
+  Passed    : 33
+  Failed    : 0
+    [PASS] slab_raw_written
+    [PASS] slab_relaxed_file
+    [PASS] slab_log_parsed
+    [PASS] e_clean_finite
+    [PASS] sites_json_written
+    [PASS] sites_nonzero
+    [PASS] surface_graph_gml_written
+    [PASS] h2_status
+    [PASS] h2_n_computed
+    [PASS] h2_intact_pool_written
+    [PASS] h_status
+    [PASS] h_n_computed
+    [PASS] h_site_coords_written
+    [PASS] neb_pools_loaded
+    [PASS] neb_dedup_ran
+    [PASS] neb_jobs_submitted
+    [PASS] neb_barrier_file_written
+    [PASS] neb_barrier_parseable
+    [PASS] neb_barrier_positive
+    [PASS] neb_converged
+    [PASS] diff_bulk_written
+    [PASS] diffusivity_run_py_written
+    [PASS] diffusivity_run_exit_0
+    [PASS] diff_msd_files_written
+    [PASS] diff_table_written
+    [PASS] diff_arrhenius_json_written
+    [PASS] diff_arrhenius_graceful_nan
+    [PASS] tst_k_entry_positive
+    [PASS] tst_detailed_balance
+    [PASS] kmc_flux_positive
+    [PASS] kmc_C0_positive
+    [PASS] permeability_positive
+    [PASS] permeation_summary_written
+
+  Summary written → /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/tests/pipeline/work/summary.txt
+End: Sat Jul  4 05:29:36 PM EDT 2026  Exit code: 0

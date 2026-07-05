@@ -1,6 +1,6 @@
-Pipeline smoke test — 2026-07-04 17:05:14
-Wall time : 21.3 min
-Passed    : 30 / 33
+Pipeline smoke test — 2026-07-04 17:29:36
+Wall time : 5.3 min
+Passed    : 33 / 33
 
 PASS  slab_raw_written
 PASS  slab_relaxed_file
@@ -31,7 +31,7 @@ PASS  diff_arrhenius_json_written
 PASS  diff_arrhenius_graceful_nan
 PASS  tst_k_entry_positive
 PASS  tst_detailed_balance
+PASS  kmc_flux_positive
+PASS  kmc_C0_positive
+PASS  permeability_positive
 PASS  permeation_summary_written
-FAIL  kmc_flux_positive
-FAIL  kmc_C0_positive
-FAIL  permeability_positive
