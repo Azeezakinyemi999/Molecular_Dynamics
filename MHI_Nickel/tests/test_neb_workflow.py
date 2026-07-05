@@ -183,6 +183,30 @@ class TestWriteNebRunScript:
         _, _, content = gen_result
         assert 'ranked_barriers.json' in content
 
+    def test_collect_neb_results_actually_called(self, gen_result):
+        """Regression test for GitHub #7: ranked_barriers.json referenced
+        in the checkpoint-guard path string is not proof it ever gets
+        written — collect_neb_results(NEB_DIR) must actually be called
+        after the NEB array completes, or the file never materialises
+        and Phase E / Part 2's DH_DISS_EV auto-extraction silently starve."""
+        _, _, content = gen_result
+        assert 'collect_neb_results' in content
+        assert 'collect_neb_results(NEB_DIR)' in content
+        # must be imported from models.neb_workflow, not left undefined
+        assert 'from models.neb_workflow import' in content
+        import_block_start = content.index('from models.neb_workflow import')
+        import_block = content[import_block_start:import_block_start + 200]
+        assert 'collect_neb_results' in import_block
+
+    def test_phase_e_job_dir_includes_neb_subfolder(self, gen_result):
+        """Regression test: orchestrate_neb writes per-job dirs under
+        {outdir}/neb/{label}/ (NEB_DIR already IS that outdir), so Phase E
+        must reconstruct job_dir as NEB_DIR/neb/{label} — not NEB_DIR/{label}
+        directly, which silently found no IS/TS structures for any job."""
+        _, _, content = gen_result
+        assert "os.path.join(NEB_DIR, 'neb', _lbl_e)" in content
+        assert "os.path.join(NEB_DIR, _lbl_e)" not in content
+
     def test_orchestrate_full_neb_workflow_called(self, gen_result):
         _, _, content = gen_result
         assert 'orchestrate_full_neb_workflow' in content
@@ -194,6 +218,16 @@ class TestWriteNebRunScript:
     def test_auto_submit_called_in_body(self, gen_result):
         _, _, content = gen_result
         assert 'auto_submit' in content
+
+    def test_fsmin_auto_submit_result_dir_includes_neb_subfolder(self, gen_result):
+        """Regression test: neb_final_relaxed.lammps lands at
+        {NEB_DIR}/neb/{label}/ (orchestrate_neb's own 'neb' subfolder
+        under the outdir it was given — NEB_DIR itself), so auto_submit's
+        completion-check result_dir must be NEB_DIR/neb, not NEB_DIR
+        directly — otherwise its glob never matches anything and every
+        FS-min task is misreported as missing regardless of real status."""
+        _, _, content = gen_result
+        assert "os.path.join(NEB_DIR, 'neb')" in content
 
     def test_vib_slurm_cfg_defaults_to_neb_slurm_cfg(self, tmp_path):
         out_py = str(tmp_path / 'neb_run.py')

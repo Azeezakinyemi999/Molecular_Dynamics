@@ -2542,7 +2542,10 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(WORK_DIR))
 
-from models.neb_workflow import orchestrate_full_neb_workflow, calculate_ref_adsorbate_energy
+from models.neb_workflow import (
+    orchestrate_full_neb_workflow, calculate_ref_adsorbate_energy,
+    collect_neb_results,
+)
 from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
 
 # -- H2 reference energy (compute at runtime if not embedded at generation time) --
@@ -2612,7 +2615,12 @@ if not os.path.exists(_ranked_f):
     auto_submit(
         array_script   = result['fsmin_array_script'],
         index_file     = result['job_index'],
-        result_dir     = NEB_DIR,
+        # Per-job outputs land at {NEB_DIR}/neb/{label}/neb_final_relaxed.lammps
+        # (orchestrate_neb's own 'neb' subfolder under the outdir it was
+        # given — NEB_DIR itself) — result_dir must be that parent, one
+        # level below NEB_DIR, or the completion glob never matches
+        # anything and every task is misreported as missing.
+        result_dir     = os.path.join(NEB_DIR, 'neb'),
         result_pattern = '*/neb_final_relaxed.lammps',
         n_total        = result['n_neb_jobs'],
         job_name       = 'fsmin_array',
@@ -2625,6 +2633,12 @@ if not os.path.exists(_ranked_f):
     print(f'  NEB array submitted  ->  job {neb_jid}')
     wait_for_jobs({'neb_array': neb_jid})
     print('  All NEB calculations done.')
+
+    # -- Collect + rank barriers -> ranked_barriers.json -----------------------
+    # Required by Phase E below (dissociation vibrations) and by Part 2's
+    # DH_DISS_EV auto-extraction. Also makes the checkpoint guard above
+    # (`if not os.path.exists(_ranked_f)`) actually skip on a completed run.
+    collect_neb_results(NEB_DIR)
 else:
     print(f'  Phases A-D already complete: {_ranked_f} — skipping')
 
@@ -2658,7 +2672,9 @@ else:
         if not _job_e.get('converged', False):
             continue
         _lbl_e     = _job_e['label']
-        _job_dir_e = os.path.join(NEB_DIR, _lbl_e)
+        # Per-job dirs live at {NEB_DIR}/neb/{label}/ (orchestrate_neb's own
+        # 'neb' subfolder under the outdir it was given — NEB_DIR itself).
+        _job_dir_e = os.path.join(NEB_DIR, 'neb', _lbl_e)
         _is_e      = os.path.join(_job_dir_e, 'neb_initial.lammps')
         _img_dir_e = os.path.join(_job_dir_e, 'images')
         _path_f_e  = _job_e.get('path_file',
