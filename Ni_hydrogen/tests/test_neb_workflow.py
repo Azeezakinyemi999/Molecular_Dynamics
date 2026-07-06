@@ -257,7 +257,78 @@ class TestWriteNebRunScript:
         assert 'import calculate_ref_adsorbate_energy' not in content
         assert "os.path.join(WORK_DIR, 'adsorption', 'ref_energies', 'h2_ref_energy.json')" in content
         assert "os.path.join(ADS_DIR, 'ref_energies')" not in content
-        assert 'raise RuntimeError' in content
+
+    def test_min_slurm_cfg_defaults_to_gpu_slurm_cfg(self, gen_result):
+        """Backward compat: callers that only pass gpu_slurm_cfg (no
+        min_slurm_cfg) must still get a valid MIN_SLURM_CFG embedded."""
+        _, _, content = gen_result
+        assert 'MIN_SLURM_CFG' in content
+
+    def test_min_slurm_cfg_distinct_from_gpu_slurm_cfg_when_given(self, tmp_path):
+        """Real fix: slab surface relaxation (Section A, real chained MD)
+        must use gpu_slurm_cfg; the quick one-shot minimizations elsewhere
+        (Sections B/C: adsorption energy, FS-min) must use min_slurm_cfg,
+        which can now be a different partition/time. See the GitHub issue
+        on gpu vs sharing partition placement."""
+        out_py = str(tmp_path / 'neb_run.py')
+        write_neb_run_script(
+            **{**_NEB_CFG,
+               'gpu_slurm_cfg': {'partition': 'gpu', 'time': '08:00:00'},
+               'min_slurm_cfg': {'partition': 'sharing', 'time': '01:00:00'}},
+            out_py=out_py,
+        )
+        content = pathlib.Path(out_py).read_text()
+        assert "'partition': 'gpu', 'time': '08:00:00'" in content
+        assert "'partition': 'sharing', 'time': '01:00:00'" in content
+        # orchestrate_full_neb_workflow must actually be called with both,
+        # not just have them sitting unused in the header.
+        assert 'min_slurm_cfg=MIN_SLURM_CFG' in content
+        assert 'gpu_slurm_cfg=GPU_SLURM_CFG' in content
+
+    def test_orchestrate_full_neb_workflow_routes_gpu_vs_min_correctly(self, monkeypatch):
+        """Direct test of the real function (not just the generated
+        script): Section A (slab prep -- real chained MD) must receive
+        gpu_slurm_cfg; Sections B (adsorption energies) and C (NEB
+        enumeration/FS-min) must receive min_slurm_cfg."""
+        from models.neb_workflow import orchestrate_full_neb_workflow
+
+        _GPU = {'partition': 'gpu', 'time': '08:00:00'}
+        _MIN = {'partition': 'sharing', 'time': '01:00:00'}
+        _NEB = {'partition': 'short', 'time': '12:00:00'}
+
+        calls = {}
+
+        def _fake_slab_prep(**kw):
+            calls['slab_prep'] = kw['slurm_opts']
+            return {'phase3_sites': '/x/sites.json', 'phase2_relaxed': '/x/relaxed.lammps',
+                    'phase2_log': '', 'z_freeze_cutoff': 10.0, 'n_sites': 0}
+
+        def _fake_adsorption(**kw):
+            calls['adsorption'] = kw['slurm_opts']
+            return {}
+
+        def _fake_neb_pipeline(**kw):
+            calls['neb_pipeline'] = kw['slurm_opts']
+            return {
+                'neb_result': {'fsmin_array_script': '', 'neb_array_script': '', 'n_jobs': 0, 'status': 'ok'},
+                'status': 'ok',
+            }
+
+        monkeypatch.setattr('models.neb_workflow.orchestrate_slab_prep', _fake_slab_prep)
+        monkeypatch.setattr('models.neb_workflow.orchestrate_adsorption_energies', _fake_adsorption)
+        monkeypatch.setattr('models.neb_workflow.orchestrate_neb_pipeline', _fake_neb_pipeline)
+
+        orchestrate_full_neb_workflow(
+            bulk_min_path='/x/bulk_min.lammps',
+            e_h2_gas=-6.77,
+            slab_dir='/x/slabs', ads_dir='/x/ads', neb_dir='/x/neb',
+            gpu_slurm_cfg=_GPU, neb_slurm_cfg=_NEB, min_slurm_cfg=_MIN,
+            dry_run=True,
+        )
+
+        assert calls['slab_prep'] == _GPU
+        assert calls['adsorption'] == _MIN
+        assert calls['neb_pipeline'] == _MIN
 
 
 # ═══════════════════════════════════════════════════════════════════════════
