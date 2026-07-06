@@ -2542,37 +2542,35 @@ MASSES   = {masses!r}
     _body = r"""
 import os
 import sys
+import json
 sys.path.insert(0, os.path.dirname(WORK_DIR))
 
 from models.neb_workflow import (
-    orchestrate_full_neb_workflow, calculate_ref_adsorbate_energy,
+    orchestrate_full_neb_workflow,
     collect_neb_results,
 )
 from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
 
-# -- H2 reference energy (compute at runtime if not embedded at generation time) --
+# -- H2 reference energy: read from the shared cache written by
+# pipeline.ipynb Cell 2 (calculate_ref_adsorbate_energy). Never computed
+# here -- every metal used to fall back to computing its own copy at its
+# own per-metal ADS_DIR/ref_energies path, so N metals running in parallel
+# via pipeline_run.py each independently submitted a redundant ref_h2 job
+# for a value that's metal-independent. Submit Cell 2's job manually, wait
+# for it, then re-run Cell 2 once to finish caching the result before
+# submitting the real pipeline.
 if E_H2_GAS is None:
-    from models.config import LAMMPS_CMD, MACE_MODEL_LAMMPS, PAIR_STYLE, PAIR_SUFFIX, KOKKOS_FLAGS
-    E_H2_GAS = calculate_ref_adsorbate_energy(
-        adsorbate='H2',
-        outdir=os.path.join(ADS_DIR, 'ref_energies'),
-        pair_style=PAIR_STYLE,
-        mace_model=MACE_MODEL_LAMMPS,
-        pair_suffix=PAIR_SUFFIX,
-        elem_str=ELEM_STR,
-        e2t=E2T,
-        masses=MASSES,
-        lammps_cmd=LAMMPS_CMD,
-        kokkos_flags=KOKKOS_FLAGS,
-        slurm_opts=GPU_SLURM_CFG,
-        dry_run=False,
-    )
-    if E_H2_GAS is None:
+    _h2_cache = os.path.join(WORK_DIR, 'adsorption', 'ref_energies', 'h2_ref_energy.json')
+    if not os.path.exists(_h2_cache):
         raise RuntimeError(
-            'H2 reference energy unavailable after job completion. '
-            'Check logs in: ' + os.path.join(ADS_DIR, 'ref_energies')
+            'H2 reference energy not yet computed. Run pipeline.ipynb Cell 2, '
+            f'submit the job it writes ({os.path.dirname(_h2_cache)}/h2_ref.sh) '
+            'manually, wait for it to finish, then re-run Cell 2 to cache the '
+            f'result at {_h2_cache}.'
         )
-    print(f'  E_H2_GAS = {E_H2_GAS} eV  (computed by calculate_ref_adsorbate_energy)')
+    with open(_h2_cache) as _f:
+        E_H2_GAS = json.load(_f)['pe_final_eV']
+    print(f'  E_H2_GAS = {E_H2_GAS} eV  (loaded from shared cache: {_h2_cache})')
 
 # -- Phases A-D ----------------------------------------------------------------
 _ranked_f = os.path.join(NEB_DIR, 'ranked_barriers.json')
@@ -3143,15 +3141,22 @@ def calculate_ref_adsorbate_energy(
     )
     print(f'[ref_energy] Written: {slurm_script}')
 
-    if dry_run:
-        print(f'[ref_energy] dry_run=True — scripts written, not submitted.')
-        return None
-
-    # ── Submit → wait → parse ──────────────────────────────────────────────────
-    job_id = submit_slurm_job(slurm_script)
-    print(f'[ref_energy] Submitted {adsorbate} reference job → {job_id}')
-    wait_for_jobs({f'ref_{tag}': job_id})
-    print(f'[ref_energy] {adsorbate} reference job done.')
+    # A manually-submitted run (e.g. `sbatch {slurm_script}` outside this
+    # function) leaves `log_file` on disk with no cache_json yet -- pick that
+    # up here instead of blindly resubmitting, in both dry_run modes. This is
+    # what lets a re-run of the cell that wrote this script (still
+    # dry_run=True) finish the caching step after a manual submission.
+    if not os.path.exists(log_file):
+        if dry_run:
+            print(f'[ref_energy] dry_run=True — scripts written, not submitted.')
+            return None
+        # ── Submit → wait ────────────────────────────────────────────────────
+        job_id = submit_slurm_job(slurm_script)
+        print(f'[ref_energy] Submitted {adsorbate} reference job → {job_id}')
+        wait_for_jobs({f'ref_{tag}': job_id})
+        print(f'[ref_energy] {adsorbate} reference job done.')
+    else:
+        print(f'[ref_energy] Found existing {log_file} — parsing it instead of submitting.')
 
     if not os.path.exists(log_file):
         print(f'[ref_energy] WARNING: log not found at {log_file}')

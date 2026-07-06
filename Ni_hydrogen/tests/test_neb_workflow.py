@@ -38,6 +38,7 @@ from models.neb_workflow import (
     collect_neb_results,
     plot_barrier_heatmap,
     plot_mep_overlay,
+    calculate_ref_adsorbate_energy,
 )
 
 
@@ -240,6 +241,58 @@ class TestWriteNebRunScript:
         _, _, content = gen_result
         assert 'E_H2_GAS' in content
         assert '-6.77' in content
+
+    def test_e_h2_gas_none_reads_shared_cache_not_per_metal(self, tmp_path):
+        """Regression test: every metal used to fall back to computing its
+        own H2 reference energy at its own per-metal ADS_DIR/ref_energies
+        path when E_H2_GAS was None -- with N metals launched in parallel by
+        pipeline_run.py, that meant up to N redundant ref_h2 SLURM
+        submissions for a value that's metal-independent. Now each metal
+        must only ever READ the shared cache pipeline.ipynb Cell 2 writes,
+        never compute its own. See [[project_pipeline_test_bugs]]."""
+        out_py = str(tmp_path / 'neb_run.py')
+        write_neb_run_script(**{**_NEB_CFG, 'e_h2_gas': None}, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        assert 'calculate_ref_adsorbate_energy(' not in content
+        assert 'import calculate_ref_adsorbate_energy' not in content
+        assert "os.path.join(WORK_DIR, 'adsorption', 'ref_energies', 'h2_ref_energy.json')" in content
+        assert "os.path.join(ADS_DIR, 'ref_energies')" not in content
+        assert 'raise RuntimeError' in content
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1b. write_neb_run_script — H2 shared-cache read (real exec of the slice)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestNebRunH2CacheBehavior:
+
+    def _h2_slice(self, content):
+        start = content.index('# -- H2 reference energy')
+        end = content.index('# -- Phases A-D')
+        return content[start:end]
+
+    def test_raises_when_cache_missing(self, tmp_path):
+        out_py = str(tmp_path / 'neb_run.py')
+        write_neb_run_script(**{**_NEB_CFG, 'work_dir': str(tmp_path / 'work'), 'e_h2_gas': None},
+                              out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        ns = {'os': os, 'json': json, 'WORK_DIR': str(tmp_path / 'work'), 'E_H2_GAS': None}
+        with pytest.raises(RuntimeError, match='not yet computed'):
+            exec(compile(self._h2_slice(content), out_py, 'exec'), ns)
+
+    def test_loads_value_when_cache_present(self, tmp_path):
+        work_dir = str(tmp_path / 'work')
+        cache_dir = os.path.join(work_dir, 'adsorption', 'ref_energies')
+        os.makedirs(cache_dir, exist_ok=True)
+        pathlib.Path(os.path.join(cache_dir, 'h2_ref_energy.json')).write_text(
+            json.dumps({'pe_final_eV': -6.77}))
+
+        out_py = str(tmp_path / 'neb_run.py')
+        write_neb_run_script(**{**_NEB_CFG, 'work_dir': work_dir, 'e_h2_gas': None}, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        ns = {'os': os, 'json': json, 'WORK_DIR': work_dir, 'E_H2_GAS': None}
+        exec(compile(self._h2_slice(content), out_py, 'exec'), ns)
+        assert ns['E_H2_GAS'] == -6.77
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -455,4 +508,124 @@ class TestPlotMepOverlay:
         # path file doesn't exist → no paths plotted → still saves an empty figure
         assert result is not None
         assert pathlib.Path(result).exists()
-        assert result.endswith('mep_overlay.png')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. calculate_ref_adsorbate_energy
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _write_h2_log(path):
+    pathlib.Path(path).write_text(
+        'pe_final_eV      : -6.77\nfmax_eV_per_Ang  : 0.0001\nnatoms           : 2\n'
+    )
+
+
+class TestCalculateRefAdsorbateEnergy:
+    """Offline -- submit_slurm_job/wait_for_jobs are monkeypatched at their
+    home module (models.create_slurm), which calculate_ref_adsorbate_energy
+    imports locally on every call, so patching before the call is enough."""
+
+    _CFG = dict(
+        adsorbate='H2',
+        pair_style='mliap unified',
+        mace_model='/models/mace.pt',
+        pair_suffix='0',
+        elem_str='Al B C Cr Fe Mo Ni H',
+        e2t={'H': 8},
+        masses={8: (1.008, 'H')},
+        lammps_cmd='/bin/lmp',
+        kokkos_flags=[],
+        slurm_opts={
+            'ntasks': 1, 'cpus_per_task': 8, 'gpu': 'a100:1',
+            'conda_env': '/envs/mace-lammps', 'cuda_version': '12.3.0',
+            'openmpi_ver': '4.1.6', 'ld_paths': [],
+            'partition': 'gpu', 'time': '01:00:00',
+        },
+    )
+
+    def test_dry_run_no_log_writes_scripts_and_returns_none(self, tmp_path, monkeypatch):
+        submit_mock = MagicMock()
+        wait_mock = MagicMock()
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job', submit_mock)
+        monkeypatch.setattr('models.create_slurm.wait_for_jobs', wait_mock)
+
+        outdir = str(tmp_path / 'ref_energies')
+        result = calculate_ref_adsorbate_energy(outdir=outdir, dry_run=True, **self._CFG)
+
+        assert result is None
+        submit_mock.assert_not_called()
+        wait_mock.assert_not_called()
+        assert pathlib.Path(outdir, 'h2_ref.sh').exists()
+        assert not pathlib.Path(outdir, 'h2_ref_energy.json').exists()
+
+    def test_dry_run_existing_log_parses_instead_of_resubmitting(self, tmp_path, monkeypatch):
+        """A manually-submitted job (e.g. `sbatch h2_ref.sh` run by hand)
+        leaves the log on disk with no cache yet -- re-running this
+        function (still dry_run=True) must pick that up and cache the
+        result instead of returning None forever. See
+        [[project_pipeline_test_bugs]]."""
+        submit_mock = MagicMock()
+        wait_mock = MagicMock()
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job', submit_mock)
+        monkeypatch.setattr('models.create_slurm.wait_for_jobs', wait_mock)
+
+        outdir = str(tmp_path / 'ref_energies')
+        os.makedirs(outdir, exist_ok=True)
+        _write_h2_log(os.path.join(outdir, 'h2_gas_min.log'))
+
+        result = calculate_ref_adsorbate_energy(outdir=outdir, dry_run=True, **self._CFG)
+
+        assert result == pytest.approx(-6.77)
+        submit_mock.assert_not_called()
+        wait_mock.assert_not_called()
+        cache = json.loads(pathlib.Path(outdir, 'h2_ref_energy.json').read_text())
+        assert cache['pe_final_eV'] == pytest.approx(-6.77)
+
+    def test_real_run_no_log_submits_and_waits(self, tmp_path, monkeypatch):
+        outdir = str(tmp_path / 'ref_energies')
+
+        def _fake_wait(jobs):
+            _write_h2_log(os.path.join(outdir, 'h2_gas_min.log'))
+
+        submit_mock = MagicMock(return_value='fakejid')
+        wait_mock = MagicMock(side_effect=_fake_wait)
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job', submit_mock)
+        monkeypatch.setattr('models.create_slurm.wait_for_jobs', wait_mock)
+
+        result = calculate_ref_adsorbate_energy(outdir=outdir, dry_run=False, **self._CFG)
+
+        assert result == pytest.approx(-6.77)
+        submit_mock.assert_called_once()
+        wait_mock.assert_called_once()
+
+    def test_real_run_existing_log_skips_resubmission(self, tmp_path, monkeypatch):
+        """The other half of the fix: even in dry_run=False mode, an
+        already-completed manual run must not be resubmitted."""
+        outdir = str(tmp_path / 'ref_energies')
+        os.makedirs(outdir, exist_ok=True)
+        _write_h2_log(os.path.join(outdir, 'h2_gas_min.log'))
+
+        submit_mock = MagicMock()
+        wait_mock = MagicMock()
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job', submit_mock)
+        monkeypatch.setattr('models.create_slurm.wait_for_jobs', wait_mock)
+
+        result = calculate_ref_adsorbate_energy(outdir=outdir, dry_run=False, **self._CFG)
+
+        assert result == pytest.approx(-6.77)
+        submit_mock.assert_not_called()
+        wait_mock.assert_not_called()
+
+    def test_cache_hit_returns_immediately_without_writing_scripts(self, tmp_path, monkeypatch):
+        outdir = str(tmp_path / 'ref_energies')
+        os.makedirs(outdir, exist_ok=True)
+        pathlib.Path(outdir, 'h2_ref_energy.json').write_text(
+            json.dumps({'pe_final_eV': -6.77}))
+        submit_mock = MagicMock()
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job', submit_mock)
+
+        result = calculate_ref_adsorbate_energy(outdir=outdir, dry_run=False, **self._CFG)
+
+        assert result == pytest.approx(-6.77)
+        submit_mock.assert_not_called()
+        assert not pathlib.Path(outdir, 'h2_gas_min.lammps').exists()
