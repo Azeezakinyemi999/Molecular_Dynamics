@@ -1,0 +1,47 @@
+# ═══════════════════════════════════════════════════════
+# LAMMPS Adsorbate CG Minimization — Hastelloy N Slab
+# Section B (NB05/NB06) | fixed box | boundary p p f
+# pair_style: mliap unified
+# ═══════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p f
+
+read_data      /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/structures/slab_h2_s_102.lammps
+
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+# ── Freeze bottom layers (z ≤ 22.115 Å) ─────────────────────────────
+region         frozen_reg   block  INF INF  INF INF  EDGE  22.115
+group          frozen_atoms region frozen_reg
+group          free_atoms   subtract all frozen_atoms
+
+fix            freeze  frozen_atoms  setforce  0.0  0.0  0.0
+
+thermo         100
+thermo_style   custom  step  pe  fmax  fnorm  press
+
+print "### Adsorbate minimization ###"
+
+minimize       0.0  1e-06  10000  100000
+
+print "### Minimization complete ###"
+
+
+variable       pe_final  equal  pe
+variable       fmax_f    equal  fmax
+variable       natoms    equal  atoms
+
+print "  pe_final_eV     : ${pe_final}"
+print "  fmax_eV_per_Ang : ${fmax_f}"
+print "  natoms          : ${natoms}"
+
+unfix          freeze
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_s_102_relaxed.lammps
+print "Relaxed adsorbate structure written to /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/adsorption/phase1_h2/results/h2_s_102_relaxed.lammps"

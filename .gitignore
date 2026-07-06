@@ -1,4 +1,3 @@
-
 # LAMMPS restart/trajectory files
 #*.restart.*
 # *.restart
@@ -34,8 +33,8 @@ zi*
 *.pyc
 *test_outputs
 *test_npt
-*results_1/
-*results_2/
+*calculation/results_1/
+#calculation/results/
 MHI_Nickel/lammps_scripts/
 MHI_Nickel/logs/
 MHI_Nickel/results/
@@ -43,7 +42,21 @@ MHI_Nickel/slurm_scripts/
 MHI_Nickel/strutures/
 
 
+# Calculation outputs
+*.restart
+*.lammpstrj
+*.dump
+*.lammps
+*.out
+*.log
+# But keep these specific ones:
+!models/*.py
+!calculation/*.py
+!calculation/*.ipynb
 
+# Generated SLURM scripts (recreated by notebook)
+adsorption/phase1_h2/slurm/
+adsorption/phase2_h/slurm/
 
-MHI_Nickel/calculation/neb/phase2_cross_product/all_combinations.json
-MHI_Nickel/calculation/neb/phase2b_filtered/filtered_combinations.json
+# Old results_1 directory
+results_1/

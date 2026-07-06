@@ -1,0 +1,139 @@
+# ═══════════════════════════════════════════════════════
+# LAMMPS Surface Relaxation — Hastelloy N
+# Protocol: freeze bottom layers → minimize → heat → NVT
+# T = 300 K | boundary p p f
+# ═══════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p f
+
+read_data      /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase1_slab/slab_111.lammps
+
+restart        10000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/restarts/surf_300K.*.restart
+
+pair_style     mliap unified /projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt 0
+pair_coeff     * * Al B C Cr Fe Mo Ni H
+
+neighbor       2.0 bin
+neigh_modify   every 1 delay 0 check yes
+
+# ── Frozen layers (z ≤ 22.115 Å) ────────────────────────────────
+region         frozen_reg    block  INF INF  INF INF  EDGE  22.115
+group          frozen_atoms  region  frozen_reg
+group          free_atoms    subtract  all  frozen_atoms
+
+variable       frozen_count  equal  count(frozen_atoms)
+variable       free_count    equal  count(free_atoms)
+print "GROUPS: frozen=${frozen_count}  free=${free_count}"
+
+fix            freeze  frozen_atoms  setforce  0.0  0.0  0.0
+
+thermo         1000
+thermo_style   custom  step  time  temp  pe  ke  press  lx  ly  lz
+
+# ═══ PHASE 1: Minimization ═══════════════════════════════════════
+print "### Phase 1: Surface minimization ###"
+
+variable       z_top_before  equal  bound(free_atoms,zmax)
+print "  Top layer z BEFORE minimize: ${z_top_before} Ang"
+
+dump           min_traj  free_atoms  custom  1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_min_traj.lammpstrj  id type x y z
+dump_modify    min_traj  sort id
+
+minimize       0.0  1e-06  10000  100000
+
+undump         min_traj
+
+variable       z_top_after_min  equal  bound(free_atoms,zmax)
+variable       dz_min           equal  v_z_top_before - v_z_top_after_min
+print "  Top layer z AFTER minimize : ${z_top_after_min} Ang"
+print "  Surface contraction (min)  : ${dz_min} Ang"
+print "### Phase 1 complete ###"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase1_min.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase1_min.lammps
+
+# ═══ PHASE 2: Heat to 300 K ═══════════════════════════════
+print "### Phase 2: Heating to 300 K ###"
+
+velocity       free_atoms  create  300.0  12345  mom yes  rot yes  dist gaussian
+velocity       free_atoms  scale   300.0
+
+timestep       0.0005
+
+compute        surf_temp_heat  free_atoms  temp
+thermo_modify  temp  surf_temp_heat
+
+fix            nve_heat   free_atoms  nve
+fix            rescale    free_atoms  temp/rescale  10  300.0  300.0  10.0  1.0
+
+dump           heat_traj  free_atoms  custom  1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_heat_traj.lammpstrj  id type x y z
+dump_modify    heat_traj  sort id
+
+run            10000
+undump         heat_traj
+unfix          rescale
+unfix          nve_heat
+thermo_modify  temp  thermo_temp
+uncompute      surf_temp_heat
+print "### Phase 2 complete ###"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase2_heat.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase2_heat.lammps
+
+# ═══ PHASE 3: NVT Equilibration at 300 K ══════════════════
+print "### Phase 3: NVT equilibration at 300 K ###"
+
+compute        surf_temp  free_atoms  temp
+thermo_modify  temp  surf_temp
+
+fix            thermo_out  all  ave/time  1  1  1000  &
+               c_surf_temp  &
+               file  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relax_thermo.txt  mode scalar
+
+dump           surf_traj  free_atoms  custom  1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_nvt_traj.lammpstrj  id type x y z
+dump_modify    surf_traj  sort id
+
+fix            nvt_equil  free_atoms  nvt  temp  300.0  300.0  0.1
+run            100000
+unfix          nvt_equil
+undump         surf_traj
+unfix          thermo_out
+print "### Phase 3 complete ###"
+
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase3_nvt.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase3_nvt.lammps
+
+# ═══ PHASE 4: Quench (CG minimization of NVT snapshot) ══════════
+print "### Phase 4: Quench minimization ###"
+
+variable       z_top_after_nvt  equal  bound(free_atoms,zmax)
+print "  z top BEFORE quench: ${z_top_after_nvt} Ang"
+
+dump           quench_traj  free_atoms  custom  1000  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase4_quench_traj.lammpstrj  id type x y z
+dump_modify    quench_traj  sort id
+
+minimize       0.0  1e-06  10000  100000
+
+undump         quench_traj
+print "### Phase 4 complete ###"
+
+# ═══ Results ═════════════════════════════════════════════════════
+variable       z_top_final   equal  bound(free_atoms,zmax)
+variable       pe_final_val  equal  pe
+
+print "RELAXATION_RESULTS_START"
+print "  z_top_before_Ang       : ${z_top_before}"
+print "  z_top_after_min_Ang    : ${z_top_after_min}"
+print "  surface_contraction    : ${dz_min}"
+print "  z_top_after_nvt_Ang    : ${z_top_after_nvt}"
+print "  z_top_after_quench_Ang : ${z_top_final}"
+print "  pe_final_eV            : ${pe_final_val}"
+print "RELAXATION_RESULTS_END"
+
+unfix          freeze
+write_restart  /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab_phase4_quench.restart
+write_data     /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab.lammps
+print "Relaxed slab written: /projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel/calculation/slabs/phase2_relax/relaxed_slab.lammps"
