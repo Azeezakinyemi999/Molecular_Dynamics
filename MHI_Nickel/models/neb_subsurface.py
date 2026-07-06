@@ -216,7 +216,7 @@ def orchestrate_hopa_neb(
     if elem_str is None:
         elem_str = ELEM_STR_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
     if neb_slurm_opts is None:
         neb_slurm_opts = {
             **SLURM_DEFAULTS,
@@ -498,7 +498,7 @@ def orchestrate_hopb_neb(
     if elem_str is None:
         elem_str = ELEM_STR_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
     if neb_slurm_opts is None:
         neb_slurm_opts = {
             **SLURM_DEFAULTS,

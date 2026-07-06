@@ -131,17 +131,21 @@ def run_phase2_surface_relaxation(
     elem_str: str = ELEM_STR_7,
 ) -> dict:
     """
-    Section A Phase 2: Relax the slab surface via three-phase LAMMPS MD.
+    Section A Phase 2: Relax the slab surface via four-phase LAMMPS MD.
 
-    This follows NB04:
-        Phase 1: CG minimization (ftol=1e-6, freeze bottom 4 layers)
-        Phase 2: Thermal anneal 10K → 300K over 10 ps (velocity rescaling)
-        Phase 3: NVT equilibration at 300K for 100 ps (Nosé-Hoover, frozen bottom)
+    This follows NB04 (real chained MD -- self-resubmitting via restart
+    files -- same category of job as diffusivity's NPT equilibration):
+        Phase 1: CG minimization (ftol=1e-6, freeze bottom layers)
+        Phase 2: Thermal anneal 10K → 300K over 5 ps (velocity rescaling)
+        Phase 3: NVT equilibration at 300K for 50 ps (Nosé-Hoover, frozen bottom)
+        Phase 4: Quench -- a second CG minimization of the post-NVT snapshot,
+                 settling out thermal noise before the final structure is written
 
     Outputs per run:
-        - {outdir}/relaxed_slab.lammps           — final relaxed structure
+        - {outdir}/relaxed_slab.lammps           — final relaxed structure (post-quench)
         - {outdir}/relaxed_slab_phase1_min.lammps — post-CG checkpoint
         - {outdir}/relaxed_slab_phase2_heat.lammps — post-heat checkpoint
+        - {outdir}/relaxed_slab_phase3_nvt.lammps — post-NVT checkpoint (pre-quench)
         - {outdir}/relaxed_slab_phase*.restart    — binary restart files
         - {outdir}/relaxed_slab_nvt_traj.lammpstrj — NVT trajectory dump
         - {outdir}/relax_thermo.txt               — NVT temperature time-series
@@ -161,7 +165,8 @@ def run_phase2_surface_relaxation(
         Z-coordinate threshold for freezing bottom layers (Å). Default 22.115.
     slurm_opts : dict, optional
         SLURM configuration. If None, uses SLURM_DEFAULTS with
-        partition='multigpu', time='24:00:00'.
+        partition='gpu', time='08:00:00' -- same partition as NPT, since
+        both are real chained MD rather than a quick one-shot minimization.
     restart_every : int
         Steps between periodic mid-run restart writes. Default 10000.
     dry_run : bool
@@ -191,7 +196,7 @@ def run_phase2_surface_relaxation(
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'gpu', 'time': '08:00:00'}
 
     # Derive all output paths up front
     relaxed_slab  = str(Path(outdir) / 'relaxed_slab.lammps')
@@ -715,7 +720,7 @@ def run_phase1_h2_adsorption(
     if masses is None:
         masses = MASSES_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
 
     if z_freeze_cutoff is None:
         from models.structure import compute_z_freeze_cutoff
@@ -952,7 +957,7 @@ def run_phase2_h_adsorption(
     if masses is None:
         masses = MASSES_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
 
     if z_freeze_cutoff is None:
         from models.structure import compute_z_freeze_cutoff
@@ -1824,7 +1829,7 @@ def orchestrate_neb(
     if masses is None:
         masses = MASSES_7
     if slurm_opts is None:
-        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '00:20:00'}
+        slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
 
     if neb_slurm_opts is None:
         neb_slurm_opts = {
@@ -2336,6 +2341,7 @@ def orchestrate_full_neb_workflow(
     h_height: float = 1.5,
     gpu_slurm_cfg: dict | None = None,
     neb_slurm_cfg: dict | None = None,
+    min_slurm_cfg: dict | None = None,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
@@ -2352,12 +2358,22 @@ def orchestrate_full_neb_workflow(
     E_CLEAN is parsed at runtime from the Phase A LAMMPS log. If the log
     does not yet exist (dry_run=True), e_clean is set to float('nan').
 
+    ``gpu_slurm_cfg`` covers only Section A (slab surface relaxation --
+    real chained heat/NVT MD, kept on its own partition/time budget).
+    ``min_slurm_cfg`` covers Sections B and C (H2*/H* adsorption energy
+    minimization, FS-min relaxation before NEB -- quick one-shot
+    minimizations, not real MD). Defaults to ``gpu_slurm_cfg`` if not
+    given, so existing callers that only pass one config keep working.
+
     Returns
     -------
     dict with keys: e_clean, n_sites, n_neb_jobs, fsmin_array_script,
         neb_array_script, status.
     """
     from models.parsers import parse_energy_log
+
+    if min_slurm_cfg is None:
+        min_slurm_cfg = gpu_slurm_cfg
 
     # ── Section A ──────────────────────────────────────────────────────────────
     print(f"\n{'='*60}\nSection A: Slab preparation\n{'='*60}")
@@ -2398,7 +2414,7 @@ def orchestrate_full_neb_workflow(
         e_clean=e_clean,
         e_h2_gas=e_h2_gas,
         outdir=ads_dir,
-        slurm_opts=gpu_slurm_cfg,
+        slurm_opts=min_slurm_cfg,
         dry_run=dry_run,
         elem_str=elem_str,
         e2t=e2t,
@@ -2414,7 +2430,7 @@ def orchestrate_full_neb_workflow(
         phase3_sites_dir=str(Path(slab_dir) / 'phase3_sites'),
         e_clean=e_clean,
         outdir=neb_dir,
-        slurm_opts=gpu_slurm_cfg,
+        slurm_opts=min_slurm_cfg,
         neb_slurm_opts=neb_slurm_cfg,
         sep_min=sep_min,
         sep_max=sep_max,
@@ -2470,19 +2486,27 @@ def write_neb_run_script(
     z_freeze_cutoff: float = 22.115,
     surf_timestep: float   = 0.0005,
     vib_slurm_cfg=None,
+    min_slurm_cfg=None,
     elem_str: str = ELEM_STR_7,
     e2t: dict = None,
     masses: dict = None,
     slab_seed: int = 7,
     metal_type: str = 'alloy',
 ) -> str:
-    """Write neb_run.py with embedded config. Returns the output path."""
+    """Write neb_run.py with embedded config. Returns the output path.
+
+    ``gpu_slurm_cfg`` is used only for slab surface relaxation (Section A --
+    real chained heat/NVT MD). ``min_slurm_cfg`` covers the quick one-shot
+    minimizations elsewhere (Sections B/C: H2*/H* adsorption energies,
+    FS-min before NEB); defaults to ``gpu_slurm_cfg`` if not given.
+    """
 
     if e2t is None:
         e2t = E2T_7
     if masses is None:
         masses = MASSES_7
     _vib_cfg = vib_slurm_cfg if vib_slurm_cfg is not None else neb_slurm_cfg
+    _min_cfg = min_slurm_cfg if min_slurm_cfg is not None else gpu_slurm_cfg
 
     _header = f'''#!/usr/bin/env python3
 """
@@ -2526,6 +2550,7 @@ H_HEIGHT       = {h_height!r}
 GPU_SLURM_CFG  = {gpu_slurm_cfg!r}
 NEB_SLURM_CFG  = {neb_slurm_cfg!r}
 VIB_SLURM_CFG  = {_vib_cfg!r}
+MIN_SLURM_CFG  = {_min_cfg!r}
 # Surface relaxation (Phase A)
 Z_FREEZE_CUTOFF = {z_freeze_cutoff!r}
 SURF_TIMESTEP   = {surf_timestep!r}
@@ -2597,6 +2622,7 @@ if not os.path.exists(_ranked_f):
         h_height=H_HEIGHT,
         gpu_slurm_cfg=GPU_SLURM_CFG,
         neb_slurm_cfg=NEB_SLURM_CFG,
+        min_slurm_cfg=MIN_SLURM_CFG,
         dry_run=False,
         elem_str=ELEM_STR,
         e2t=E2T,

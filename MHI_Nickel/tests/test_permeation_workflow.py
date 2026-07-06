@@ -323,6 +323,85 @@ class TestPermeationSuccessTracking:
         assert all('no diffusivity_arrhenius.json' in s['reason']
                    for s in status['n_h_skipped'])
 
+    def test_some_results_produced_exits_cleanly(self, tmp_path):
+        """Every other test in this class only exercises the all-fail
+        path. This is the one proof that the 'else' branch (some/all n_H
+        succeed -> permeability_written non-empty -> no sys.exit) actually
+        runs end-to-end without crashing, not just structurally present."""
+        import itertools
+        import numpy as np
+
+        out_py = str(tmp_path / 'permeation_run.py')
+        _cfg = {**_PERM_CFG, 'n_h_values': [1, 3], 'temperatures': [600]}
+        generate_permeation_scripts(**_cfg, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        tail = self._tail_slice(content)
+
+        results_dir = str(tmp_path / 'results')
+        os.makedirs(results_dir, exist_ok=True)
+        pathlib.Path(os.path.join(results_dir, 'rate_dict_T600K.json')).write_text('{}')
+
+        def _fake_resolve(work_dir, stem, n_h):
+            nh_dir = os.path.join(results_dir, f'{stem}_{n_h}H')
+            return {
+                'ready': True,
+                'nh_dir': nh_dir,
+                'D0_m2s': 1e-9,
+                'E_D_eV': 0.3,
+                'dilute_note': None,
+            }
+
+        ns = {
+            'os': os, 'json': json, 'sys': sys, 'itertools': itertools, 'np': np,
+            'N_H_VALUES': [1, 3],
+            'STEM': 'test_metal',
+            'WORK_DIR': str(tmp_path / 'work'),
+            'RESULTS_DIR': results_dir,
+            'resolve_nh_diffusivity': _fake_resolve,
+            'TEMPERATURES': [600],
+            '_a0_dict': {600: 3.5e-10},
+            '_slab_species': ['Ni'],
+            '_sid2comp': {},
+            '_kmc_composition': None,
+            '_diss_vib': {},
+            '_DISS_JSON': str(tmp_path / 'nonexistent_diss.json'),
+            '_NU_DISS': 1e13,
+            '_PHASE6_READY': True,
+            '_DH_SOL': 0.25,
+            '_DH_DISS_USED': 0.2,
+            '_DH_ENTRY_USED': 0.15,
+            '_KB_EV': 8.617333262e-5,
+            'P_VALS_PA': _cfg['p_vals_pa'],
+            'A0_M': _cfg['a0_m'],
+            'L_M': _cfg['l_m'],
+            'NX': _cfg['nx'], 'NY': _cfg['ny'], 'SEED': _cfg['seed'],
+            'KMC_MAX_STEPS': _cfg['kmc_max_steps'],
+            'arrhenius_diffusivity': lambda D0, Ea, T: 1e-10,
+            'sweep_pressure': lambda **kw: {'converged': [True] * len(kw['P_vals_Pa'])},
+            'fit_solubility_from_kmc': lambda sw: {'S_mean': 1e-3, 'S_std': 1e-4, 'n_converged': 3},
+            'lattice_site_S0': lambda a0: 1e28,
+            'solubility_from_rates': lambda *a, **kw: 1e-3,
+            'sieverts_solubility': lambda *a, **kw: 1e-3,
+            'permeability': lambda D, S: D * S,
+            'richardson_flux': lambda Phi, Ph, Pl, L: Phi * Ph / L,
+            'parse_barrier_file': lambda p: {},
+        }
+
+        # Full success: must run to completion with no SystemExit.
+        exec(compile(tail, out_py, 'exec'), ns)
+
+        status_path = os.path.join(results_dir, 'permeation_status.json')
+        assert os.path.exists(status_path)
+        status = json.loads(pathlib.Path(status_path).read_text())
+        assert status['n_h_skipped'] == []
+        assert len(status['permeability_written']) == 2  # 2 n_H x 1 T
+
+        for n_h in (1, 3):
+            perm_f = os.path.join(results_dir, f'test_metal_{n_h}H', 'permeability_T600K.json')
+            assert os.path.exists(perm_f)
+            payload = json.loads(pathlib.Path(perm_f).read_text())
+            assert payload['n_H'] == n_h
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. generate_permeation_sh
