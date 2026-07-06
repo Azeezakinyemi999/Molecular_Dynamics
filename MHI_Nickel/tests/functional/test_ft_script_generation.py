@@ -288,11 +288,16 @@ class TestPermeationScriptSharingConfig:
 
 class TestSlurmDefaultRegressionGuards:
     """
-    Verify that the SLURM defaults we changed to partition='sharing' and
-    time='00:20:00' are still correct in the model source files.
+    Verify the SLURM defaults are still correct in the model source files.
+
+    Quick one-shot minimizations (H2*/H* adsorption, FS-min before NEB) stay
+    on partition='sharing', time='01:00:00'. Slab surface relaxation
+    (run_phase2_surface_relaxation) is real chained MD -- same category as
+    diffusivity's NPT -- and defaults to partition='gpu', time='08:00:00'.
 
     These guards catch accidental reverts or merge conflicts that restore the
-    old partition='multigpu' or partition='gpu' defaults.
+    old partition='multigpu' default, or the pre-fix partition='sharing'
+    default for surface relaxation specifically.
     """
 
     def _src(self, filename):
@@ -307,9 +312,17 @@ class TestSlurmDefaultRegressionGuards:
             "neb_workflow.py still contains non-sharing partition for H2 adsorption"
         )
 
-    def test_neb_workflow_phase2_default_time_is_00_20(self):
+    def test_neb_workflow_phase2_default_is_gpu_08_00(self):
+        """run_phase2_surface_relaxation (slab relaxation -- real chained
+        heat/NVT/quench MD) defaults to partition='gpu', time='08:00:00',
+        the same category as diffusivity's NPT -- not the quick-minimization
+        'sharing' default used by H2*/H* adsorption and FS-min."""
         src = self._src('neb_workflow.py')
-        assert "'time': '00:20:00'" in src
+        assert "{**SLURM_DEFAULTS, 'partition': 'gpu', 'time': '08:00:00'}" in src
+
+    def test_neb_workflow_min_functions_default_time_is_01_00(self):
+        src = self._src('neb_workflow.py')
+        assert "{**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}" in src
 
     def test_neb_workflow_no_multigpu_as_default(self):
         src = self._src('neb_workflow.py')

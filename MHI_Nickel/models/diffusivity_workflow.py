@@ -45,6 +45,9 @@ def generate_diffusivity_scripts(
     short_gpu_partition='sharing',
     short_gpu_time='00:20:00',
     short_gpu_cutoff=None,
+    npt_gpu_partition='gpu',
+    npt_gpu_time='08:00:00',
+    npt_gpu_cutoff=None,
     npt_heat_steps=20000,
     npt_prod_steps=200000,
     npt_baro_damp=1.0,
@@ -65,6 +68,12 @@ def generate_diffusivity_scripts(
         short_gpu_cutoff_val = f'{_tot//3600:02d}:{(_tot%3600)//60:02d}:{_tot%60:02d}'
     else:
         short_gpu_cutoff_val = short_gpu_cutoff
+    if npt_gpu_cutoff is None:
+        _h, _m, _s = map(int, npt_gpu_time.split(':'))
+        _tot = _h * 3600 + _m * 60 + _s - 300
+        npt_gpu_cutoff_val = f'{_tot//3600:02d}:{(_tot%3600)//60:02d}:{_tot%60:02d}'
+    else:
+        npt_gpu_cutoff_val = npt_gpu_cutoff
 
     _header = f'''#!/usr/bin/env python3
 """
@@ -94,6 +103,9 @@ GPU_TIME             = {gpu_time!r}
 SHORT_GPU_PARTITION  = {short_gpu_partition!r}
 SHORT_GPU_TIME       = {short_gpu_time!r}
 SHORT_GPU_CUTOFF     = {short_gpu_cutoff_val!r}
+NPT_GPU_PARTITION    = {npt_gpu_partition!r}
+NPT_GPU_TIME         = {npt_gpu_time!r}
+NPT_GPU_CUTOFF       = {npt_gpu_cutoff_val!r}
 # MD defaults (ps units)
 TIMESTEP_PS      = {timestep_ps!r}
 TAU_T_PS         = {tau_t_ps!r}
@@ -154,6 +166,10 @@ from models.diffusivity_post_processing import (
 
 GPU_SLURM_CFG       = dict(SLURM_DEFAULTS, partition=GPU_PARTITION,      time=NVT_WALL_TIME)
 SHORT_GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition=SHORT_GPU_PARTITION, time=SHORT_GPU_TIME)
+# NPT is real chained MD (heat+prod, self-resubmitting) -- same category as
+# NVT above, not a quick one-shot minimization like bare-bulk/bulk+H min
+# (which stay on SHORT_GPU_SLURM_CFG).
+NPT_GPU_SLURM_CFG   = dict(SLURM_DEFAULTS, partition=NPT_GPU_PARTITION,   time=NPT_GPU_TIME)
 KK = ' '.join(KOKKOS_FLAGS)
 
 
@@ -178,6 +194,159 @@ for struct_path in INPUT_STRUCTURES:
     _E2T      = _cfg.get('e2t',      E2T_7)
     _MASSES   = _cfg.get('masses',   MASSES_7)
 
+    # ── Shared, n_H-independent: Phase 1a (bare-bulk min) + Phase 1b Step A
+    # (NPT) ── Both happen before any H is inserted, so they must run once
+    # per structure, not once per (structure, n_H) -- previously each was
+    # redone once per n_H (see GitHub issue on redundant NPT/minimisation
+    # per H-concentration). min_bare_out reuses pipeline.ipynb's
+    # pre-pipeline bulk_min_{stem}.lammps if it already exists.
+    try:
+        print(f'\n{"="*60}')
+        print(f'  Structure : {struct_stem}   (shared bare-bulk + NPT, all n_H)')
+        print(f'{"="*60}')
+
+        _shared_dirs = make_run_dirs(
+            name=struct_stem,
+            temperatures=TEMPERATURES,
+            base_dir=os.path.join(WORK_DIR, 'results'),
+        )
+        shared_lmp_dir = os.path.join(_shared_dirs['root'], 'lammps_scripts')
+        shared_sh_dir  = os.path.join(_shared_dirs['root'], 'slurm_scripts')
+        os.makedirs(shared_lmp_dir, exist_ok=True)
+        os.makedirs(shared_sh_dir,  exist_ok=True)
+
+        # ── Phase 1a ─────────────────────────────────────────────────────────
+        print('\n--- Phase 1a: Minimise bare bulk ---')
+
+        min_bare_lmp = os.path.join(shared_lmp_dir, 'minimize_bare.lammps')
+        min_bare_out = os.path.join(WORK_DIR, 'structures', f'bulk_min_{struct_stem}.lammps')
+        min_bare_sh  = os.path.join(shared_sh_dir,  'minimize_bare.sh')
+        os.makedirs(os.path.dirname(min_bare_out), exist_ok=True)
+
+        if not os.path.exists(min_bare_out):
+            write_minimization_script(
+                bulk_input=struct_path,
+                min_output=min_bare_out,
+                out_path=min_bare_lmp,
+                pair_style=PAIR_STYLE,
+                mace_model=MACE_MODEL_LAMMPS,
+                pair_suffix=PAIR_SUFFIX,
+                elem_str=_ELEM_STR,
+                etol=MIN_ETOL,
+                ftol=MIN_FTOL,
+                maxiter=MIN_MAXITER,
+                maxeval=MIN_MAXEVAL,
+            )
+            write_slurm_job(
+                job_name=f'min_bare_{struct_stem}',
+                slurm_config=SHORT_GPU_SLURM_CFG,
+                out_path=min_bare_sh,
+                runner='lmp',
+                lammps_cmd=LAMMPS_CMD,
+                kokkos_flags=KOKKOS_FLAGS,
+                script_path=min_bare_lmp,
+            )
+            jid = submit_slurm_job(min_bare_sh)
+            wait_for_jobs({'min_bare': jid})
+            _require_file(min_bare_out,
+                          f'Check the min_bare job log in {shared_sh_dir}.')
+            print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
+        else:
+            print(f'  [1a] Already exists: {min_bare_out} — skipping '
+                  f'(reused from the pre-pipeline step or a prior n_H run)')
+
+        # ── Phase 1b — Step A: NPT at every T in parallel ────────────────────
+        print('\n--- Phase 1b: NPT equilibration at each temperature ---')
+
+        npt_job_ids     = {}
+        npt_final_paths = {}
+        npt_stem = os.path.splitext(min_bare_out)[0]
+
+        for T in TEMPERATURES:
+            npt_lmp  = os.path.join(shared_lmp_dir, f'npt_{T}K.lammps')
+            npt_dump = os.path.join(_shared_dirs['structures'], f'npt_boxdims_{T}K.dat')
+            npt_sh   = os.path.join(shared_sh_dir,  f'npt_{T}K.sh')
+            npt_final_paths[T] = f'{npt_stem}_npt_final_{T}K.lammps'
+
+            npt_rst_lmp          = os.path.join(shared_lmp_dir, f'npt_restart_{T}K.lammps')
+            npt_after_heat_rst   = f'{os.path.splitext(npt_dump)[0]}_after_heat.restart'
+
+            if not os.path.exists(npt_final_paths[T]):
+                write_npt_script(
+                    min_output=min_bare_out,
+                    npt_dump=npt_dump,
+                    out_path=npt_lmp,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=_ELEM_STR,
+                    target_t=T,
+                    timestep=TIMESTEP_PS,
+                    thermo_damp=TAU_T_PS,
+                    baro_damp=NPT_BARO_DAMP,
+                    heat_steps=NPT_HEAT_STEPS,
+                    npt_steps=NPT_PROD_STEPS,
+                    dump_every=NPT_DUMP_EVERY,
+                )
+                write_npt_restart_script(
+                    restart_file=npt_after_heat_rst,
+                    npt_dump=npt_dump,
+                    min_output=min_bare_out,
+                    out_path=npt_rst_lmp,
+                    pair_style=PAIR_STYLE,
+                    mace_model=MACE_MODEL_LAMMPS,
+                    pair_suffix=PAIR_SUFFIX,
+                    elem_str=_ELEM_STR,
+                    target_t=T,
+                    timestep=TIMESTEP_PS,
+                    thermo_damp=TAU_T_PS,
+                    baro_damp=NPT_BARO_DAMP,
+                    npt_steps=NPT_PROD_STEPS,
+                    dump_every=NPT_DUMP_EVERY,
+                )
+                write_chained_slurm_job(
+                    job_name=f'npt_{T}K_{struct_stem}',
+                    slurm_config=NPT_GPU_SLURM_CFG,
+                    out_path=npt_sh,
+                    first_commands=[f'{LAMMPS_CMD} {KK} -in {npt_lmp}'],
+                    restart_commands=[f'{LAMMPS_CMD} {KK} -in {npt_rst_lmp}'],
+                    restart_glob=npt_after_heat_rst,
+                    cutoff=NPT_GPU_CUTOFF,
+                    work_dir=WORK_DIR,
+                )
+                npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
+                print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
+            else:
+                print(f'  [1b] NPT {T}K already done — skipping')
+
+        print(f'  Waiting for {len(npt_job_ids)} NPT jobs ...')
+        wait_for_jobs(npt_job_ids)
+        _a0_by_T = {}   # collect a0(T) in Å for each temperature -- shared across all n_H
+        for T in TEMPERATURES:
+            _require_file(npt_final_paths[T],
+                          f'Check the npt_{T}K job log in {shared_sh_dir}.')
+            _npt_dump_T = os.path.join(_shared_dirs['structures'], f'npt_boxdims_{T}K.dat')
+            _require_file(_npt_dump_T,
+                          f'Check the npt_{T}K job log in {shared_sh_dir}.')
+            _a0_by_T[T] = get_lattice_parameter_from_dump(_npt_dump_T, n_last=50)
+            print(f'  [1b] T={T}K  a0 = {_a0_by_T[T]:.4f} Å')
+        print('  All NPT jobs done.')
+
+        # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
+        _lat_out = os.path.join(WORK_DIR, 'results', struct_stem, 'lattice_params_vs_T.json')
+        os.makedirs(os.path.dirname(_lat_out), exist_ok=True)
+        with open(_lat_out, 'w') as _f:
+            _json_lat.dump({'temperatures': list(_a0_by_T.keys()),
+                            'a0_m': [v * 1e-10 for v in _a0_by_T.values()]}, _f, indent=2)
+        print(f'  Saved lattice_params_vs_T.json → {_lat_out}')
+    except Exception as _exc:
+        print(f'\n  *** FAILED (shared bare-bulk/NPT for {struct_stem}): {_exc} ***')
+        print(f'  Skipping all n_H values for {struct_stem}; continuing with next structure.')
+        for _n_h in N_H_VALUES:
+            _FAILURES.append({'run_name': f'{struct_stem}_{_n_h}H', 'struct': struct_stem,
+                               'n_h': _n_h, 'error': str(_exc)})
+        continue
+
     for n_h in N_H_VALUES:
         run_name = f'{struct_stem}_{n_h}H'
         try:
@@ -196,129 +365,14 @@ for struct_path in INPUT_STRUCTURES:
             os.makedirs(phase1_lmp_dir, exist_ok=True)
             os.makedirs(phase1_sh_dir,  exist_ok=True)
 
-            # ── Phase 1a ─────────────────────────────────────────────────────────
-            print('\n--- Phase 1a: Minimise bare bulk ---')
-
-            min_bare_lmp = os.path.join(phase1_lmp_dir, 'minimize_bare.lammps')
-            min_bare_out = os.path.join(dirs['structures'], 'bulk_min.lammps')
-            min_bare_sh  = os.path.join(phase1_sh_dir,  'minimize_bare.sh')
-
-            if not os.path.exists(min_bare_out):
-                write_minimization_script(
-                    bulk_input=struct_path,
-                    min_output=min_bare_out,
-                    out_path=min_bare_lmp,
-                    pair_style=PAIR_STYLE,
-                    mace_model=MACE_MODEL_LAMMPS,
-                    pair_suffix=PAIR_SUFFIX,
-                    elem_str=_ELEM_STR,
-                    etol=MIN_ETOL,
-                    ftol=MIN_FTOL,
-                    maxiter=MIN_MAXITER,
-                    maxeval=MIN_MAXEVAL,
-                )
-                write_slurm_job(
-                    job_name=f'min_bare_{run_name}',
-                    slurm_config=SHORT_GPU_SLURM_CFG,
-                    out_path=min_bare_sh,
-                    runner='lmp',
-                    lammps_cmd=LAMMPS_CMD,
-                    kokkos_flags=KOKKOS_FLAGS,
-                    script_path=min_bare_lmp,
-                )
-                jid = submit_slurm_job(min_bare_sh)
-                wait_for_jobs({'min_bare': jid})
-                _require_file(min_bare_out,
-                              f'Check the min_bare job log in {phase1_sh_dir}.')
-                print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
-            else:
-                print(f'  [1a] Already exists: {min_bare_out} — skipping')
-
-            # ── Phase 1b — Step A: NPT at every T in parallel ────────────────────
-            print('\n--- Phase 1b: NPT equilibration at each temperature ---')
-
-            npt_job_ids     = {}
-            npt_final_paths = {}
-            npt_stem = os.path.splitext(min_bare_out)[0]
-
-            for T in TEMPERATURES:
-                npt_lmp  = os.path.join(phase1_lmp_dir, f'npt_{T}K.lammps')
-                npt_dump = os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat')
-                npt_sh   = os.path.join(phase1_sh_dir,  f'npt_{T}K.sh')
-                npt_final_paths[T] = f'{npt_stem}_npt_final_{T}K.lammps'
-
-                npt_rst_lmp          = os.path.join(phase1_lmp_dir, f'npt_restart_{T}K.lammps')
-                npt_after_heat_rst   = f'{os.path.splitext(npt_dump)[0]}_after_heat.restart'
-
-                if not os.path.exists(npt_final_paths[T]):
-                    write_npt_script(
-                        min_output=min_bare_out,
-                        npt_dump=npt_dump,
-                        out_path=npt_lmp,
-                        pair_style=PAIR_STYLE,
-                        mace_model=MACE_MODEL_LAMMPS,
-                        pair_suffix=PAIR_SUFFIX,
-                        elem_str=_ELEM_STR,
-                        target_t=T,
-                        timestep=TIMESTEP_PS,
-                        thermo_damp=TAU_T_PS,
-                        baro_damp=NPT_BARO_DAMP,
-                        heat_steps=NPT_HEAT_STEPS,
-                        npt_steps=NPT_PROD_STEPS,
-                        dump_every=NPT_DUMP_EVERY,
-                    )
-                    write_npt_restart_script(
-                        restart_file=npt_after_heat_rst,
-                        npt_dump=npt_dump,
-                        min_output=min_bare_out,
-                        out_path=npt_rst_lmp,
-                        pair_style=PAIR_STYLE,
-                        mace_model=MACE_MODEL_LAMMPS,
-                        pair_suffix=PAIR_SUFFIX,
-                        elem_str=_ELEM_STR,
-                        target_t=T,
-                        timestep=TIMESTEP_PS,
-                        thermo_damp=TAU_T_PS,
-                        baro_damp=NPT_BARO_DAMP,
-                        npt_steps=NPT_PROD_STEPS,
-                        dump_every=NPT_DUMP_EVERY,
-                    )
-                    write_chained_slurm_job(
-                        job_name=f'npt_{T}K_{run_name}',
-                        slurm_config=SHORT_GPU_SLURM_CFG,
-                        out_path=npt_sh,
-                        first_commands=[f'{LAMMPS_CMD} {KK} -in {npt_lmp}'],
-                        restart_commands=[f'{LAMMPS_CMD} {KK} -in {npt_rst_lmp}'],
-                        restart_glob=npt_after_heat_rst,
-                        cutoff=SHORT_GPU_CUTOFF,
-                        work_dir=WORK_DIR,
-                    )
-                    npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
-                    print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
-                else:
-                    print(f'  [1b] NPT {T}K already done — skipping')
-
-            print(f'  Waiting for {len(npt_job_ids)} NPT jobs ...')
-            wait_for_jobs(npt_job_ids)
-            for T in TEMPERATURES:
-                _require_file(npt_final_paths[T],
-                              f'Check the npt_{T}K job log in {phase1_sh_dir}.')
-                _require_file(os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat'),
-                              f'Check the npt_{T}K job log in {phase1_sh_dir}.')
-            print('  All NPT jobs done.')
-
             # ── Phase 1b — Step B: insert H at a0(T), minimise ───────────────────
             print('\n--- Phase 1b (cont.): Insert H and minimise at each temperature ---')
 
             min_h_job_ids = {}
             T_to_bulk_h   = {}
-            _a0_by_T      = {}   # collect a0(T) in Å for each temperature
 
             for T in TEMPERATURES:
-                _npt_dump_T = os.path.join(dirs['structures'], f'npt_boxdims_{T}K.dat')
-                a0_T = get_lattice_parameter_from_dump(_npt_dump_T, n_last=50)
-                _a0_by_T[T] = a0_T
-                print(f'  [1b] T={T}K  a0 = {a0_T:.4f} Å')
+                a0_T = _a0_by_T[T]
 
                 min_h_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
                 min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
