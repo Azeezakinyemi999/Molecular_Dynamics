@@ -503,6 +503,21 @@ def orchestrate_slab_prep(
             dry_run=dry_run,
             elem_str=elem_str,
         )
+        # A real (non-dry-run) submission attempt with no job_id means sbatch
+        # itself failed (e.g. QOSMaxSubmitJobPerUserLimit) -- submit_slurm_job
+        # already printed "Submission failed: ..." with the reason. Without
+        # this check the code fell through to Phase 3 as if Phase 2 had
+        # succeeded, and failed instead with a confusing FileNotFoundError
+        # deep inside ase_read() when it tried to read the relaxed slab that
+        # was never produced.
+        if relax_result.get('status') == 'submitted' and relax_result.get('job_id') is None:
+            raise RuntimeError(
+                f"Surface relaxation SLURM submission failed for "
+                f"{relax_result['relaxed_slab']} -- see the 'Submission "
+                f"failed: ...' message above for the sbatch error (commonly "
+                f"a QOS/job-limit issue). Not proceeding to Phase 3."
+            )
+
         # Wait for the Phase 2 SLURM job to finish before reading its output
         if relax_result.get('job_id') is not None:
             wait_for_jobs({'surface_relax': relax_result['job_id']})
@@ -1810,7 +1825,12 @@ def orchestrate_neb(
     h_height : float
         FS H placement height above max metal z (Å). Default 1.5.
     dry_run : bool
-        Generate files without SLURM submission. Default True.
+        Kept for signature/caller compatibility. This function never submits
+        jobs itself -- it only writes the per-pair fsmin_sh/neb_sh scripts
+        plus the fsmin_array_script/neb_array_script arrays. The caller
+        (Phase D, see write_neb_run_script's generated body) is the sole
+        submission path via auto_submit()/submit_slurm_job() on the array
+        scripts. Default True.
 
     Returns
     -------
@@ -1957,20 +1977,15 @@ def orchestrate_neb(
             work_dir=str(job_dir),
         )
 
-        if not dry_run:
-            _barrier_f = str(job_dir / 'neb_barrier.txt')
-            if os.path.exists(_barrier_f):
-                print(f"  NEB {label}: already done ({_barrier_f}) — skipping submission")
-            else:
-                _fs_relaxed = str(job_dir / 'neb_final_relaxed.lammps')
-                if os.path.exists(_fs_relaxed):
-                    # fsmin already done — submit NEB directly
-                    submit_slurm_job(neb_sh)
-                else:
-                    # fsmin not done — submit both, NEB depends on fsmin
-                    fsmin_jid = submit_slurm_job(fsmin_sh)
-                    dep = f'afterok:{fsmin_jid}' if fsmin_jid else None
-                    submit_slurm_job(neb_sh, dependency=dep)
+        # NOTE: fsmin_sh/neb_sh are intentionally NOT submitted here.
+        # Phase D (auto_submit on fsmin_array_script, then submit_slurm_job
+        # on neb_array_script) is the sole submission path for every pair --
+        # submitting them again here as well used to double-submit every
+        # FS-min/NEB job with no dependency between the two copies, letting
+        # them race on the same neb_final_relaxed.lammps / neb_phase*.traj
+        # files (confirmed: concurrent writers to the same .traj checkpoint
+        # produce a structurally-valid but silently wrong restart band --
+        # no exception raised, so it would not have shown up as a failure).
 
         neb_jobs.append({
             'label'       : label,

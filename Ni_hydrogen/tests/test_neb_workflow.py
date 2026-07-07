@@ -332,6 +332,166 @@ class TestWriteNebRunScript:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 1a2. orchestrate_slab_prep — Phase 2 submission-result handling
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestOrchestrateSlabPrepSubmissionHandling:
+    """Regression tests for the Phase 2 -> Phase 3 handoff in
+    orchestrate_slab_prep(): a real (non-dry-run) SLURM submission that
+    fails (job_id=None, status='submitted') must raise immediately instead
+    of silently falling through to Phase 3, which used to fail later with a
+    confusing FileNotFoundError deep inside ase_read()."""
+
+    def _patch_phase1(self, monkeypatch, tmp_path):
+        slab_path = str(tmp_path / 'slab_111.lammps')
+        pathlib.Path(slab_path).write_text('fake slab')
+        monkeypatch.setattr(
+            'models.neb_workflow.build_phase1_slab',
+            lambda **kw: (slab_path, 3.57),
+        )
+        return slab_path
+
+    def _patch_phase3(self, monkeypatch, calls):
+        def _fake_phase3(**kw):
+            calls['phase3_called'] = True
+            return ('/x/surface_sites.json', 5)
+        monkeypatch.setattr(
+            'models.neb_workflow.run_phase3_site_enumeration', _fake_phase3,
+        )
+
+    def test_submission_failure_raises_and_skips_phase3(self, tmp_path, monkeypatch):
+        from models.neb_workflow import orchestrate_slab_prep
+
+        self._patch_phase1(monkeypatch, tmp_path)
+        calls = {'phase3_called': False}
+        self._patch_phase3(monkeypatch, calls)
+
+        monkeypatch.setattr(
+            'models.neb_workflow.run_phase2_surface_relaxation',
+            lambda **kw: {
+                'relaxed_slab': str(tmp_path / 'phase2_relax' / 'relaxed_slab.lammps'),
+                'log_file': str(tmp_path / 'phase2_relax' / 'surface_relax.log'),
+                'job_id': None,
+                'status': 'submitted',
+            },
+        )
+        monkeypatch.setattr(
+            'models.neb_workflow.wait_for_jobs',
+            lambda *a, **kw: pytest.fail('wait_for_jobs should not be called when job_id is None'),
+        )
+
+        with pytest.raises(RuntimeError, match='submission failed'):
+            orchestrate_slab_prep(
+                bulk_min_path='/x/bulk_min.lammps',
+                outdir=str(tmp_path),
+                z_freeze_cutoff=22.0,
+                dry_run=False,
+            )
+        assert calls['phase3_called'] is False
+
+    def test_dry_run_does_not_trigger_submission_failure_guard(self, tmp_path, monkeypatch):
+        """dry_run=True also yields job_id=None, but via status='generated'
+        -- must hit the pre-existing dry_run message, not the new guard."""
+        from models.neb_workflow import orchestrate_slab_prep
+
+        self._patch_phase1(monkeypatch, tmp_path)
+        calls = {'phase3_called': False}
+        self._patch_phase3(monkeypatch, calls)
+
+        monkeypatch.setattr(
+            'models.neb_workflow.run_phase2_surface_relaxation',
+            lambda **kw: {
+                'relaxed_slab': str(tmp_path / 'phase2_relax' / 'relaxed_slab.lammps'),
+                'log_file': str(tmp_path / 'phase2_relax' / 'surface_relax.log'),
+                'job_id': None,
+                'status': 'generated',
+            },
+        )
+
+        with pytest.raises(RuntimeError, match='dry_run=True'):
+            orchestrate_slab_prep(
+                bulk_min_path='/x/bulk_min.lammps',
+                outdir=str(tmp_path),
+                z_freeze_cutoff=22.0,
+                dry_run=True,
+            )
+        assert calls['phase3_called'] is False
+
+    def test_job_finished_but_file_missing_still_raises(self, tmp_path, monkeypatch):
+        """Pre-existing check, adjacent to the new guard: submission
+        succeeded (real job_id) but the expected output never appeared."""
+        from models.neb_workflow import orchestrate_slab_prep
+
+        self._patch_phase1(monkeypatch, tmp_path)
+        calls = {'phase3_called': False}
+        self._patch_phase3(monkeypatch, calls)
+
+        _relaxed = str(tmp_path / 'phase2_relax' / 'relaxed_slab.lammps')
+        monkeypatch.setattr(
+            'models.neb_workflow.run_phase2_surface_relaxation',
+            lambda **kw: {
+                'relaxed_slab': _relaxed,
+                'log_file': str(tmp_path / 'phase2_relax' / 'surface_relax.log'),
+                'job_id': '999999',
+                'status': 'submitted',
+            },
+        )
+        monkeypatch.setattr('models.neb_workflow.wait_for_jobs', lambda *a, **kw: None)
+
+        with pytest.raises(RuntimeError, match='was not written'):
+            orchestrate_slab_prep(
+                bulk_min_path='/x/bulk_min.lammps',
+                outdir=str(tmp_path),
+                z_freeze_cutoff=22.0,
+                dry_run=False,
+            )
+        assert calls['phase3_called'] is False
+
+    def test_successful_submission_proceeds_to_phase3(self, tmp_path, monkeypatch):
+        from models.neb_workflow import orchestrate_slab_prep
+
+        self._patch_phase1(monkeypatch, tmp_path)
+        calls = {'phase3_called': False}
+        self._patch_phase3(monkeypatch, calls)
+
+        _relaxed_dir = tmp_path / 'phase2_relax'
+        _relaxed = str(_relaxed_dir / 'relaxed_slab.lammps')
+        # relaxed_slab.lammps does NOT exist yet when orchestrate_slab_prep
+        # starts (otherwise its own "already done" skip-guard would fire
+        # instead of the real-submission path this test targets). Writing it
+        # inside the wait_for_jobs mock simulates the SLURM job producing it
+        # during the (real) blocking wait.
+
+        waited = {}
+
+        def _fake_wait(jobs, **kw):
+            waited['called_with'] = jobs
+            _relaxed_dir.mkdir(parents=True, exist_ok=True)
+            pathlib.Path(_relaxed).write_text('fake relaxed slab')
+
+        monkeypatch.setattr(
+            'models.neb_workflow.run_phase2_surface_relaxation',
+            lambda **kw: {
+                'relaxed_slab': _relaxed,
+                'log_file': str(_relaxed_dir / 'surface_relax.log'),
+                'job_id': '123456',
+                'status': 'submitted',
+            },
+        )
+        monkeypatch.setattr('models.neb_workflow.wait_for_jobs', _fake_wait)
+
+        result = orchestrate_slab_prep(
+            bulk_min_path='/x/bulk_min.lammps',
+            outdir=str(tmp_path),
+            z_freeze_cutoff=22.0,
+            dry_run=False,
+        )
+        assert waited['called_with'] == {'surface_relax': '123456'}
+        assert calls['phase3_called'] is True
+        assert result['n_sites'] == 5
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 1b. write_neb_run_script — H2 shared-cache read (real exec of the slice)
 # ═══════════════════════════════════════════════════════════════════════════
 
