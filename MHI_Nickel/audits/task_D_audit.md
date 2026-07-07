@@ -133,3 +133,38 @@ None. All three changes match the plan exactly.
 
 **VERIFIED.** `calculation/pipeline.ipynb` committed in this task.
 `diffusivity_workflow.py` integration committed with Task B.
+
+---
+
+## 8. Follow-up — 2026-07-06 (branch `fix_redundant_min_npt_run`)
+
+The flagged item in Section 6 (`PERM_GPU_SLURM` still `multigpu`) has been resolved, and the
+partition scheme has since been rebalanced by job *category* rather than by pipeline *part* —
+"short GPU job" turned out to be too coarse a bucket once NPT (a real chained MD run) and
+one-shot CG minimisations were both being routed through it.
+
+**Current scheme (see `Project2_surface_labeling/PIPELINE_GUIDE.md` Section 3 and
+`Project2_surface_labeling/multiscale_permeation_plan.md` Section 2b–2e for full detail):**
+
+- `NEB_GPU_SLURM` → `gpu`/8h, but **narrowed in scope**: it now covers *only* slab surface
+  relaxation (Section A of `neb_workflow.py`) — the four-phase chained MD run
+  (min → heat → NVT → quench). It no longer covers Section C's FS-minimisation.
+- A new `MIN_SLURM` config (`sharing`/1h) covers every quick one-shot CG minimisation across
+  the whole pipeline: H₂ reference energy, H₂*/H* adsorption energy (Section B), and FS-min
+  before NEB (Section C) — previously lumped in with `NEB_GPU_SLURM`.
+- `PERM_GPU_SLURM` (this section's flagged TODO) is now `sharing`/1h, same reasoning as
+  `MIN_SLURM` — Hop A/B FS-minimisation is a one-shot CG minimisation, not real dynamics.
+- Diffusivity's `SHORT_GPU_PARTITION` (bare-min + bulk+H-min) stayed on the "quick minimisation"
+  category (now `sharing`/1h); NPT was split out onto its own `gpu`/8h config, since it is real
+  chained MD like slab surface relaxation, not a one-shot minimisation — see
+  `audits/task_B_audit.md` Section 8.
+
+**Why this reclassification, not just a name change:** the original rule ("short jobs → `gpu`,
+long NVT → `multigpu`") conflated two different things that happen to both take a few hours:
+real molecular dynamics (surface relaxation, NPT) and one-shot energy minimisation (H₂
+reference, adsorption energies, FS-min, bare-bulk min). The former needs GPU wall time
+commensurate with actually integrating a trajectory; the latter converges in minutes to an
+hour regardless of GPU speed. Splitting by category rather than by duration keeps `gpu`
+reserved for jobs that need it and frees `sharing` capacity for the much larger number of
+quick minimisations the multi-metal pipeline now runs (11 structures × several minimisation
+types each).

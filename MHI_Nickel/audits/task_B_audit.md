@@ -153,3 +153,37 @@ None.
 **VERIFIED.** `models/diffusivity_workflow.py` committed in this task.
 Also closes Task G's integration gap: `get_lattice_parameter_from_dump` now live in the
 generated template.
+
+---
+
+## 8. Follow-up — 2026-07-06 (branch `fix_redundant_min_npt_run`)
+
+The partition scheme above (`SHORT_GPU_PARTITION='gpu'`, `SHORT_GPU_SLURM_CFG` shared by
+bare-min + NPT + bulk+H-min) has been superseded twice since this audit:
+
+1. **Intermediate change (undocumented at the time):** `SHORT_GPU_PARTITION` moved from
+   `gpu` to `sharing`, and `SHORT_GPU_TIME` from `04:00:00` to `00:20:00`. All three phases
+   (bare-min, NPT, bulk+H-min) still shared one `SHORT_GPU_SLURM_CFG`.
+2. **This session:** NPT was split out into its own `NPT_GPU_SLURM_CFG` (`NPT_GPU_PARTITION='gpu'`,
+   `NPT_GPU_TIME='08:00:00'`) — `write_chained_slurm_job`'s call for NPT now uses this config
+   instead of `SHORT_GPU_SLURM_CFG`. `generate_diffusivity_scripts()` gained
+   `npt_gpu_partition`/`npt_gpu_time`/`npt_gpu_cutoff` parameters for this. Bare-min and
+   bulk+H-min stayed on `SHORT_GPU_SLURM_CFG`, now `sharing`/`01:00:00`.
+
+**Why:** NPT is real chained MD (heating ramp + long production, currently 50 ps + 250 ps) —
+the same category as slab surface relaxation in `neb_workflow.py`, which also runs on `gpu`.
+Bare-bulk-min and bulk+H-min are one-shot CG minimisations with no meaningful dynamics —
+the same category as H₂ reference energy and adsorption-energy minimisations elsewhere in
+the pipeline, which run on `sharing`. Bundling all three onto one SLURM config (as B3/B5/B6
+above did) mismatched two different job categories to one partition/time budget.
+
+Additionally, Phase 1a (bare-bulk min) and the NPT step of Phase 1b were hoisted out of the
+per-`n_H` loop into a shared per-structure block that runs once regardless of how many
+`N_H_VALUES` are requested — see `Project2_surface_labeling/multiscale_permeation_plan.md`
+Section 4 for the current description. This audit's B4/B5 checkpoint guards (`min_bare_out`,
+`npt_final_paths[T]`) still apply; they now guard the shared block rather than a per-`n_H`
+iteration.
+
+See `tests/test_diffusivity_workflow.py::TestSharedBareBulkAndNpt` and
+`::test_npt_uses_its_own_gpu_partition_not_short_gpu` /
+`::test_bare_bulk_and_bulk_h_min_still_use_short_gpu` for the tests guarding this split.

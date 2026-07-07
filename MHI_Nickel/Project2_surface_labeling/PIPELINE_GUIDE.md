@@ -39,7 +39,7 @@ Experimentally, measuring permeability at reactor temperatures (600–900 K) is 
 
 A direct molecular dynamics (MD) simulation of H permeation would require milliseconds of simulation time — far beyond what MD can achieve. Instead, the pipeline uses a **multiscale strategy**:
 
-1. **MACE ML potential** — A machine-learned interatomic potential (MACE-MP-0b2-medium) that gives DFT-level accuracy at near-classical-MD cost. All energy evaluations in this project use MACE via LAMMPS with GPU (A100) acceleration through Kokkos.
+1. **MACE ML potential** — A machine-learned interatomic potential (MACE-MH-1, trained for this project) that gives DFT-level accuracy at near-classical-MD cost. All energy evaluations in this project use MACE via LAMMPS with GPU (A100) acceleration through Kokkos.
 
 2. **NEB** — Finds the minimum-energy path between two atomic configurations to get the energy barrier Eₐ for each H hop.
 
@@ -291,10 +291,20 @@ The generated `*_run.py` scripts are the ones that actually import from `models/
 
 ### Execution environment
 
-- **Cluster:** SLURM with A100 GPUs (partition `multigpu`) and CPU nodes
+- **Cluster:** Northeastern Explorer, SLURM with A100 GPUs and CPU nodes, split across five partitions by job category:
+
+  | Partition | Wall time | Used for |
+  |---|---|---|
+  | `gpu` | 8 h | Real chained MD only — slab surface relaxation (min → heat → NVT → quench) and bulk NPT lattice equilibration. These are the only two job types that actually integrate long trajectories on the GPU. |
+  | `sharing` | 1 h | Every quick one-shot CG minimisation — H₂ reference energy, H₂*/H* adsorption energy, FS-min before NEB, bare-bulk min, bulk+H min, pre-pipeline bulk min, Hop A/B FS-min. |
+  | `short` | 12 h (NEB), 6 h (vibrations) | CPU-only SLURM arrays: CI-NEB runs and vibrational-frequency (Hessian) jobs — no Kokkos GPU support for multi-replica NEB in LAMMPS. |
+  | `multigpu` | 24 h | Long NVT production MD for bulk diffusivity (Phase 2) — the only job category that can genuinely run for a full day. |
+  | `west` | 30 days | `pipeline_run.py` itself — a lightweight CPU orchestrator that only submits and polls child jobs, never runs LAMMPS/MACE directly. |
+
+  The rule of thumb: if a job runs actual dynamics for tens of picoseconds or more, it goes on `gpu` (or `multigpu` for the longest NVT runs); if it is a single CG minimisation to a local energy minimum, it goes on `sharing`.
 - **Python env:** `mace_env` (Python 3.9.23) with MACE, ASE, networkx, numpy, scipy
 - **LAMMPS build:** custom build with MLIAP + Kokkos for GPU acceleration
-- **MACE model:** `mace-mp-0b2-medium` — universal ML potential
+- **MACE model:** MACE-MH-1 (project-trained potential; `.model` file for ASE, `.pt` file for LAMMPS)
 
 ---
 
@@ -307,24 +317,28 @@ The generated `*_run.py` scripts are the ones that actually import from `models/
 #    calculation/pipeline.ipynb
 
 # 2. Edit Cell 2 — set your parameters:
-#    WORK_DIR         = '/projects/.../your_run'
-#    INPUT_STRUCTURES = ['/path/to/hastelloy_slab.lammps']
-#    TEMPERATURES     = [600, 700, 800, 900]   # K
-#    E_H2_GAS         = -6.7640                # eV (run separately — see note below)
+#    WORK_DIR         = BASE_DIR/calculation                (cluster path, from config.py)
+#    INPUT_STRUCTURES = [list of per-metal .lammps files]    (one entry per material)
+#    TEMPERATURES     = [400, 600, 800]                      # K
+#    dry_run          = True                                 # writes scripts only, no sbatch
 
-# 3. Run all cells → generates pipeline_run.py + pipeline_run.sh
+# 3. Run Cells 1-2, then run the E_H2_GAS cell at the bottom of Cell 2 (see note below)
 
-# 4. Submit to SLURM
+# 4. Run Cells 3-6 → generates neb_run_{stem}.py / diffusivity_run.py /
+#    permeation_run_{stem}.py / pipeline_run.py + pipeline_run.sh, one
+#    NEB + permeation script pair per metal in INPUT_STRUCTURES
+
+# 5. Submit to SLURM (set dry_run=False in Cell 6, or submit the printed sbatch commands)
 sbatch calculation/pipeline_run.sh
 
-# 5. Monitor
+# 6. Monitor
 squeue -u $USER
 
-# 6. After completion, open each notebook and run the analysis cells
+# 7. After completion, open each notebook and run the analysis cells
 #    for plots and tables
 ```
 
-**Note on `E_H2_GAS`:** This is the MACE energy of an isolated H₂ molecule in vacuum [eV]. It cannot be extracted automatically from the pipeline. Run a single LAMMPS minimisation of a H₂ molecule in a large box, read the final energy, and enter it once. For MACE-MP-0b2-medium on a gas-phase H₂, the value is approximately −6.76 eV (you should compute your own to be exact).
+**Note on `E_H2_GAS`:** This is the MACE energy of an isolated H₂ molecule in vacuum [eV] — a shared thermodynamic reference computed **once** and reused by every metal (not recomputed per material). Cell 2 calls `calculate_ref_adsorbate_energy(..., dry_run=dry_run)`, which checks `adsorption/ref_energies/h2_ref_energy.json`: if it already exists, `E_H2_GAS` is read from the cache immediately. If not, it writes (but does not submit, even with `dry_run=False`) an `h2_ref.sh` script and returns `None` — submit that script yourself with `sbatch`, wait for it to finish, then re-run Cell 2; it will detect the completed log and populate the cache without resubmitting. Every metal's `neb_run_{stem}.py` reads this same cached value at runtime and raises `RuntimeError` if it is still missing — no metal computes its own copy.
 
 ### Partial runs
 
@@ -351,33 +365,36 @@ H₂ dissociation barriers on the Hastelloy N FCC(111) surface. The surface has 
 
 | Phase | Name | What happens | Hardware |
 |---|---|---|---|
-| A | Slab relaxation | Build FCC(111) 12-layer slab; assign Hastelloy N composition; relax surface with CG minimisation | GPU array |
-| B | Site enumeration | Use ACAT to identify all unique surface sites; compute H₂* and H* adsorption energies for each site | GPU array |
-| C | NEB initial path | Generate IS (H₂* at site) and FS (2×H* at adjacent sites) pairs; create linear interpolation; submit CINEB | CPU array (16 cores each) |
-| D | FS refinement | Re-minimise FS structures found by Phase C; re-run NEB from Phase D FS | GPU+CPU sequential |
-| E | Vibrational analysis | Compute partial Hessian at IS and TS for each converged NEB; extract frequencies; apply ZPE; save `diss_vib_rates.json` | CPU array |
+| A | Slab relaxation | Build slab (`build_slab`, routed by `metal_type`); freeze bottom layers; **four-phase** relaxation — CG min → thermal anneal → NVT → quench (second CG min); enumerate surface sites | `gpu`, 8 h (real chained MD) |
+| B | Site enumeration + adsorption | Use ACAT (alloy/pure) or the ontop+bridge oxide enumerator (`metal_type='oxide'`) to identify all unique surface sites; compute H₂* and H* adsorption energies for each site | `sharing`, 1 h (one-shot CG min) |
+| C | NEB initial path | Generate IS (H₂* at site) and FS (2×H* at adjacent sites) pairs; FS-minimise; create linear interpolation; submit CINEB | `sharing` (FS-min) + `short` (CI-NEB array, 16 cores) |
+| D | Barrier parsing | Read converged NEB log files; extract Eₐ, E_des, ΔH per transition; rank and write `ranked_barriers.json` | Local Python (no SLURM) |
+| E | Vibrational analysis | Compute partial Hessian at IS and TS for each converged NEB; extract frequencies; apply ZPE; save `diss_vib_rates.json` | `short`, 6 h (CPU array) |
 
-### Key parameters (Cell 2 of `neb_calculation.ipynb`)
+### Key parameters (Cell 2 of `neb_calculation.ipynb` / per-metal block of `pipeline.ipynb`)
 
 ```python
-WORK_DIR        = '/projects/.../run_dir'
-INPUT_SLAB      = '/path/to/hastelloy_slab.lammps'
-E_H2_GAS        = -6.7640        # eV — H₂ gas reference energy (MUST BE SET)
-LAYERS          = 12             # slab thickness; 12 = standard, must be even
+WORK_DIR        = os.path.join(BASE_DIR, 'calculation')
+INPUT_STRUCTURES = [...]        # one .lammps file per metal — see multi-metal routing below
+E_H2_GAS        = calculate_ref_adsorbate_energy(...)  # auto-computed once, shared cache (see Quick Start note)
+LAYERS          = 12             # slab thickness; ignored for oxides (auto-matched to ~22 Å instead)
 N_IMAGES        = 18             # NEB interpolation images
 SPRING_CONST    = 1.0            # eV/Å²
 NEB_FTOL        = 0.05           # eV/Å — convergence tolerance
-TEMPERATURES    = [600, 700, 800, 900]  # K — for rate computation in Phase E
+TEMPERATURES    = [400, 600, 800]  # K — for rate computation in Phase E
 ```
 
 ### How the slab is built
 
-The slab is an FCC(111) supercell of Hastelloy N:
-- 12 layers of metal atoms
-- Bottom 4 layers are frozen (Cartesian z positions held fixed) to simulate the bulk
-- Top 8 layers are free to relax
-- H atoms are placed at FCC hollow sites or bridge sites (enumerated by ACAT)
-- Element types: Al, B, C, Cr, Fe, Mo, Ni = types 1–7; H = type 8
+`build_slab()` routes on `metal_type` (`'alloy'`, `'pure'`, or `'oxide'`, assigned per input structure by `classify_metal()` in `pipeline.ipynb` Cell 2):
+
+- **alloy** (e.g. Hastelloy N, `bestsqs*`): Ni-FCC geometry template; element symbols randomly shuffled from the bulk composition fractions, seeded per-structure (`slab_seed` derived from the numeric suffix in the stem, e.g. `Hastelloy_N_42` → seed 42).
+- **pure** (e.g. `Al_supercell`, `Ni_supercell`, `Fe_supercell`): correct FCC or BCC geometry from the crystal-structure map; every site is the single element, no shuffle.
+- **oxide** (e.g. `Cr_oxide_supercell`): primitive cell extracted via spglib; stoichiometry preserved exactly; `LAYERS` is ignored — the repeat count is chosen automatically to match a ~22 Å target thickness instead.
+
+Bottom layers are frozen (`Z_FREEZE_CUTOFF`, auto = bottom 1/3 of slab thickness unless overridden) to simulate the bulk; the remainder relax freely through the four-phase protocol above. H atoms are placed at hollow/bridge/ontop sites enumerated in Phase B. Element types for alloy/pure structures: Al, B, C, Cr, Fe, Mo, Ni = types 1–7, H = type 8 (`ELEM_STR_7`); oxide structures add O as type 8 and H as type 9 (`ELEM_STR_10`).
+
+Two structures are currently skipped for Parts 1/2 (surface NEB + permeation) via `SKIP_OXIDE_STEMS` / `is_pure_bcc_structure()` in `pipeline.ipynb` Cell 2, though they still run through Part 3 (bulk diffusivity) unaffected: `Ni_oxide_supercell` (polar Tasker-III NiO(111) termination — GitHub #5) and any pure BCC structure (surface/subsurface untested — GitHub #6).
 
 ### Key output files
 
@@ -419,12 +436,14 @@ Part 3 runs in parallel with Part 1. Part 2 requires D(T) from Part 3 to compute
 
 ### Four phases of `diffusivity_run.py`
 
-| Phase | Name | What happens |
-|---|---|---|
-| 1a | CG minimisation | Conjugate-gradient energy minimisation of the bare bulk structure to find the T=0 reference geometry |
-| 1b | NPT equilibration | Run NPT MD at each T to let the box relax to the thermal lattice constant a₀(T); insert N_H hydrogen atoms; re-minimise the bulk+H structure |
-| 2 | NVT production | Long NVT MD (fixed volume, fixed T); dump atomic positions every N steps for MSD calculation; auto-restarts if SLURM wall time is hit (job chaining) |
-| 3 | MSD analysis | Compute MSD(t) from position dumps; fit to `MSD = 6Dt` for 3D diffusion; repeat across temperatures; Arrhenius fit: `ln(D) vs 1/T` → D₀ and E_D |
+| Phase | Name | What happens | Hardware |
+|---|---|---|---|
+| 1a | CG minimisation | Conjugate-gradient energy minimisation of the bare bulk structure to find the T=0 reference geometry. Runs **once per structure**, shared across all `N_H_VALUES` (not recomputed per H concentration). | `sharing`, 1 h |
+| 1b | NPT equilibration | Run NPT MD at each T to let the box relax to the thermal lattice constant a₀(T). Also runs **once per structure** (hoisted out of the per-`n_H` loop, since a₀(T) does not depend on H concentration); insert N_H hydrogen atoms and re-minimise the bulk+H structure separately per `(structure, n_H, T)` combination. | `gpu`, 8 h (NPT — real chained MD); `sharing`, 1 h (bulk+H re-min) |
+| 2 | NVT production | Long NVT MD (fixed volume, fixed T); dump atomic positions every N steps for MSD calculation; auto-restarts if SLURM wall time is hit (job chaining) | `multigpu`, 24 h |
+| 3 | MSD analysis | Compute MSD(t) from position dumps; fit to `MSD = 6Dt` for 3D diffusion; repeat across temperatures; Arrhenius fit: `ln(D) vs 1/T` → D₀ and E_D | Local Python |
+
+Phases 1a and 1b-NPT are the two costliest steps per structure, so hoisting them out of the `N_H_VALUES` loop (they used to be recomputed redundantly for every H concentration) was a significant fix — see `audits/task_B_audit.md` follow-up note. Each phase writes its own failure to a shared `_FAILURES` list rather than crashing the whole run; `diffusivity_failures.json` records which `(structure, n_H)` combinations failed, and the script exits non-zero only if at least one failure was recorded.
 
 ### Arrhenius diffusivity
 
@@ -439,10 +458,10 @@ D(T) = D₀ × exp(−E_D / k_B T)      [m²/s]
 ### Key parameters (Cell 2 of `diffusivity.ipynb`)
 
 ```python
-INPUT_STRUCTURES = ['/path/to/bulk_hastelloy.lammps']
-TEMPERATURES     = [500, 600, 700, 800, 900]  # K
-N_H_VALUES       = [1, 3, 5, 7, 10]          # H atoms to insert
-N_PROD_STEPS     = 1_500_000                  # timestep 0.5 fs → 750 ps
+INPUT_STRUCTURES = [...]                      # one entry per metal (11 structures currently)
+TEMPERATURES     = [400, 600, 800]            # K — shared with Parts 1 and 2
+N_H_VALUES       = [1, 3, 5, 10]              # H atoms to insert
+N_PROD_STEPS     = 5_000_000                  # timestep 0.5 fs → 2.5 ns
 NVT_WALL_TIME    = '24:00:00'                 # jobs auto-resubmit if needed
 ```
 
@@ -465,8 +484,8 @@ This file is **automatically read by Part 2** — no manual transcription needed
 **`results/lattice_params_vs_T.json`** — thermal lattice parameter:
 ```json
 {
-  "temperatures": [500, 600, 700, 800, 900],
-  "a0_m": [3.518e-10, 3.522e-10, 3.526e-10, 3.530e-10, 3.534e-10]
+  "temperatures": [400, 600, 800],
+  "a0_m": [3.514e-10, 3.522e-10, 3.530e-10]
 }
 ```
 This file is also **automatically read by Part 2** so that KMC and permeability calculations use the correct a₀ at each T (rather than a fixed room-temperature value).
@@ -494,40 +513,42 @@ H leaves the FCC(111) surface hollow site and enters the first octahedral inters
 **Hop B** — sub1 → subsurface-2 (sub2):  
 H moves from the first subsurface oct site to the second oct site (between layers 10 and 11). This hop determines how fast H moves from the surface region into the bulk. After sub2, H is effectively in the bulk and diffuses at the bulk rate D(T).
 
-### Six phases of `permeation_run.py`
+### Six phases of `permeation_run_{stem}.py`
 
 | Phase | Name | What happens | Hardware |
 |---|---|---|---|
-| 1 | Hop A NEB | Build subsurface graph (NetworkX); generate H_sub FS structures; FS-min; run CINEB for H*→sub1 | GPU+CPU arrays |
-| 2 | Hop B NEB | Use Hop A relaxed sub1 structures as IS; generate sub2 FS structures; run CINEB for sub1→sub2 | GPU+CPU arrays |
-| 3 | Vibrations | Hessian + normal modes at IS and TS for all Hop A and Hop B NEB jobs; ZPE-corrected barriers | CPU array |
+| 1 | Hop A NEB | Build subsurface graph (NetworkX); generate H_sub FS structures; FS-min; run CINEB for H*→sub1 | `sharing` (FS-min) + `short` (CI-NEB array) |
+| 2 | Hop B NEB | Use Hop A relaxed sub1 structures as IS; generate sub2 FS structures; run CINEB for sub1→sub2 | `sharing` (FS-min) + `short` (CI-NEB array) |
+| 3 | Vibrations | Hessian + normal modes at IS and TS for all Hop A and Hop B NEB jobs; ZPE-corrected barriers | `short`, 6 h (CPU array) |
 | 4 | TST rates | Vineyard prefactor; Arrhenius rates at each temperature; write `rate_dict_T{T}K.json` | Local Python |
 | 5 | KMC sweep | Load rate_dict + D(T) + a₀(T); run BKL KMC at each pressure; record steady-state C₀ and J; Sieverts check | Local Python |
 | 6 | Permeability | Three S₀ options; Φ(T) = D×S at each T; Arrhenius fit of Φ(T) | Local Python |
 
+Each phase (Hop A/B submission, KMC sweep per T) is guarded by an existence check on its own output file, so a restarted `permeation_run_{stem}.py` skips whatever already completed rather than resubmitting — see `audits/task_F_audit.md`.
+
 ### Auto-extracted values
 
-After a full pipeline run, Part 2 reads the following without any manual input:
+After Parts 1 and 3 finish, `permeation_run_{stem}.py` reads the following at startup, per metal, without any manual input:
 
 | Value | Source | What it is |
 |---|---|---|
-| `DH_DISS_EV` | mean `delta_E` from `ranked_barriers.json` | H₂ dissociation reaction energy |
-| `DH_ENTRY_EV` | mean `delta_E` from converged Hop A jobs | H* → H_sub reaction energy |
-| `D0_M2S`, `E_D_EV` | `diffusivity_arrhenius.json` | Bulk diffusivity Arrhenius parameters |
+| `DH_DISS_EV` | lowest-barrier entry in `neb/ranked_barriers.json` | H₂ dissociation reaction energy |
+| `DH_ENTRY_EV` | converged Hop A NEB result | H* → H_sub reaction energy |
+| `D0_M2S`, `E_D_EV` | `results/{stem}_{n_h}H/diffusivity_arrhenius.json` — loaded **per `(stem, n_H)` pair**, not once per metal | Bulk diffusivity Arrhenius parameters |
 | `a₀(T)` | `lattice_params_vs_T.json` | Thermal lattice constant per temperature |
 
-If Part 3 has not been run yet, Part 2 falls back to the fixed `A0_M` value from Cell 2. If `diffusivity_arrhenius.json` is missing, it uses a placeholder D value and prints a warning.
+If Part 3 has not been run yet, Part 2 falls back to the fixed `A0_M` value from Cell 2. If a given `(stem, n_H)`'s `diffusivity_arrhenius.json` is missing or invalid, that H-concentration is **skipped entirely** (not substituted with a placeholder D value) — `permeation_status.json` records which `n_H` were skipped and why, and the script exits non-zero only if zero H-concentrations produced a result.
 
-### Key parameters (Cell 2 of `permeation.ipynb`)
+### Key parameters (Cell 2 of `permeation.ipynb` / shared config in `pipeline.ipynb`)
 
 ```python
-WORK_DIR        = '/projects/.../run_dir'    # same as Part 1
-TEMPERATURES    = [600, 700, 800, 900]        # K
+WORK_DIR        = os.path.join(BASE_DIR, 'calculation')
+TEMPERATURES    = [400, 600, 800]              # K — shared with Parts 1 and 3
 A0_M            = 3.52e-10                    # m — fallback only if Part 3 not run
 L_M             = 1e-3                        # m — membrane thickness (1 mm)
-NX, NY          = 20, 20                      # KMC grid dimensions
+NX, NY          = 40, 40                      # KMC grid dimensions
 KMC_MAX_STEPS   = 500_000                     # hard cap on KMC steps
-P_VALS_PA       = [1e3, 1e4, 1e5, 5e5, 1e6]  # Pa — pressure sweep
+P_VALS_PA       = list(np.logspace(-5, 6, 40))  # Pa — 40 log-spaced points, 1e-5 to 1e6
 DH_DISS_EV      = None   # set to override auto-extraction
 DH_ENTRY_EV     = None   # set to override auto-extraction
 ```
@@ -584,22 +605,31 @@ DH_ENTRY_EV     = None   # set to override auto-extraction
 
 ## 8. Master Pipeline (`pipeline.ipynb`)
 
-### What it does
+### Multi-metal routing (Cell 2)
 
-Orchestrates Parts 1, 3, and 2 in the correct order with no manual intervention between steps.
+`pipeline.ipynb` runs the whole campaign across every structure in `INPUT_STRUCTURES` in one pass, not just one material. Cell 2's `classify_metal(path)` inspects the filename stem and tags each structure `'oxide'` (name contains `oxide`), `'alloy'` (name contains `hastelloy`/`bestsqs`/`sqs`/`alloy`), or `'pure'` (everything else — `Al_supercell`, `Fe_supercell`, `Ni_supercell`, ...). This builds `METAL_CONFIGS`, a list of per-structure dicts (`stem`, `type`, `elem_str`/`e2t`/`masses` — 7-element table for alloy/pure, 10-element table with O for oxide). A `skip_surface` flag is also computed per structure (see the skip list at the end of "How the slab is built" in Section 5) — skipped structures still run through Part 3 but are excluded from Cells 3 and 5.
+
+Cells 3 and 5 loop over `METAL_CONFIGS` and write one `neb_run_{stem}.py` and one `permeation_run_{stem}.py` per (non-skipped) structure; Cell 4 writes a single `diffusivity_run.py` that internally loops over all of `INPUT_STRUCTURES × N_H_VALUES` (diffusivity doesn't need the surface-NEB skip list). The per-metal `slab_seed` is derived from the numeric suffix in the stem (`Hastelloy_N_42_supercell` → 42; falls back to 7 if no digits are found).
+
+### What `pipeline_run.py` does
+
+Orchestrates every metal's Part 1, the shared Part 3, and every metal's Part 2, in the correct order, with no manual intervention between steps.
 
 ```
 sbatch pipeline_run.sh
     └─ python pipeline_run.py
            │
-           ├── subprocess.Popen(neb_run.py)          # Part 1 (GPU+CPU, hours–days)
-           ├── subprocess.Popen(diffusivity_run.py)   # Part 3 (GPU+CPU, hours–days)
-           │                                          # Parts 1 + 3 run in parallel
-           ├── p1.wait() + p3.wait()                  # block until both finish
-           └── subprocess.run(permeation_run.py)      # Part 2 (GPU+CPU, hours–days)
+           ├── subprocess.Popen(neb_run_{stem}.py)     # one per metal, Part 1 — all launched in parallel
+           ├── subprocess.Popen(diffusivity_run.py)     # Part 3 — also launched in parallel with the NEBs
+           │                                            # (shared across all metals internally)
+           ├── proc.wait() for every launched process   # block until ALL NEB scripts + diffusivity finish
+           ├── check each return code — any non-zero → recorded, does not block the rest
+           └── for stem in metals:                      # Part 2 — run SEQUENTIALLY, one metal at a time
+                   subprocess.run(permeation_run_{stem}.py)
+                   non-zero return code → exit 1
 ```
 
-The pipeline script itself is lightweight — it just launches and waits. All the physics happens inside the sub-scripts.
+The pipeline script itself is lightweight — it just launches and waits. All the physics happens inside the sub-scripts. Permeation runs sequentially (not in parallel) because each `permeation_run_{stem}.py` submits its own SLURM arrays for Hop A/B and can saturate the `short`/`sharing` partitions on its own; running all metals' Part 2 simultaneously would oversubscribe those partitions for no benefit (Part 2 is far cheaper than Parts 1/3 per metal).
 
 ### When to use individual notebooks vs the master pipeline
 
@@ -629,7 +659,7 @@ The `models/` directory contains the reusable library that all notebooks and gen
 
 ### Structure and energetics
 
-**`structure.py`** — Build and manipulate atomic structures. `build_fcc111_slab()` creates the Hastelloy N slab with frozen layers. `insert_h_octahedral()` places H atoms at FCC oct interstitial sites. `extract_lattice_param()` reads a₀ from NPT thermo output.
+**`structure.py`** — Build and manipulate atomic structures. `build_slab()` creates the surface slab with frozen layers, routed by `metal_type` (`'alloy'`/`'pure'`/`'oxide'` — see "How the slab is built" in Section 5). `insert_hydrogen()` places H atoms at FCC octahedral interstitial sites. `get_lattice_parameter_from_dump()` reads the thermally-averaged a₀(T) from an NPT box-dimension dump (averages the last N frames rather than trusting a single snapshot — see `audits/task_G_audit.md`); `get_lattice_parameter()` remains for reading a₀ from a single minimised structure file (used inside `insert_hydrogen()`, not for NPT output). `is_pure_bcc_structure()` flags pure BCC inputs for the surface-step skip list.
 
 **`energetics.py`** — Compute and summarise energetics. Parses adsorption energies from batched LAMMPS runs. `summarise_neb_barriers()` reads all `neb_barrier.txt` files in a directory and produces `ranked_barriers.json` sorted by Eₐ.
 
@@ -637,11 +667,11 @@ The `models/` directory contains the reusable library that all notebooks and gen
 
 **`ase_neb.py`** — Runs a single NEB calculation as an ASE NEB object backed by LAMMPS. Called by SLURM array job workers (one job per IS/FS pair). Handles CINEB image convergence and writes `neb_barrier.txt`.
 
-**`neb_workflow.py`** — Orchestrates the full surface NEB pipeline (Phases A–E). Generates all job scripts, submits SLURM arrays, waits for completion, and parses results. Contains the `_NEB_BODY` f-string that becomes `neb_run.py` when the notebook is run.
+**`neb_workflow.py`** — Orchestrates the full surface NEB pipeline (Phases A–E), threading `metal_type` and `slab_seed` through every phase. Generates all job scripts, submits SLURM arrays, waits for completion, and parses results. Contains the `_NEB_BODY` f-string that becomes `neb_run_{stem}.py` (one per metal) when `write_neb_run_script()` is called from `pipeline.ipynb` Cell 3. Also exposes `calculate_ref_adsorbate_energy()` — the shared H₂-gas reference-energy helper used once in Cell 2, not per metal.
 
-**`neb_subsurface.py`** — Orchestrates Hop A and Hop B NEB. `orchestrate_hopa_neb()` generates H_sub FS positions from the subsurface graph and submits the NEB array. `orchestrate_hopb_neb()` uses Hop A output as input. Writes the barrier files that feed Phase 3 and 4 of `permeation_run.py`.
+**`neb_subsurface.py`** — Orchestrates Hop A and Hop B NEB. `orchestrate_hopa_neb()` generates H_sub FS positions from the subsurface graph and submits the NEB array. `orchestrate_hopb_neb()` uses Hop A output as input. Writes the barrier files that feed Phase 3 and 4 of `permeation_run_{stem}.py`.
 
-**`subsurface_graph.py`** — Builds a NetworkX graph of FCC octahedral interstitial sites in the slab. Each node is a sub oct site; edges connect geometrically adjacent sites. `build_subsurface_graph()` parses the relaxed slab structure and identifies all sub1 and sub2 sites, keyed by the overlying surface site ID. This graph determines which FS structures to generate for Hop A/B.
+**`subsurface_graph.py`** — Builds a NetworkX graph of interstitial sites in the slab (octahedral/tetrahedral for alloy/pure metals via rank-based layer binning; any-coordination "interstitial" sites for oxides via gap-based layer binning, `metal_type='oxide'`). Each node is a sub-site; edges connect geometrically adjacent sites, including the `sub1↔sub2` edges needed for Hop B (previously missing — see `audits/oxide_support_plan.md`). `build_subsurface_graph()` parses the relaxed slab structure and identifies all sub1 and sub2 sites, keyed by the overlying surface site ID. This graph determines which FS structures to generate for Hop A/B.
 
 ### Vibrational analysis and rates
 
@@ -719,8 +749,8 @@ Use `D(T) = D0_m2s × exp(−E_D_eV / (8.617e-5 × T))` to get D at any T.
 Thermal equilibrium lattice parameter at each temperature:
 ```json
 {
-  "temperatures": [500, 600, 700, 800, 900],
-  "a0_m":         [3.518e-10, 3.522e-10, 3.526e-10, 3.530e-10, 3.534e-10]
+  "temperatures": [400, 600, 800],
+  "a0_m":         [3.514e-10, 3.522e-10, 3.530e-10]
 }
 ```
 Indexing: `a0_m[i]` corresponds to `temperatures[i]`.
@@ -781,7 +811,7 @@ All three permeability options at 700 K:
 
 | Parameter | Notebook Cell | Physical meaning | How to determine | Typical range |
 |---|---|---|---|---|
-| `E_H2_GAS` | neb Cell 2 | MACE energy of gas-phase H₂ [eV] | Single-point MACE of H₂ in vacuum | ~−6.76 eV (MACE-MP-0b2) |
+| `E_H2_GAS` | pipeline Cell 2 | MACE energy of gas-phase H₂ [eV] | Auto-computed once via `calculate_ref_adsorbate_energy()` and cached (see Quick Start note) — not hand-entered | ~−6.79 eV (MACE-MH-1) |
 | `L_M` | permeation Cell 2 | Membrane thickness [m] | Experimental membrane geometry | 0.5 mm – 5 mm |
 
 ### Parameters auto-extracted after pipeline runs
@@ -790,25 +820,25 @@ All three permeability options at 700 K:
 |---|---|---|
 | `DH_DISS_EV` | `ranked_barriers.json` (mean delta_E) | H₂ dissociation reaction energy [eV] |
 | `DH_ENTRY_EV` | Hop A NEB results (mean delta_E) | H* → H_sub reaction energy [eV] |
-| `D0_M2S` | `diffusivity_arrhenius.json` | Diffusivity pre-exponential [m²/s] |
-| `E_D_EV` | `diffusivity_arrhenius.json` | Bulk diffusion activation energy [eV] |
+| `D0_M2S` | `results/{stem}_{n_h}H/diffusivity_arrhenius.json` (per stem, per `n_H`) | Diffusivity pre-exponential [m²/s] |
+| `E_D_EV` | same file | Bulk diffusion activation energy [eV] |
 | `a₀(T)` | `lattice_params_vs_T.json` | Thermal lattice parameter [m] per T |
 
 ### Tunable simulation parameters
 
 | Parameter | Default | Physical meaning | When to change |
 |---|---|---|---|
-| `TEMPERATURES` | [600, 700, 800, 900] K | Temperatures for rate/KMC computation | Match your reactor operating range |
-| `NX, NY` | 20, 20 | KMC grid size | Increase to 40×40 for publication-quality statistics (4× slower) |
+| `TEMPERATURES` | [400, 600, 800] K | Temperatures for rate/KMC computation, shared by all 3 parts | Match your reactor operating range |
+| `NX, NY` | 40, 40 | KMC grid size | 1600 surface + 1600 subsurface sites; large enough to avoid finite-size artefacts |
 | `KMC_MAX_STEPS` | 500,000 | Hard cap on KMC steps | Increase if convergence warnings appear in `permeation_sweep*.json` |
-| `P_VALS_PA` | [1e3, 1e4, 1e5, 5e5, 1e6] Pa | Pressure sweep range | Match your reactor H₂ partial pressures |
+| `P_VALS_PA` | 40 log-spaced points, 1e-5 to 1e6 Pa | Pressure sweep range | Match your reactor H₂ partial pressures |
 | `A0_M` | 3.52e-10 m | FCC lattice constant fallback | Only used if Part 3 has not run yet |
 | `N_IMAGES` | 18 | NEB interpolation images | 12 for quick tests; 24 for steep/narrow barriers |
 | `SPRING_CONST` | 1.0 eV/Å² | NEB spring force constant | 0.5 for smooth paths; 2.0 for high-curvature paths |
 | `NEB_FTOL` | 0.05 eV/Å | NEB convergence criterion | 0.1 for quick scans; 0.02 for high-accuracy barriers |
-| `N_H_VALUES` | [1,3,5,7,10] | H concentrations for diffusivity runs | At minimum include 1 for dilute-limit D |
-| `N_PROD_STEPS` | 1,500,000 | NVT production steps (0.5 fs/step = 750 ps) | Increase for low-T where diffusion is slow |
-| `LAYERS` | 12 | Slab thickness (must be even) | 12 is standard; 16 for thicker membranes |
+| `N_H_VALUES` | [1, 3, 5, 10] | H concentrations for diffusivity runs | At minimum include 1 for dilute-limit D |
+| `N_PROD_STEPS` | 5,000,000 | NVT production steps (0.5 fs/step = 2.5 ns) | Increase for low-T where diffusion is slow |
+| `LAYERS` | 12 | Slab thickness (must be even; ignored for oxides — auto-matched to ~22 Å) | 12 is standard; 16 for thicker membranes |
 
 ### Physical constants used internally
 

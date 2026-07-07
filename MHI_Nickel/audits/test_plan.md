@@ -4,6 +4,14 @@
 **Scope:** All testable modules in `models/` + generated-script content  
 **Reference style:** `tests/test_nvt_restart.py` — class-per-functional-area, docstring per test, no mocking of core logic, `tmp_path` fixtures for disk I/O  
 
+**2026-07-06 note:** all 13 sections below were implemented and are passing (1416 tests
+total as of the `fix_redundant_min_npt_run` branch, well past this plan's original ~510
+estimate — later work added failure-isolation and success-tracking test classes not
+anticipated here). One row is now stale: Section 10's `test_npt_uses_short_gpu_partition`
+was superseded by `test_npt_uses_its_own_gpu_partition_not_short_gpu` (see the correction
+inline below) once NPT was split onto its own `NPT_GPU_PARTITION=gpu` config, distinct from
+bare-min/bulk+H-min's `SHORT_GPU_SLURM_CFG` — see `audits/task_B_audit.md` §8.
+
 ---
 
 ## Ground Rules
@@ -928,7 +936,8 @@ Call `generate_diffusivity_scripts(...)` with a full minimal config, read the ou
 | `test_phase1b_npt_guard_present` | NPT guard uses per-T output path |
 | `test_phase2_sentinel_guard_present` | Phase 2 checks `.done` sentinel (not msd file) |
 | `test_nvt_uses_multigpu_partition` | NVT job config uses `GPU_PARTITION` (multigpu) |
-| `test_npt_uses_short_gpu_partition` | NPT job config uses `SHORT_GPU_SLURM_CFG` |
+| ~~`test_npt_uses_short_gpu_partition`~~ → `test_npt_uses_its_own_gpu_partition_not_short_gpu` | NPT job config uses its own `NPT_GPU_SLURM_CFG` (`partition=gpu`), **not** `SHORT_GPU_SLURM_CFG` — corrected 2026-07-06, see note above |
+| `test_bare_bulk_and_bulk_h_min_still_use_short_gpu` | *(added 2026-07-06)* Bare-min and bulk+H-min job configs still use `SHORT_GPU_SLURM_CFG` (`partition=sharing`) — only NPT moved off it |
 | `test_get_lattice_parameter_from_dump_imported` | `get_lattice_parameter_from_dump` imported (Task G) |
 | `test_dead_single_frame_import_absent` | `get_lattice_parameter` (old) NOT used in Phase 1b-B |
 | `test_write_nvt_equil_restart_imported` | `write_nvt_equil_restart_script` imported |

@@ -6,6 +6,8 @@
 **Advisor:** Prof. Richard West
 **Sponsor:** Mitsubishi Heavy Industries
 
+**2026-07-06 update:** `surface_graph.py` no longer runs only as a standalone notebook step (the NB03–NB09 notebook sequence referenced below is archived under `old_notebooks/`). `build_surface_graph()` is now called directly from `models/neb_workflow.py`'s `run_phase3_site_enumeration()` / `orchestrate_slab_prep()`, as Phase A of the unified multi-metal `pipeline.ipynb` — one call per material in `INPUT_STRUCTURES`, with `metal_type` (`'alloy'`/`'pure'`/`'oxide'`) and `slab_seed` passed in per structure rather than a single hardcoded seed. See `Project2_surface_labeling/PIPELINE_GUIDE.md` and `multiscale_permeation_plan.md` for that surrounding pipeline; this document still accurately describes what `surface_graph.py` itself does internally, now updated for the rank-based layer selection and oxide-site enumeration added since the sections below were first written.
+
 ---
 
 ## What Problem Are We Solving?
@@ -81,7 +83,9 @@ The full Hastelloy N slab has 360 atoms spread across roughly 9 layers. If we gi
 
 So we cut the slab vertically: we keep only the top 3 layers (90 atoms) for site identification because a site on the surface is defined by the top layer atom and the one or two atoms just below it. We keep only the top 1 layer (30 atoms) for the graph and visualization because those are the atoms the adsorbate actually sees.
 
-### Sub-workflow
+**Update — layer selection is now rank-based, not z-threshold-based.** The original implementation (described below in the original sub-workflow diagram) picked layers by an absolute z cutoff: "keep every atom with z above some threshold." After the four-phase surface relaxation (min → anneal → NVT → quench) was added to `neb_workflow.py`, thermal displacement during the anneal/NVT phases meant a single elevated or depressed atom could push `z_max` up or down enough to either exclude a real top-layer atom or include a layer-2 atom — the z-threshold approach is not robust to that. `models/surface_graph.py::build_surface_graph()` now selects layers **by rank** instead: sort all atoms by z, and take exactly the top `n_atoms_per_layer = len(atoms) // n_layers_total` atoms for the top layer, and the top `3 * n_atoms_per_layer` for the ACAT sub-slab. This always returns exactly one layer's worth of atoms regardless of how much any individual atom has thermally displaced.
+
+### Sub-workflow (original z-threshold approach — superseded, kept for the geometric intuition)
 
 ```mermaid
 flowchart LR
@@ -103,16 +107,33 @@ flowchart LR
     style F fill:#555,color:#ccc
 ```
 
+### Current sub-workflow (rank-based)
+
+```mermaid
+flowchart LR
+    A([Full slab\nN atoms\nn_layers_total planes]) --> B
+
+    B[Sort all atoms by z]
+
+    B --> C[atoms_per_layer = N div n_layers_total]
+
+    C --> D[Top 3 x atoms_per_layer\nby z-rank]
+    D --> E([Top 3 layers\nFor ACAT])
+    C --> F[Top 1 x atoms_per_layer\nby z-rank]
+    F --> G([Top layer only\nFor graph nodes])
+
+    style A fill:#2E4057,color:#fff
+    style E fill:#1D6A96,color:#fff
+    style G fill:#1D9E75,color:#fff
+```
+
 ### Explanation
 
-**z_max** is the z-coordinate of the highest atom in the slab. For seed 7, z_max = 38.12 Å.
-
-- Atoms with z > 38.12 - 5.0 = 33.12 Å are kept for ACAT (top 3 layers, 90 atoms)
-- Atoms with z > 38.12 - 1.8 = 36.32 Å are kept as graph nodes (top layer, 30 atoms)
-
-The top layer composition for seed 7 is: 22 Ni, 4 Mo, 1 Cr, 1 Fe, 1 C, 1 B — a total of 30 atoms. This is what you see when you look down at the surface in OVITO.
+**z_max** is now defined as the *mean* z of the rank-selected top layer, not the z of the single highest atom — this is what makes it immune to one outlier atom. For seed 7 (illustrative, pre-dating the rank-based fix): z_max ≈ 38.12 Å, top layer composition 22 Ni, 4 Mo, 1 Cr, 1 Fe, 1 C, 1 B — 30 atoms, matching what you see looking down at the surface in OVITO. The exact numeric example still holds approximately; only the *selection mechanism* changed, not the physical layers it picks out for a well-behaved slab.
 
 **Why do we need the 2nd and 3rd layers at all?** To distinguish FCC from HCP hollow sites. An FCC hollow has no atom directly below it in the second layer. An HCP hollow has an atom directly below it. Without the subsurface layers we cannot make this distinction. [Ref: Henkelman et al., J. Chem. Phys. 2000]
+
+**`n_layers_total`** is a parameter to `build_surface_graph()` (default 12, matching the standard slab thickness) — it must match the slab's real total layer count for the rank-based split to land on the correct atoms-per-layer. It is threaded through from `pipeline.ipynb`'s `LAYERS` variable via `neb_workflow.py::run_phase3_site_enumeration()`.
 
 ---
 
@@ -170,19 +191,57 @@ For Hastelloy N the 30 top-layer atoms produce:
 
 **Why ACAT found all hollows as FCC initially:** ACAT uses its own HCP/FCC detection based on the surrogate metal geometry, which did not work reliably for our disordered alloy. We replaced this with our own subsurface atom check in Stage 4.
 
-**Which slab to use for ACAT:** We tested three different slabs and found that only the re-minimized (0 K) slab gives correct results:
+**Which slab to use for ACAT:** the current pipeline always feeds ACAT the output of the four-phase surface relaxation (CG min → anneal → NVT → quench, see `neb_workflow.py`'s Phase A) — i.e. a thermally relaxed *and* re-minimised structure, which historically was the only one of three slab variants (unrelaxed, NVT-only, re-minimised) that gave ACAT correct results: an unrelaxed slab has perfectly flat layers that make Delaunay triangulation fail outright, and an NVT-only slab (with residual thermal rumpling and no final quench) confuses ACAT's own layer detection. The Phase-4 quench step exists specifically to remove that rumpling before Phase B/ACAT ever runs.
 
-| Slab | n_layers ACAT accepts | Hollows found | Verdict |
-|------|----------------------|---------------|---------|
-| NB03 unrelaxed | n/a — IndexError | n/a | Too flat — triangulation fails |
-| NB04 NVT relaxed | 4 | 53 | Too rumpled — thermal disorder confuses ACAT |
-| NB05 re-minimized | 3 | 55 | Correct — minimized geometry, no thermal noise |
-
-We use `clean_slab_reminimized.lammps` from NB05 for all ACAT site identification. The NVT slab has enough thermal rumpling (300 K disorder) that ACAT misidentifies most hollow sites. The unrelaxed NB03 slab has perfectly flat layers which cause a triangulation failure.
-
-**Finding the correct n_layers:** ACAT's `CustomSurface` requires that its internal plane count is exactly divisible by `n_layers`. The correct value cannot be predicted in advance. We find it by trial — trying `n_layers=1` through `n_layers=10` and accepting the first value that both passes the ACAT assertion AND produces at least 20 hollow sites. The second check is critical because `n_layers=1` sometimes passes the assertion but gives physically wrong results (for example returning only 5 hollows instead of 55).
+**Update — the `n_layers=1..10` trial loop described in earlier versions of this document is gone.** ACAT's `CustomSurface` requires its internal plane count to be exactly divisible by the `n_layers` you pass it, and thermal rumpling used to make that unpredictable — the original workaround was to try `n_layers=1` through `10` and keep the first value that both passed ACAT's internal assertion and returned at least 20 hollow sites. `build_surface_graph()` now sidesteps this entirely with **z-snapping**: after the rank-based top-3-layers sub-slab is cut out (see Stage 1 above), each atom's z-coordinate is snapped to its own layer's mean z (three flat planes, by construction). ACAT is then always called with a fixed `CustomSurface(acat_slab, n_layers=3)` — no trial loop, no assertion failures — because z-snapping guarantees exactly 3 clean planes every time, regardless of how much the atoms in each plane have thermally displaced from each other in x/y or z. The un-snapped, real atomic positions (`top3_slab`, distinct from the snapped `acat_slab` used only for ACAT) are what get mapped back onto the final site positions, so no accuracy is lost by snapping.
 
 **Reference:** Han, S., Lysgaard, S., Vegge, T. et al. Rapid mapping of alloy surface phase diagrams via Bayesian evolutionary multitasking. npj Comput. Mater. 9, 139 (2023). https://doi.org/10.1038/s41524-023-01087-4
+
+---
+
+## Stage 2b — Oxide Surfaces: Geometric Site Enumeration (no ACAT)
+
+### What is happening and why
+
+Everything in Stage 2 assumes a close-packed metal surface — ACAT's Delaunay triangulation needs a reasonably dense, roughly co-planar set of surface atoms to find sensible hollow/bridge/atop sites. Oxide surfaces (Cr₂O₃, NiO) don't fit that assumption: they have a much sparser, more open surface with metal and oxygen atoms at very different heights, and ACAT has no oxide-surface mode at all. Rather than force an ill-fitting tool onto oxide geometry, `build_surface_graph(..., metal_type='oxide')` enumerates sites geometrically instead of calling ACAT.
+
+### Sub-workflow
+
+```mermaid
+flowchart TD
+    A([Oxide slab\nunequal-count atomic planes]) --> B
+
+    B[Gap-based plane detection\nsort z, split wherever\nconsecutive gap > oxide_gap_tol]
+
+    B --> C[Take the topmost plane]
+    C --> D{Next plane down\nwithin oxide_exposure_tol\nof current selection?}
+    D -- Yes --> E[Merge it into the\nexposed surface] --> D
+    D -- No --> F([Exposed surface\nfinal atom set])
+
+    F --> G[ontop site\nper exposed atom]
+    F --> H[bridge site\nper exposed M-O pair\nwithin oxide_bond_cutoff]
+
+    G --> I([Oxide site list\nACAT-shaped dicts])
+    H --> I
+
+    style A fill:#2E4057,color:#fff
+    style F fill:#1D6A96,color:#fff
+    style I fill:#1D9E75,color:#fff
+```
+
+### Explanation
+
+**Gap-based plane detection (`_z_plane_clusters`)** replaces both the rank-based selection used for metals (Stage 1) and ACAT's own layer detection. It sorts all atoms by z and starts a new plane whenever the gap to the next atom exceeds `oxide_gap_tol` (default 0.5 Å). This makes no assumption about how many atoms are in each plane — necessary because oxide planes are chemically unequal (e.g. an O₃ plane sitting above a Cr plane in corundum Cr₂O₃(0001), not the equal-count metal planes rank-based selection expects).
+
+**Composite terminations (`oxide_exposure_tol`)**: some oxide surfaces expose more than one atomic plane as a single chemical termination — e.g. Cr₂O₃(0001)'s O₃/Cr termination, where a Cr plane sits less than 1 Å below the terminal O₃ plane and is chemically part of the same exposed surface. Starting from the topmost detected plane, `build_surface_graph()` merges the next plane down whenever the gap between their mean z values is smaller than `oxide_exposure_tol` (default 1.0 Å), repeating until it hits a real gap.
+
+**Site types are deliberately narrower than the metal path** — no hollow sites, because Delaunay-style triangulation of a sparse, chemically heterogeneous oxide surface doesn't produce physically meaningful 3-fold pockets the way it does for a close-packed metal:
+- **ontop** — one site per exposed-plane atom (both metal and O atoms get one), composition = that atom's element symbol.
+- **bridge** — the midpoint of every exposed metal–O pair within `oxide_bond_cutoff` (default 2.6 Å, periodic min-image in xy). Composition is written metal-first (e.g. `CrO`, not `OCr`) since these are the M–O pairs across which H₂ dissociates heterolytically on an oxide.
+
+If a real slab produces zero bridge sites, `build_surface_graph()` prints a warning — it usually means the exposed termination is O-only beyond `oxide_bond_cutoff` (no metal atom close enough to any O to form a bridge), which is a legitimate physical outcome for some terminations, not a bug.
+
+**Everything downstream is unchanged**: oxide sites are returned in the same dict shape ACAT sites use (`site`, `composition`, `position`, `indices`), already carry full-slab atom indices (no reindexing step needed, unlike the ACAT sub-slab path), and flow into the same atom/site/edge-building code in Stage 3 below. The label format also matches: `'{composition}_atop'` / `'{composition}_bridge'` (e.g. `Cr_atop`, `CrO_bridge`) using the exact same label logic as the metal path.
 
 ---
 
@@ -737,7 +796,6 @@ ACAT's `CustomSurface` requires that its internal plane count is exactly divisib
 #### NB04b Cell Structure
 
 ```mermaid
-```mermaid
 flowchart TD
     A[Cell 3.1
 Imports and paths
@@ -836,7 +894,6 @@ After minimization, every relaxed structure is classified as intact (H-H < 1.2 �
 #### NB05b Cell Structure
 
 ```mermaid
-```mermaid
 flowchart TD
     A[Cell 3.1
 Imports and parameters
@@ -928,7 +985,6 @@ After selecting best1 and best2, NB06b runs the full NEB workflow identical to N
 
 #### NB06b Cell Structure
 
-```mermaid
 ```mermaid
 flowchart TD
     A[Cell 3.1

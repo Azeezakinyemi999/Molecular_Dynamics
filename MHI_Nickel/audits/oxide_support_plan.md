@@ -1,5 +1,25 @@
 # Oxide-Slab Support for the H-Permeation Pipeline (Parts 1–2)
 
+**Status: IMPLEMENTED.** All six numbered items below are live in `models/` as of this
+writing — `build_slab()` routes `alloy`/`pure`/`oxide` with auto-derived oxide thickness
+(`structure.py`, `oxide_target_thickness` param); `_enumerate_oxide_sites()` and
+`metal_type`-aware `build_surface_graph()` are in `surface_graph.py`; `subsurface_graph.py`
+has gap-based layer identification, `keep_unclassified`, and the `sub1↔sub2`
+(`subsurface-subsurface`) Hop B edge fix described in item 4; `permeation_workflow.py`
+threads `metal_type` and generalizes the hardcoded element scan to `_slab_species`. The
+Cell 12/pipeline.ipynb path-mismatch and dead-Hop-B-path fixes from item 6 are folded into
+the current `pipeline.ipynb` (per-metal `slabs/{stem}/phase2_relax/...` /
+`phase3_sites/...` paths — see `Project2_surface_labeling/multiscale_permeation_plan.md`
+Section 2d). The plan below is kept as the design record of *why* each piece looks the way
+it does; treat the "Implementation" section as describing current code, not a TODO list.
+
+**One deviation from item 4 below:** the plan called for keeping bulk-sample sites
+(`bulk_sample_layers=range(max(2,N-8), N-2)`, item 4's third bullet). The shipped
+`build_subsurface_graph()` has no bulk-sampling step at all — it only returns
+`subsurface_1`/`subsurface_2` sites. The `seed` parameter's docstring now says it is "kept
+for API/reproducibility compatibility; no longer consumes randomness now that bulk sampling
+has been removed." `Project2_Subsurface_Graph_Explainer.md` Stage 4 documents this removal.
+
 ## Context
 
 The pipeline computes H transport per material: Part 1 surface NEB (H₂ dissociative
