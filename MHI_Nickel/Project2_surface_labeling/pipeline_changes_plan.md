@@ -1,5 +1,16 @@
 # Plan: Thermostat fix + partition changes + restart guarantee
 
+**Status: all tasks A–G below are DONE** — see the individual `audits/task_*_audit.md`
+files for verification detail on each. The "Final partition map" at the bottom of this
+document reflects the state right after Task D/B landed (everything real-MD or one-shot
+lumped onto `gpu`, 4h). That map has since been superseded twice — once by an undocumented
+intermediate move of the quick minimisations to `sharing`/20min, and again by this session's
+split of NPT onto its own `gpu`/8h config, separate from the one-shot minimisations on
+`sharing`/1h. See `audits/task_B_audit.md` §8 and `audits/task_D_audit.md` §8 for the
+current partition scheme, or `Project2_surface_labeling/PIPELINE_GUIDE.md` Section 3 for
+the up-to-date summary table. The restart/chaining mechanisms described here (Tasks A3, C,
+E, F, G) are unaffected by the later partition moves and remain accurate as written.
+
 ---
 
 ## Wall time limits

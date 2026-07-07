@@ -70,7 +70,7 @@ tests/
 
 | Test | Category | What it checks |
 |---|---|---|
-| `test_h2_min_scripts_written` | A | `dry_run=True` writes SLURM array `.sh` + LAMMPS `.in` files; `partition=sharing`, `time=00:20:00` |
+| `test_h2_min_scripts_written` | A | `dry_run=True` writes SLURM array `.sh` + LAMMPS `.in` files; `partition=sharing`, `time=01:00:00` (was `00:20:00` as of 2026-07-02; widened this session — see `audits/task_D_audit.md` §8) |
 | `test_h_min_scripts_written` | A | Same for H* minimization |
 | `test_neb_script_written` | A | `run_neb.py` and `slurm_neb_*.sh` exist; TRAJ files use `.traj` (not `.lammpstrj`) |
 | `test_neb_traj_write_format_is_extxyz` | A | `run_neb.py` source contains `format="extxyz"`, not `format="lammps-dump-text"` |
@@ -95,7 +95,7 @@ tests/
 |---|---|---|
 | `test_hopa_scripts_written` | A | `dry_run=True` writes `hopa_fsmin_array.sh`, `hopa_neb_array.sh`, `hopa/job_index.txt`; `concurrent=2` in array header |
 | `test_hopb_scripts_written` | A | Same for Hop B |
-| `test_hopa_slurm_partition` | A | `hopa_fsmin_array.sh` contains `#SBATCH --partition=sharing` and `#SBATCH --time=00:20:00` |
+| `test_hopa_slurm_partition` | A | `hopa_fsmin_array.sh` contains `#SBATCH --partition=sharing` and `#SBATCH --time=01:00:00` (was `00:20:00`; widened this session) |
 | `test_hopa_returns_jobs_dict` | C | Return dict has `n_jobs`, `fsmin_array`, `neb_array`, `jobs` (list of dicts with `sid`, `is_path`, `fs_path`) |
 | `test_hopb_requires_hopa_output` | C | Calling `orchestrate_hopb_neb()` before Hop A FS results exist raises a clear error or returns `n_jobs=0` |
 | `test_subsurface_graph_layers` | B | `build_subsurface_graph()` on fixture slab returns sites with `layer_classification` in `{subsurface_1, subsurface_2}` |
@@ -111,9 +111,10 @@ tests/
 
 | Test | Category | What it checks |
 |---|---|---|
-| `test_diffusivity_script_written` | A | `generate_diffusivity_scripts(..., dry_run=True)` writes `diffusivity_run.py`; contains `SHORT_GPU_PARTITION=sharing` |
+| `test_diffusivity_script_written` | A | `generate_diffusivity_scripts(..., dry_run=True)` writes `diffusivity_run.py`; contains `SHORT_GPU_PARTITION=sharing` (bare-min + bulk+H-min only — NPT was later split onto its own `NPT_GPU_PARTITION=gpu`, see `audits/task_B_audit.md` §8) |
 | `test_diffusivity_script_has_all_phases` | A | Generated script contains Phase 1a, 1b, 2, 3 markers |
 | `test_diffusivity_nvt_partition` | A | NVT SLURM config in script uses `multigpu` (long run), not `sharing` |
+| `test_npt_uses_its_own_gpu_partition` | A | *(added this session)* NPT SLURM config uses `NPT_GPU_PARTITION=gpu`, distinct from bare-min/bulk+H-min's `sharing` |
 | `test_msd_parse_returns_positive_diffusivity` | B | Parse `fixtures/msd_prod.dat` → D value is positive float |
 | `test_arrhenius_fit_known_answer` | D | Feed synthetic D(T) from `D = D0·exp(-Ea/kT)` with `D0=1e-7`, `Ea=0.4 eV` → fit recovers both within 2% |
 | `test_lattice_params_json_schema` | C | `lattice_params_vs_T.json` has temperature keys with `a0_angstrom` float values |

@@ -6,6 +6,18 @@
 **Advisor:** Prof. Richard West
 **Sponsor:** Mitsubishi Heavy Industries
 
+**2026-07-06 update:** `subsurface_graph.py` has changed in four substantive ways since
+this document was first written, on top of the NB08-notebook-to-unified-`pipeline.ipynb`
+integration described in `Project2_Surface_Graph_Explainer (1).md`'s update note (the same
+applies here — `build_subsurface_graph()` is called from `permeation_workflow.py`, once per
+metal, `metal_type`-aware): (1) **Bulk site sampling (Stage 4 below) has been removed
+entirely** — see the note at Stage 4; (2) layer identification now has an oxide-specific
+gap-based mode alongside the original rank-based mode, and the total layer count is
+auto-detected rather than hardcoded; (3) site classification can keep out-of-range
+coordination counts as `'interstitial'` sites instead of discarding them, for oxides; (4)
+**the Hop B `sub1↔sub2` edges described as a future Stage 7 export are now built directly
+into the graph** — see Stage 6.
+
 ---
 
 ## What Problem Are We Solving?
@@ -145,7 +157,11 @@ The first attempt used a z tolerance parameter (any two atoms within z_tol of ea
 
 The second attempt found the N minus 1 largest gaps in sorted z and used those as layer boundaries. This worked better but still failed on the frozen layers, which sit close enough to each other that the gap between them was not one of the 11 largest.
 
-The third attempt, which works, is **rank based binning**. Since we know each layer has exactly 30 atoms (the slab is constructed that way), we sort all 360 atoms by z and assign the bottom 30 to layer 1, the next 30 to layer 2, and so on. This is deterministic, parameter free, and gives exactly 30 atoms per layer regardless of buckling.
+The third attempt, which works, is **rank based binning** (`_identify_layers`). Since we know each layer has exactly 30 atoms (the slab is constructed that way), we sort all 360 atoms by z and assign the bottom 30 to layer 1, the next 30 to layer 2, and so on. This is deterministic, parameter free, and gives exactly 30 atoms per layer regardless of buckling.
+
+**Update — a second, gap-based mode now exists for oxides.** Rank-based binning assumes every layer has the same atom count, which is true for the constructed alloy/pure metal slabs but false for oxide slabs (e.g. an O₃ plane and a Cr plane in corundum Cr₂O₃ have different atom counts). `subsurface_graph.py` now has `_identify_layers_by_gaps(positions, gap_tol=0.5)` — the same gap-detection idea the second attempt above tried and abandoned for metals, but it works fine for oxides because oxide interlayer gaps don't have the frozen-layer collision problem that broke it for Hastelloy N. `find_voronoi_sites(..., layer_mode='rank'|'gaps')` and `build_subsurface_graph(..., metal_type='alloy'|'oxide')` select between the two: `metal_type='alloy'`/`'pure'` still uses rank-based binning exactly as described below; `metal_type='oxide'` uses gap-based binning end-to-end.
+
+**Update — the total layer count is no longer a hardcoded constant.** `build_subsurface_graph()`'s `n_layers_total` parameter defaults to `None`, in which case the total layer count `N` is auto-detected via `_identify_layers_by_gaps()` used purely as a *counter* (not for the actual atom→layer assignment on the alloy/pure path, which still re-bins by rank once `N` is known). The frozen-bottom fraction, `subsurface_1`, and `subsurface_2` layer numbers are then all derived from `N` rather than hardcoded to 12/11/10 — see the updated Stage 5 below.
 
 ### Sub workflow
 
@@ -218,23 +234,28 @@ flowchart TD
     C -- n in 5 or 7 --> E[oct\ndistorted]
     C -- n equals 4 --> F[tet\nperfect]
     C -- n equals 3 --> G[tet\ndistorted]
-    C -- other --> H[unknown\ndiscarded]
+    C -- other --> H{keep_unclassified?}
+    H -- No, metal path --> H2[unknown\ndiscarded]
+    H -- Yes, oxide path --> H3[interstitial\nkept, composition label still computed]
 
     D --> I[Compute composition\nsort by count desc\nthen alpha]
     E --> I
     F --> I
     G --> I
+    H3 --> I
 
     I --> J([Site dict\nposition site_type\ncoord_list\ncomposition_label\ndistortion_score])
 
     style A fill:#2E4057,color:#fff
     style J fill:#1D9E75,color:#fff
-    style H fill:#555,color:#ccc
+    style H2 fill:#555,color:#ccc
 ```
 
 ### Explanation
 
 **Coordination cutoff 2.2 A:** the first nearest neighbor distance in FCC Ni is 2.49 A (atom to atom). The site to atom distance for a perfect octahedral site is half that diagonal, about 1.76 A. For tetrahedral it is about 1.52 A. A cutoff of 2.2 A captures both with margin while excluding second nearest neighbors at 3.52 A.
+
+**Update — `keep_unclassified` for oxides:** `classify_site(..., keep_unclassified=False)` is the parameter behind the branch added above. Oxide interstitial pockets don't follow the FCC oct/tet coordination-count rules (6/5/7 → oct, 4/3 → tet) at all — a coordination count outside that set is the *normal* case for an oxide lattice, not a rare edge case. `build_subsurface_graph(..., metal_type='oxide')` passes `keep_unclassified=True`, so an out-of-range count becomes `site_type='interstitial'` with a real composition label (via the same count-desc/alpha-tiebreak logic as oct/tet) instead of being discarded as `'unknown'`. The alloy/pure path leaves `keep_unclassified=False`, so its behavior — discard anything that isn't a clean 3/4/5/6/7-coordinate oct or tet site — is unchanged.
 
 **Composition label format:** elements sorted by count descending, ties broken alphabetically. Examples:
 
@@ -265,9 +286,19 @@ The 3 to 2 tetrahedral to octahedral ratio is consistent with the FCC lattice ge
 
 ---
 
-## Stage 4 — Bulk Site Sampling
+## Stage 4 — Bulk Site Sampling ❌ Removed
 
-### What is happening and why
+**Update — this stage no longer exists in `build_subsurface_graph()`.** There is no
+`sample_bulk_sites()` function, no `bulk_sample_layers` parameter, and no `'bulk_sample'`
+layer-classification tag in the current `subsurface_graph.py` — the orchestrator only
+produces `subsurface_1`/`subsurface_2` sites now. The `seed` parameter of
+`build_subsurface_graph()` is kept purely for API/reproducibility compatibility; its
+docstring says it "no longer consumes randomness now that bulk sampling has been removed."
+The original design rationale is preserved below for historical reference, but treat every
+mention of `bulk_sample` sites in this document (Stages 6/7, the Module API list, and the
+Design Decisions Log) as describing removed functionality, not current output.
+
+### What is happening and why (historical — describes removed functionality)
 
 The bulk reference absorption energy E_abs(bulk) is needed to compute the standard heat of solution ΔH_sol, which feeds into Sievert's law and the permeability coefficient Φ in NB13. To estimate E_abs(bulk) reliably we need multiple samples (statistical average over local environments), but enumerating every interstitial site in the bulk (layers 5 to 9) would give around 450 sites — far more than necessary.
 
@@ -307,9 +338,11 @@ flowchart LR
 
 ### What is happening and why
 
-For NB09 (the surface to subsurface NEB calculation), we need to know which surface site is directly above each subsurface site. This is the geometric path an H atom would take when hopping from the surface into the lattice.
+For Hop A (the surface-to-subsurface NEB calculation, `neb_subsurface.py::orchestrate_hopa_neb`), we need to know which surface site is directly above each subsurface_1 site. This is the geometric path an H atom would take when hopping from the surface into the lattice.
 
-We define "directly above" as xy proximity within a tolerance. For each layer 11 subsurface site we scan all 171 surface sites from `surface_sites.json` and record any that fall within 1.5 A in the xy plane (using periodic boundary conditions).
+We define "directly above" as xy proximity within a tolerance. For each subsurface_1 site we scan every surface site from `surface_sites.json` and record any that fall within 1.5 A in the xy plane (using periodic boundary conditions).
+
+**Update — the layer number is no longer hardcoded to 11.** As described in Stage 2, `build_subsurface_graph()` now derives `subsurface_1`/`subsurface_2` as `N-1`/`N-2` from the slab's auto-detected (or explicitly passed) total layer count `N`, so the concrete numbers below (layer 11 for a 12-layer slab) are the specific case for the standard slab thickness, not a fixed constant in the code.
 
 ### Sub workflow
 
@@ -339,7 +372,7 @@ flowchart TD
 
 **Position lookup quirk:** `surface_sites.json` stores positions in a nested structure (`site['level1']['position']` rather than `site['position']`). The helper function `_get_surface_site_position` handles this gracefully with fallbacks for compatibility.
 
-**One subsurface site may connect to multiple surface sites:** a single octahedral pocket in layer 11 typically has 6 to 12 surface sites in its xy neighborhood (atop directly above plus several bridges and hollows nearby). For NB09 we will use just the nearest one, but recording all of them keeps options open for analysis.
+**One subsurface site may connect to multiple surface sites:** a single octahedral pocket in layer 11 typically has 6 to 12 surface sites in its xy neighborhood (atop directly above plus several bridges and hollows nearby). Hop A uses just the nearest one, but recording all of them keeps options open for analysis.
 
 **For seed 7 the result is 862 surface to subsurface edges** across 99 layer 11 subsurface sites and 171 surface sites. The mean is about 8.7 surface sites per subsurface site.
 
@@ -351,7 +384,19 @@ flowchart TD
 
 NetworkX gives us a clean data structure to hold all the information we have generated: nodes for surface and subsurface sites, edges for spatial connections. The graph is then ready to use for any downstream analysis — shortest path queries, neighbor lookups, visualization, or input to a graph neural network model.
 
-### The two node types and one edge type
+### The two node types and two edge types
+
+**Update — there are now two edge types, not one.** The original implementation only built
+`surface-subsurface` edges (subsurface_1 ↔ surface). This left Hop B (subsurface_1 →
+subsurface_2) with no connectivity to walk at all: `neb_subsurface.py`'s
+`find_sub2_neighbor()` looks for a `subsurface_2` neighbor of a `subsurface_1` node via
+`G.neighbors(...)`, and with no `subsurface-subsurface` edges in the graph every Hop B job
+silently found zero neighbors and was skipped — for every metal, not just oxides. This has
+been fixed: `build_subsurface_graph()` now also adds `subsurface-subsurface` edges between
+every `subsurface_1` site and any `subsurface_2` site within `xy_tol` (periodic xy
+proximity, same tolerance as the surface connection above); if a `subsurface_1` site has no
+`subsurface_2` site within tolerance, it falls back to connecting to its single nearest
+`subsurface_2` site so Hop B always has at least one candidate path.
 
 ```mermaid
 flowchart LR
@@ -362,18 +407,23 @@ flowchart LR
 
     subgraph Edges
         E1[Surface to subsurface edge\nedge_type surface-subsurface\nxy distance attribute]
+        E2[Subsurface1 to subsurface2 edge\nedge_type subsurface-subsurface\nxy distance attribute\nHop B connectivity]
     end
 
     SN -- surface-subsurface --> BN
+    BN -- subsurface-subsurface --> BN
 ```
 
 ### Explanation
 
-**Why combine surface and subsurface in one graph:** NB09 needs to compute graph distances between surface and subsurface sites to filter pathway candidates. Having both node types in one graph means a single `nx.shortest_path` call gives the answer. Keeping them separate would require pasting two graphs together at query time, which is error prone.
+**Why combine surface and subsurface in one graph:** Hop A/B need to compute graph distances between surface and subsurface sites to filter pathway candidates. Having both node types in one graph means a single `nx.shortest_path` call gives the answer. Keeping them separate would require pasting two graphs together at query time, which is error prone.
 
 **Why `ss_` prefix for subsurface site IDs:** surface site IDs start with `s_` (e.g. `s_42`). Using `ss_` for subsurface site IDs prevents accidental collisions when both kinds of nodes live in the same graph.
 
-**For seed 7 the graph has:**
+**For seed 7 the graph had (historical numbers, computed before bulk-sampling removal — see
+Stage 4 — so `Subsurface nodes` below includes 15 bulk-sample sites no longer produced;
+current runs will have fewer subsurface nodes and will additionally report
+`subsurface-subsurface` edge counts from the Hop B fix above):**
 
 | Quantity | Value |
 |----------|-------|
@@ -381,7 +431,7 @@ flowchart LR
 | Surface nodes | 171 |
 | Total nodes | 371 |
 | Surface to subsurface edges | 862 |
-| Total edges | 862 |
+| Total edges (pre-Hop-B-fix) | 862 |
 
 ---
 
@@ -400,7 +450,7 @@ results/notebook08-subsurface-energy/{SEED}/subsurface_sites.json
 ```json
 {
   "seed": 7,
-  "n_sites": 200,
+  "n_sites": 185,
   "metadata": {...},
   "sites": [
     {
@@ -423,8 +473,7 @@ results/notebook08-subsurface-energy/{SEED}/subsurface_sites.json
   "summary": {
     "by_layer_classification": {
       "subsurface_1": 99,
-      "subsurface_2": 86,
-      "bulk_sample": 15
+      "subsurface_2": 86
     },
     "by_site_type": {"oct": 82, "tet": 118},
     "by_composition_top10": {...}
@@ -432,17 +481,23 @@ results/notebook08-subsurface-energy/{SEED}/subsurface_sites.json
 }
 ```
 
+**Update:** the `"bulk_sample": 15` entry above is what this file *used* to contain before
+Stage 4 was removed (see the note there) — `n_sites` and `by_layer_classification` no
+longer include a `bulk_sample` count at all. The `185` in `n_sites` above is illustrative
+(99 + 86, the seed-7 subsurface_1/subsurface_2 counts with the 15 bulk samples subtracted
+out), not a re-measured value.
+
 ### Explanation
 
 **Layer classification tags:**
 
 | Tag | Layer | Treatment |
 |-----|-------|-----------|
-| `subsurface_1` | 11 | All sites enumerated, immediate subsurface |
-| `subsurface_2` | 10 | All sites enumerated, second subsurface |
-| `bulk_sample` | 5 to 9 (random 15) | Bulk like reference for E_abs |
+| `subsurface_1` | N-1 (11 for a 12-layer slab) | All sites enumerated, immediate subsurface |
+| `subsurface_2` | N-2 (10 for a 12-layer slab) | All sites enumerated, second subsurface, now connected to subsurface_1 via Hop B edges (Stage 6) |
+| ~~`bulk_sample`~~ | ~~5 to 9 (random 15)~~ | **Removed** — see Stage 4 |
 
-Layers 1 to 4 (frozen) and 12 (surface, in surface_sites.json) are excluded from this file.
+Frozen bottom layers (`round(N/3)`) and the surface layer (layer N, in surface_sites.json) are excluded from this file.
 
 **Why summary statistics:** the summary block in the JSON allows quick inspection of what was generated without having to parse the full sites list. For comparing seeds (7 vs 42 vs 12345), the summary block alone often tells us if the slab is statistically equivalent.
 
@@ -455,51 +510,54 @@ The functions exposed in `subsurface_graph.py` for use by NB08 step by step:
 ```python
 from subsurface_graph import (
     # Geometry
-    find_voronoi_sites,              # Stage 1
-    _identify_layers,                # Stage 2
-    classify_site,                   # Stage 3
-    sample_bulk_sites,               # Stage 4
+    find_voronoi_sites,              # Stage 1 — layer_mode='rank'|'gaps'
+    _identify_layers,                # Stage 2 — rank-based (alloy/pure)
+    _identify_layers_by_gaps,        # Stage 2 — gap-based (oxide)
+    classify_site,                   # Stage 3 — keep_unclassified=True|False
     connect_to_surface,              # Stage 5
 
     # Orchestration
-    build_subsurface_graph,          # Stages 1 through 6 in one call
+    build_subsurface_graph,          # Stages 1-2-3-5-6 in one call (metal_type-aware;
+                                      # no Stage 4 — bulk sampling removed)
 
     # I/O
     save_subsurface_sites,           # Stage 7
 )
 ```
 
-**One shot mode (recommended for NB08 production):**
+**Update:** `sample_bulk_sites` is gone from this list (Stage 4 removed). `metal_type` is
+now a parameter of `build_subsurface_graph()` itself, not a separate imported function.
+
+**One shot mode (recommended for production):**
 
 ```python
 G, sites = build_subsurface_graph(
-    slab_path="structures/notebook05-adsorption-energy/7/clean_slab_reminimized.lammps",
-    surface_sites_json_path="results/notebook04b-surface-relaxation/7/surface_sites.json",
+    slab_path="slabs/{stem}/phase2_relax/relaxed_slab.lammps",
+    surface_sites_json_path="slabs/{stem}/phase3_sites/surface_sites.json",
     seed=7,
+    metal_type='alloy',   # or 'pure' / 'oxide' — see Stage 2/3 updates above
 )
-save_subsurface_sites(sites, "results/notebook08-subsurface-energy/7/subsurface_sites.json", seed=7)
+save_subsurface_sites(sites, "results/{stem}/subsurface_sites.json", seed=7)
 ```
 
 **Step by step mode (for debugging and exploration):**
 
 ```python
-# Stage 1
-sites_cart, _, atoms = find_voronoi_sites(slab_path)
+# Stage 1 (layer_mode='rank' for alloy/pure, 'gaps' for oxide)
+sites_cart, _, atoms = find_voronoi_sites(slab_path, layer_mode='rank', n_layers=12)
 
 # Stage 2
 metal_positions = atoms.get_positions()
 metal_elements = atoms.get_chemical_symbols()
-layer_map, layer_z = _identify_layers(metal_positions, n_layers=12)
+layer_map, layer_z = _identify_layers(metal_positions, n_layers=12)      # alloy/pure
+# layer_map, layer_z = _identify_layers_by_gaps(metal_positions)         # oxide
 
-# Stage 3 (for one site)
+# Stage 3 (for one site; keep_unclassified=True for oxide)
 cell = atoms.cell.diagonal()
-clf = classify_site(sites_cart[0], metal_positions, metal_elements, cell)
+clf = classify_site(sites_cart[0], metal_positions, metal_elements, cell,
+                     keep_unclassified=False)
 
-# Stage 4
-bulk_samples = sample_bulk_sites(all_sites, bulk_sample_layers=(5,6,7,8,9),
-                                 n_samples=15, seed=7)
-
-# Stage 5
+# Stage 5 (Stage 4 — bulk sampling — has been removed, see note above)
 import json
 with open(surface_json_path) as f:
     surface_data = json.load(f)
@@ -517,14 +575,16 @@ A record of the key choices made during development of `subsurface_graph.py`:
 | Module coupling | Path C (standalone) | Does not import from `surface_graph.py` — avoids breaking the working surface pipeline. Reads `surface_sites.json` as the interface file. |
 | Voronoi backend | scipy not pymatgen | pymatgen hung on disordered alloy due to symmetry analysis. scipy runs in 1 to 3 seconds. |
 | PBC handling | Manual 3x3 in xy | scipy.spatial.Voronoi does not handle PBC. Replication is simple and correct. |
-| Layer identification | Rank based binning | Deterministic, parameter free, robust to buckling. Gap based methods failed on the frozen layers. |
+| Layer identification | Rank based binning (alloy/pure); gap based (oxide, `_identify_layers_by_gaps`) | Rank binning is deterministic, parameter free, robust to buckling — but assumes equal atom counts per layer, which is false for oxides. Gap based binning handles unequal-count oxide planes; it still fails on the metal frozen layers, so it's only used where rank binning cannot apply. |
+| Total layer count | Auto-detected via gap clustering when `n_layers_total=None` | Removes the hardcoded assumption of exactly 12 layers; `subsurface_1`/`subsurface_2` are derived as `N-1`/`N-2` from whatever `N` is detected or passed in. |
 | Coordination cutoff | 2.2 A | Captures both oct (~1.76 A) and tet (~1.52 A) first neighbors with margin, excludes second neighbors. |
-| Site classification | Loose (5,6,7 = oct, 3,4 = tet) | Reflects the reality of disordered alloys where perfect symmetry is rare. Distortion score quantifies deviation. |
+| Site classification | Loose (5,6,7 = oct, 3,4 = tet); `keep_unclassified=True` keeps out-of-range counts as `'interstitial'` for oxides | Reflects the reality of disordered alloys where perfect symmetry is rare. Oxide interstitials routinely fall outside FCC oct/tet coordination counts — discarding them (as `'unknown'`) would leave oxides with almost no subsurface sites. Distortion score quantifies deviation for both paths. |
 | Composition label | Count desc then alpha (Ni3Cr_tet) | Consistent with surface graph format, deterministic. |
-| Bulk sampling | 15 random from layers 5 to 9 | Statistical estimate of E_abs(bulk) without exceeding 1 day of compute per seed. |
+| Bulk sampling | **Removed** — was 15 random from layers 5 to 9 | Originally: statistical estimate of E_abs(bulk) without exceeding 1 day of compute per seed. Removed from `build_subsurface_graph()`; see Stage 4. |
 | Surface connection tolerance | xy_tol = 1.5 A | Captures the immediate xy neighborhood, excludes sites under different surface regions. |
+| Hop B connectivity | `subsurface-subsurface` edges added by the same xy-proximity rule as surface connection, with nearest-neighbor fallback | The original graph had no subsurface_1↔subsurface_2 edges at all, so `find_sub2_neighbor()` (Hop B) always found zero neighbors and every Hop B job was silently skipped, for every metal. The fallback (nearest sub2 if none within `xy_tol`) guarantees Hop B always has a path to try. |
 | Site ID prefix | `ss_` for subsurface | Avoids collision with surface `s_` IDs in the combined graph. |
-| Output location | `results/notebook08-subsurface-energy/{seed}/subsurface_sites.json` | Parallel to surface_sites.json. NB08 writes its own E_abs results in the same folder. |
+| Output location | `results/{stem}/subsurface_sites.json` | Parallel to `surface_sites.json`. Called once per metal from `permeation_workflow.py`, keyed by structure stem rather than a notebook-local seed folder. |
 
 ---
 
@@ -554,6 +614,16 @@ A record of the key choices made during development of `subsurface_graph.py`:
 ---
 
 ## Implementation Status
+
+**2026-07-06 note:** the test numbers in Phase 1 below predate the bulk-sampling removal,
+the oxide `metal_type` support, and the Hop B `subsurface-subsurface` edge fix described
+throughout this document — they are historical validation results for the original
+rank-based-only, bulk-sampling-included implementation, not a current benchmark. Phases 2–4
+below describe a plan to build a standalone NB08 notebook; that plan was superseded —
+`subsurface_graph.py` is instead called directly from `permeation_workflow.py`'s Phase 1
+(Hop A NEB) inside the unified per-metal `permeation_run_{stem}.py`, with no separate NB08
+notebook. See `Project2_surface_labeling/multiscale_permeation_plan.md` Section 5 for how
+Hop A/B actually run today.
 
 ### Phase 1 — Module Development (Complete)
 
