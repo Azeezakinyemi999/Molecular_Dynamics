@@ -860,3 +860,120 @@ class TestCalculateRefAdsorbateEnergy:
         assert result == pytest.approx(-6.77)
         submit_mock.assert_not_called()
         assert not pathlib.Path(outdir, 'h2_gas_min.lammps').exists()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# orchestrate_neb — FS-min skip-if-already-done (NEB throughput follow-up)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# orchestrate_neb() used to unconditionally regenerate + resubmit every
+# pair's FS-min job even when neb_final_relaxed.lammps already existed from
+# a prior run of the orchestrator -- wasteful when re-running for metals
+# where only some pairs still need their NEB step redone. job_index.txt and
+# the fsmin_array/neb_array SLURM array ranges are shared (both index by
+# array-task-ID), so an already-done pair's label must stay indexed; the
+# fix instead turns its fsmin SLURM script into a no-op stub.
+
+class TestOrchestrateNebFsMinSkip:
+
+    def _pools_and_combo(self, tmp_path):
+        from ase import Atoms
+        from ase.io import write as ase_write
+
+        is_dir = tmp_path / 'ads' / 'phase1_h2' / 'results'
+        is_dir.mkdir(parents=True)
+        atoms = Atoms(
+            'Ni2H2',
+            positions=[[0, 0, 0], [2.5, 0, 0], [1.0, 0.5, 3.0], [1.5, 0.5, 3.0]],
+            cell=[10, 10, 20], pbc=[True, True, False],
+        )
+        ase_write(str(is_dir / 'h2_s0_relaxed.lammps'), atoms,
+                  format='lammps-data', masses=True, specorder=['Ni', 'H'])
+        pools = {
+            'phase1_h2_dir': str(tmp_path / 'ads' / 'phase1_h2'),
+            'fs_xy': {'s0': (0.5, 0.5), 's1': (2.0, 0.5)},
+            'is_energies': {'s0': -50.0},
+        }
+        combo = {
+            'is_site': 's0', 'fs_site1': 's0', 'fs_site2': 's1',
+            'label': 'is_s0__fs_s0_s1',
+            'E_FS': -49.7, 'delta_E': 0.30, 'is_fs_dist': 2.8,
+        }
+        return pools, combo
+
+    def _run(self, tmp_path, monkeypatch, *, pre_create_fs_relaxed):
+        from models.neb_workflow import orchestrate_neb
+        from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
+
+        pools, combo = self._pools_and_combo(tmp_path)
+        neb_outdir = tmp_path / 'neb_out'
+
+        if pre_create_fs_relaxed:
+            job_dir = neb_outdir / 'neb' / combo['label']
+            job_dir.mkdir(parents=True)
+            (job_dir / 'neb_final_relaxed.lammps').write_text('fake relaxed FS')
+
+        write_min_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.write_adsorbate_min_script',
+            lambda **kw: (write_min_calls.append(kw), str(tmp_path / 'min_fs.lammps'))[1],
+        )
+        monkeypatch.setattr('models.neb_workflow.run_neb_pipeline',
+                             lambda **kw: str(tmp_path / 'run_neb.py'))
+
+        write_slurm_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.write_slurm_job',
+            lambda **kw: (write_slurm_calls.append(kw),
+                          str(tmp_path / f"{kw['job_name']}.sh"))[1],
+        )
+        monkeypatch.setattr('models.neb_workflow.write_chained_slurm_job',
+                             lambda **kw: str(tmp_path / 'slurm_neb.sh'))
+
+        result = orchestrate_neb(
+            deduped_combinations=[combo],
+            pools=pools,
+            e_clean=-50.3,
+            outdir=str(neb_outdir),
+            slurm_opts=dict(SLURM_DEFAULTS, partition='sharing', time='01:00:00'),
+            neb_slurm_opts=dict(SLURM_DEFAULTS, partition='short', time='12:00:00',
+                                 gpu=None, cpus_per_task=18),
+            n_images=4,
+            dry_run=False,
+            elem_str=ELEM_STR_7,
+            e2t=E2T_7,
+            masses=MASSES_7,
+        )
+        fsmin_call = next(c for c in write_slurm_calls
+                           if c['job_name'].startswith('fsmin_'))
+        return result, write_min_calls, fsmin_call
+
+    def test_skips_write_adsorbate_min_script_when_fs_relaxed_exists(
+            self, tmp_path, monkeypatch):
+        result, write_min_calls, fsmin_call = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=True)
+
+        assert write_min_calls == []
+        assert any('skip' in c.lower() for c in fsmin_call['commands'])
+        assert not any('LAMMPS' in c for c in fsmin_call['commands'])
+
+    def test_runs_write_adsorbate_min_script_when_fs_relaxed_missing(
+            self, tmp_path, monkeypatch):
+        result, write_min_calls, fsmin_call = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=False)
+
+        assert len(write_min_calls) == 1
+        assert not any('skip' in c.lower() for c in fsmin_call['commands'])
+
+    def test_job_index_and_array_range_include_skipped_label(
+            self, tmp_path, monkeypatch):
+        """Regression guard for the shared-indexing constraint: skipping a
+        pair's FS-min must not remove it from job_index.txt/the array
+        range, since fsmin_array and neb_array both index by the same
+        array-task-ID."""
+        result, _, _ = self._run(tmp_path, monkeypatch, pre_create_fs_relaxed=True)
+
+        assert result['n_jobs'] == 1
+        with open(result['job_index']) as f:
+            labels = [line.strip() for line in f if line.strip()]
+        assert labels == ['is_s0__fs_s0_s1']

@@ -1905,24 +1905,33 @@ def orchestrate_neb(
                 h_height=h_height,
             )
 
-        # 3. FS minimization script (reuse write_adsorbate_min_script)
+        # 3. FS minimization script (reuse write_adsorbate_min_script) --
+        # skip regenerating/resubmitting for pairs whose FS-min already
+        # completed on a prior run of this orchestrator (existence-only
+        # check, matching every other skip-check convention in this
+        # codebase -- write_data is the last command write_adsorbate_min_script
+        # emits, so a killed job never leaves a partial output file here).
         fs_relaxed = job_dir / 'neb_final_relaxed.lammps'
         fs_min_log = job_dir / 'fs_min.log'
         min_script = job_dir / 'min_fs.lammps'
-        write_adsorbate_min_script(
-            slab_ads_input=str(fs_raw),
-            ads_output=str(fs_relaxed),
-            out_path=str(min_script),
-            pair_style=PAIR_STYLE,
-            mace_model=MACE_MODEL_LAMMPS,
-            pair_suffix=PAIR_SUFFIX,
-            elem_str=elem_str,
-            z_freeze_cutoff=z_freeze_cutoff,
-            etol=ADS_MIN_ETOL,
-            ftol=ADS_MIN_FTOL,
-            maxiter=ADS_MIN_MAXITER,
-            maxeval=ADS_MIN_MAXEVAL,
-        )
+        fs_already_done = fs_relaxed.exists()
+        if fs_already_done:
+            print(f'  [{label}] FS-min already done ({fs_relaxed}) — skipping')
+        else:
+            write_adsorbate_min_script(
+                slab_ads_input=str(fs_raw),
+                ads_output=str(fs_relaxed),
+                out_path=str(min_script),
+                pair_style=PAIR_STYLE,
+                mace_model=MACE_MODEL_LAMMPS,
+                pair_suffix=PAIR_SUFFIX,
+                elem_str=elem_str,
+                z_freeze_cutoff=z_freeze_cutoff,
+                etol=ADS_MIN_ETOL,
+                ftol=ADS_MIN_FTOL,
+                maxiter=ADS_MIN_MAXITER,
+                maxeval=ADS_MIN_MAXEVAL,
+            )
 
         # 4. ASE NEB script — E_IS hardcoded; E_FS parsed at runtime from fs_min.log
         E_IS        = is_eng.get(is_sid, float('nan'))
@@ -1951,13 +1960,23 @@ def orchestrate_neb(
             e2t=e2t,
         )
 
-        # 5a. GPU SLURM: LAMMPS FS minimization only
+        # 5a. GPU SLURM: LAMMPS FS minimization only. job_index.txt/the array
+        # range are shared between fsmin_array and neb_array (both index by
+        # array-task-ID), so an already-done pair's label must stay in the
+        # index -- a no-op stub command (rather than dropping the label)
+        # keeps array indexing intact while skipping the wasted resubmission.
         fsmin_sh = str(job_dir / f'slurm_fsmin_{label}.sh')
+        if fs_already_done:
+            _fsmin_commands = [
+                f'echo "[fsmin skip] {label}: {fs_relaxed} already exists — skipping FS-min"'
+            ]
+        else:
+            _fsmin_commands = [f'{LAMMPS_CMD} {kk} -in {min_script} -log {fs_min_log}']
         write_slurm_job(
             job_name=f'fsmin_{label}',
             slurm_config=slurm_opts,
             out_path=fsmin_sh,
-            commands=[f'{LAMMPS_CMD} {kk} -in {min_script} -log {fs_min_log}'],
+            commands=_fsmin_commands,
         )
 
         # 5b. CPU SLURM: ASE NEB (self-chaining via traj checkpoint)
