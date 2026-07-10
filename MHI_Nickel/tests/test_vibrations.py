@@ -234,6 +234,18 @@ class TestWriteVibrationScript:
         assert '0.05' in content
         assert "'cuda'" in content
 
+    def test_default_dtype_is_float32(self, script_result):
+        _, _, content = script_result
+        assert "DTYPE      = 'float32'" in content
+        assert 'default_dtype=DTYPE' in content
+        assert 'default_dtype="float64"' not in content
+
+    def test_custom_dtype_override(self, tmp_path):
+        out = str(tmp_path / 'vib.py')
+        write_vibration_script(_STRUCT, _MACE, out, _OUTDIR, dtype='float64')
+        content = pathlib.Path(out).read_text()
+        assert "DTYPE      = 'float64'" in content
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. collect_is_ts_paths
