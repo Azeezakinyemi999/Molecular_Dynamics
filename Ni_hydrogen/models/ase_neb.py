@@ -675,18 +675,30 @@ def write_ase_neb_script(
         def _load_last_band(traj_path):
             _t = _Trajectory(traj_path)
             _n = len(_t)
-            if _n % (N_IMAGES + 2) != 0:
+            # A timeout can land mid-write of one step's N_IMAGES+2-frame
+            # batch, leaving a partial trailing batch -- this is a normal,
+            # expected consequence of the chain-resubmit mechanism, not an
+            # error. Truncate to the last COMPLETE batch and resume from
+            # there rather than failing the whole job over a few incomplete
+            # trailing frames.
+            _n_complete = (_n // (N_IMAGES + 2)) * (N_IMAGES + 2)
+            if _n_complete == 0:
                 raise RuntimeError(
-                    f"{{traj_path}} has {{_n}} frames, not a multiple of "
-                    f"N_IMAGES+2 ({{N_IMAGES + 2}}). This suggests the script "
-                    f"was regenerated with a different N_IMAGES than what "
-                    f"wrote this checkpoint (or the file is corrupted/"
-                    f"truncated). Delete the stale {{traj_path}}, its .log "
-                    f"file, and any .extxyz file derived from it, then "
-                    f"resubmit for a clean restart."
+                    f"{{traj_path}} has only {{_n}} frames, fewer than one "
+                    f"full band (N_IMAGES+2={{N_IMAGES + 2}}). Nothing usable "
+                    f"to resume from -- delete this file, its .log file, and "
+                    f"any .extxyz file derived from it, then resubmit for a "
+                    f"clean restart."
                 )
-            _last = max(0, _n - (N_IMAGES + 2))
-            return [_t[_last + _i] for _i in range(min(N_IMAGES + 2, _n - _last))]
+            if _n_complete != _n:
+                print(f"WARNING: {{traj_path}} has {{_n}} frames, not a clean "
+                      f"multiple of N_IMAGES+2 ({{N_IMAGES + 2}}) -- likely an "
+                      f"interrupted write mid-batch. Using the last "
+                      f"{{_n_complete}} frames, discarding {{_n - _n_complete}} "
+                      f"incomplete trailing frame(s).")
+                sys.stdout.flush()
+            _last = max(0, _n_complete - (N_IMAGES + 2))
+            return [_t[_last + _i] for _i in range(min(N_IMAGES + 2, _n_complete - _last))]
 
         def _neb_fmax(neb_obj):
             # neb.get_forces() returns the perpendicular/spring-projected

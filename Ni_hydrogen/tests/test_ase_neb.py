@@ -298,21 +298,53 @@ class TestNImagesMismatchGuard:
             'PARALLEL': True,
             'TRAJ_PHASE1': str(traj1) if traj1_exists else None,
             'TRAJ_PHASE2': str(traj2) if traj2_exists else None,
+            '_test_frames': frames,   # exposed so tests can assert frame identity
         }
 
-    def test_phase1_mismatched_frame_count_raises(self, tmp_path):
-        # n_images=4 -> N_IMAGES+2=6; 17 frames is not a multiple of 6.
+    def test_partial_trailing_batch_truncates_not_raises(self, tmp_path):
+        """Regression test for the real production failure this guard
+        introduced: a SLURM timeout landing mid-write of one step's frame
+        batch leaves a partial trailing batch (31 frames for N_IMAGES=6,
+        N_IMAGES+2=8, observed for real on the cluster) -- this is a normal
+        consequence of the chain-resubmit mechanism, not an operator error,
+        and must NOT hard-fail the job. It should truncate to the last
+        complete batch (24 frames = 3 complete steps) and continue."""
+        content, ns = self._ns(tmp_path, n_images=6, traj1_exists=True,
+                                traj2_exists=False, n_frames=31)
+        exec(compile(self._restart_slice(content), 'restart_slice', 'exec'), ns)
+        assert ns['_restart_phase'] in (1, 2)
+        assert len(ns['images']) == 8   # one full band (N_IMAGES+2), not 7
+
+    def test_partial_trailing_batch_uses_last_complete_batch_frames(self, tmp_path):
+        """Confirms truncation drops the incomplete tail specifically --
+        not just any N_IMAGES+2-sized slice of the raw frame list."""
         content, ns = self._ns(tmp_path, n_images=4, traj1_exists=True,
                                 traj2_exists=False, n_frames=17)
-        with pytest.raises(RuntimeError, match='not a multiple'):
+        exec(compile(self._restart_slice(content), 'restart_slice', 'exec'), ns)
+        # 17 frames, N_IMAGES+2=6 -> 2 complete batches (12 frames); the
+        # last complete batch is frames[6:12], NOT a naive frames[11:17]
+        # (which would wrongly include the 5 incomplete trailing frames).
+        raw_frames = ns['_test_frames']
+        assert ns['images'] == raw_frames[6:12]
+        assert ns['_p1_steps_done'] == 1   # 12 // 6 - 1 == 1 completed step
+
+    def test_zero_complete_batches_still_raises(self, tmp_path):
+        """A genuine N_IMAGES mismatch (or real corruption) leaving fewer
+        frames than a single complete band has nothing usable to resume
+        from -- this must still fail loudly, not silently proceed with a
+        garbage band."""
+        content, ns = self._ns(tmp_path, n_images=4, traj1_exists=True,
+                                traj2_exists=False, n_frames=3)
+        with pytest.raises(RuntimeError, match='Nothing usable to resume from'):
             exec(compile(self._restart_slice(content), 'restart_slice', 'exec'), ns)
 
-    def test_phase2_mismatched_frame_count_raises(self, tmp_path):
+    def test_phase2_partial_trailing_batch_truncates_not_raises(self, tmp_path):
         # Covers the other _load_last_band call site (TRAJ_PHASE2 branch).
-        content, ns = self._ns(tmp_path, n_images=4, traj1_exists=False,
-                                traj2_exists=True, n_frames=17)
-        with pytest.raises(RuntimeError, match='not a multiple'):
-            exec(compile(self._restart_slice(content), 'restart_slice', 'exec'), ns)
+        content, ns = self._ns(tmp_path, n_images=6, traj1_exists=False,
+                                traj2_exists=True, n_frames=31)
+        exec(compile(self._restart_slice(content), 'restart_slice', 'exec'), ns)
+        assert ns['_restart_phase'] == 2
+        assert len(ns['images']) == 8
 
     def test_divisible_frame_count_does_not_raise(self, tmp_path):
         # 18 frames / 6 per step == 3 -- valid, must not false-positive.
