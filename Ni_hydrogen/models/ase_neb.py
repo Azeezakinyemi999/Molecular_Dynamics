@@ -210,7 +210,7 @@ def run_cineb(
     logfile_phase1: str = 'neb_phase1.log',
     logfile_phase2: str = 'neb_phase2.log',
 ) -> tuple:
-    """Run a two-phase climbing-image NEB optimisation with MDMin.
+    """Run a two-phase climbing-image NEB optimisation with FIRE.
 
     Phase 1 relaxes images onto the MEP (regular NEB, fmax = 3× ``neb_ftol``).
     Phase 2 enables the climbing image to locate the true saddle point
@@ -231,13 +231,13 @@ def run_cineb(
     neb_ftol : float
         Force convergence threshold for CINEB (phase 2) in eV/Å.
     phase1_steps : int
-        Maximum MDMin steps for phase 1.
+        Maximum FIRE steps for phase 1.
     phase2_steps : int
-        Maximum MDMin steps for phase 2 (CINEB).
+        Maximum FIRE steps for phase 2 (CINEB).
     logfile_phase1 : str
-        MDMin log file path for phase 1.
+        FIRE log file path for phase 1.
     logfile_phase2 : str
-        MDMin log file path for phase 2.
+        FIRE log file path for phase 2.
 
     Returns
     -------
@@ -249,7 +249,7 @@ def run_cineb(
         Maximum force across all images at end of phase 2 in eV/Å.
     """
     from ase.mep import NEB
-    from ase.optimize import MDMin
+    from ase.optimize import FIRE
 
     # Attach a fresh calculator to each intermediate image
     for img in images[1:-1]:
@@ -261,7 +261,7 @@ def run_cineb(
     phase1_fmax = neb_ftol * 3.0
     print(f'\nPhase 1: regular NEB  ({phase1_steps} steps, fmax={phase1_fmax:.3f} eV/Å)')
     sys.stdout.flush()
-    opt1 = MDMin(neb, logfile=logfile_phase1, dt=0.05)
+    opt1 = FIRE(neb, logfile=logfile_phase1, dt=0.05)
     opt1.run(fmax=phase1_fmax, steps=phase1_steps)
     print(f'Phase 1 done: {opt1.nsteps} steps')
     sys.stdout.flush()
@@ -274,7 +274,7 @@ def run_cineb(
     neb.climb = True
     print(f'\nPhase 2: CINEB  ({phase2_steps} steps, fmax={neb_ftol:.3f} eV/Å)')
     sys.stdout.flush()
-    opt2 = MDMin(neb, logfile=logfile_phase2, dt=0.02)
+    opt2 = FIRE(neb, logfile=logfile_phase2, dt=0.02)
     converged = False
     try:
         converged = opt2.run(fmax=neb_ftol, steps=phase2_steps)
@@ -284,15 +284,17 @@ def run_cineb(
     print(f'Phase 2 done: {opt2.nsteps} steps')
     sys.stdout.flush()
 
-    # Compute final fmax across intermediate images
-    fmax_vals = []
-    for img in images[1:-1]:
-        try:
-            f = img.get_forces()
-            fmax_vals.append(np.sqrt((f ** 2).sum(axis=1).max()))
-        except Exception:
-            pass
-    fmax_final = float(np.max(fmax_vals)) if fmax_vals else float('nan')
+    # Final fmax: use neb.get_forces() (the perpendicular/spring-projected
+    # force the optimizer actually converges on), not each image's raw
+    # calculator force -- the raw force also contains the along-path
+    # tangential component NEB deliberately never drives to zero, and is
+    # therefore always >= the true NEB fmax (the two components are
+    # orthogonal).
+    try:
+        _f = neb.get_forces()
+        fmax_final = float(np.sqrt((_f ** 2).sum(axis=1).max()))
+    except Exception:
+        fmax_final = float('nan')
 
     return neb, bool(converged), fmax_final
 
@@ -450,6 +452,8 @@ def write_ase_neb_script(
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
     device: str = 'cpu',
+    dtype: str = 'float32',
+    parallel: bool = True,
     label_is: str = 'IS',
     label_fs: str = 'FS',
     out_path: str = 'run_neb.py',
@@ -479,9 +483,9 @@ def write_ase_neb_script(
     path_file : str
         Output path for ``neb_path.dat``.
     logfile_phase1 : str
-        MDMin log path for phase 1.
+        FIRE log path for phase 1.
     logfile_phase2 : str
-        MDMin log path for phase 2.
+        FIRE log path for phase 2.
     e_fs : float, optional
         FS potential energy in eV (from LAMMPS minimisation log).
         Mutually exclusive with ``fs_log_file``.
@@ -499,13 +503,20 @@ def write_ase_neb_script(
     neb_ftol : float
         CINEB force convergence tolerance in eV/Å.
     phase1_steps : int
-        Phase 1 MDMin step limit.
+        Phase 1 FIRE step limit.
     phase2_steps : int
-        Phase 2 MDMin step limit.
+        Phase 2 FIRE step limit.
     z_freeze_cutoff : float
         Frozen-layer z threshold in Å.
     device : str
         PyTorch device (``'cpu'`` or ``'cpu'``).
+    dtype : str
+        MACE ``default_dtype`` — ``'float32'`` (default) or ``'float64'``.
+    parallel : bool
+        Pass ``parallel=True`` (default) to ASE's ``NEB`` so intermediate
+        images are force-evaluated on separate Python threads instead of
+        sequentially. No MPI is required — this uses ASE's built-in
+        threading fallback when ``ase.parallel.world.size == 1``.
     label_is : str
         Descriptive label for IS (written to barrier file header).
     label_fs : str
@@ -593,10 +604,16 @@ def write_ase_neb_script(
         from pathlib import Path as _Path
         from ase.io import read, Trajectory as _Trajectory
         from ase.mep import NEB
-        from ase.optimize import MDMin
+        from ase.optimize import FIRE
         from ase.calculators.singlepoint import SinglePointCalculator
         from mace.calculators import MACECalculator
         from models.structure import write_lammps_data
+
+        import torch
+        torch.set_num_threads(1)  # NEB(parallel=True) below spawns one Python
+        # thread per intermediate image; without this each thread's MACE
+        # forward pass would also try to use multiple intra-op threads,
+        # oversubscribing the allocated CPUs.
 
         # ── Parameters injected from notebook ─────────────────────────────
         MACE_MODEL      = "{mace_model_path}"
@@ -614,6 +631,8 @@ def write_ase_neb_script(
         N1_STEPS        = {phase1_steps}
         NEB_STEPS       = {phase2_steps}
         DEVICE          = "{device}"
+        DTYPE           = "{dtype}"
+        PARALLEL        = {parallel!r}
         BARRIER_FILE    = "{barrier_file}"
         PATH_FILE       = "{path_file}"
         LOG_PHASE1      = "{logfile_phase1}"
@@ -634,7 +653,7 @@ def write_ase_neb_script(
 
         def make_calc():
             return MACEFrozenCalc(
-                model_paths=MACE_MODEL, device=DEVICE, default_dtype="float64", head="omat_pbe")
+                model_paths=MACE_MODEL, device=DEVICE, default_dtype=DTYPE, head="omat_pbe")
 
         # ── Load structures and pin endpoint energies ─────────────────────
         is_raw = read(NEB_IS_FILE, format="lammps-data", atom_style="atomic")
@@ -656,8 +675,40 @@ def write_ase_neb_script(
         def _load_last_band(traj_path):
             _t = _Trajectory(traj_path)
             _n = len(_t)
+            if _n % (N_IMAGES + 2) != 0:
+                raise RuntimeError(
+                    f"{{traj_path}} has {{_n}} frames, not a multiple of "
+                    f"N_IMAGES+2 ({{N_IMAGES + 2}}). This suggests the script "
+                    f"was regenerated with a different N_IMAGES than what "
+                    f"wrote this checkpoint (or the file is corrupted/"
+                    f"truncated). Delete the stale {{traj_path}}, its .log "
+                    f"file, and any .extxyz file derived from it, then "
+                    f"resubmit for a clean restart."
+                )
             _last = max(0, _n - (N_IMAGES + 2))
             return [_t[_last + _i] for _i in range(min(N_IMAGES + 2, _n - _last))]
+
+        def _neb_fmax(neb_obj):
+            # neb.get_forces() returns the perpendicular/spring-projected
+            # NEB force -- what the optimizer actually converges on -- not
+            # each image's raw calculator force (which also contains the
+            # along-path tangential component NEB deliberately never drives
+            # to zero, and is therefore always >= the true NEB fmax since
+            # the two components are orthogonal).
+            try:
+                _f = neb_obj.get_forces()
+                return float(np.sqrt((_f**2).sum(axis=1).max()))
+            except Exception:
+                return float("nan")
+
+        def _steps_done(traj_path):
+            # Each completed FIRE step writes N_IMAGES+2 frames; one extra
+            # pre-optimization batch is written on the very first leg only.
+            _n = len(_Trajectory(traj_path))
+            return max(0, _n // (N_IMAGES + 2) - 1)
+
+        _p1_fmax_final = float("nan")
+        _p1_converged = None
 
         if TRAJ_PHASE2 and _Path(TRAJ_PHASE2).exists():
             print("Restart: Phase 2 checkpoint found — resuming CINEB")
@@ -665,34 +716,52 @@ def write_ase_neb_script(
             images = _load_last_band(TRAJ_PHASE2)
             for img in images[1:-1]:
                 img.calc = make_calc()
-            neb = NEB(images, climb=True, k=SPRING_CONST, method="aseneb")
+            neb = NEB(images, climb=True, k=SPRING_CONST, method="aseneb", parallel=PARALLEL)
             _restart_phase = 2
         elif TRAJ_PHASE1 and _Path(TRAJ_PHASE1).exists():
-            print("Restart: Phase 1 checkpoint found — starting Phase 2")
-            sys.stdout.flush()
             images = _load_last_band(TRAJ_PHASE1)
             for img in images[1:-1]:
                 img.calc = make_calc()
-            neb = NEB(images, climb=True, k=SPRING_CONST, method="aseneb")
-            _restart_phase = 2
+            # climb=False here matches Phase 1's own optimizer -- evaluating
+            # the loaded band's fmax against N1_FMAX must use the same
+            # (non-climbing) force definition Phase 1 itself converges on.
+            neb = NEB(images, climb=False, k=SPRING_CONST, method="aseneb", parallel=PARALLEL)
+            _loaded_fmax = _neb_fmax(neb)
+            _p1_steps_done = _steps_done(TRAJ_PHASE1)
+            _p1_remaining = N1_STEPS - _p1_steps_done
+            if _loaded_fmax > N1_FMAX and _p1_remaining > 0:
+                print(f"Restart: Phase 1 checkpoint found — fmax={{_loaded_fmax:.4f}} > "
+                      f"{{N1_FMAX:.4f}} ({{_p1_steps_done}}/{{N1_STEPS}} steps done) — resuming Phase 1")
+                _restart_phase = 1
+            else:
+                _reason = "converged" if _loaded_fmax <= N1_FMAX else "step budget exhausted"
+                print(f"Restart: Phase 1 checkpoint found — {{_reason}} "
+                      f"(fmax={{_loaded_fmax:.4f}}, {{_p1_steps_done}}/{{N1_STEPS}} steps) — starting Phase 2")
+                neb.climb = True
+                _p1_fmax_final = _loaded_fmax
+                _p1_converged = _loaded_fmax <= N1_FMAX
+                _restart_phase = 2
+            sys.stdout.flush()
         else:
             images = [is_end] + [is_raw.copy() for _ in range(N_IMAGES)] + [fs_end]
-            neb = NEB(images, climb=False, k=SPRING_CONST, method="aseneb")
+            neb = NEB(images, climb=False, k=SPRING_CONST, method="aseneb", parallel=PARALLEL)
             neb.interpolate(method="idpp")
             print("IDPP interpolation done")
             sys.stdout.flush()
             for img in images[1:-1]:
                 img.calc = make_calc()
             _restart_phase = 1
+            _p1_remaining = N1_STEPS
 
-        # ── Phase 1: regular NEB (skipped on restart) ─────────────────────
+        # ── Phase 1: regular NEB (skipped once converged / budget exhausted) ──
         if _restart_phase == 1:
-            print(f"\\nPhase 1: regular NEB  ({{N1_STEPS}} steps, fmax={{N1_FMAX:.3f}} eV/Å)")
+            print(f"\\nPhase 1: regular NEB  ({{_p1_remaining}} steps remaining of "
+                  f"{{N1_STEPS}} total, fmax={{N1_FMAX:.3f}} eV/Å)")
             sys.stdout.flush()
-            _traj1_kw = {{"trajectory": TRAJ_PHASE1}} if TRAJ_PHASE1 else {{}}
-            opt1 = MDMin(neb, logfile=LOG_PHASE1, dt=0.05, **_traj1_kw)
-            opt1.run(fmax=N1_FMAX, steps=N1_STEPS)
-            print(f"Phase 1 done: {{opt1.nsteps}} steps")
+            _traj1_kw = {{"trajectory": TRAJ_PHASE1, "append_trajectory": True}} if TRAJ_PHASE1 else {{}}
+            opt1 = FIRE(neb, logfile=LOG_PHASE1, dt=0.05, **_traj1_kw)
+            opt1.run(fmax=N1_FMAX, steps=_p1_remaining)
+            print(f"Phase 1 done: {{opt1.nsteps}} steps (this leg)")
             sys.stdout.flush()
 
             if TRAJ_PHASE1 and os.path.exists(TRAJ_PHASE1):
@@ -702,22 +771,28 @@ def write_ase_neb_script(
                 print(f"Wrote OVITO trajectory: {{_lmp1}}")
                 sys.stdout.flush()
 
+            _p1_fmax_final = _neb_fmax(neb)
+            _p1_converged = _p1_fmax_final <= N1_FMAX
+
             for img in images[1:-1]:
                 img.set_momenta(np.zeros_like(img.get_momenta()))
 
         # ── Phase 2: CINEB ────────────────────────────────────────────────
         neb.climb = True
-        print(f"\\nPhase 2: CINEB  ({{NEB_STEPS}} steps, fmax={{NEB_FMAX:.3f}} eV/Å)")
+        _p2_done = _steps_done(TRAJ_PHASE2) if TRAJ_PHASE2 and _Path(TRAJ_PHASE2).exists() else 0
+        _p2_remaining = NEB_STEPS - _p2_done
+        print(f"\\nPhase 2: CINEB  ({{_p2_remaining}} steps remaining of "
+              f"{{NEB_STEPS}} total, fmax={{NEB_FMAX:.3f}} eV/Å)")
         sys.stdout.flush()
-        _traj2_kw = {{"trajectory": TRAJ_PHASE2}} if TRAJ_PHASE2 else {{}}
-        opt2 = MDMin(neb, logfile=LOG_PHASE2, dt=0.02, **_traj2_kw)
+        _traj2_kw = {{"trajectory": TRAJ_PHASE2, "append_trajectory": True}} if TRAJ_PHASE2 else {{}}
+        opt2 = FIRE(neb, logfile=LOG_PHASE2, dt=0.02, **_traj2_kw)
         converged = False
         try:
-            converged = opt2.run(fmax=NEB_FMAX, steps=NEB_STEPS)
+            converged = opt2.run(fmax=NEB_FMAX, steps=_p2_remaining)
         except Exception as exc:
             print(f"WARNING: phase 2 raised: {{exc}}")
             sys.stdout.flush()
-        print(f"Phase 2 done: {{opt2.nsteps}} steps")
+        print(f"Phase 2 done: {{opt2.nsteps}} steps (this leg)")
         sys.stdout.flush()
 
         if TRAJ_PHASE2 and os.path.exists(TRAJ_PHASE2):
@@ -739,14 +814,7 @@ def write_ase_neb_script(
         E_des  = e_ts  - E_FS
         dE     = E_FS  - E_IS
 
-        fmax_vals = []
-        for img in images[1:-1]:
-            try:
-                f = img.get_forces()
-                fmax_vals.append(float(np.sqrt((f**2).sum(axis=1).max())))
-            except Exception:
-                pass
-        fmax_final = max(fmax_vals) if fmax_vals else float("nan")
+        fmax_final = _neb_fmax(neb)
 
         print(f"\\nResults")
         print(f"  E_IS    : {{E_IS:.6f}} eV")
@@ -768,7 +836,9 @@ def write_ase_neb_script(
             f.write(f"FS          : {{LABEL_FS}}\\n")
             f.write(f"N images    : {{n}} ({{n-2}} intermediate + IS + FS)\\n")
             f.write(f"fmax_final  : {{fmax_final:.4f}} eV/A\\n")
-            f.write(f"Converged   : {{converged}}\\n\\n")
+            f.write(f"Converged   : {{converged}}\\n")
+            f.write(f"phase1_fmax_final : {{_p1_fmax_final:.4f}} eV/A\\n")
+            f.write(f"phase1_converged  : {{_p1_converged}}\\n\\n")
             f.write(f"E_IS    = {{E_IS:.6f}} eV\\n")
             f.write(f"E_FS    = {{E_FS:.6f}} eV\\n")
             f.write(f"E_abs   = {{E_abs:.4f}} eV\\n")
@@ -846,6 +916,8 @@ def run_neb_pipeline(
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
     device: str = 'cpu',
+    dtype: str = 'float32',
+    parallel: bool = True,
     label_is: str = 'IS',
     label_fs: str = 'FS',
     images_dir: str | None = None,
@@ -897,13 +969,18 @@ def run_neb_pipeline(
     neb_ftol : float
         CINEB force convergence tolerance in eV/Å (default 0.05).
     phase1_steps : int
-        Phase 1 MDMin step limit (default 5000).
+        Phase 1 FIRE step limit (default 5000).
     phase2_steps : int
-        Phase 2 MDMin step limit (default 10000).
+        Phase 2 FIRE step limit (default 10000).
     z_freeze_cutoff : float
         Frozen-layer z threshold in Å (default 22.115).
     device : str
         PyTorch device — ``'cpu'`` (default) or ``'cpu'`` for CPU partitions.
+    dtype : str
+        MACE ``default_dtype`` — ``'float32'`` (default) or ``'float64'``.
+    parallel : bool
+        Thread-parallel NEB image evaluation (default ``True``); see
+        :func:`write_ase_neb_script`.
     label_is : str
         Human-readable label for IS written to the barrier file header.
     label_fs : str
@@ -964,6 +1041,8 @@ def run_neb_pipeline(
         phase2_steps=phase2_steps,
         z_freeze_cutoff=z_freeze_cutoff,
         device=device,
+        dtype=dtype,
+        parallel=parallel,
         label_is=label_is,
         label_fs=label_fs,
         out_path=os.path.join(outdir, f'run_{job_name}.py'),

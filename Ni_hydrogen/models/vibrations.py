@@ -113,6 +113,7 @@ def write_vibration_script(
     outdir: str,
     delta: float = 0.01,
     device: str = 'cpu',
+    dtype: str = 'float32',
 ) -> str:
     """Write a standalone Python script that computes partial-Hessian frequencies.
 
@@ -139,6 +140,8 @@ def write_vibration_script(
     device : str
         MACE device string — ``'cpu'`` or ``'cuda'``.  Default ``'cpu'``.
         Vibration runs on CPU because 42 single-points do not saturate a GPU.
+    dtype : str
+        MACE ``default_dtype`` — ``'float32'`` (default) or ``'float64'``.
 
     Returns
     -------
@@ -159,6 +162,7 @@ def write_vibration_script(
         OUTDIR     = {outdir!r}
         DELTA      = {delta}
         DEVICE     = {device!r}
+        DTYPE      = {dtype!r}
 
         os.makedirs(OUTDIR, exist_ok=True)
 
@@ -166,7 +170,7 @@ def write_vibration_script(
         atoms = read(STRUCTURE, format="lammps-data", atom_style="atomic")
         atoms.wrap()
         calc  = MACECalculator(
-            model_paths=MACE_MODEL, device=DEVICE, default_dtype="float64", head="omat_pbe"
+            model_paths=MACE_MODEL, device=DEVICE, default_dtype=DTYPE, head="omat_pbe"
         )
         atoms.calc = calc
 
