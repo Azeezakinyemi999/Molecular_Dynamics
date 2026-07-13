@@ -310,7 +310,7 @@ class TestWriteNebRunScript:
         def _fake_neb_pipeline(**kw):
             calls['neb_pipeline'] = kw['slurm_opts']
             return {
-                'neb_result': {'fsmin_array_script': '', 'neb_array_script': '', 'n_jobs': 0, 'status': 'ok'},
+                'neb_result': {'job_index': '', 'fsmin_array_script': '', 'neb_array_script': '', 'n_jobs': 0, 'status': 'ok'},
                 'status': 'ok',
             }
 
@@ -901,17 +901,21 @@ class TestOrchestrateNebFsMinSkip:
         }
         return pools, combo
 
-    def _run(self, tmp_path, monkeypatch, *, pre_create_fs_relaxed):
+    def _run(self, tmp_path, monkeypatch, *, pre_create_fs_relaxed,
+             pre_create_neb_barrier=False):
         from models.neb_workflow import orchestrate_neb
         from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
 
         pools, combo = self._pools_and_combo(tmp_path)
         neb_outdir = tmp_path / 'neb_out'
 
-        if pre_create_fs_relaxed:
+        if pre_create_fs_relaxed or pre_create_neb_barrier:
             job_dir = neb_outdir / 'neb' / combo['label']
             job_dir.mkdir(parents=True)
-            (job_dir / 'neb_final_relaxed.lammps').write_text('fake relaxed FS')
+            if pre_create_fs_relaxed:
+                (job_dir / 'neb_final_relaxed.lammps').write_text('fake relaxed FS')
+            if pre_create_neb_barrier:
+                (job_dir / 'neb_barrier.txt').write_text('fake barrier')
 
         write_min_calls = []
         monkeypatch.setattr(
@@ -927,8 +931,11 @@ class TestOrchestrateNebFsMinSkip:
             lambda **kw: (write_slurm_calls.append(kw),
                           str(tmp_path / f"{kw['job_name']}.sh"))[1],
         )
-        monkeypatch.setattr('models.neb_workflow.write_chained_slurm_job',
-                             lambda **kw: str(tmp_path / 'slurm_neb.sh'))
+        write_chained_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.write_chained_slurm_job',
+            lambda **kw: (write_chained_calls.append(kw), str(tmp_path / 'slurm_neb.sh'))[1],
+        )
 
         result = orchestrate_neb(
             deduped_combinations=[combo],
@@ -946,11 +953,11 @@ class TestOrchestrateNebFsMinSkip:
         )
         fsmin_call = next(c for c in write_slurm_calls
                            if c['job_name'].startswith('fsmin_'))
-        return result, write_min_calls, fsmin_call
+        return result, write_min_calls, fsmin_call, write_slurm_calls, write_chained_calls
 
     def test_skips_write_adsorbate_min_script_when_fs_relaxed_exists(
             self, tmp_path, monkeypatch):
-        result, write_min_calls, fsmin_call = self._run(
+        result, write_min_calls, fsmin_call, _, _ = self._run(
             tmp_path, monkeypatch, pre_create_fs_relaxed=True)
 
         assert write_min_calls == []
@@ -959,7 +966,7 @@ class TestOrchestrateNebFsMinSkip:
 
     def test_runs_write_adsorbate_min_script_when_fs_relaxed_missing(
             self, tmp_path, monkeypatch):
-        result, write_min_calls, fsmin_call = self._run(
+        result, write_min_calls, fsmin_call, _, _ = self._run(
             tmp_path, monkeypatch, pre_create_fs_relaxed=False)
 
         assert len(write_min_calls) == 1
@@ -971,9 +978,46 @@ class TestOrchestrateNebFsMinSkip:
         pair's FS-min must not remove it from job_index.txt/the array
         range, since fsmin_array and neb_array both index by the same
         array-task-ID."""
-        result, _, _ = self._run(tmp_path, monkeypatch, pre_create_fs_relaxed=True)
+        result, _, _, _, _ = self._run(tmp_path, monkeypatch, pre_create_fs_relaxed=True)
 
         assert result['n_jobs'] == 1
         with open(result['job_index']) as f:
             labels = [line.strip() for line in f if line.strip()]
         assert labels == ['is_s0__fs_s0_s1']
+
+    def test_skips_write_chained_slurm_job_when_neb_barrier_exists(
+            self, tmp_path, monkeypatch):
+        """NEB itself previously had no per-pair skip at all -- only FS-min
+        did. An already-converged pair's chained NEB job must become a
+        no-op stub instead of being regenerated/resubmitted."""
+        result, _, _, write_slurm_calls, write_chained_calls = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=True,
+            pre_create_neb_barrier=True)
+
+        assert write_chained_calls == []
+        neb_call = next(c for c in write_slurm_calls if c['job_name'].startswith('neb_'))
+        assert any('skip' in c.lower() for c in neb_call['commands'])
+
+    def test_runs_write_chained_slurm_job_when_neb_barrier_missing(
+            self, tmp_path, monkeypatch):
+        result, _, _, _, write_chained_calls = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=False,
+            pre_create_neb_barrier=False)
+
+        assert len(write_chained_calls) == 1
+
+    def test_fsmin_and_neb_arrays_use_zero_indexed_range_and_offset_sed(
+            self, tmp_path, monkeypatch):
+        """auto_submit() submits array chunks 0-indexed (--array=0-N), but
+        job_index.txt is read via `sed -n Np` (1-indexed). The array_range
+        embedded at generation time and the sed offset inside each array's
+        command must both account for this, or the last label silently
+        never runs (and array index 0 wastes a task on a nonexistent
+        line)."""
+        _, _, _, write_slurm_calls, _ = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=False)
+
+        for array_name in ('fsmin_array', 'neb_array'):
+            array_call = next(c for c in write_slurm_calls if c['job_name'] == array_name)
+            assert array_call['array_range'] == (0, 0)   # 1 combo -> indices [0, 0]
+            assert any('SLURM_ARRAY_TASK_ID+1' in c for c in array_call['commands'])

@@ -160,3 +160,17 @@ ADS_MIN_ETOL    = 0.0
 ADS_MIN_FTOL    = 1e-6      # force tolerance (eV/Å)
 ADS_MIN_MAXITER = 10000
 ADS_MIN_MAXEVAL = 100000
+
+# =============================================================================
+# Section 6 — SLURM partition submission limits
+# =============================================================================
+# (queue_max, concurrent) per partition, consumed by auto_submit() via
+# partition_submit_limits() in models/create_slurm.py. queue_max = max
+# pending+running jobs the partition/account allows at once; concurrent =
+# max simultaneously RUNNING (the %N throttle on --array).
+PARTITION_SUBMIT_LIMITS = {
+    'short':    (1000, 50),
+    'multigpu': (8,    4),
+    'gpu':      (8,    4),
+    'sharing':  (4,    2),
+}

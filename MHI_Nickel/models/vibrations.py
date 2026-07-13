@@ -23,6 +23,7 @@ import textwrap
 import warnings
 
 from models.create_slurm import write_slurm_job, submit_slurm_job
+from models.checkpoint import is_done
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +226,11 @@ def write_vibration_script(
         print("Wrote:", out_json)
         print("Real modes (", len(freqs_real_cm1), "):", freqs_real_cm1[:5], "...")
         print("Imag modes (", len(freqs_imag_cm1), "):", freqs_imag_cm1)
+
+        # Checkpoint marker -- written last, only after vib_frequencies.json
+        # is confirmed on disk, so a killed job never leaves a false "done".
+        with open(os.path.join(OUTDIR, "vib.done"), "w") as fh:
+            fh.write("")
     ''')
 
     os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
@@ -376,6 +382,20 @@ def orchestrate_vibrations(
         os.makedirs(job_outdir, exist_ok=True)
         script_path = os.path.join(job_outdir, 'vib_run.py')
         vib_json    = os.path.join(job_outdir, 'vib_frequencies.json')
+        done_marker = os.path.join(job_outdir, 'vib.done')
+
+        if is_done(done_marker):
+            print(f'  [{label}] already done ({done_marker}) — skipping')
+            # 'slurm': None regardless of slurm_opts -- signals "nothing to
+            # submit" to callers that do `if v.get('slurm'): submit(...)`,
+            # so an already-done label's stale (real, non-stub) vib_job.sh
+            # from a prior run never gets resubmitted.
+            results[label] = {
+                'vib_script': script_path,
+                'vib_json'  : vib_json,
+                'slurm'     : None,
+            }
+            continue
 
         write_vibration_script(
             structure_path  = lammps_path,
