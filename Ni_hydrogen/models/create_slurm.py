@@ -234,6 +234,25 @@ def submit_slurm_job(slurm_path, extra_args=None, dry_run=False, dependency=None
 # AUTO-SUBMIT QUEUE FILLER
 # ═══════════════════════════════════════════════════════════════════════════
 
+def partition_submit_limits(slurm_opts):
+    """
+    Look up (queue_max, concurrent) for slurm_opts['partition'] from
+    PARTITION_SUBMIT_LIMITS.
+
+    Raises rather than silently defaulting -- guessing wrong here
+    previously lumped gpu/multigpu's real 8/4 limits in with sharing's
+    much lower 4/2.
+    """
+    from models.config import PARTITION_SUBMIT_LIMITS
+    partition = slurm_opts.get('partition')
+    if partition not in PARTITION_SUBMIT_LIMITS:
+        raise KeyError(
+            f"No known submit limits for partition {partition!r}. "
+            f"Add it to PARTITION_SUBMIT_LIMITS in models/config.py."
+        )
+    return PARTITION_SUBMIT_LIMITS[partition]
+
+
 def auto_submit(
     array_script,
     index_file,

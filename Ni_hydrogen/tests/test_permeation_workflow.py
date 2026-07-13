@@ -330,6 +330,7 @@ class TestPermeationSuccessTracking:
         runs end-to-end without crashing, not just structurally present."""
         import itertools
         import numpy as np
+        from models.checkpoint import is_done, mark_done
 
         out_py = str(tmp_path / 'permeation_run.py')
         _cfg = {**_PERM_CFG, 'n_h_values': [1, 3], 'temperatures': [600]}
@@ -353,6 +354,7 @@ class TestPermeationSuccessTracking:
 
         ns = {
             'os': os, 'json': json, 'sys': sys, 'itertools': itertools, 'np': np,
+            'is_done': is_done, 'mark_done': mark_done,
             'N_H_VALUES': [1, 3],
             'STEM': 'test_metal',
             'WORK_DIR': str(tmp_path / 'work'),

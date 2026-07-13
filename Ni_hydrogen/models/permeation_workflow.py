@@ -115,7 +115,10 @@ from models.permeation import (
 )
 from models.permeation_workflow import collect_dedup_is_labels
 from models.parsers import parse_barrier_file
-from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
+from models.create_slurm import (
+    submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits,
+)
+from models.checkpoint import is_done, mark_done
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(SUB_NEB_DIR, exist_ok=True)
@@ -193,6 +196,7 @@ if not os.path.exists(_hopa_jobs_json):
     print(f'  Hop A: {hopa_out["n_jobs"]} jobs  fsmin_array={hopa_out["fsmin_array"]}')
 
     print('  Submitting Hop A FS-min …')
+    _hopa_fsmin_qmax, _hopa_fsmin_conc = partition_submit_limits(GPU_SLURM_CFG)
     auto_submit(
         array_script   = hopa_out['fsmin_array'],
         index_file     = os.path.join(SUB_NEB_DIR, 'hopa', 'job_index.txt'),
@@ -200,14 +204,23 @@ if not os.path.exists(_hopa_jobs_json):
         result_pattern = '*/sub1_fs_relaxed.lammps',
         n_total        = hopa_out['n_jobs'],
         job_name       = 'hopa_fsmin_array',
-        queue_max      = 8,
-        concurrent     = 4,
+        queue_max      = _hopa_fsmin_qmax,
+        concurrent     = _hopa_fsmin_conc,
     )
     print('  Hop A FS-min done.')
 
     print('  Submitting Hop A NEB …')
-    _jid_hopa_neb = submit_slurm_job(hopa_out['neb_array'])
-    wait_for_jobs({'hopa_neb': _jid_hopa_neb})
+    _hopa_neb_qmax, _hopa_neb_conc = partition_submit_limits(NEB_SLURM_CFG)
+    auto_submit(
+        array_script   = hopa_out['neb_array'],
+        index_file     = os.path.join(SUB_NEB_DIR, 'hopa', 'job_index.txt'),
+        result_dir     = os.path.join(SUB_NEB_DIR, 'hopa'),
+        result_pattern = '*/neb_barrier.txt',
+        n_total        = hopa_out['n_jobs'],
+        job_name       = 'hopa_neb_array',
+        queue_max      = _hopa_neb_qmax,
+        concurrent     = _hopa_neb_conc,
+    )
     print('  Hop A NEB done.')
 else:
     with open(_hopa_jobs_json) as _f:
@@ -239,6 +252,7 @@ if not os.path.exists(_hopb_jobs_json):
     print(f'  Hop B: {hopb_out["n_jobs"]} jobs  fsmin_array={hopb_out["fsmin_array"]}')
 
     print('  Submitting Hop B FS-min …')
+    _hopb_fsmin_qmax, _hopb_fsmin_conc = partition_submit_limits(GPU_SLURM_CFG)
     auto_submit(
         array_script   = hopb_out['fsmin_array'],
         index_file     = os.path.join(SUB_NEB_DIR, 'hopb', 'job_index.txt'),
@@ -246,14 +260,23 @@ if not os.path.exists(_hopb_jobs_json):
         result_pattern = '*/sub2_fs_relaxed.lammps',
         n_total        = hopb_out['n_jobs'],
         job_name       = 'hopb_fsmin_array',
-        queue_max      = 8,
-        concurrent     = 4,
+        queue_max      = _hopb_fsmin_qmax,
+        concurrent     = _hopb_fsmin_conc,
     )
     print('  Hop B FS-min done.')
 
     print('  Submitting Hop B NEB …')
-    _jid_hopb_neb = submit_slurm_job(hopb_out['neb_array'])
-    wait_for_jobs({'hopb_neb': _jid_hopb_neb})
+    _hopb_neb_qmax, _hopb_neb_conc = partition_submit_limits(NEB_SLURM_CFG)
+    auto_submit(
+        array_script   = hopb_out['neb_array'],
+        index_file     = os.path.join(SUB_NEB_DIR, 'hopb', 'job_index.txt'),
+        result_dir     = os.path.join(SUB_NEB_DIR, 'hopb'),
+        result_pattern = '*/neb_barrier.txt',
+        n_total        = hopb_out['n_jobs'],
+        job_name       = 'hopb_neb_array',
+        queue_max      = _hopb_neb_qmax,
+        concurrent     = _hopb_neb_conc,
+    )
     print('  Hop B NEB done.')
 else:
     with open(_hopb_jobs_json) as _f:
@@ -298,8 +321,14 @@ _vib_is, _vib_ts = split_vib_results(vib_out)
 print(f'  NEB results: {len(_neb_results)} labels  IS: {len(_vib_is)}  TS: {len(_vib_ts)}')
 
 for _T in TEMPERATURES:
+    _rd_done_marker = os.path.join(RESULTS_DIR, f'rate_T{int(_T)}K.done')
+    _rd_out_json = os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')
+    if is_done(_rd_done_marker) and os.path.exists(_rd_out_json):
+        print(f'  T={_T:4.0f} K: rate dict already done — skipping')
+        continue
     _rd = build_rate_dict(_neb_results, _vib_is, _vib_ts, T_K=_T, apply_zpe=True)
-    _out_json = rates_to_json(_rd, os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json'))
+    _out_json = rates_to_json(_rd, _rd_out_json)
+    mark_done(_rd_done_marker)
     print(f'  T={_T:4.0f} K: {len(_rd)} rates → {_out_json}')
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -415,7 +444,9 @@ for _n_h in N_H_VALUES:
     print(f'\n── Phase 5 (n_H={_n_h}): KMC pressure sweeps ──────────────────────')
     for _T in TEMPERATURES:
         _out = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
+        _sweep_done_marker = os.path.join(_nh_dir, f'sweep_T{int(_T)}K.done')
         if os.path.exists(_out):
+            mark_done(_sweep_done_marker)
             print(f'  T={_T:4.0f} K  KMC sweep already done — skipping')
             continue
 
@@ -496,6 +527,7 @@ for _n_h in N_H_VALUES:
             _sweep['dilute_limit_caveat'] = _dilute_note
         with open(_out, 'w') as _f:
             json.dump(_sweep, _f, indent=2)
+        mark_done(_sweep_done_marker)
         _conv = sum(1 for c in _sweep.get('converged', []) if c)
         print(f'  T={_T:4.0f} K  a0={_a0_T:.4e} m  D={_D_T:.2e} m²/s  '
               f'{_conv}/{len(P_VALS_PA)} converged → {_out}')
@@ -509,6 +541,11 @@ for _n_h in N_H_VALUES:
         _sweep_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
         if not os.path.exists(_sweep_f):
             print(f'  T={_T:4.0f} K  no sweep file — skipping permeability')
+            continue
+        _perm_done_marker = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.done')
+        _perm_f_check = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
+        if is_done(_perm_done_marker) and os.path.exists(_perm_f_check):
+            print(f'  T={_T:4.0f} K  permeability already done — skipping')
             continue
         with open(_sweep_f) as _f:
             _sw = json.load(_f)
@@ -564,47 +601,53 @@ for _n_h in N_H_VALUES:
             _perm_payload['dilute_limit_caveat'] = _dilute_note
         with open(_perm_f, 'w') as _f:
             json.dump(_perm_payload, _f, indent=2)
+        mark_done(_perm_done_marker)
         _PERM_STATUS['permeability_written'].append(f'{_n_h}H_T{int(_T)}K')
         print(f'  T={_T:4.0f} K  Opt1(lattice):  S={_S1:.3e}  Phi={_Phi1:.3e}  J={_J1:.3e} atoms/m²/s')
         print(f'  T={_T:4.0f} K  Opt2(TST):      S={_S2:.3e}  Phi={_Phi2:.3e}  J={_J2:.3e} atoms/m²/s')
         print(f'  T={_T:4.0f} K  Opt3(KMC):      S={_S3:.3e}  Phi={_Phi3:.3e}  J={_J3:.3e} atoms/m²/s')
 
     # Multi-T Arrhenius S₀ fit from KMC, for this n_H
-    _S_arr, _T_arr = [], []
-    for _T in TEMPERATURES:
-        _sw_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
-        if not os.path.exists(_sw_f):
-            continue
-        with open(_sw_f) as _f:
-            _sw = json.load(_f)
-        _sol = fit_solubility_from_kmc(_sw)
-        if _sol['n_converged'] > 0:
-            _S_arr.append(_sol['S_mean'])
-            _T_arr.append(float(_T))
-
-    if len(_S_arr) >= 2:
-        _S_np    = np.array(_S_arr)
-        _T_np    = np.array(_T_arr)
-        _slope, _inter = np.polyfit(1.0 / _T_np, np.log(_S_np), 1)
-        _dH_kmc  = -_slope * _KB_EV
-        _S0_kmc  = np.exp(_inter)
-        _log_pred = _slope / _T_np + _inter
-        _ss_res  = np.sum((np.log(_S_np) - _log_pred) ** 2)
-        _ss_tot  = np.sum((np.log(_S_np) - np.mean(np.log(_S_np))) ** 2)
-        _r2      = 1.0 - _ss_res / _ss_tot if _ss_tot > 0.0 else 1.0
-        _sol_out = os.path.join(_nh_dir, 'solubility_arrhenius_kmc.json')
-        with open(_sol_out, 'w') as _f:
-            json.dump({'T_K_arr':       _T_arr,
-                       'S_mean_arr':    _S_arr,
-                       'S0_kmc':        _S0_kmc,
-                       'dH_sol_kmc_eV': _dH_kmc,
-                       'r2_fit':        _r2,
-                       'n_H':           _n_h,
-                       'D0_m2s':        _D0_nh,
-                       'E_D_eV':        _ED_nh}, _f, indent=2)
-        print(f'\nArrhenius  S0={_S0_kmc:.3e}  dH_sol={_dH_kmc:.3f} eV  R²={_r2:.4f} → {_sol_out}')
+    _sol_out = os.path.join(_nh_dir, 'solubility_arrhenius_kmc.json')
+    _sol_done_marker = os.path.join(_nh_dir, 'solubility.done')
+    if is_done(_sol_done_marker) and os.path.exists(_sol_out):
+        print(f'  Solubility Arrhenius fit already done — skipping ({_sol_out})')
     else:
-        print(f'WARNING: fewer than 2 valid temperatures for n_H={_n_h} — Arrhenius S₀ fit skipped.')
+        _S_arr, _T_arr = [], []
+        for _T in TEMPERATURES:
+            _sw_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
+            if not os.path.exists(_sw_f):
+                continue
+            with open(_sw_f) as _f:
+                _sw = json.load(_f)
+            _sol = fit_solubility_from_kmc(_sw)
+            if _sol['n_converged'] > 0:
+                _S_arr.append(_sol['S_mean'])
+                _T_arr.append(float(_T))
+
+        if len(_S_arr) >= 2:
+            _S_np    = np.array(_S_arr)
+            _T_np    = np.array(_T_arr)
+            _slope, _inter = np.polyfit(1.0 / _T_np, np.log(_S_np), 1)
+            _dH_kmc  = -_slope * _KB_EV
+            _S0_kmc  = np.exp(_inter)
+            _log_pred = _slope / _T_np + _inter
+            _ss_res  = np.sum((np.log(_S_np) - _log_pred) ** 2)
+            _ss_tot  = np.sum((np.log(_S_np) - np.mean(np.log(_S_np))) ** 2)
+            _r2      = 1.0 - _ss_res / _ss_tot if _ss_tot > 0.0 else 1.0
+            with open(_sol_out, 'w') as _f:
+                json.dump({'T_K_arr':       _T_arr,
+                           'S_mean_arr':    _S_arr,
+                           'S0_kmc':        _S0_kmc,
+                           'dH_sol_kmc_eV': _dH_kmc,
+                           'r2_fit':        _r2,
+                           'n_H':           _n_h,
+                           'D0_m2s':        _D0_nh,
+                           'E_D_eV':        _ED_nh}, _f, indent=2)
+            mark_done(_sol_done_marker)
+            print(f'\nArrhenius  S0={_S0_kmc:.3e}  dH_sol={_dH_kmc:.3f} eV  R²={_r2:.4f} → {_sol_out}')
+        else:
+            print(f'WARNING: fewer than 2 valid temperatures for n_H={_n_h} — Arrhenius S₀ fit skipped.')
 
 _status_path = os.path.join(RESULTS_DIR, 'permeation_status.json')
 with open(_status_path, 'w') as _f:

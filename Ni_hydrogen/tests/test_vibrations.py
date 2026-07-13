@@ -398,3 +398,76 @@ class TestOrchestrateVibrations:
         result = orchestrate_vibrations(
             [], str(tmp_path / 'out'), _MACE, dry_run=True)
         assert result == {}
+
+
+class TestOrchestrateVibrationsCheckpoint:
+    """orchestrate_vibrations previously had zero skip-on-rerun logic --
+    every call regenerated vib_run.py/vib_job.sh and (if not dry_run)
+    resubmitted every label unconditionally, even for already-converged
+    structures. Covers the new vib.done marker check."""
+
+    _PAIRS = [('hopa_Ni3Mo_IS', '/data/is.lammps')]
+    _SLURM = {
+        'partition'    : 'cpu',
+        'ntasks'       : 1,
+        'cpus_per_task': 4,
+        'time'         : '02:00:00',
+        'mem'          : '8G',
+        'conda_env'    : 'ase-env',
+        'openmpi_ver'  : '4.1.4',
+    }
+
+    def test_skips_regeneration_when_done_marker_present(self, tmp_path, monkeypatch):
+        job_outdir = tmp_path / 'out' / 'hopa_Ni3Mo_IS'
+        job_outdir.mkdir(parents=True)
+        (job_outdir / 'vib.done').touch()
+
+        calls = []
+        monkeypatch.setattr(
+            'models.vibrations.write_vibration_script',
+            lambda **kw: calls.append(kw),
+        )
+
+        result = orchestrate_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=self._SLURM, dry_run=True)
+
+        assert calls == []
+        assert result['hopa_Ni3Mo_IS']['slurm'] is None
+
+    def test_regenerates_when_done_marker_absent(self, tmp_path):
+        result = orchestrate_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=self._SLURM, dry_run=True)
+
+        assert result['hopa_Ni3Mo_IS']['slurm'] is not None
+        assert pathlib.Path(result['hopa_Ni3Mo_IS']['vib_script']).exists()
+
+    def test_generated_vib_run_py_touches_done_marker_last(self, tmp_path):
+        result = orchestrate_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE, dry_run=True)
+        script = pathlib.Path(result['hopa_Ni3Mo_IS']['vib_script']).read_text()
+        done_idx = script.index('vib.done')
+        json_idx = script.index('vib_frequencies.json')
+        assert done_idx > json_idx, (
+            'vib.done must be touched after vib_frequencies.json is written, '
+            'so a killed job never leaves a false "done" marker'
+        )
+
+    def test_skip_never_returns_stale_slurm_path(self, tmp_path):
+        """A skipped label's 'slurm' must be None, not a path to a stale
+        script from a prior run -- otherwise callers that do
+        `if v.get('slurm'): submit_slurm_job(v['slurm'])` (neb_workflow.py
+        Phase E, permeation_workflow.py Phase 3) would resubmit the
+        already-done label's old (real, non-stub) command."""
+        job_outdir = tmp_path / 'out' / 'hopa_Ni3Mo_IS'
+        job_outdir.mkdir(parents=True)
+        (job_outdir / 'vib.done').touch()
+        # Stale slurm script left over from whatever run produced vib.done.
+        (job_outdir / 'vib_job.sh').write_text('#!/bin/bash\necho real work\n')
+
+        result = orchestrate_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=self._SLURM, dry_run=True)
+
+        assert result['hopa_Ni3Mo_IS']['slurm'] is None
