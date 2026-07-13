@@ -57,17 +57,18 @@ def _backfill(pattern, marker_name, dry_run, marker_dir_fn=None, exclude_substr=
     return n_written
 
 
-def _backfill_by_suffix(pattern, prefix, marker_prefix, dry_run):
+def _backfill_by_suffix(pattern, prefix, marker_prefix, dry_run, real_suffix='.json'):
     """
-    Like _backfill, but for the "one file per temperature" family
-    ({prefix}T{T}K.json -> {marker_prefix}T{T}K.done, same directory) --
-    the marker name itself varies per match, so it can't be a fixed string.
+    Like _backfill, but for the "one file per {id}" family
+    ({prefix}{id}{real_suffix} -> {marker_prefix}{id}.done, same directory)
+    -- the marker name itself varies per match (temperature, site id, ...),
+    so it can't be a fixed string.
     """
     n_written = 0
     n_already = 0
     for real_output in sorted(glob.glob(pattern)):
         base = os.path.basename(real_output)
-        t_part = base[len(prefix):-len('.json')]   # '{T}K'
+        t_part = base[len(prefix):-len(real_suffix)]   # e.g. '{T}K' or '{sid}'
         marker_path = os.path.join(os.path.dirname(real_output), f'{marker_prefix}{t_part}.done')
         if os.path.exists(marker_path):
             n_already += 1
@@ -78,7 +79,7 @@ def _backfill_by_suffix(pattern, prefix, marker_prefix, dry_run):
         else:
             mark_done(marker_path)
     n_total = n_written + n_already
-    print(f'{marker_prefix + "{T}K.done":24s}  pattern={pattern}')
+    print(f'{marker_prefix + "*.done":24s}  pattern={pattern}')
     print(f'  {n_written} written, {n_already} already present, {n_total} total matches')
     return n_written
 
@@ -138,6 +139,16 @@ def main(dry_run):
     total += _backfill(
         os.path.join(WORK_DIR, 'neb/*/vibrations_diss/*/vib_frequencies.json'),
         'vib.done', dry_run,
+    )
+
+    print('\n=== NEB workflow (Section B, H2*/H* adsorption per-site) ===')
+    total += _backfill_by_suffix(
+        os.path.join(WORK_DIR, 'adsorption/*/phase1_h2/results/h2_*_relaxed.lammps'),
+        'h2_', 'h2_', dry_run, real_suffix='_relaxed.lammps',
+    )
+    total += _backfill_by_suffix(
+        os.path.join(WORK_DIR, 'adsorption/*/phase2_h/results/h_atom_*_relaxed.lammps'),
+        'h_atom_', 'h_', dry_run, real_suffix='_relaxed.lammps',
     )
 
     print('\n=== Permeation workflow (Phase 3 vibrations) ===')
