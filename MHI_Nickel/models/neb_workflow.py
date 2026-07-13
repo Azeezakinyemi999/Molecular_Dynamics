@@ -117,7 +117,7 @@ def build_phase1_slab(
 # -----------------------SECTION A: Phase 2: Surface Relaxation  -----------------------
 
 from models.lammps_script import write_surface_relaxation_script, write_surface_relaxation_restart_script
-from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits, submit_with_retry
+from models.create_slurm import write_slurm_job, write_chained_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits, submit_with_retry
 
 
 def run_phase2_surface_relaxation(
@@ -3187,7 +3187,7 @@ def calculate_ref_adsorbate_energy(
     import numpy as np
     from models.structure import write_lammps_data
     from models.lammps_script import _pair_block, _neighbor_block
-    from models.create_slurm import write_slurm_job, submit_slurm_job, wait_for_jobs
+    from models.create_slurm import write_slurm_job, wait_for_jobs
     from models.parsers import parse_energy_log
 
     os.makedirs(outdir, exist_ok=True)

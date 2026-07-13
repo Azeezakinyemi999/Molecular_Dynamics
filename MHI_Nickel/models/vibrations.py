@@ -22,7 +22,7 @@ import os
 import textwrap
 import warnings
 
-from models.create_slurm import write_slurm_job, submit_slurm_job, submit_with_retry
+from models.create_slurm import write_slurm_job, submit_with_retry
 from models.checkpoint import is_done
 
 

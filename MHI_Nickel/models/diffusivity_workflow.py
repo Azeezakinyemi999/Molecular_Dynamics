@@ -155,7 +155,6 @@ from models.lammps_script import (
 from models.create_slurm import (
     write_slurm_job,
     write_chained_slurm_job,
-    submit_slurm_job,
     submit_with_retry,
     wait_for_jobs,
 )
