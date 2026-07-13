@@ -564,6 +564,8 @@ def write_chained_slurm_job(
     n_equil=None,
     equil_restart_commands=None,
     prod_restart_commands=None,
+    resubmit_max_retries=5,
+    resubmit_retry_interval=40,
 ):
     """
     Write a self-resubmitting SLURM script for simulations that exceed
@@ -585,7 +587,12 @@ def write_chained_slurm_job(
          last restart file, then calls ``sbatch`` on the original script
          path (baked in at generation time — ``$0`` under sbatch is the
          spooled copy in ``/var/spool/slurmd``) to
-         chain the next leg.
+         chain the next leg, retrying up to ``resubmit_max_retries``
+         times (``resubmit_retry_interval`` seconds apart) if ``sbatch``
+         itself fails (e.g. a transient QOS/account submission-limit
+         error). If every attempt fails, touches ``.failed`` and exits
+         non-zero instead of silently exiting 0 with nothing queued to
+         continue the chain.
        * **other** — real error; exits with that code so SLURM marks
          the job as FAILED (no silent infinite loop).
 
@@ -641,6 +648,21 @@ def write_chained_slurm_job(
         Seconds to sleep after ``timeout`` fires before resubmitting,
         to allow LAMMPS to finish flushing the restart file to disk.
         Default ``30``.
+    resubmit_max_retries : int, optional
+        Number of ``sbatch`` attempts for chaining the next leg before
+        giving up and marking the chain ``.failed``. Default ``5``.
+    resubmit_retry_interval : int, optional
+        Seconds between resubmission retries. Default ``40``.
+
+        ``flush_wait`` and the resubmit retry loop (worst case
+        ``(resubmit_max_retries - 1) * resubmit_retry_interval``
+        seconds) share the same time budget as the margin between
+        ``cutoff`` and ``slurm_config['time']`` -- every call site in
+        this codebase uses a 300s margin, so the defaults above
+        (30 + 4*40 = 190s) leave comfortable headroom. Widening either
+        retry parameter must stay within whatever margin the caller's
+        ``cutoff`` actually leaves, or SLURM will hard-kill the job
+        mid-retry before ``.failed`` can be touched.
     work_dir : str or None, optional
         Absolute path to ``cd`` into at job start.  If ``None``, no
         ``cd`` is written and all paths in the commands must be
@@ -732,6 +754,8 @@ def write_chained_slurm_job(
         f'RESTART_GLOB="{restart_glob}"',
         f'CUTOFF_SEC={cutoff_sec}',
         f'FLUSH_WAIT={flush_wait}',
+        f'RESUBMIT_MAX_RETRIES={resubmit_max_retries}',
+        f'RESUBMIT_RETRY_INTERVAL={resubmit_retry_interval}',
         '',
         'echo "Job: $SLURM_JOB_ID  |  Node: $(hostname)  |  $(date)"',
         '',
@@ -804,10 +828,29 @@ def write_chained_slurm_job(
         'elif [ "$EXIT_CODE" -eq 124 ]; then',
         f'    echo "Timeout fired. Waiting ${{FLUSH_WAIT}}s for LAMMPS to flush restart files..."',
         '    sleep "$FLUSH_WAIT"',
-        '    echo "Resubmitting: sbatch $SCRIPT_PATH"',
-        '    NEW_JOB=$(sbatch "$SCRIPT_PATH")',
-        '    echo "  --> $NEW_JOB"',
-        '    exit 0',
+        '',
+        '    RESUBMIT_OK=0',
+        '    for attempt in $(seq 1 $RESUBMIT_MAX_RETRIES); do',
+        '        echo "Resubmitting (attempt $attempt/$RESUBMIT_MAX_RETRIES): sbatch $SCRIPT_PATH"',
+        '        NEW_JOB=$(sbatch "$SCRIPT_PATH" 2>&1)',
+        '        if [ $? -eq 0 ]; then',
+        '            echo "  --> $NEW_JOB"',
+        '            RESUBMIT_OK=1',
+        '            break',
+        '        fi',
+        '        echo "  --> sbatch failed: $NEW_JOB"',
+        '        if [ "$attempt" -lt "$RESUBMIT_MAX_RETRIES" ]; then',
+        '            sleep "$RESUBMIT_RETRY_INTERVAL"',
+        '        fi',
+        '    done',
+        '',
+        '    if [ "$RESUBMIT_OK" -eq 1 ]; then',
+        '        exit 0',
+        '    else',
+        '        echo "All $RESUBMIT_MAX_RETRIES resubmission attempts failed. Marking chain as failed."',
+        '        touch "${SCRIPT_PATH}.failed"',
+        '        exit 1',
+        '    fi',
         '',
         'else',
         '    echo "Job failed with exit code $EXIT_CODE. Not resubmitting."',
