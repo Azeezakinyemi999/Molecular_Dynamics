@@ -156,6 +156,7 @@ from models.create_slurm import (
     write_slurm_job,
     write_chained_slurm_job,
     submit_slurm_job,
+    submit_with_retry,
     wait_for_jobs,
 )
 from models.diffusivity_post_processing import (
@@ -248,7 +249,7 @@ for struct_path in INPUT_STRUCTURES:
                 kokkos_flags=KOKKOS_FLAGS,
                 script_path=min_bare_lmp,
             )
-            jid = submit_slurm_job(min_bare_sh)
+            jid = submit_with_retry(min_bare_sh)
             wait_for_jobs({'min_bare': jid})
             _require_file(min_bare_out,
                           f'Check the min_bare job log in {shared_sh_dir}.')
@@ -319,7 +320,7 @@ for struct_path in INPUT_STRUCTURES:
                     cutoff=NPT_GPU_CUTOFF,
                     work_dir=WORK_DIR,
                 )
-                npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
+                npt_job_ids[f'npt_{T}K'] = submit_with_retry(npt_sh)
                 print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
             else:
                 mark_done(npt_done_marker)
@@ -419,7 +420,7 @@ for struct_path in INPUT_STRUCTURES:
                         kokkos_flags=KOKKOS_FLAGS,
                         script_path=min_h_lmp_T,
                     )
-                    min_h_job_ids[f'min_h_{T}K'] = submit_slurm_job(min_h_sh_T)
+                    min_h_job_ids[f'min_h_{T}K'] = submit_with_retry(min_h_sh_T)
                 else:
                     mark_done(min_h_done_marker)
                     print(f'  [1b] bulk+H min {T}K already done — skipping')
@@ -554,7 +555,7 @@ for struct_path in INPUT_STRUCTURES:
                     # polling loop below abort before the new job even starts.
                     if os.path.exists(chain_sh + '.failed'):
                         os.remove(chain_sh + '.failed')
-                    job_id = submit_slurm_job(chain_sh)
+                    job_id = submit_with_retry(chain_sh)
                     print(f'  [2] Submitted NVT {T}K  →  job {job_id}')
                 else:
                     print(f'  [2] NVT {T}K already done — skipping')

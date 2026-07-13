@@ -27,6 +27,7 @@ from models.create_slurm import (
     write_slurm_job,
     write_chained_slurm_job,
     check_jobs,
+    submit_with_retry,
     _hms_to_seconds,
 )
 
@@ -577,3 +578,71 @@ class TestCheckJobsArrayIds:
                 {'hopa_neb': '8175100', 'slab_min': '999999'}, verbose=False)
         assert statuses['hopa_neb'] != 'done'
         assert statuses['slab_min'] != 'done'
+
+
+class TestSubmitWithRetry:
+    """submit_with_retry() wraps submit_slurm_job() with a fixed-interval
+    backoff for transient account-wide failures (QOSMaxSubmitJobPerUserLimit)
+    that a single-job (non-array) submission has no other protection
+    against -- unlike auto_submit()'s arrays, which throttle queue depth
+    via polling, a bare submit_slurm_job() call previously gave up
+    immediately on any sbatch failure."""
+
+    def test_succeeds_immediately_without_sleeping(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job',
+                             lambda *a, **kw: (calls.append(1), '12345')[1])
+        sleep_calls = []
+        monkeypatch.setattr('models.create_slurm.time.sleep',
+                             lambda s: sleep_calls.append(s))
+
+        job_id = submit_with_retry('job.sh')
+
+        assert job_id == '12345'
+        assert len(calls) == 1
+        assert sleep_calls == []
+
+    def test_retries_then_succeeds(self, monkeypatch):
+        results = iter([None, None, '999'])
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job',
+                             lambda *a, **kw: next(results))
+        sleep_calls = []
+        monkeypatch.setattr('models.create_slurm.time.sleep',
+                             lambda s: sleep_calls.append(s))
+
+        job_id = submit_with_retry('job.sh', retry_interval=30)
+
+        assert job_id == '999'
+        assert sleep_calls == [30, 30]
+
+    def test_exhausts_retries_and_returns_none(self, monkeypatch):
+        call_count = []
+        monkeypatch.setattr(
+            'models.create_slurm.submit_slurm_job',
+            lambda *a, **kw: (call_count.append(1), None)[1],
+        )
+        sleep_calls = []
+        monkeypatch.setattr('models.create_slurm.time.sleep',
+                             lambda s: sleep_calls.append(s))
+
+        job_id = submit_with_retry('job.sh', max_retries=3, retry_interval=5)
+
+        assert job_id is None
+        assert len(call_count) == 3
+        # Sleeps only happen BETWEEN attempts, never after the last one.
+        assert sleep_calls == [5, 5]
+
+    def test_passes_through_extra_args_and_dependency(self, monkeypatch):
+        captured = {}
+        def _fake_submit(slurm_path, extra_args=None, dependency=None):
+            captured['slurm_path'] = slurm_path
+            captured['extra_args'] = extra_args
+            captured['dependency'] = dependency
+            return 'jid'
+        monkeypatch.setattr('models.create_slurm.submit_slurm_job', _fake_submit)
+
+        submit_with_retry('job.sh', extra_args=['--array=1,2'], dependency='afterok:1')
+
+        assert captured['slurm_path'] == 'job.sh'
+        assert captured['extra_args'] == ['--array=1,2']
+        assert captured['dependency'] == 'afterok:1'
