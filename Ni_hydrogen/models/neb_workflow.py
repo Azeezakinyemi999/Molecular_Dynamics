@@ -789,14 +789,16 @@ def run_phase1_h2_adsorption(
         log_path     = str(result_dir  / f'h2_min_{sid}.log')
         lammps_in    = str(script_dir  / f'h2_min_{sid}.in')
         slurm_sh     = str(slurm_dir   / f'h2_slurm_{sid}.sh')
+        h2_done_marker = str(result_dir / f'h2_{sid}.done')
 
         # Skip regenerating already-completed sites' SLURM command -- matches
         # Section C's FS-min skip convention (existence-only check against the
-        # real output). job_index.txt/the array range are shared with the
-        # array script's fixed site list, so an already-done site must stay
-        # in the index; a no-op stub keeps array indexing intact while
-        # skipping the wasted resubmission.
-        _site_already_done = os.path.exists(relaxed_path)
+        # real output, OR the .done marker for sites completed after this
+        # marker was introduced). job_index.txt/the array range are shared
+        # with the array script's fixed site list, so an already-done site
+        # must stay in the index -- a no-op stub keeps array indexing intact
+        # while skipping the wasted resubmission.
+        _site_already_done = os.path.exists(relaxed_path) or is_done(h2_done_marker)
 
         add_adsorbate(
             slab_path=relaxed_slab_path,
@@ -828,7 +830,10 @@ def run_phase1_h2_adsorption(
         _h2_commands = (
             [f'echo "[h2ads skip] {sid}: {relaxed_path} already exists — skipping"']
             if _site_already_done else
-            [f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}']
+            # touch only runs if LAMMPS exits 0 AND the real relaxed output
+            # exists -- a killed/failed job must never leave a false "done".
+            [f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path} && '
+             f'test -f {relaxed_path} && touch {h2_done_marker}']
         )
         write_slurm_job(
             job_name=f'H2ads_{sid}',
@@ -1036,10 +1041,11 @@ def run_phase2_h_adsorption(
         log_path     = str(result_dir  / f'h_min_{sid}.log')
         lammps_in    = str(script_dir  / f'h_min_{sid}.in')
         slurm_sh     = str(slurm_dir   / f'h_slurm_{sid}.sh')
+        h_done_marker = str(result_dir / f'h_{sid}.done')
 
         # Skip regenerating already-completed sites' SLURM command -- see the
         # matching comment in run_phase1_h2_adsorption above.
-        _site_already_done = os.path.exists(relaxed_path)
+        _site_already_done = os.path.exists(relaxed_path) or is_done(h_done_marker)
 
         add_adsorbate(
             slab_path=relaxed_slab_path,
@@ -1069,7 +1075,8 @@ def run_phase2_h_adsorption(
         _h_commands = (
             [f'echo "[hads skip] {sid}: {relaxed_path} already exists — skipping"']
             if _site_already_done else
-            [f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}']
+            [f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path} && '
+             f'test -f {relaxed_path} && touch {h_done_marker}']
         )
         write_slurm_job(
             job_name=f'Hads_{sid}',
