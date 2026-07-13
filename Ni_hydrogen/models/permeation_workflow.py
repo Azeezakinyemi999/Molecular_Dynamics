@@ -117,6 +117,7 @@ from models.permeation_workflow import collect_dedup_is_labels
 from models.parsers import parse_barrier_file
 from models.create_slurm import (
     submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits,
+    submit_with_retry,
 )
 from models.checkpoint import is_done, mark_done
 
@@ -305,7 +306,7 @@ vib_out = orchestrate_vibrations(
 _vib_jids = {}
 for _lbl, _info in vib_out.items():
     if _info.get('slurm'):
-        _vib_jids[_lbl] = submit_slurm_job(_info['slurm'])
+        _vib_jids[_lbl] = submit_with_retry(_info['slurm'])
 print(f'  Submitted {len(_vib_jids)} vibration jobs.')
 wait_for_jobs(_vib_jids)
 print('  Vibrations done.')

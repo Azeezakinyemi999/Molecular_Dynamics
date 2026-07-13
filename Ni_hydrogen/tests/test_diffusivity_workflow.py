@@ -452,7 +452,7 @@ class TestSharedBareBulkAndNpt:
         _state = {'min_bare_calls': 0, 'npt_calls': 0}
         _insert_hydrogen_calls = []
 
-        def _fake_submit(sh_path):
+        def _fake_submit(sh_path, extra_args=None, dependency=None):
             return f'jid_{os.path.basename(sh_path)}'
 
         def _fake_wait(jobs):
