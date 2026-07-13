@@ -117,7 +117,7 @@ def build_phase1_slab(
 # -----------------------SECTION A: Phase 2: Surface Relaxation  -----------------------
 
 from models.lammps_script import write_surface_relaxation_script, write_surface_relaxation_restart_script
-from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits
+from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits, submit_with_retry
 
 
 def run_phase2_surface_relaxation(
@@ -275,7 +275,7 @@ def run_phase2_surface_relaxation(
     print(f"  Log          : {log_path}")
 
     if not dry_run:
-        job_id = submit_slurm_job(slurm_script)
+        job_id = submit_with_retry(slurm_script)
         print(f"  Submitted job {job_id}")
         status = 'submitted'
     else:
@@ -2872,8 +2872,8 @@ else:
             dry_run         = True,
         )
         from models.create_slurm import (
-            submit_slurm_job as _sub_vib_e,
-            wait_for_jobs    as _wait_vib_e,
+            submit_with_retry as _sub_vib_e,
+            wait_for_jobs     as _wait_vib_e,
         )
         _vib_jids_e = {_k: _sub_vib_e(_v['slurm'])
                        for _k, _v in _vib_out_e.items() if _v.get('slurm')}
@@ -3287,7 +3287,7 @@ def calculate_ref_adsorbate_energy(
             print(f'[ref_energy] dry_run=True — scripts written, not submitted.')
             return None
         # ── Submit → wait ────────────────────────────────────────────────────
-        job_id = submit_slurm_job(slurm_script)
+        job_id = submit_with_retry(slurm_script)
         print(f'[ref_energy] Submitted {adsorbate} reference job → {job_id}')
         wait_for_jobs({f'ref_{tag}': job_id})
         print(f'[ref_energy] {adsorbate} reference job done.')

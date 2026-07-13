@@ -375,16 +375,16 @@ def orchestrate_hopa_neb(
             )
 
         if not dry_run:
-            from models.create_slurm import submit_slurm_job
+            from models.create_slurm import submit_with_retry
             if neb_already_done:
                 print(f"  Hop A {sid}: already done ({barrier_file}) — skipping submission")
             else:
                 if fs_already_done:
-                    submit_slurm_job(neb_sh)
+                    submit_with_retry(neb_sh)
                 else:
-                    fsmin_jid = submit_slurm_job(fsmin_sh)
+                    fsmin_jid = submit_with_retry(fsmin_sh)
                     dep = f'afterok:{fsmin_jid}' if fsmin_jid else None
-                    submit_slurm_job(neb_sh, dependency=dep)
+                    submit_with_retry(neb_sh, dependency=dep)
 
         jobs.append({
             'sid'         : sid,
@@ -696,16 +696,16 @@ def orchestrate_hopb_neb(
             )
 
         if not dry_run:
-            from models.create_slurm import submit_slurm_job
+            from models.create_slurm import submit_with_retry
             if neb_already_done:
                 print(f"  Hop B {sid}: already done ({barrier_file}) — skipping submission")
             else:
                 if fs_already_done:
-                    submit_slurm_job(neb_sh)
+                    submit_with_retry(neb_sh)
                 else:
-                    fsmin_jid = submit_slurm_job(fsmin_sh)
+                    fsmin_jid = submit_with_retry(fsmin_sh)
                     dep = f'afterok:{fsmin_jid}' if fsmin_jid else None
-                    submit_slurm_job(neb_sh, dependency=dep)
+                    submit_with_retry(neb_sh, dependency=dep)
 
         jobs.append({
             'sid'         : sid,

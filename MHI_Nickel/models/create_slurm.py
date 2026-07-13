@@ -230,6 +230,27 @@ def submit_slurm_job(slurm_path, extra_args=None, dry_run=False, dependency=None
     return None
 
 
+def submit_with_retry(slurm_path, extra_args=None, dependency=None,
+                       max_retries=10, retry_interval=60):
+    """
+    Submit a SLURM script, retrying with a fixed-interval backoff if sbatch
+    itself fails (e.g. QOSMaxSubmitJobPerUserLimit -- an account-wide cap on
+    outstanding job submissions, orthogonal to auto_submit's per-array
+    queue-depth throttling, and just as likely to be hit by a single-job
+    submission). Returns the job ID, or None if every attempt fails.
+    """
+    for attempt in range(1, max_retries + 1):
+        job_id = submit_slurm_job(slurm_path, extra_args=extra_args, dependency=dependency)
+        if job_id is not None:
+            return job_id
+        if attempt < max_retries:
+            print(f'  [submit_with_retry] attempt {attempt}/{max_retries} failed for '
+                  f'{slurm_path} -- retrying in {retry_interval}s...')
+            time.sleep(retry_interval)
+    print(f'  [submit_with_retry] all {max_retries} attempts failed for {slurm_path}')
+    return None
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # AUTO-SUBMIT QUEUE FILLER
 # ═══════════════════════════════════════════════════════════════════════════

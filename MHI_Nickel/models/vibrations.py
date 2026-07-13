@@ -22,7 +22,7 @@ import os
 import textwrap
 import warnings
 
-from models.create_slurm import write_slurm_job, submit_slurm_job
+from models.create_slurm import write_slurm_job, submit_slurm_job, submit_with_retry
 from models.checkpoint import is_done
 
 
@@ -418,7 +418,7 @@ def orchestrate_vibrations(
                 output_log = os.path.join(job_outdir, f'vib_{label}_%j.out'),
             )
             if not dry_run:
-                submit_slurm_job(slurm_path)
+                submit_with_retry(slurm_path)
 
         results[label] = {
             'vib_script': script_path,
