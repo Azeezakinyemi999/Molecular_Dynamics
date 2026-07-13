@@ -1021,3 +1021,126 @@ class TestOrchestrateNebFsMinSkip:
             array_call = next(c for c in write_slurm_calls if c['job_name'] == array_name)
             assert array_call['array_range'] == (0, 0)   # 1 combo -> indices [0, 0]
             assert any('SLURM_ARRAY_TASK_ID+1' in c for c in array_call['commands'])
+
+
+class TestSectionBAdsorptionDoneMarkers:
+    """Section B (H2*/H* adsorption) previously skipped already-completed
+    sites via a real-output-only check, writing no .done marker anywhere
+    under calculation/adsorption -- unlike every other array in the
+    codebase. Covers the per-site h2_{sid}.done / h_{sid}.done markers
+    added to bring it in line with the rest of the checkpoint mechanism."""
+
+    def _sites_json(self, tmp_path):
+        import json
+        sites = {'sites': [{
+            'site_id': 's_0',
+            'level1': {'position': [1.0, 2.0, 3.0], 'full_label': 'L1_hollow'},
+        }]}
+        p = tmp_path / 'surface_sites.json'
+        p.write_text(json.dumps(sites))
+        return str(p)
+
+    def _patch_common(self, monkeypatch, tmp_path):
+        monkeypatch.setattr('models.neb_workflow.add_adsorbate', lambda **kw: None)
+        write_min_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.write_adsorbate_min_script',
+            lambda **kw: write_min_calls.append(kw),
+        )
+        write_slurm_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.write_slurm_job',
+            lambda **kw: (write_slurm_calls.append(kw),
+                          str(tmp_path / f"{kw['job_name']}.sh"))[1],
+        )
+        return write_min_calls, write_slurm_calls
+
+    def test_h2_adsorption_skips_and_touches_done_marker_conditionally(
+            self, tmp_path, monkeypatch):
+        from models.neb_workflow import run_phase1_h2_adsorption
+
+        sites_json = self._sites_json(tmp_path)
+        outdir = tmp_path / 'ads'
+        relaxed_path = outdir / 'phase1_h2' / 'results' / 'h2_s_0_relaxed.lammps'
+        relaxed_path.parent.mkdir(parents=True)
+        relaxed_path.write_text('fake relaxed H2 site')
+
+        write_min_calls, write_slurm_calls = self._patch_common(monkeypatch, tmp_path)
+
+        run_phase1_h2_adsorption(
+            surface_sites_json=sites_json,
+            relaxed_slab_path=str(tmp_path / 'relaxed_slab.lammps'),
+            e_clean=-50.3, e_h2_gas=-6.77,
+            outdir=str(outdir), dry_run=True,
+            z_freeze_cutoff=10.0,
+        )
+        site_call = next(c for c in write_slurm_calls if c['job_name'] == 'H2ads_s_0')
+        assert any('skip' in c.lower() for c in site_call['commands'])
+        assert not any('touch' in c for c in site_call['commands'])
+
+    def test_h2_adsorption_command_touches_done_marker_when_not_skipped(
+            self, tmp_path, monkeypatch):
+        from models.neb_workflow import run_phase1_h2_adsorption
+
+        sites_json = self._sites_json(tmp_path)
+        outdir = tmp_path / 'ads'
+        self._patch_common(monkeypatch, tmp_path)
+        write_min_calls, write_slurm_calls = self._patch_common(monkeypatch, tmp_path)
+
+        run_phase1_h2_adsorption(
+            surface_sites_json=sites_json,
+            relaxed_slab_path=str(tmp_path / 'relaxed_slab.lammps'),
+            e_clean=-50.3, e_h2_gas=-6.77,
+            outdir=str(outdir), dry_run=True,
+            z_freeze_cutoff=10.0,
+        )
+        site_call = next(c for c in write_slurm_calls if c['job_name'] == 'H2ads_s_0')
+        assert not any('skip' in c.lower() for c in site_call['commands'])
+        joined = ' '.join(site_call['commands'])
+        assert 'touch' in joined and 'h2_s_0.done' in joined
+        # touch must be gated on both LAMMPS success and the real output
+        # existing -- a killed/failed job must never leave a false "done".
+        assert '&&' in joined
+
+    def test_h2_adsorption_skips_via_done_marker_alone(self, tmp_path, monkeypatch):
+        """A pre-existing .done marker (e.g. from the backfill script) must
+        skip the site even when the real .lammps output isn't present
+        under this exact path."""
+        from models.neb_workflow import run_phase1_h2_adsorption
+
+        sites_json = self._sites_json(tmp_path)
+        outdir = tmp_path / 'ads'
+        marker = outdir / 'phase1_h2' / 'results' / 'h2_s_0.done'
+        marker.parent.mkdir(parents=True)
+        marker.touch()
+
+        _, write_slurm_calls = self._patch_common(monkeypatch, tmp_path)
+
+        run_phase1_h2_adsorption(
+            surface_sites_json=sites_json,
+            relaxed_slab_path=str(tmp_path / 'relaxed_slab.lammps'),
+            e_clean=-50.3, e_h2_gas=-6.77,
+            outdir=str(outdir), dry_run=True,
+            z_freeze_cutoff=10.0,
+        )
+        site_call = next(c for c in write_slurm_calls if c['job_name'] == 'H2ads_s_0')
+        assert any('skip' in c.lower() for c in site_call['commands'])
+
+    def test_h_adsorption_command_touches_done_marker_when_not_skipped(
+            self, tmp_path, monkeypatch):
+        from models.neb_workflow import run_phase2_h_adsorption
+
+        sites_json = self._sites_json(tmp_path)
+        outdir = tmp_path / 'ads'
+        _, write_slurm_calls = self._patch_common(monkeypatch, tmp_path)
+
+        run_phase2_h_adsorption(
+            surface_sites_json=sites_json,
+            relaxed_slab_path=str(tmp_path / 'relaxed_slab.lammps'),
+            e_clean=-50.3, e_h2_gas=-6.77,
+            outdir=str(outdir), dry_run=True,
+            z_freeze_cutoff=10.0,
+        )
+        site_call = next(c for c in write_slurm_calls if c['job_name'] == 'Hads_s_0')
+        joined = ' '.join(site_call['commands'])
+        assert 'touch' in joined and 'h_s_0.done' in joined
