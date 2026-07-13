@@ -116,7 +116,7 @@ from models.permeation import (
 from models.permeation_workflow import collect_dedup_is_labels
 from models.parsers import parse_barrier_file
 from models.create_slurm import (
-    submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits,
+    wait_for_jobs, auto_submit, partition_submit_limits,
     submit_with_retry,
 )
 from models.checkpoint import is_done, mark_done
