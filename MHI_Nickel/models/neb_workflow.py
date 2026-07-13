@@ -40,6 +40,7 @@ from pathlib import Path
 
 from models.config import E2T_7, MASSES_7, ELEM_STR_7
 from models.structure import build_slab
+from models.checkpoint import is_done, mark_done
 
 
 def build_phase1_slab(
@@ -116,7 +117,7 @@ def build_phase1_slab(
 # -----------------------SECTION A: Phase 2: Surface Relaxation  -----------------------
 
 from models.lammps_script import write_surface_relaxation_script, write_surface_relaxation_restart_script
-from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs, auto_submit
+from models.create_slurm import write_slurm_job, write_chained_slurm_job, submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits
 
 
 def run_phase2_surface_relaxation(
@@ -459,18 +460,26 @@ def orchestrate_slab_prep(
     # Phase 1: Build slab
     print(f"\n>>> PHASE 1: Slab Construction")
     slab_out = phase1_dir / f'slab_{hkl_str}.lammps'
-    slab_path, a0 = build_phase1_slab(
-        bulk_min_path=bulk_min_path,
-        out_path=str(slab_out),
-        miller=miller,
-        layers=layers,
-        vacuum=vacuum,
-        lateral_repeat=lateral_repeat,
-        seed=slab_seed,
-        e2t=e2t,
-        masses=masses,
-        metal_type=metal_type,
-    )
+    _phase1_done_marker = phase1_dir / 'slab.done'
+    if is_done(_phase1_done_marker) and slab_out.exists():
+        from models.structure import get_lattice_parameter
+        print(f"  [Phase 1] Already done: {slab_out} — skipping")
+        slab_path = str(slab_out)
+        a0 = get_lattice_parameter(bulk_min_path, supercell_reps=(5, 5, 5))
+    else:
+        slab_path, a0 = build_phase1_slab(
+            bulk_min_path=bulk_min_path,
+            out_path=str(slab_out),
+            miller=miller,
+            layers=layers,
+            vacuum=vacuum,
+            lateral_repeat=lateral_repeat,
+            seed=slab_seed,
+            e2t=e2t,
+            masses=masses,
+            metal_type=metal_type,
+        )
+        mark_done(_phase1_done_marker)
 
     # Resolve the freeze cutoff from the actual slab geometry when not pinned.
     if z_freeze_cutoff is None:
@@ -481,7 +490,9 @@ def orchestrate_slab_prep(
     # Phase 2: Relax surface
     print(f"\n>>> PHASE 2: Surface Relaxation")
     _relaxed_slab = str(phase2_dir / 'relaxed_slab.lammps')
+    _phase2_done_marker = phase2_dir / 'relax.done'
     if os.path.exists(_relaxed_slab):
+        mark_done(_phase2_done_marker)
         print(f"  [Phase 2] Already done: {_relaxed_slab} — skipping")
         relax_result = {
             'relaxed_slab': _relaxed_slab,
@@ -530,6 +541,8 @@ def orchestrate_slab_prep(
                 )
 
     relaxed_slab = relax_result['relaxed_slab']
+    if os.path.exists(relaxed_slab):
+        mark_done(_phase2_done_marker)
 
     # Phase 3: Enumerate sites
     print(f"\n>>> PHASE 3: ACAT Site Enumeration")
@@ -539,15 +552,24 @@ def orchestrate_slab_prep(
             "Run Phase 2 (slab relaxation) to completion before enumerating sites."
         )
     enum_slab = relaxed_slab
-    
-    sites_json, n_sites = run_phase3_site_enumeration(
-        relaxed_slab_path=enum_slab,
-        outdir=str(phase3_dir),
-        seed=slab_seed,
-        bond_cutoff=3.2,
-        metal_type=metal_type,
-        n_layers_total=layers,
-    )
+
+    _sites_json_path = str(phase3_dir / 'surface_sites.json')
+    _phase3_done_marker = phase3_dir / 'sites.done'
+    if is_done(_phase3_done_marker) and os.path.exists(_sites_json_path):
+        print(f"  [Phase 3] Already done: {_sites_json_path} — skipping")
+        sites_json = _sites_json_path
+        with open(sites_json) as _f:
+            n_sites = len(json.load(_f)['sites'])
+    else:
+        sites_json, n_sites = run_phase3_site_enumeration(
+            relaxed_slab_path=enum_slab,
+            outdir=str(phase3_dir),
+            seed=slab_seed,
+            bond_cutoff=3.2,
+            metal_type=metal_type,
+            n_layers_total=layers,
+        )
+        mark_done(_phase3_done_marker)
     
     result = {
         'phase1_slab'   : slab_path,
@@ -768,6 +790,14 @@ def run_phase1_h2_adsorption(
         lammps_in    = str(script_dir  / f'h2_min_{sid}.in')
         slurm_sh     = str(slurm_dir   / f'h2_slurm_{sid}.sh')
 
+        # Skip regenerating already-completed sites' SLURM command -- matches
+        # Section C's FS-min skip convention (existence-only check against the
+        # real output). job_index.txt/the array range are shared with the
+        # array script's fixed site list, so an already-done site must stay
+        # in the index; a no-op stub keeps array indexing intact while
+        # skipping the wasted resubmission.
+        _site_already_done = os.path.exists(relaxed_path)
+
         add_adsorbate(
             slab_path=relaxed_slab_path,
             site_position=site_xy,
@@ -795,11 +825,16 @@ def run_phase1_h2_adsorption(
             maxeval=ADS_MIN_MAXEVAL,
         )
 
+        _h2_commands = (
+            [f'echo "[h2ads skip] {sid}: {relaxed_path} already exists — skipping"']
+            if _site_already_done else
+            [f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}']
+        )
         write_slurm_job(
             job_name=f'H2ads_{sid}',
             slurm_config=slurm_opts,
             out_path=slurm_sh,
-            commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
+            commands=_h2_commands,
         )
 
     # Write job index (0-indexed, one site_id per line for auto_submit)
@@ -820,11 +855,7 @@ def run_phase1_h2_adsorption(
         ],
     )
 
-    partition = slurm_opts.get('partition', 'sharing')
-    if partition == 'short':
-        _qmax, _conc = 1000, 50
-    else:
-        _qmax, _conc = 4, 2
+    _qmax, _conc = partition_submit_limits(slurm_opts)
 
     if not dry_run:
         auto_submit(
@@ -1006,6 +1037,10 @@ def run_phase2_h_adsorption(
         lammps_in    = str(script_dir  / f'h_min_{sid}.in')
         slurm_sh     = str(slurm_dir   / f'h_slurm_{sid}.sh')
 
+        # Skip regenerating already-completed sites' SLURM command -- see the
+        # matching comment in run_phase1_h2_adsorption above.
+        _site_already_done = os.path.exists(relaxed_path)
+
         add_adsorbate(
             slab_path=relaxed_slab_path,
             site_position=site_xy,
@@ -1031,11 +1066,16 @@ def run_phase2_h_adsorption(
             maxeval=ADS_MIN_MAXEVAL,
         )
 
+        _h_commands = (
+            [f'echo "[hads skip] {sid}: {relaxed_path} already exists — skipping"']
+            if _site_already_done else
+            [f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}']
+        )
         write_slurm_job(
             job_name=f'Hads_{sid}',
             slurm_config=slurm_opts,
             out_path=slurm_sh,
-            commands=[f'{LAMMPS_CMD} {kk} -in {lammps_in} -log {log_path}'],
+            commands=_h_commands,
         )
 
     # Write job index (0-indexed, one site_id per line for auto_submit)
@@ -1056,11 +1096,7 @@ def run_phase2_h_adsorption(
         ],
     )
 
-    partition = slurm_opts.get('partition', 'sharing')
-    if partition == 'short':
-        _qmax, _conc = 1000, 50
-    else:
-        _qmax, _conc = 4, 2
+    _qmax, _conc = partition_submit_limits(slurm_opts)
 
     if not dry_run:
         auto_submit(
@@ -1883,41 +1919,47 @@ def orchestrate_neb(
         job_dir = neb_dir / label
         job_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. IS — copy relaxed lammps, strip Velocities
-        is_src  = p1_results / f'h2_{is_sid}_relaxed.lammps'
-        is_dest = job_dir / 'neb_initial.lammps'
-        if is_src.exists():
-            txt = is_src.read_text()
-            if 'Velocities' in txt:
-                txt = txt[:txt.index('Velocities')].rstrip() + '\n'
-            is_dest.write_text(txt)
-
-        # 2. FS raw — metal slab from IS + 2 H at relaxed FS XY coords
-        fs_raw = job_dir / 'neb_final_raw.lammps'
-        if is_dest.exists() and s1 in fs_xy and s2 in fs_xy:
-            build_fs_raw_structure(
-                is_lammps=str(is_dest),
-                fs_xy1=fs_xy[s1],
-                fs_xy2=fs_xy[s2],
-                masses=masses,
-                e2t=e2t,
-                out_path=str(fs_raw),
-                h_height=h_height,
-            )
-
-        # 3. FS minimization script (reuse write_adsorbate_min_script) --
-        # skip regenerating/resubmitting for pairs whose FS-min already
-        # completed on a prior run of this orchestrator (existence-only
-        # check, matching every other skip-check convention in this
-        # codebase -- write_data is the last command write_adsorbate_min_script
-        # emits, so a killed job never leaves a partial output file here).
+        # FS minimization outputs -- skip regenerating/resubmitting for pairs
+        # whose FS-min already completed on a prior run of this orchestrator
+        # (existence-only check, matching every other skip-check convention
+        # in this codebase -- write_data is the last command
+        # write_adsorbate_min_script emits, so a killed job never leaves a
+        # partial output file here). Once FS-min is done, its inputs
+        # (IS copy, FS-raw structure) are no longer needed either -- they
+        # already exist on disk from the run that produced fs_relaxed, so
+        # regenerating them here would be pure wasted work.
         fs_relaxed = job_dir / 'neb_final_relaxed.lammps'
         fs_min_log = job_dir / 'fs_min.log'
         min_script = job_dir / 'min_fs.lammps'
         fs_already_done = fs_relaxed.exists()
+
+        is_dest = job_dir / 'neb_initial.lammps'
+        fs_raw  = job_dir / 'neb_final_raw.lammps'
+
         if fs_already_done:
             print(f'  [{label}] FS-min already done ({fs_relaxed}) — skipping')
         else:
+            # 1. IS — copy relaxed lammps, strip Velocities
+            is_src = p1_results / f'h2_{is_sid}_relaxed.lammps'
+            if is_src.exists():
+                txt = is_src.read_text()
+                if 'Velocities' in txt:
+                    txt = txt[:txt.index('Velocities')].rstrip() + '\n'
+                is_dest.write_text(txt)
+
+            # 2. FS raw — metal slab from IS + 2 H at relaxed FS XY coords
+            if is_dest.exists() and s1 in fs_xy and s2 in fs_xy:
+                build_fs_raw_structure(
+                    is_lammps=str(is_dest),
+                    fs_xy1=fs_xy[s1],
+                    fs_xy2=fs_xy[s2],
+                    masses=masses,
+                    e2t=e2t,
+                    out_path=str(fs_raw),
+                    h_height=h_height,
+                )
+
+            # 3. FS minimization script (reuse write_adsorbate_min_script)
             write_adsorbate_min_script(
                 slab_ads_input=str(fs_raw),
                 ads_output=str(fs_relaxed),
@@ -1979,22 +2021,37 @@ def orchestrate_neb(
             commands=_fsmin_commands,
         )
 
-        # 5b. CPU SLURM: ASE NEB (self-chaining via traj checkpoint)
+        # 5b. CPU SLURM: ASE NEB (self-chaining via traj checkpoint; no-op stub
+        # if this pair's NEB already converged -- same rationale as FS-min's
+        # skip above, extended to the array that previously had no per-pair
+        # skip at all).
         neb_sh = str(job_dir / f'slurm_neb_{label}.sh')
-        _neb_wall = neb_slurm_opts.get('time', '12:00:00')
-        _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
-        _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
-        _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
-        write_chained_slurm_job(
-            job_name=f'neb_{label}',
-            slurm_config=neb_slurm_opts,
-            out_path=neb_sh,
-            first_commands=[f'python {neb_script}'],
-            restart_commands=[f'python {neb_script}'],
-            restart_glob=traj_p2,
-            cutoff=_neb_cutoff,
-            work_dir=str(job_dir),
-        )
+        neb_barrier_file = job_dir / 'neb_barrier.txt'
+        neb_already_done = neb_barrier_file.exists()
+        if neb_already_done:
+            write_slurm_job(
+                job_name=f'neb_{label}',
+                slurm_config=neb_slurm_opts,
+                out_path=neb_sh,
+                commands=[
+                    f'echo "[neb skip] {label}: {neb_barrier_file} already exists — skipping NEB"'
+                ],
+            )
+        else:
+            _neb_wall = neb_slurm_opts.get('time', '12:00:00')
+            _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
+            _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
+            _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
+            write_chained_slurm_job(
+                job_name=f'neb_{label}',
+                slurm_config=neb_slurm_opts,
+                out_path=neb_sh,
+                first_commands=[f'python {neb_script}'],
+                restart_commands=[f'python {neb_script}'],
+                restart_glob=traj_p2,
+                cutoff=_neb_cutoff,
+                work_dir=str(job_dir),
+            )
 
         # NOTE: fsmin_sh/neb_sh are intentionally NOT submitted here.
         # Phase D (auto_submit on fsmin_array_script, then submit_slurm_job
@@ -2028,7 +2085,7 @@ def orchestrate_neb(
     job_index_path = neb_dir / 'job_index.txt'
     job_index_path.write_text('\n'.join(j['label'] for j in neb_jobs) + '\n')
 
-    ar = (1, len(neb_jobs))
+    ar = (0, len(neb_jobs) - 1)
 
     # GPU array: LAMMPS FS minimization
     fsmin_array = str(neb_dir / 'run_fsmin_array.sh')
@@ -2039,7 +2096,7 @@ def orchestrate_neb(
         array_range=ar,
         concurrent=2,
         commands=[
-            f'LABEL=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
+            f'LABEL=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
             f'bash {neb_dir}/${{LABEL}}/slurm_fsmin_${{LABEL}}.sh',
         ],
     )
@@ -2053,7 +2110,7 @@ def orchestrate_neb(
         array_range=ar,
         concurrent=50,
         commands=[
-            f'LABEL=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
+            f'LABEL=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
             f'bash {neb_dir}/${{LABEL}}/slurm_neb_${{LABEL}}.sh',
         ],
     )
@@ -2484,6 +2541,7 @@ def orchestrate_full_neb_workflow(
     return {
         'e_clean'            : e_clean,
         'n_sites'            : results_a.get('n_sites', 0),
+        'job_index'          : c_result['neb_result']['job_index'],
         'fsmin_array_script' : c_result['neb_result']['fsmin_array_script'],
         'neb_array_script'   : c_result['neb_result']['neb_array_script'],
         'n_neb_jobs'         : c_result['neb_result']['n_jobs'],
@@ -2608,7 +2666,9 @@ from models.neb_workflow import (
     orchestrate_full_neb_workflow,
     collect_neb_results,
 )
-from models.create_slurm import submit_slurm_job, wait_for_jobs, auto_submit
+from models.create_slurm import (
+    submit_slurm_job, wait_for_jobs, auto_submit, partition_submit_limits,
+)
 
 # -- H2 reference energy: read from the shared cache written by
 # pipeline.ipynb Cell 2 (calculate_ref_adsorbate_energy). Never computed
@@ -2672,6 +2732,7 @@ if not os.path.exists(_ranked_f):
     print('  Phase D: Submit and wait')
     print('='*60)
 
+    _fsmin_qmax, _fsmin_conc = partition_submit_limits(MIN_SLURM_CFG)
     auto_submit(
         array_script   = result['fsmin_array_script'],
         index_file     = result['job_index'],
@@ -2684,14 +2745,22 @@ if not os.path.exists(_ranked_f):
         result_pattern = '*/neb_final_relaxed.lammps',
         n_total        = result['n_neb_jobs'],
         job_name       = 'fsmin_array',
-        queue_max      = 4,
-        concurrent     = 2,
+        queue_max      = _fsmin_qmax,
+        concurrent     = _fsmin_conc,
     )
     print('  All FS minimisations done.')
 
-    neb_jid = submit_slurm_job(result['neb_array_script'])
-    print(f'  NEB array submitted  ->  job {neb_jid}')
-    wait_for_jobs({'neb_array': neb_jid})
+    _neb_qmax, _neb_conc = partition_submit_limits(NEB_SLURM_CFG)
+    auto_submit(
+        array_script   = result['neb_array_script'],
+        index_file     = result['job_index'],
+        result_dir     = os.path.join(NEB_DIR, 'neb'),
+        result_pattern = '*/neb_barrier.txt',
+        n_total        = result['n_neb_jobs'],
+        job_name       = 'neb_array',
+        queue_max      = _neb_qmax,
+        concurrent     = _neb_conc,
+    )
     print('  All NEB calculations done.')
 
     # -- Collect + rank barriers -> ranked_barriers.json -----------------------

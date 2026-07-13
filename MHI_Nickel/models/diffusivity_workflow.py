@@ -163,6 +163,7 @@ from models.diffusivity_post_processing import (
     save_diffusivity_table,
     run_arrhenius_pipeline,
 )
+from models.checkpoint import is_done, mark_done
 
 GPU_SLURM_CFG       = dict(SLURM_DEFAULTS, partition=GPU_PARTITION,      time=NVT_WALL_TIME)
 SHORT_GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition=SHORT_GPU_PARTITION, time=SHORT_GPU_TIME)
@@ -222,6 +223,7 @@ for struct_path in INPUT_STRUCTURES:
         min_bare_out = os.path.join(WORK_DIR, 'structures', f'bulk_min_{struct_stem}.lammps')
         min_bare_sh  = os.path.join(shared_sh_dir,  'minimize_bare.sh')
         os.makedirs(os.path.dirname(min_bare_out), exist_ok=True)
+        _phase1a_done_marker = os.path.join(_shared_dirs['root'], 'phase1a.done')
 
         if not os.path.exists(min_bare_out):
             write_minimization_script(
@@ -250,8 +252,10 @@ for struct_path in INPUT_STRUCTURES:
             wait_for_jobs({'min_bare': jid})
             _require_file(min_bare_out,
                           f'Check the min_bare job log in {shared_sh_dir}.')
+            mark_done(_phase1a_done_marker)
             print(f'  [1a] Bare bulk minimisation done.  Output → {min_bare_out}')
         else:
+            mark_done(_phase1a_done_marker)
             print(f'  [1a] Already exists: {min_bare_out} — skipping '
                   f'(reused from the pre-pipeline step or a prior n_H run)')
 
@@ -270,6 +274,7 @@ for struct_path in INPUT_STRUCTURES:
 
             npt_rst_lmp          = os.path.join(shared_lmp_dir, f'npt_restart_{T}K.lammps')
             npt_after_heat_rst   = f'{os.path.splitext(npt_dump)[0]}_after_heat.restart'
+            npt_done_marker      = os.path.join(_shared_dirs['root'], f'npt_{T}K.done')
 
             if not os.path.exists(npt_final_paths[T]):
                 write_npt_script(
@@ -317,6 +322,7 @@ for struct_path in INPUT_STRUCTURES:
                 npt_job_ids[f'npt_{T}K'] = submit_slurm_job(npt_sh)
                 print(f'  Submitted NPT {T}K  →  job {npt_job_ids[f"npt_{T}K"]}')
             else:
+                mark_done(npt_done_marker)
                 print(f'  [1b] NPT {T}K already done — skipping')
 
         print(f'  Waiting for {len(npt_job_ids)} NPT jobs ...')
@@ -328,6 +334,7 @@ for struct_path in INPUT_STRUCTURES:
             _npt_dump_T = os.path.join(_shared_dirs['structures'], f'npt_boxdims_{T}K.dat')
             _require_file(_npt_dump_T,
                           f'Check the npt_{T}K job log in {shared_sh_dir}.')
+            mark_done(os.path.join(_shared_dirs['root'], f'npt_{T}K.done'))
             _a0_by_T[T] = get_lattice_parameter_from_dump(_npt_dump_T, n_last=50)
             print(f'  [1b] T={T}K  a0 = {_a0_by_T[T]:.4f} Å')
         print('  All NPT jobs done.')
@@ -378,6 +385,7 @@ for struct_path in INPUT_STRUCTURES:
                 min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
                 min_h_sh_T  = os.path.join(phase1_sh_dir,  f'minimize_h_{T}K.sh')
                 T_to_bulk_h[T] = min_h_out_T
+                min_h_done_marker = os.path.join(dirs['structures'], f'{T}K', 'minh.done')
 
                 if not os.path.exists(min_h_out_T):
                     bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
@@ -413,6 +421,7 @@ for struct_path in INPUT_STRUCTURES:
                     )
                     min_h_job_ids[f'min_h_{T}K'] = submit_slurm_job(min_h_sh_T)
                 else:
+                    mark_done(min_h_done_marker)
                     print(f'  [1b] bulk+H min {T}K already done — skipping')
 
             print(f'  Waiting for {len(min_h_job_ids)} bulk+H minimisation jobs ...')
@@ -420,6 +429,7 @@ for struct_path in INPUT_STRUCTURES:
             for T in TEMPERATURES:
                 _require_file(T_to_bulk_h[T],
                               f'Check the min_h_{T}K job log in {phase1_sh_dir}.')
+                mark_done(os.path.join(dirs['structures'], f'{T}K', 'minh.done'))
             print('  All bulk+H minimisations done.')
 
             # Save temperature-dependent lattice parameters for Part 2 (permeation_run.py)
@@ -453,7 +463,7 @@ for struct_path in INPUT_STRUCTURES:
                 chain_sh          = os.path.join(sh_dir,  f'nvt_{T}K_chain.sh')
                 chain_sh_by_T[T]  = chain_sh
 
-                if not os.path.exists(chain_sh + '.done'):
+                if not is_done(chain_sh + '.done'):
                     write_nvt_bulk_script(
                         bulk_h_file=T_to_bulk_h[T],
                         traj_file=traj_file,
@@ -554,7 +564,7 @@ for struct_path in INPUT_STRUCTURES:
             pending = set(TEMPERATURES)
             while pending:
                 for T in list(pending):
-                    if os.path.exists(chain_sh_by_T[T] + '.done'):
+                    if is_done(chain_sh_by_T[T] + '.done'):
                         pending.discard(T)
                         print(f'  NVT {T}K complete')
                     elif os.path.exists(chain_sh_by_T[T] + '.failed'):
@@ -572,48 +582,53 @@ for struct_path in INPUT_STRUCTURES:
             print('\n--- Phase 3: Post-processing ---')
             analysis_dir = os.path.join(dirs['root'], 'analysis')
             os.makedirs(analysis_dir, exist_ok=True)
+            _arr_out = os.path.join(dirs['root'], 'diffusivity_arrhenius.json')
+            _phase3_done_marker = os.path.join(analysis_dir, 'phase3.done')
 
-            D_vals, D_errs, R2_vals = [], [], []
-            for T in TEMPERATURES:
-                dump   = os.path.join(dirs[T]['results'], f'nvt_{T}K.dump')
-                result = run_diffusivity_pipeline(
-                    dump_file=dump,
-                    temperature=T,
-                    h_type=_E2T['H'],
+            if is_done(_phase3_done_marker) and os.path.exists(_arr_out):
+                print(f'  [3] Already done: {_arr_out} — skipping')
+            else:
+                D_vals, D_errs, R2_vals = [], [], []
+                for T in TEMPERATURES:
+                    dump   = os.path.join(dirs[T]['results'], f'nvt_{T}K.dump')
+                    result = run_diffusivity_pipeline(
+                        dump_file=dump,
+                        temperature=T,
+                        h_type=_E2T['H'],
+                        outdir=analysis_dir,
+                    )
+                    D_vals.append(result['D'])
+                    D_errs.append(result['sigma_D'])
+                    R2_vals.append(result['R2'])
+                    print(f'  T={T}K   D={result["D"]:.4e} m2/s   R2={result["R2"]:.4f}')
+
+                table_path = os.path.join(analysis_dir, 'diffusivity_table.txt')
+                save_diffusivity_table(TEMPERATURES, D_vals, D_errs, R2_vals, table_path)
+
+                print(f'  D(T) summary: {" | ".join(f"{T:.0f}K:{D:.2e}" for T, D in zip(TEMPERATURES, D_vals))}')
+                arr = run_arrhenius_pipeline(
+                    diffusivity_file=table_path,
                     outdir=analysis_dir,
                 )
-                D_vals.append(result['D'])
-                D_errs.append(result['sigma_D'])
-                R2_vals.append(result['R2'])
-                print(f'  T={T}K   D={result["D"]:.4e} m2/s   R2={result["R2"]:.4f}')
+                print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
 
-            table_path = os.path.join(analysis_dir, 'diffusivity_table.txt')
-            save_diffusivity_table(TEMPERATURES, D_vals, D_errs, R2_vals, table_path)
-
-            print(f'  D(T) summary: {" | ".join(f"{T:.0f}K:{D:.2e}" for T, D in zip(TEMPERATURES, D_vals))}')
-            arr = run_arrhenius_pipeline(
-                diffusivity_file=table_path,
-                outdir=analysis_dir,
-            )
-            print(f'  Arrhenius: Ea={arr["Ea"]:.4f} eV  D0={arr["D0"]:.4e} m²/s  R²={arr["R2"]:.4f}')
-
-            # Save Arrhenius params so Part 2 (permeation_run.py) can load them.
-            # Per (stem, n_h) — NOT shared across H-concentrations, since D0/Ea
-            # genuinely differ with H loading (see GitHub issue on the overwrite bug).
-            _arr_out = os.path.join(dirs['root'], 'diffusivity_arrhenius.json')
-            os.makedirs(os.path.dirname(_arr_out), exist_ok=True)
-            with open(_arr_out, 'w') as _f:
-                _json_lat.dump({
-                    'D0_m2s':     arr['D0'],
-                    'E_D_eV':     arr['Ea'],
-                    'D0_err':     arr['D0_err'],
-                    'E_D_err_eV': arr['Ea_err'],
-                    'R2_fit':     arr['R2'],
-                    'T_K_arr':    [float(t) for t in arr['T_arr']],
-                    'D_arr':      [float(d) for d in arr['D_arr']],
-                    'D_err_arr':  [float(e) for e in arr['D_err_arr']],
-                }, _f, indent=2)
-            print(f'  Saved diffusivity_arrhenius.json → {_arr_out}')
+                # Save Arrhenius params so Part 2 (permeation_run.py) can load them.
+                # Per (stem, n_h) — NOT shared across H-concentrations, since D0/Ea
+                # genuinely differ with H loading (see GitHub issue on the overwrite bug).
+                os.makedirs(os.path.dirname(_arr_out), exist_ok=True)
+                with open(_arr_out, 'w') as _f:
+                    _json_lat.dump({
+                        'D0_m2s':     arr['D0'],
+                        'E_D_eV':     arr['Ea'],
+                        'D0_err':     arr['D0_err'],
+                        'E_D_err_eV': arr['Ea_err'],
+                        'R2_fit':     arr['R2'],
+                        'T_K_arr':    [float(t) for t in arr['T_arr']],
+                        'D_arr':      [float(d) for d in arr['D_arr']],
+                        'D_err_arr':  [float(e) for e in arr['D_err_arr']],
+                    }, _f, indent=2)
+                mark_done(_phase3_done_marker)
+                print(f'  Saved diffusivity_arrhenius.json → {_arr_out}')
         except Exception as _exc:
             print(f'\n  *** FAILED: {run_name}: {_exc} ***')
             print(f'  Skipping remaining phases for {run_name}; continuing with next (structure, n_H).')

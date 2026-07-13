@@ -270,6 +270,18 @@ def orchestrate_hopa_neb(
         barrier_file = str(job_dir / 'neb_barrier.txt')
         path_file    = str(job_dir / 'neb_path.dat')
 
+        # Skip regenerating already-completed work's SLURM commands -- matches
+        # Section C's FS-min skip convention in neb_workflow.py (existence-only
+        # check against the real output; write_data is always the last command
+        # its writer emits, so a killed job never leaves a partial output file
+        # here). Structure/script generation below stays unconditional (cheap
+        # local Python, not the compute resource being protected) -- only the
+        # SLURM command embedded in each per-site .sh becomes a no-op stub, so
+        # the array still submits its full range but wastes no real cluster
+        # compute on already-done sites.
+        fs_already_done  = os.path.exists(fs_relaxed)
+        neb_already_done = os.path.exists(barrier_file)
+
         # 1. FS raw
         build_hopa_fs(
             is_path=is_path,
@@ -318,38 +330,56 @@ def orchestrate_hopa_neb(
             e2t=e2t,
         )
 
-        # 4a. GPU SLURM: FS-min
+        # 4a. GPU SLURM: FS-min (no-op stub if already done -- job_index.txt/the
+        # array range are shared between fsmin_array and neb_array (both index
+        # by array-task-ID), so an already-done site's sid must stay in the
+        # index; a no-op stub keeps array indexing intact while skipping the
+        # wasted resubmission.
         fsmin_sh = str(job_dir / f'slurm_fsmin_{sid}.sh')
+        _fsmin_commands = (
+            [f'echo "[fsmin skip] {sid}: {fs_relaxed} already exists — skipping FS-min"']
+            if fs_already_done else
+            [f'{LAMMPS_CMD} {kk} -in {min_script} -log {fsmin_log}']
+        )
         write_slurm_job(
             job_name=f'fsmin_hopa_{sid}',
             slurm_config=slurm_opts,
             out_path=fsmin_sh,
-            commands=[f'{LAMMPS_CMD} {kk} -in {min_script} -log {fsmin_log}'],
+            commands=_fsmin_commands,
         )
 
-        # 4b. CPU SLURM: NEB (self-chaining via traj checkpoint)
+        # 4b. CPU SLURM: NEB (self-chaining via traj checkpoint; no-op stub if
+        # this pair's NEB already converged).
         neb_sh = str(job_dir / f'slurm_neb_{sid}.sh')
-        _neb_wall = neb_slurm_opts.get('time', '12:00:00')
-        _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
-        _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
-        _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
-        write_chained_slurm_job(
-            job_name=f'neb_hopa_{sid}',
-            slurm_config=neb_slurm_opts,
-            out_path=neb_sh,
-            first_commands=[f'python {neb_script}'],
-            restart_commands=[f'python {neb_script}'],
-            restart_glob=traj_p2,
-            cutoff=_neb_cutoff,
-            work_dir=str(job_dir),
-        )
+        if neb_already_done:
+            write_slurm_job(
+                job_name=f'neb_hopa_{sid}',
+                slurm_config=neb_slurm_opts,
+                out_path=neb_sh,
+                commands=[f'echo "[neb skip] {sid}: {barrier_file} already exists — skipping NEB"'],
+            )
+        else:
+            _neb_wall = neb_slurm_opts.get('time', '12:00:00')
+            _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
+            _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
+            _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
+            write_chained_slurm_job(
+                job_name=f'neb_hopa_{sid}',
+                slurm_config=neb_slurm_opts,
+                out_path=neb_sh,
+                first_commands=[f'python {neb_script}'],
+                restart_commands=[f'python {neb_script}'],
+                restart_glob=traj_p2,
+                cutoff=_neb_cutoff,
+                work_dir=str(job_dir),
+            )
 
         if not dry_run:
             from models.create_slurm import submit_slurm_job
-            if os.path.exists(barrier_file):
+            if neb_already_done:
                 print(f"  Hop A {sid}: already done ({barrier_file}) — skipping submission")
             else:
-                if os.path.exists(fs_relaxed):
+                if fs_already_done:
                     submit_slurm_job(neb_sh)
                 else:
                     fsmin_jid = submit_slurm_job(fsmin_sh)
@@ -380,7 +410,7 @@ def orchestrate_hopa_neb(
     job_index_path = hopa_dir / 'job_index.txt'
     job_index_path.write_text('\n'.join(str(j['sid']) for j in jobs) + '\n')
 
-    ar = (1, len(jobs))
+    ar = (0, len(jobs) - 1)
 
     # GPU array: FS-min
     fsmin_array = str(hopa_dir / 'hopa_fsmin_array.sh')
@@ -391,7 +421,7 @@ def orchestrate_hopa_neb(
         array_range=ar,
         concurrent=2,
         commands=[
-            f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
+            f'SID=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
             f'bash {hopa_dir}/${{SID}}/slurm_fsmin_${{SID}}.sh',
         ],
     )
@@ -405,7 +435,7 @@ def orchestrate_hopa_neb(
         array_range=ar,
         concurrent=50,
         commands=[
-            f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
+            f'SID=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
             f'bash {hopa_dir}/${{SID}}/slurm_neb_${{SID}}.sh',
         ],
     )
@@ -571,6 +601,11 @@ def orchestrate_hopb_neb(
         barrier_file = str(job_dir / 'neb_barrier.txt')
         path_file    = str(job_dir / 'neb_path.dat')
 
+        # Skip regenerating already-completed work's SLURM commands -- see
+        # the matching comment in orchestrate_hopa_neb above.
+        fs_already_done  = os.path.exists(fs_relaxed)
+        neb_already_done = os.path.exists(barrier_file)
+
         # 1. FS raw
         build_hopb_fs(
             hopb_is_path=str(hopb_is),
@@ -619,38 +654,53 @@ def orchestrate_hopb_neb(
             e2t=e2t,
         )
 
-        # 4a. GPU SLURM: FS-min
+        # 4a. GPU SLURM: FS-min (no-op stub if already done -- see the matching
+        # comment in orchestrate_hopa_neb above).
         fsmin_sh = str(job_dir / f'slurm_fsmin_{sid}.sh')
+        _fsmin_commands = (
+            [f'echo "[fsmin skip] {sid}: {fs_relaxed} already exists — skipping FS-min"']
+            if fs_already_done else
+            [f'{LAMMPS_CMD} {kk} -in {min_script} -log {fsmin_log}']
+        )
         write_slurm_job(
             job_name=f'fsmin_hopb_{sid}',
             slurm_config=slurm_opts,
             out_path=fsmin_sh,
-            commands=[f'{LAMMPS_CMD} {kk} -in {min_script} -log {fsmin_log}'],
+            commands=_fsmin_commands,
         )
 
-        # 4b. CPU SLURM: NEB (self-chaining via traj checkpoint)
+        # 4b. CPU SLURM: NEB (self-chaining via traj checkpoint; no-op stub if
+        # this pair's NEB already converged).
         neb_sh = str(job_dir / f'slurm_neb_{sid}.sh')
-        _neb_wall = neb_slurm_opts.get('time', '12:00:00')
-        _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
-        _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
-        _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
-        write_chained_slurm_job(
-            job_name=f'neb_hopb_{sid}',
-            slurm_config=neb_slurm_opts,
-            out_path=neb_sh,
-            first_commands=[f'python {neb_script}'],
-            restart_commands=[f'python {neb_script}'],
-            restart_glob=traj_p2,
-            cutoff=_neb_cutoff,
-            work_dir=str(job_dir),
-        )
+        if neb_already_done:
+            write_slurm_job(
+                job_name=f'neb_hopb_{sid}',
+                slurm_config=neb_slurm_opts,
+                out_path=neb_sh,
+                commands=[f'echo "[neb skip] {sid}: {barrier_file} already exists — skipping NEB"'],
+            )
+        else:
+            _neb_wall = neb_slurm_opts.get('time', '12:00:00')
+            _h, _m, _s = (int(x) for x in _neb_wall.split(':'))
+            _neb_cutoff_secs = _h * 3600 + _m * 60 + _s - 300
+            _neb_cutoff = f'{_neb_cutoff_secs // 3600:02d}:{(_neb_cutoff_secs % 3600) // 60:02d}:{_neb_cutoff_secs % 60:02d}'
+            write_chained_slurm_job(
+                job_name=f'neb_hopb_{sid}',
+                slurm_config=neb_slurm_opts,
+                out_path=neb_sh,
+                first_commands=[f'python {neb_script}'],
+                restart_commands=[f'python {neb_script}'],
+                restart_glob=traj_p2,
+                cutoff=_neb_cutoff,
+                work_dir=str(job_dir),
+            )
 
         if not dry_run:
             from models.create_slurm import submit_slurm_job
-            if os.path.exists(barrier_file):
+            if neb_already_done:
                 print(f"  Hop B {sid}: already done ({barrier_file}) — skipping submission")
             else:
-                if os.path.exists(fs_relaxed):
+                if fs_already_done:
                     submit_slurm_job(neb_sh)
                 else:
                     fsmin_jid = submit_slurm_job(fsmin_sh)
@@ -682,7 +732,7 @@ def orchestrate_hopb_neb(
     job_index_path = hopb_dir / 'job_index.txt'
     job_index_path.write_text('\n'.join(str(j['sid']) for j in jobs) + '\n')
 
-    ar = (1, len(jobs))
+    ar = (0, len(jobs) - 1)
 
     # GPU array: FS-min
     fsmin_array = str(hopb_dir / 'hopb_fsmin_array.sh')
@@ -693,7 +743,7 @@ def orchestrate_hopb_neb(
         array_range=ar,
         concurrent=2,
         commands=[
-            f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
+            f'SID=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
             f'bash {hopb_dir}/${{SID}}/slurm_fsmin_${{SID}}.sh',
         ],
     )
@@ -707,7 +757,7 @@ def orchestrate_hopb_neb(
         array_range=ar,
         concurrent=50,
         commands=[
-            f'SID=$(sed -n "${{SLURM_ARRAY_TASK_ID}}p" {job_index_path})',
+            f'SID=$(sed -n "$((SLURM_ARRAY_TASK_ID+1))p" {job_index_path})',
             f'bash {hopb_dir}/${{SID}}/slurm_neb_${{SID}}.sh',
         ],
     )
