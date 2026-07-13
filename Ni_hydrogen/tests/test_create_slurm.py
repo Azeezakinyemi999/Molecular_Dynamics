@@ -15,6 +15,7 @@ is mocked for check_jobs tests).
 
 import os
 import stat
+import subprocess
 import sys
 from unittest.mock import patch, MagicMock
 
@@ -512,6 +513,44 @@ class TestWriteChainedSlurmJobEdgeCases:
         assert 'LAST_STEP=' in content
         assert '"$LAST_STEP" -lt "$N_EQUIL"' in content
 
+    # ── resubmission retry (silent-stall fix) ───────────────────────────────
+
+    def test_default_resubmit_params_embedded(self, legacy_script):
+        _, content = legacy_script
+        assert 'RESUBMIT_MAX_RETRIES=5' in content
+        assert 'RESUBMIT_RETRY_INTERVAL=40' in content
+
+    def test_custom_resubmit_params_embedded(self, tmp_path):
+        out = str(tmp_path / 'chain.sh')
+        write_chained_slurm_job(
+            'j', _SLURM_CFG, out,
+            first_commands=['echo'], restart_commands=['echo'],
+            restart_glob='*.restart', cutoff=_CUTOFF,
+            resubmit_max_retries=3, resubmit_retry_interval=20,
+        )
+        content = open(out).read()
+        assert 'RESUBMIT_MAX_RETRIES=3' in content
+        assert 'RESUBMIT_RETRY_INTERVAL=20' in content
+
+    def test_resubmission_checks_sbatch_exit_status(self, legacy_script):
+        # The old bug: `NEW_JOB=$(sbatch "$SCRIPT_PATH")` with no exit-code
+        # check at all, so a failed sbatch call was indistinguishable from
+        # a successful one -- the chain just silently stopped.
+        _, content = legacy_script
+        assert 'if [ $? -eq 0 ]; then' in content
+
+    def test_permanent_resubmit_failure_touches_failed_and_exits_nonzero(
+            self, legacy_script):
+        _, content = legacy_script
+        timeout_branch = content.split('elif [ "$EXIT_CODE" -eq 124 ]; then')[1]
+        timeout_branch = timeout_branch.split('\nelse\n')[0]
+        assert 'touch "${SCRIPT_PATH}.failed"' in timeout_branch
+        assert 'exit 1' in timeout_branch
+
+    def test_successful_resubmit_still_exits_zero(self, legacy_script):
+        _, content = legacy_script
+        assert 'if [ "$RESUBMIT_OK" -eq 1 ]; then\n        exit 0' in content
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # check_jobs — squeue parsing, including SLURM array job ids
@@ -646,3 +685,120 @@ class TestSubmitWithRetry:
         assert captured['slurm_path'] == 'job.sh'
         assert captured['extra_args'] == ['--array=1,2']
         assert captured['dependency'] == 'afterok:1'
+
+
+class TestWriteChainedSlurmJobResubmitIntegration:
+    """Real bash-execution tests for the chain-resubmission retry loop --
+    string-content checks aren't enough here, since the original bug
+    (silent stall on a failed `sbatch` resubmission) was itself invisible
+    at the string level: `NEW_JOB=$(sbatch "$SCRIPT_PATH")` "looks fine"
+    as text even though it never checked whether that command succeeded.
+    Exercises the actual generated bash against fake sbatch/timeout
+    stand-ins (neither tool is guaranteed to exist off-cluster)."""
+
+    @pytest.fixture()
+    def fake_bin(self, tmp_path):
+        bin_dir = tmp_path / 'fakebin'
+        bin_dir.mkdir()
+
+        # Real `timeout` isn't available on every dev machine (e.g. macOS
+        # ships BSD coreutils, no GNU timeout). This shim drops the
+        # --signal/--kill-after/duration flags and execs the wrapped
+        # command directly -- the fake LAMMPS commands below control their
+        # own exit code (e.g. `exit 124`) directly, so real timing
+        # semantics aren't needed for this test.
+        timeout_sh = bin_dir / 'timeout'
+        timeout_sh.write_text('#!/bin/bash\nshift; shift; shift\nexec "$@"\n')
+        timeout_sh.chmod(0o755)
+
+        # Fake sbatch: fails for the first $FAKE_SBATCH_FAIL_TIMES calls
+        # (simulating a transient QOSMaxSubmitJobPerUserLimit), then
+        # succeeds. Call count persisted in $FAKE_SBATCH_COUNTER since
+        # each invocation is a fresh process.
+        sbatch_sh = bin_dir / 'sbatch'
+        sbatch_sh.write_text(
+            '#!/bin/bash\n'
+            '[ -f "$FAKE_SBATCH_COUNTER" ] || echo 0 > "$FAKE_SBATCH_COUNTER"\n'
+            'COUNT=$(( $(cat "$FAKE_SBATCH_COUNTER") + 1 ))\n'
+            'echo "$COUNT" > "$FAKE_SBATCH_COUNTER"\n'
+            'if [ "$COUNT" -le "$FAKE_SBATCH_FAIL_TIMES" ]; then\n'
+            '    echo "sbatch: error: QOSMaxSubmitJobPerUserLimit (fake failure $COUNT)" >&2\n'
+            '    exit 1\n'
+            'else\n'
+            '    echo "Submitted batch job 99999"\n'
+            '    exit 0\n'
+            'fi\n'
+        )
+        sbatch_sh.chmod(0o755)
+        return str(bin_dir)
+
+    def _run_chain(self, tmp_path, fake_bin, fail_times, max_retries=3, retry_interval=1):
+        out = str(tmp_path / 'chain.sh')
+        write_chained_slurm_job(
+            job_name='resubmit_test', slurm_config=_SLURM_CFG, out_path=out,
+            first_commands=['exit 124'],      # simulates a timed-out LAMMPS leg
+            restart_commands=['exit 124'],
+            restart_glob=str(tmp_path / '*.restart'),   # never matches -> fresh-start branch
+            cutoff='00:00:05',
+            flush_wait=0,
+            resubmit_max_retries=max_retries,
+            resubmit_retry_interval=retry_interval,
+        )
+        counter_file = tmp_path / 'sbatch_calls.txt'
+        env = dict(os.environ)
+        env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+        env['FAKE_SBATCH_COUNTER'] = str(counter_file)
+        env['FAKE_SBATCH_FAIL_TIMES'] = str(fail_times)
+        result = subprocess.run(
+            ['bash', out], capture_output=True, text=True, env=env, timeout=30,
+        )
+        return result, counter_file, out
+
+    def test_resubmit_succeeds_after_transient_failures(self, tmp_path, fake_bin):
+        result, counter_file, out = self._run_chain(
+            tmp_path, fake_bin, fail_times=2, max_retries=5, retry_interval=1)
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert int(counter_file.read_text()) == 3   # 2 failures + 1 success
+        assert not os.path.exists(out + '.failed')
+
+    def test_resubmit_succeeds_first_try_no_retry_needed(self, tmp_path, fake_bin):
+        result, counter_file, out = self._run_chain(
+            tmp_path, fake_bin, fail_times=0, max_retries=5, retry_interval=1)
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert int(counter_file.read_text()) == 1
+        assert not os.path.exists(out + '.failed')
+
+    def test_resubmit_exhausts_retries_marks_failed_and_exits_nonzero(
+            self, tmp_path, fake_bin):
+        # This is the regression case for the original bug: every sbatch
+        # attempt fails, so nothing gets queued to continue the chain.
+        result, counter_file, out = self._run_chain(
+            tmp_path, fake_bin, fail_times=999, max_retries=3, retry_interval=1)
+
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert int(counter_file.read_text()) == 3   # exactly max_retries attempts, no more
+        assert os.path.exists(out + '.failed')
+
+    def test_genuine_lammps_convergence_still_touches_done_not_failed(
+            self, tmp_path, fake_bin):
+        # Sanity check that the retry loop only engages on exit 124
+        # (timeout) -- a real exit-0 leg must still take the original
+        # "converged" path untouched.
+        out = str(tmp_path / 'chain.sh')
+        write_chained_slurm_job(
+            job_name='converged_test', slurm_config=_SLURM_CFG, out_path=out,
+            first_commands=['exit 0'],
+            restart_commands=['exit 0'],
+            restart_glob=str(tmp_path / '*.restart'),
+            cutoff='00:00:05',
+        )
+        env = dict(os.environ)
+        env['PATH'] = f'{fake_bin}:{env["PATH"]}'
+        result = subprocess.run(['bash', out], capture_output=True, text=True,
+                                 env=env, timeout=30)
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert os.path.exists(out + '.done')
+        assert not os.path.exists(out + '.failed')
