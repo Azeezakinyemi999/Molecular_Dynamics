@@ -26,7 +26,6 @@ nb06b_submit.log
 
 # Test outputs
 test_outputs/
-test*
 # Temp/partial files
 *.zip
 zi*
