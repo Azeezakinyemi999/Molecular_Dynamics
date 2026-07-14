@@ -140,6 +140,13 @@ def main(dry_run):
         os.path.join(WORK_DIR, 'neb/*/vibrations_diss/*/vib_frequencies.json'),
         'vib.done', dry_run,
     )
+    total += _backfill(
+        os.path.join(WORK_DIR, 'neb/*/neb/*/neb_final_relaxed.lammps'),
+        'fsmin.done', dry_run,
+    )
+    # No backfill needed for per-pair NEB: write_chained_slurm_job has
+    # always touched {script}.done on genuine convergence (predates this
+    # session), so any pair that already converged already has the marker.
 
     print('\n=== NEB workflow (Section B, H2*/H* adsorption per-site) ===')
     total += _backfill_by_suffix(

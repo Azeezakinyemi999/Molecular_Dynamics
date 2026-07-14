@@ -902,20 +902,26 @@ class TestOrchestrateNebFsMinSkip:
         return pools, combo
 
     def _run(self, tmp_path, monkeypatch, *, pre_create_fs_relaxed,
-             pre_create_neb_barrier=False):
+             pre_create_neb_barrier=False, pre_create_fsmin_marker=False,
+             pre_create_neb_marker=False):
         from models.neb_workflow import orchestrate_neb
         from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
 
         pools, combo = self._pools_and_combo(tmp_path)
         neb_outdir = tmp_path / 'neb_out'
 
-        if pre_create_fs_relaxed or pre_create_neb_barrier:
+        if (pre_create_fs_relaxed or pre_create_neb_barrier
+                or pre_create_fsmin_marker or pre_create_neb_marker):
             job_dir = neb_outdir / 'neb' / combo['label']
             job_dir.mkdir(parents=True)
             if pre_create_fs_relaxed:
                 (job_dir / 'neb_final_relaxed.lammps').write_text('fake relaxed FS')
             if pre_create_neb_barrier:
                 (job_dir / 'neb_barrier.txt').write_text('fake barrier')
+            if pre_create_fsmin_marker:
+                (job_dir / 'fsmin.done').touch()
+            if pre_create_neb_marker:
+                (job_dir / f"slurm_neb_{combo['label']}.sh.done").touch()
 
         write_min_calls = []
         monkeypatch.setattr(
@@ -1021,6 +1027,39 @@ class TestOrchestrateNebFsMinSkip:
             array_call = next(c for c in write_slurm_calls if c['job_name'] == array_name)
             assert array_call['array_range'] == (0, 0)   # 1 combo -> indices [0, 0]
             assert any('SLURM_ARRAY_TASK_ID+1' in c for c in array_call['commands'])
+
+    # ── explicit .done markers (Section C, per-pair) ────────────────────────
+
+    def test_fsmin_skips_via_done_marker_alone(self, tmp_path, monkeypatch):
+        """A pre-existing fsmin.done marker (e.g. from a backfill pass) must
+        skip the pair even when the real relaxed output isn't present under
+        this exact path."""
+        _, _, fsmin_call, _, _ = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=False,
+            pre_create_fsmin_marker=True)
+        assert any('skip' in c.lower() for c in fsmin_call['commands'])
+
+    def test_fsmin_command_touches_done_marker_when_not_skipped(
+            self, tmp_path, monkeypatch):
+        _, _, fsmin_call, _, _ = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=False)
+        joined = ' '.join(fsmin_call['commands'])
+        assert 'touch' in joined and 'fsmin.done' in joined
+        # touch must be gated on both LAMMPS success and the real output
+        # existing -- a killed/failed job must never leave a false "done".
+        assert '&&' in joined
+
+    def test_neb_skips_via_done_marker_alone(self, tmp_path, monkeypatch):
+        """A pre-existing {neb_sh}.done marker -- written automatically by
+        write_chained_slurm_job on genuine convergence -- must skip the
+        pair even when neb_barrier.txt isn't present under this exact
+        path (e.g. a partial rsync)."""
+        result, _, _, write_slurm_calls, write_chained_calls = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=True,
+            pre_create_neb_barrier=False, pre_create_neb_marker=True)
+        assert write_chained_calls == []
+        neb_call = next(c for c in write_slurm_calls if c['job_name'].startswith('neb_'))
+        assert any('skip' in c.lower() for c in neb_call['commands'])
 
 
 class TestSectionBAdsorptionDoneMarkers:

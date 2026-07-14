@@ -1938,7 +1938,8 @@ def orchestrate_neb(
         fs_relaxed = job_dir / 'neb_final_relaxed.lammps'
         fs_min_log = job_dir / 'fs_min.log'
         min_script = job_dir / 'min_fs.lammps'
-        fs_already_done = fs_relaxed.exists()
+        fsmin_done_marker = job_dir / 'fsmin.done'
+        fs_already_done = fs_relaxed.exists() or is_done(fsmin_done_marker)
 
         is_dest = job_dir / 'neb_initial.lammps'
         fs_raw  = job_dir / 'neb_final_raw.lammps'
@@ -2020,7 +2021,12 @@ def orchestrate_neb(
                 f'echo "[fsmin skip] {label}: {fs_relaxed} already exists — skipping FS-min"'
             ]
         else:
-            _fsmin_commands = [f'{LAMMPS_CMD} {kk} -in {min_script} -log {fs_min_log}']
+            # touch only runs if LAMMPS exits 0 AND the real relaxed output
+            # exists -- a killed/failed job must never leave a false "done".
+            _fsmin_commands = [
+                f'{LAMMPS_CMD} {kk} -in {min_script} -log {fs_min_log} && '
+                f'test -f {fs_relaxed} && touch {fsmin_done_marker}'
+            ]
         write_slurm_job(
             job_name=f'fsmin_{label}',
             slurm_config=slurm_opts,
@@ -2034,7 +2040,10 @@ def orchestrate_neb(
         # skip at all).
         neb_sh = str(job_dir / f'slurm_neb_{label}.sh')
         neb_barrier_file = job_dir / 'neb_barrier.txt'
-        neb_already_done = neb_barrier_file.exists()
+        # write_chained_slurm_job already touches {out_path}.done on genuine
+        # convergence (exit 0) -- reuse that existing marker instead of
+        # writing a second one; no new command needed here.
+        neb_already_done = neb_barrier_file.exists() or is_done(neb_sh + '.done')
         if neb_already_done:
             write_slurm_job(
                 job_name=f'neb_{label}',
