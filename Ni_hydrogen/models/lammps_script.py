@@ -191,6 +191,169 @@ print "Minimized structure written to {min_output}"
     return out_path
 
 
+def write_minimization_restart_script(
+    restart_file,
+    min_output,
+    out_path,
+    pair_style,
+    mace_model,
+    pair_suffix,
+    elem_str,
+    etol=0.0,
+    ftol=1e-8,
+    maxiter=50000,
+    maxeval=500000,
+    supercell_reps=5,
+    thermo_every=10,
+    restart_dir=None,
+    restart_every=10000,
+    traj_file=None,
+    dump_every=10,
+):
+    """
+    Write a LAMMPS minimization continuation script that resumes from a
+    periodic binary restart checkpoint.
+
+    Mirrors :func:`write_minimization_script` exactly, with three
+    differences:
+
+    1. ``read_restart`` replaces ``read_data`` -- atom positions and the
+       box are restored from the checkpoint; no ``mass`` lines needed
+       (restart files carry per-type masses already).
+    2. ``fix boxrelax`` is re-declared from scratch -- restart files do
+       not preserve fix definitions.
+    3. ``minimize`` is re-run with the *same full* ``etol``/``ftol``/
+       ``maxiter``/``maxeval`` budget, not a reduced "remaining" one --
+       CG minimization has no persistent state across separate
+       ``minimize`` calls, so resuming with the full budget is standard
+       and correct (same convention as
+       :func:`write_nvt_bulk_restart_script`'s continuation legs).
+
+    Use this as the ``restart_commands`` leg in
+    :func:`~models.create_slurm.write_chained_slurm_job`.
+
+    Parameters
+    ----------
+    restart_file : str
+        Glob path to the LAMMPS binary restart, e.g.
+        ``'structures/checkpoints/min.*.restart'``. LAMMPS's
+        ``read_restart`` resolves a wildcard to the highest-numbered
+        (most recent) matching file itself -- no need to determine the
+        exact filename before writing this script.
+    min_output : str
+        Path where the minimized structure is written (``write_data``).
+        Must match the first-leg (:func:`write_minimization_script`)
+        call's ``min_output`` so either leg converges on the same
+        deliverable.
+    out_path : str
+        Destination path for the ``.lammps`` input script.
+    pair_style : str
+        LAMMPS ``pair_style`` keyword, e.g. ``'mliap unified'``.
+    mace_model : str
+        Full path to the MACE ``.pt`` model file.
+    pair_suffix : str
+        Suffix appended to the model path in ``pair_style``, e.g. ``'0'``.
+    elem_str : str
+        Space-separated element string for ``pair_coeff * *``.
+    etol : float, optional
+        Energy tolerance for ``minimize``. Default ``0.0``.
+    ftol : float, optional
+        Force tolerance (eV/Å) for ``minimize``. Default ``1e-8``.
+    maxiter : int, optional
+        Maximum minimization iterations. Default ``50000``.
+    maxeval : int, optional
+        Maximum force evaluations. Default ``500000``.
+    supercell_reps : int, optional
+        Unit cell repetitions along one axis for ``a0`` calculation.
+        Default ``5``.
+    thermo_every : int, optional
+        Frequency of thermo output lines. Default ``10``.
+    restart_dir : str or None, optional
+        Directory for periodic binary restart files.  Should be the
+        same directory used by the first-leg call, so both legs write
+        into (and resume from) the same glob. If ``None``, no restart
+        directive is written. Default ``None``.
+    restart_every : int, optional
+        Steps between restart file writes. Default ``10000``.
+    traj_file : str or None, optional
+        Path to an existing trajectory file to append to (``dump_modify
+        ... append yes``). If ``None``, no dump is written. Default
+        ``None``.
+    dump_every : int, optional
+        Trajectory dump frequency. Default ``10``.
+
+    Returns
+    -------
+    out_path : str
+        Path to the written ``.lammps`` script.
+    """
+    pair    = _pair_block(pair_style, mace_model, pair_suffix, elem_str)
+    neigh   = _neighbor_block()
+    restart = _restart_line(restart_dir, restart_every, label='min')
+    if traj_file:
+        dump_block   = (f'dump           min_traj  all  custom  {dump_every}  {traj_file}'
+                        f'  id type x y z\ndump_modify    min_traj  sort id  append yes\n\n')
+        undump_block = 'undump         min_traj\n\n'
+    else:
+        dump_block = undump_block = ''
+
+    script = f"""# ════════════════════════════════════════════════════
+# LAMMPS Energy Minimization — Hastelloy N Bulk (RESTART)
+# Notebook 02 | pair_style: mliap unified | continuation leg
+# ════════════════════════════════════════════════════
+
+units          metal
+atom_style     atomic
+newton         on
+boundary       p p p
+
+# Resume from most recent checkpoint. Atom positions and box restored;
+# no separate mass declaration needed.
+read_restart   {restart_file}
+
+{restart}
+
+{pair}
+
+{neigh}
+
+thermo         {thermo_every}
+thermo_style   custom step pe fmax fnorm press vol lx ly lz
+
+fix            boxrelax all box/relax iso 0.0 vmax 0.001
+
+{dump_block}print "### Minimization (restart) ###"
+
+minimize       {etol} {ftol} {maxiter} {maxeval}
+
+print "### Minimization complete ###"
+{undump_block}
+unfix          boxrelax
+
+variable       pe_final  equal  pe
+variable       natoms    equal  atoms
+variable       ecoh      equal  -v_pe_final/v_natoms
+variable       a0_min    equal  lx/{supercell_reps}
+variable       fmax_f    equal  fmax
+
+print "MINIMIZATION_RESULTS_START"
+print "  Total_energy_eV     : ${{pe_final}}"
+print "  Natoms              : ${{natoms}}"
+print "  Ecoh_eV_per_atom    : ${{ecoh}}"
+print "  a0_Angstrom         : ${{a0_min}}"
+print "  Fmax_eV_per_Ang     : ${{fmax_f}}"
+print "MINIMIZATION_RESULTS_END"
+
+write_restart  {_stem(min_output)}_final.restart
+write_data     {min_output}
+print "Minimized structure written to {min_output}"
+"""
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w') as f:
+        f.write(script)
+    return out_path
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. NPT LATTICE PARAMETER SCAN  (NB02)
 # ═══════════════════════════════════════════════════════════════════════════
