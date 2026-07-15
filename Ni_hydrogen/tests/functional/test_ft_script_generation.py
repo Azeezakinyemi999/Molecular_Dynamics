@@ -193,7 +193,10 @@ class TestNebScriptTrajFormat:
 class TestDiffusivityScriptSharingDefaults:
     """
     generate_diffusivity_scripts default parameters were changed to
-    short_gpu_partition='sharing' and short_gpu_time='00:20:00'.
+    short_gpu_partition='sharing' and short_gpu_time='01:00:00' (raised
+    from '00:20:00' to match what's actually deployed on the cluster and
+    give bare-bulk/bulk+H minimization -- now self-resubmitting via
+    write_chained_slurm_job -- more headroom before its first timeout leg).
 
     Verify these values appear correctly in the generated diffusivity_run.py.
     """
@@ -213,8 +216,8 @@ class TestDiffusivityScriptSharingDefaults:
         # Default: short_gpu_partition='sharing' → embedded as SHORT_GPU_PARTITION = 'sharing'
         assert "SHORT_GPU_PARTITION  = 'sharing'" in content_defaults
 
-    def test_default_short_gpu_time_is_00_20_00(self, content_defaults):
-        assert "SHORT_GPU_TIME       = '00:20:00'" in content_defaults
+    def test_default_short_gpu_time_is_01_00_00(self, content_defaults):
+        assert "SHORT_GPU_TIME       = '01:00:00'" in content_defaults
 
     def test_custom_short_gpu_partition_overrides_default(self, tmp_path):
         out = str(tmp_path / 'diff_custom.py')
@@ -237,8 +240,8 @@ class TestDiffusivityScriptSharingDefaults:
             "generate_diffusivity_scripts default short_gpu_partition is not 'sharing' — "
             "the SLURM config change may have been reverted"
         )
-        assert "short_gpu_time='00:20:00'" in src, (
-            "generate_diffusivity_scripts default short_gpu_time is not '00:20:00'"
+        assert "short_gpu_time='01:00:00'" in src, (
+            "generate_diffusivity_scripts default short_gpu_time is not '01:00:00'"
         )
 
 

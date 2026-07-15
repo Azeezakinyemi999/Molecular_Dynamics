@@ -43,7 +43,7 @@ def generate_diffusivity_scripts(
     velocity_seed,
     restart_every,
     short_gpu_partition='sharing',
-    short_gpu_time='00:20:00',
+    short_gpu_time='01:00:00',
     short_gpu_cutoff=None,
     npt_gpu_partition='gpu',
     npt_gpu_time='08:00:00',
