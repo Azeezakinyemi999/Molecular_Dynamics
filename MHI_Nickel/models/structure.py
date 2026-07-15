@@ -41,6 +41,7 @@ def write_lammps_data(
     e2t: dict,
     out_path: str,
     comment: str = '',
+    tilt_factors: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> str:
     """Write a LAMMPS atomic-style data file from Python arrays.
 
@@ -53,10 +54,16 @@ def write_lammps_data(
     symbols : list of str
         Element symbol for each atom (length N).
     positions : ndarray, shape (N, 3)
-        Cartesian coordinates in Å.
+        Cartesian coordinates in Å.  For a triclinic cell (non-zero
+        ``tilt_factors``), these must already be expressed in LAMMPS's
+        canonical triclinic frame (e.g. via
+        ``ase.calculators.lammps.coordinatetransform.Prism.vector_to_lammps``)
+        -- this function does not perform that rotation itself.
     cell_lengths : array-like, shape (3,)
-        Orthogonal box edge lengths [Lx, Ly, Lz] in Å.
-        The box origin is always placed at (0, 0, 0).
+        Box edge lengths [Lx, Ly, Lz] in Å (LAMMPS's ``lx, ly, lz`` --
+        the diagonal of the triclinic cell matrix, not the true lengths
+        of tilted lattice vectors). The box origin is always placed at
+        (0, 0, 0).
     masses : dict
         ``{atom_type: (mass_amu, element_symbol)}`` — every type that
         appears in ``e2t`` must have an entry.
@@ -67,6 +74,11 @@ def write_lammps_data(
         Destination file path.  Parent directories are created if needed.
     comment : str, optional
         First-line comment written at the top of the file.
+    tilt_factors : tuple of float, optional
+        LAMMPS triclinic tilt factors ``(xy, xz, yz)``.  Default
+        ``(0.0, 0.0, 0.0)`` writes a plain orthogonal box exactly as
+        before -- this parameter is purely additive and does not change
+        behavior for any existing (all-orthogonal) call site.
 
     Returns
     -------
@@ -74,6 +86,7 @@ def write_lammps_data(
         Absolute path to the written file (same as ``out_path``).
     """
     Lx, Ly, Lz = cell_lengths
+    xy, xz, yz = tilt_factors
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
 
     with open(out_path, 'w') as f:
@@ -82,7 +95,10 @@ def write_lammps_data(
         f.write(f'{len(masses)} atom types\n\n')
         f.write(f'0.0  {Lx:.10f}  xlo xhi\n')
         f.write(f'0.0  {Ly:.10f}  ylo yhi\n')
-        f.write(f'0.0  {Lz:.10f}  zlo zhi\n\n')
+        f.write(f'0.0  {Lz:.10f}  zlo zhi\n')
+        if xy != 0.0 or xz != 0.0 or yz != 0.0:
+            f.write(f'{xy:.10f}  {xz:.10f}  {yz:.10f}  xy xz yz\n')
+        f.write('\n')
         f.write('Masses\n\n')
         for t, (m, el) in sorted(masses.items()):
             f.write(f'{t}  {m}  # {el}\n')
