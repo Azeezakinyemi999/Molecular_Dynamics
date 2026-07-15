@@ -19,6 +19,7 @@ from models.lammps_script import (
     _restart_line,
     _stem,
     write_minimization_script,
+    write_minimization_restart_script,
     write_npt_script,
     write_npt_restart_script,
     write_surface_relaxation_script,
@@ -182,6 +183,83 @@ class TestWriteMinimizationScript:
     def test_minimization_results_block(self, min_script):
         assert 'MINIMIZATION_RESULTS_START' in min_script
         assert 'MINIMIZATION_RESULTS_END' in min_script
+
+
+class TestWriteMinimizationRestartScript:
+
+    @pytest.fixture()
+    def min_rst_script(self, tmp_path):
+        p = str(tmp_path / 'min_rst.lammps')
+        write_minimization_restart_script(
+            restart_file='/restarts/min.*.restart',
+            min_output='/data/bulk_min.lammps',
+            out_path=p,
+            pair_style=_PS, mace_model=_MOD, pair_suffix=_SUFF,
+            elem_str=_ELEM,
+        )
+        return _read(p)
+
+    def test_returns_out_path(self, tmp_path):
+        p = str(tmp_path / 'min_rst.lammps')
+        ret = write_minimization_restart_script(
+            '/r/f', '/d/o', p, _PS, _MOD, _SUFF, _ELEM,
+        )
+        assert ret == p
+
+    def test_read_restart(self, min_rst_script):
+        assert 'read_restart   /restarts/min.*.restart' in min_rst_script
+
+    def test_no_read_data(self, min_rst_script):
+        assert 'read_data' not in min_rst_script
+
+    def test_no_mass_lines(self, min_rst_script):
+        assert 'mass           ' not in min_rst_script
+
+    def test_box_relax_fix_redeclared(self, min_rst_script):
+        assert 'fix            boxrelax all box/relax iso 0.0' in min_rst_script
+
+    def test_minimize_command_uses_full_budget(self, min_rst_script):
+        # Same default budget as a fresh-start leg -- CG minimization has
+        # no persistent state across separate `minimize` calls, so a
+        # restart leg re-runs the full tolerance/iteration budget, not a
+        # reduced "remaining" one.
+        assert 'minimize       0.0 1e-08 50000 500000' in min_rst_script
+
+    def test_write_data(self, min_rst_script):
+        assert 'write_data     /data/bulk_min.lammps' in min_rst_script
+
+    def test_write_restart_final(self, min_rst_script):
+        assert 'write_restart  /data/bulk_min_final.restart' in min_rst_script
+
+    def test_minimization_results_block(self, min_rst_script):
+        assert 'MINIMIZATION_RESULTS_START' in min_rst_script
+        assert 'MINIMIZATION_RESULTS_END' in min_rst_script
+
+    def test_restart_line_written_when_dir_given(self, tmp_path):
+        p = str(tmp_path / 'min_rst_r.lammps')
+        write_minimization_restart_script(
+            '/r/f', '/d/o', p, _PS, _MOD, _SUFF, _ELEM,
+            restart_dir='/restarts', restart_every=2000,
+        )
+        content = _read(p)
+        assert '/restarts/min.*.restart' in content
+        assert '2000' in content
+
+    def test_no_periodic_restart_by_default(self, min_rst_script):
+        assert 'restart        ' not in min_rst_script
+
+    def test_traj_dump_append_yes(self, tmp_path):
+        p = str(tmp_path / 'min_rst_d.lammps')
+        write_minimization_restart_script(
+            '/r/f', '/d/o', p, _PS, _MOD, _SUFF, _ELEM,
+            traj_file='/traj/min.lammpstrj', dump_every=20,
+        )
+        content = _read(p)
+        assert 'dump           min_traj' in content
+        assert 'dump_modify    min_traj  sort id  append yes' in content
+
+    def test_no_traj_dump_by_default(self, min_rst_script):
+        assert 'dump           min_traj' not in min_rst_script
 
 
 # ═══════════════════════════════════════════════════════════════════════════

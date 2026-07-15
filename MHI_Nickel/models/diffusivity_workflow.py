@@ -56,6 +56,7 @@ def generate_diffusivity_scripts(
     min_ftol=1e-8,
     min_maxiter=50000,
     min_maxeval=500000,
+    min_restart_every=2000,
     metal_table: dict | None = None,
     out_py: str = '',
 ) -> str:
@@ -125,6 +126,7 @@ MIN_ETOL         = {min_etol!r}
 MIN_FTOL         = {min_ftol!r}
 MIN_MAXITER      = {min_maxiter!r}
 MIN_MAXEVAL      = {min_maxeval!r}
+MIN_RESTART_EVERY = {min_restart_every!r}
 # Element / type tables per metal stem (oxide vs non-oxide)
 METAL_TABLE      = {metal_table!r}
 
@@ -146,6 +148,7 @@ from models.structure import get_lattice_parameter_from_dump, insert_hydrogen
 from models.utils import make_run_dirs
 from models.lammps_script import (
     write_minimization_script,
+    write_minimization_restart_script,
     write_npt_script,
     write_npt_restart_script,
     write_nvt_bulk_script,
@@ -167,9 +170,12 @@ from models.checkpoint import is_done, mark_done
 
 GPU_SLURM_CFG       = dict(SLURM_DEFAULTS, partition=GPU_PARTITION,      time=NVT_WALL_TIME)
 SHORT_GPU_SLURM_CFG = dict(SLURM_DEFAULTS, partition=SHORT_GPU_PARTITION, time=SHORT_GPU_TIME)
-# NPT is real chained MD (heat+prod, self-resubmitting) -- same category as
-# NVT above, not a quick one-shot minimization like bare-bulk/bulk+H min
-# (which stay on SHORT_GPU_SLURM_CFG).
+# NPT/NVT are long chained MD runs on the long-wall-time GPU_SLURM_CFG /
+# NPT_GPU_SLURM_CFG partitions. Bare-bulk/bulk+H minimisation is now ALSO
+# self-resubmitting (write_chained_slurm_job + periodic LAMMPS restarts,
+# see Phase 1a/1b below) but stays on the short-wall-time
+# SHORT_GPU_SLURM_CFG partition, since a single minimize leg is expected to
+# converge within a small number of legs.
 NPT_GPU_SLURM_CFG   = dict(SLURM_DEFAULTS, partition=NPT_GPU_PARTITION,   time=NPT_GPU_TIME)
 KK = ' '.join(KOKKOS_FLAGS)
 
@@ -219,13 +225,17 @@ for struct_path in INPUT_STRUCTURES:
         # ── Phase 1a ─────────────────────────────────────────────────────────
         print('\n--- Phase 1a: Minimise bare bulk ---')
 
-        min_bare_lmp = os.path.join(shared_lmp_dir, 'minimize_bare.lammps')
+        min_bare_lmp     = os.path.join(shared_lmp_dir, 'minimize_bare.lammps')
+        min_bare_rst_lmp = os.path.join(shared_lmp_dir, 'minimize_bare_restart.lammps')
         min_bare_out = os.path.join(WORK_DIR, 'structures', f'bulk_min_{struct_stem}.lammps')
         min_bare_sh  = os.path.join(shared_sh_dir,  'minimize_bare.sh')
         os.makedirs(os.path.dirname(min_bare_out), exist_ok=True)
         _phase1a_done_marker = os.path.join(_shared_dirs['root'], 'phase1a.done')
+        min_bare_rst_dir  = os.path.join(_shared_dirs['structures'], 'checkpoints')
+        min_bare_rst_glob = os.path.join(min_bare_rst_dir, 'min.*.restart')
 
         if not os.path.exists(min_bare_out):
+            os.makedirs(min_bare_rst_dir, exist_ok=True)
             write_minimization_script(
                 bulk_input=struct_path,
                 min_output=min_bare_out,
@@ -238,15 +248,33 @@ for struct_path in INPUT_STRUCTURES:
                 ftol=MIN_FTOL,
                 maxiter=MIN_MAXITER,
                 maxeval=MIN_MAXEVAL,
+                restart_dir=min_bare_rst_dir,
+                restart_every=MIN_RESTART_EVERY,
             )
-            write_slurm_job(
+            write_minimization_restart_script(
+                restart_file=min_bare_rst_glob,
+                min_output=min_bare_out,
+                out_path=min_bare_rst_lmp,
+                pair_style=PAIR_STYLE,
+                mace_model=MACE_MODEL_LAMMPS,
+                pair_suffix=PAIR_SUFFIX,
+                elem_str=_ELEM_STR,
+                etol=MIN_ETOL,
+                ftol=MIN_FTOL,
+                maxiter=MIN_MAXITER,
+                maxeval=MIN_MAXEVAL,
+                restart_dir=min_bare_rst_dir,
+                restart_every=MIN_RESTART_EVERY,
+            )
+            write_chained_slurm_job(
                 job_name=f'min_bare_{struct_stem}',
                 slurm_config=SHORT_GPU_SLURM_CFG,
                 out_path=min_bare_sh,
-                runner='lmp',
-                lammps_cmd=LAMMPS_CMD,
-                kokkos_flags=KOKKOS_FLAGS,
-                script_path=min_bare_lmp,
+                first_commands=[f'{LAMMPS_CMD} {KK} -in {min_bare_lmp}'],
+                restart_commands=[f'{LAMMPS_CMD} {KK} -in {min_bare_rst_lmp}'],
+                restart_glob=min_bare_rst_glob,
+                cutoff=SHORT_GPU_CUTOFF,
+                work_dir=WORK_DIR,
             )
             jid = submit_with_retry(min_bare_sh)
             wait_for_jobs({'min_bare': jid})
@@ -381,13 +409,17 @@ for struct_path in INPUT_STRUCTURES:
             for T in TEMPERATURES:
                 a0_T = _a0_by_T[T]
 
-                min_h_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
+                min_h_lmp_T     = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K.lammps')
+                min_h_rst_lmp_T = os.path.join(phase1_lmp_dir, f'minimize_h_{T}K_restart.lammps')
                 min_h_out_T = os.path.join(dirs['structures'], f'{T}K', 'bulk_min_h.lammps')
                 min_h_sh_T  = os.path.join(phase1_sh_dir,  f'minimize_h_{T}K.sh')
                 T_to_bulk_h[T] = min_h_out_T
                 min_h_done_marker = os.path.join(dirs['structures'], f'{T}K', 'minh.done')
+                min_h_rst_dir_T  = os.path.join(dirs['structures'], f'{T}K', 'checkpoints')
+                min_h_rst_glob_T = os.path.join(min_h_rst_dir_T, 'min.*.restart')
 
                 if not os.path.exists(min_h_out_T):
+                    os.makedirs(min_h_rst_dir_T, exist_ok=True)
                     bulk_h_path_T, _h_pos_T, _min_hm_T = insert_hydrogen(
                         bulk_min_path=npt_final_paths[T],
                         n_h=n_h,
@@ -409,15 +441,33 @@ for struct_path in INPUT_STRUCTURES:
                         ftol=MIN_FTOL,
                         maxiter=MIN_MAXITER,
                         maxeval=MIN_MAXEVAL,
+                        restart_dir=min_h_rst_dir_T,
+                        restart_every=MIN_RESTART_EVERY,
                     )
-                    write_slurm_job(
+                    write_minimization_restart_script(
+                        restart_file=min_h_rst_glob_T,
+                        min_output=min_h_out_T,
+                        out_path=min_h_rst_lmp_T,
+                        pair_style=PAIR_STYLE,
+                        mace_model=MACE_MODEL_LAMMPS,
+                        pair_suffix=PAIR_SUFFIX,
+                        elem_str=_ELEM_STR,
+                        etol=MIN_ETOL,
+                        ftol=MIN_FTOL,
+                        maxiter=MIN_MAXITER,
+                        maxeval=MIN_MAXEVAL,
+                        restart_dir=min_h_rst_dir_T,
+                        restart_every=MIN_RESTART_EVERY,
+                    )
+                    write_chained_slurm_job(
                         job_name=f'min_h_{T}K_{run_name}',
                         slurm_config=SHORT_GPU_SLURM_CFG,
                         out_path=min_h_sh_T,
-                        runner='lmp',
-                        lammps_cmd=LAMMPS_CMD,
-                        kokkos_flags=KOKKOS_FLAGS,
-                        script_path=min_h_lmp_T,
+                        first_commands=[f'{LAMMPS_CMD} {KK} -in {min_h_lmp_T}'],
+                        restart_commands=[f'{LAMMPS_CMD} {KK} -in {min_h_rst_lmp_T}'],
+                        restart_glob=min_h_rst_glob_T,
+                        cutoff=SHORT_GPU_CUTOFF,
+                        work_dir=WORK_DIR,
                     )
                     min_h_job_ids[f'min_h_{T}K'] = submit_with_retry(min_h_sh_T)
                 else:
