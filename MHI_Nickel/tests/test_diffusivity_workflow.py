@@ -136,6 +136,21 @@ class TestGenerateDiffusivityScripts:
         assert 'from models.lammps_script import' in content
         assert 'from models.diffusivity_post_processing import' in content
 
+    def test_minimization_restart_script_imported(self, gen_result):
+        _, _, content = gen_result
+        assert 'write_minimization_restart_script' in content
+
+    def test_min_restart_every_embedded_with_default(self, gen_result):
+        _, _, content = gen_result
+        assert 'MIN_RESTART_EVERY' in content
+        assert 'MIN_RESTART_EVERY = 2000' in content
+
+    def test_min_restart_every_custom_used_when_provided(self, tmp_path):
+        out_py = str(tmp_path / 'diffusivity_run.py')
+        generate_diffusivity_scripts(**_GEN_CFG, min_restart_every=500, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        assert 'MIN_RESTART_EVERY = 500' in content
+
     def test_phase1a_label_in_body(self, gen_result):
         _, _, content = gen_result
         assert 'Phase 1a' in content
@@ -314,6 +329,41 @@ class TestSharedBareBulkAndNpt:
         min_h_idx = content.index("job_name=f'min_h_{T}K_{run_name}'")
         assert 'slurm_config=SHORT_GPU_SLURM_CFG' in content[min_h_idx:min_h_idx + 200]
 
+    def test_bare_bulk_and_bulk_h_min_now_use_chained_slurm_job(self, tmp_path):
+        """Regression test: bare-bulk/bulk+H min timeouts must now
+        self-resubmit via write_chained_slurm_job instead of being
+        submitted as one-shot write_slurm_job jobs with no recovery."""
+        out_py = str(tmp_path / 'diffusivity_run.py')
+        generate_diffusivity_scripts(**_GEN_CFG, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+
+        min_bare_idx = content.index("job_name=f'min_bare_{struct_stem}'")
+        call_start = content.rindex('write_', 0, min_bare_idx)
+        assert content[call_start:].startswith('write_chained_slurm_job(')
+
+        min_h_idx = content.index("job_name=f'min_h_{T}K_{run_name}'")
+        call_start_h = content.rindex('write_', 0, min_h_idx)
+        assert content[call_start_h:].startswith('write_chained_slurm_job(')
+
+    def test_bare_bulk_and_bulk_h_min_restart_wiring_present(self, tmp_path):
+        out_py = str(tmp_path / 'diffusivity_run.py')
+        generate_diffusivity_scripts(**_GEN_CFG, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+
+        min_bare_idx = content.index("job_name=f'min_bare_{struct_stem}'")
+        min_bare_block = content[min_bare_idx:min_bare_idx + 450]
+        assert 'restart_glob=min_bare_rst_glob' in min_bare_block
+        assert 'cutoff=SHORT_GPU_CUTOFF' in min_bare_block
+
+        min_h_idx = content.index("job_name=f'min_h_{T}K_{run_name}'")
+        min_h_block = content[min_h_idx:min_h_idx + 450]
+        assert 'restart_glob=min_h_rst_glob_T' in min_h_block
+        assert 'cutoff=SHORT_GPU_CUTOFF' in min_h_block
+
+        assert 'restart_dir=min_bare_rst_dir' in content
+        assert 'restart_dir=min_h_rst_dir_T' in content
+        assert content.count('restart_every=MIN_RESTART_EVERY') >= 4
+
     def test_shared_block_precedes_n_h_loop(self, tmp_path):
         out_py = str(tmp_path / 'diffusivity_run.py')
         generate_diffusivity_scripts(**_GEN_CFG, out_py=out_py)
@@ -377,6 +427,7 @@ class TestSharedBareBulkAndNpt:
         monkeypatch.setattr('models.create_slurm.write_chained_slurm_job', lambda **kw: None)
         monkeypatch.setattr('models.create_slurm.wait_for_jobs', wait_mock)
         monkeypatch.setattr('models.lammps_script.write_minimization_script', lambda **kw: None)
+        monkeypatch.setattr('models.lammps_script.write_minimization_restart_script', lambda **kw: None)
         monkeypatch.setattr('models.lammps_script.write_npt_script', lambda **kw: None)
         monkeypatch.setattr('models.lammps_script.write_npt_restart_script', lambda **kw: None)
         monkeypatch.setattr(
@@ -493,6 +544,7 @@ class TestSharedBareBulkAndNpt:
         monkeypatch.setattr('models.create_slurm.write_chained_slurm_job', _fake_write_chained)
         monkeypatch.setattr('models.create_slurm.wait_for_jobs', _fake_wait)
         monkeypatch.setattr('models.lammps_script.write_minimization_script', _fake_write_min)
+        monkeypatch.setattr('models.lammps_script.write_minimization_restart_script', lambda **kw: None)
         monkeypatch.setattr('models.lammps_script.write_npt_script', lambda **kw: None)
         monkeypatch.setattr('models.lammps_script.write_npt_restart_script', lambda **kw: None)
         monkeypatch.setattr('models.lammps_script.write_nvt_bulk_script', lambda **kw: None)
