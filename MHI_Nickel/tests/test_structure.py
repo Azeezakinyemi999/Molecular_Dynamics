@@ -280,6 +280,75 @@ class TestWriteLammpsData:
         assert types == {1, 2}
 
 
+class TestWriteLammpsDataTiltFactors:
+    """tilt_factors=(xy, xz, yz) — optional triclinic support, additive only."""
+
+    _POS = np.array([[0.0, 0.0, 0.0], [1.76, 1.76, 1.76]])
+
+    def _write(self, tmp_path, name, **kwargs):
+        fpath = str(tmp_path / name)
+        write_lammps_data(
+            ['Ni', 'Ni'], self._POS, [3.52, 3.52, 3.52],
+            _MASSES_NI, _E2T_NI, fpath, comment='test comment', **kwargs
+        )
+        return open(fpath).read()
+
+    def test_default_matches_no_tilt_factors_arg(self, tmp_path):
+        # Omitting tilt_factors entirely must be byte-identical to passing
+        # the default explicitly -- confirms the new parameter is additive.
+        no_arg = self._write(tmp_path, 'no_arg.lammps')
+        explicit_default = self._write(tmp_path, 'explicit_default.lammps',
+                                        tilt_factors=(0.0, 0.0, 0.0))
+        assert no_arg == explicit_default
+
+    def test_zero_tilt_omits_xy_xz_yz_line(self, tmp_path):
+        content = self._write(tmp_path, 'zero.lammps', tilt_factors=(0.0, 0.0, 0.0))
+        assert 'xy xz yz' not in content
+
+    def test_nonzero_tilt_writes_xy_xz_yz_line(self, tmp_path):
+        content = self._write(tmp_path, 'tilt.lammps', tilt_factors=(-12.5, 0.0, 0.0))
+        assert 'xy xz yz' in content
+        line = next(l for l in content.splitlines() if 'xy xz yz' in l)
+        parts = line.split()
+        assert math.isclose(float(parts[0]), -12.5)
+        assert math.isclose(float(parts[1]), 0.0)
+        assert math.isclose(float(parts[2]), 0.0)
+
+    def test_tilt_line_after_zlo_zhi_before_masses(self, tmp_path):
+        content = self._write(tmp_path, 'order.lammps', tilt_factors=(1.0, 2.0, 3.0))
+        lines = [l for l in content.splitlines() if l.strip()]
+        zlo_idx = next(i for i, l in enumerate(lines) if 'zlo zhi' in l)
+        tilt_idx = next(i for i, l in enumerate(lines) if 'xy xz yz' in l)
+        masses_idx = next(i for i, l in enumerate(lines) if l.strip() == 'Masses')
+        assert zlo_idx < tilt_idx < masses_idx
+
+    def test_only_yz_nonzero_still_writes_line(self, tmp_path):
+        # Any single non-zero component must trigger the tilt line.
+        content = self._write(tmp_path, 'yz_only.lammps', tilt_factors=(0.0, 0.0, 4.2))
+        assert 'xy xz yz' in content
+
+    def test_roundtrip_via_ase_recovers_triclinic_cell(self, tmp_path):
+        from ase.io import read as ase_read
+        # Hexagonal gamma=120deg cell with a=5.0, c=13.51 (Cr2O3-like):
+        # LAMMPS lower-triangular form is lx=a, ly=a*sin(120deg), lz=c,
+        # xy=a*cos(120deg)=-2.5, xz=yz=0.
+        a, c = 5.0, 13.51
+        ly = a * math.sin(math.radians(120.0))
+        xy = a * math.cos(math.radians(120.0))
+        pos = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
+        fpath = str(tmp_path / 'triclinic.lammps')
+        write_lammps_data(
+            ['Ni', 'Ni'], pos, [a, ly, c],
+            _MASSES_NI, _E2T_NI, fpath, tilt_factors=(xy, 0.0, 0.0),
+        )
+        atoms = ase_read(fpath, format='lammps-data', atom_style='atomic')
+        cellpar = atoms.cell.cellpar()  # [a, b, c, alpha, beta, gamma]
+        assert math.isclose(cellpar[0], a, rel_tol=1e-4)
+        assert math.isclose(cellpar[2], c, rel_tol=1e-4)
+        assert math.isclose(cellpar[5], 120.0, rel_tol=1e-3)
+        assert len(atoms) == 2
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # 2. get_lattice_parameter
 # ═════════════════════════════════════════════════════════════════════════════
