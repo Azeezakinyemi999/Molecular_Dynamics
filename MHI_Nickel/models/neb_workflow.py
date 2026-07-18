@@ -1820,7 +1820,7 @@ def orchestrate_neb(
     neb_slurm_opts: dict | None = None,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 1.5,
     h_height: float = 1.5,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
@@ -1864,7 +1864,7 @@ def orchestrate_neb(
     spring_const : float
         Spring constant eV/Å². Default 1.0.
     neb_ftol : float
-        CINEB force tolerance eV/Å. Default 0.05.
+        CINEB force tolerance eV/Å. Default 1.5.
     h_height : float
         FS H placement height above max metal z (Å). Default 1.5.
     dry_run : bool
@@ -2293,7 +2293,7 @@ def orchestrate_neb_pipeline(
     prox_cutoff: float = 5.0,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 1.5,
     h_height: float = 1.5,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
@@ -2333,7 +2333,7 @@ def orchestrate_neb_pipeline(
     spring_const : float
         NEB spring constant (eV/Å²). Default 1.0.
     neb_ftol : float
-        CINEB force tolerance (eV/Å). Default 0.05.
+        CINEB force tolerance (eV/Å). Default 1.5.
     h_height : float
         FS H height above max metal z (Å). Default 1.5.
     dry_run : bool
@@ -2456,7 +2456,7 @@ def orchestrate_full_neb_workflow(
     prox_cutoff: float = 5.0,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 1.5,
     h_height: float = 1.5,
     gpu_slurm_cfg: dict | None = None,
     neb_slurm_cfg: dict | None = None,
