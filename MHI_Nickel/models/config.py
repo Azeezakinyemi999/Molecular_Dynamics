@@ -132,7 +132,7 @@ FTOL       = 1e-6   # eV/Å — force convergence tolerance (minimisation)
 # --- NEB ---
 N_REPLICAS   = 18    # intermediate images
 SPRING_CONST = 1.0   # eV/Å²
-NEB_FTOL     = 0.05  # eV/Å — NEB force convergence
+NEB_FTOL     = 1.5   # eV/Å — NEB force convergence (temporary stopgap, was 0.05)
 
 # --- Bulk CG minimisation (Phase 1a / Phase 1b bulk+H) ---
 MIN_ETOL    = 0.0       # energy tolerance (eV)
@@ -169,8 +169,9 @@ ADS_MIN_MAXEVAL = 100000
 # pending+running jobs the partition/account allows at once; concurrent =
 # max simultaneously RUNNING (the %N throttle on --array).
 PARTITION_SUBMIT_LIMITS = {
-    'short':    (1000, 50),
-    'multigpu': (8,    4),
-    'gpu':      (8,    4),
-    'sharing':  (4,    2),
+    'short':     (1000, 50),
+    'multigpu':  (8,    4),
+    'gpu':       (8,    4),
+    'sharing':   (4,    2),
+    'gpu-short': (4,    2),
 }

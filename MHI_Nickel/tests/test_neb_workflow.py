@@ -1062,6 +1062,104 @@ class TestOrchestrateNebFsMinSkip:
         assert any('skip' in c.lower() for c in neb_call['commands'])
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# orchestrate_neb -- device/parallel derived from neb_slurm_opts['gpu']
+# ═════════════════════════════════════════════════════════════════════════════
+# Regression tests for the gpu-short partition switch: device='cpu' used to be
+# a second, independently-hardcoded literal at the run_neb_pipeline() call
+# site, disconnected from whatever partition/gpu the job actually requested --
+# exactly the kind of drift that let a CPU-partition job silently run with the
+# wrong device assumption undetected. device/parallel must now track
+# neb_slurm_opts['gpu'] directly.
+
+class TestOrchestrateNebDeviceParallel:
+
+    def _pools_and_combo(self, tmp_path):
+        from ase import Atoms
+        from ase.io import write as ase_write
+
+        is_dir = tmp_path / 'ads' / 'phase1_h2' / 'results'
+        is_dir.mkdir(parents=True)
+        atoms = Atoms(
+            'Ni2H2',
+            positions=[[0, 0, 0], [2.5, 0, 0], [1.0, 0.5, 3.0], [1.5, 0.5, 3.0]],
+            cell=[10, 10, 20], pbc=[True, True, False],
+        )
+        ase_write(str(is_dir / 'h2_s0_relaxed.lammps'), atoms,
+                  format='lammps-data', masses=True, specorder=['Ni', 'H'])
+        pools = {
+            'phase1_h2_dir': str(tmp_path / 'ads' / 'phase1_h2'),
+            'fs_xy': {'s0': (0.5, 0.5), 's1': (2.0, 0.5)},
+            'is_energies': {'s0': -50.0},
+        }
+        combo = {
+            'is_site': 's0', 'fs_site1': 's0', 'fs_site2': 's1',
+            'label': 'is_s0__fs_s0_s1',
+            'E_FS': -49.7, 'delta_E': 0.30, 'is_fs_dist': 2.8,
+        }
+        return pools, combo
+
+    def _run(self, tmp_path, monkeypatch, *, neb_slurm_opts):
+        from models.neb_workflow import orchestrate_neb
+        from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
+
+        pools, combo = self._pools_and_combo(tmp_path)
+        neb_outdir = tmp_path / 'neb_out'
+
+        monkeypatch.setattr(
+            'models.neb_workflow.write_adsorbate_min_script',
+            lambda **kw: str(tmp_path / 'min_fs.lammps'),
+        )
+        run_neb_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.run_neb_pipeline',
+            lambda **kw: (run_neb_calls.append(kw), str(tmp_path / 'run_neb.py'))[1],
+        )
+        monkeypatch.setattr(
+            'models.neb_workflow.write_slurm_job',
+            lambda **kw: str(tmp_path / f"{kw['job_name']}.sh"),
+        )
+        monkeypatch.setattr(
+            'models.neb_workflow.write_chained_slurm_job',
+            lambda **kw: str(tmp_path / 'slurm_neb.sh'),
+        )
+
+        orchestrate_neb(
+            deduped_combinations=[combo],
+            pools=pools,
+            e_clean=-50.3,
+            outdir=str(neb_outdir),
+            slurm_opts=dict(SLURM_DEFAULTS, partition='sharing', time='01:00:00'),
+            neb_slurm_opts=neb_slurm_opts,
+            n_images=4,
+            dry_run=False,
+            elem_str=ELEM_STR_7,
+            e2t=E2T_7,
+            masses=MASSES_7,
+        )
+        assert len(run_neb_calls) == 1
+        return run_neb_calls[0]
+
+    def test_cpu_partition_uses_cpu_device_and_parallel_true(self, tmp_path, monkeypatch):
+        """Today's short-partition behaviour must stay unchanged."""
+        from models.config import SLURM_DEFAULTS
+        call = self._run(tmp_path, monkeypatch, neb_slurm_opts=dict(
+            SLURM_DEFAULTS, partition='short', time='12:00:00',
+            gpu=None, cpus_per_task=18,
+        ))
+        assert call['device'] == 'cpu'
+        assert call['parallel'] is True
+
+    def test_gpu_short_partition_uses_cuda_device_and_parallel_false(self, tmp_path, monkeypatch):
+        from models.config import SLURM_DEFAULTS
+        call = self._run(tmp_path, monkeypatch, neb_slurm_opts=dict(
+            SLURM_DEFAULTS, partition='gpu-short', time='02:00:00',
+            cpus_per_task=8,
+        ))
+        assert call['device'] == 'cuda'
+        assert call['parallel'] is False
+
+
 class TestSectionBAdsorptionDoneMarkers:
     """Section B (H2*/H* adsorption) previously skipped already-completed
     sites via a real-output-only check, writing no .done marker anywhere
