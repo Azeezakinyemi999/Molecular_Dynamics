@@ -204,7 +204,7 @@ def run_cineb(
     images: list,
     calc_fn,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 1.5,
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     logfile_phase1: str = 'neb_phase1.log',
@@ -447,7 +447,7 @@ def write_ase_neb_script(
     fs_log_file: str | None = None,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 1.5,
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
@@ -923,7 +923,7 @@ def run_neb_pipeline(
     job_name: str = 'neb',
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 1.5,
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
@@ -979,7 +979,7 @@ def run_neb_pipeline(
     spring_const : float
         Elastic-band spring constant in eV/Å² (default 2.0).
     neb_ftol : float
-        CINEB force convergence tolerance in eV/Å (default 0.05).
+        CINEB force convergence tolerance in eV/Å (default 1.5).
     phase1_steps : int
         Phase 1 FIRE step limit (default 5000).
     phase2_steps : int
