@@ -258,7 +258,7 @@ def run_cineb(
     neb = NEB(images, climb=False, k=spring_const, method='aseneb')
 
     # Phase 1 — regular NEB
-    phase1_fmax = neb_ftol * 3.0
+    phase1_fmax = neb_ftol * 2.0
     print(f'\nPhase 1: regular NEB  ({phase1_steps} steps, fmax={phase1_fmax:.3f} eV/Å)')
     sys.stdout.flush()
     opt1 = FIRE(neb, logfile=logfile_phase1, dt=0.05)
@@ -627,7 +627,7 @@ def write_ase_neb_script(
         N_IMAGES        = {n_images}           # intermediate images
         SPRING_CONST    = {spring_const}       # eV/Å²
         NEB_FMAX        = {neb_ftol}           # eV/Å — CINEB convergence
-        N1_FMAX         = NEB_FMAX * 3         # eV/Å — phase 1 (looser)
+        N1_FMAX         = NEB_FMAX * 2         # eV/Å — phase 1 (looser)
         N1_STEPS        = {phase1_steps}
         NEB_STEPS       = {phase2_steps}
         DEVICE          = "{device}"
