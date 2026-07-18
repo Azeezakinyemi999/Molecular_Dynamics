@@ -779,7 +779,8 @@ def run_phase1_h2_adsorption(
 
     print(f"[Section B Phase 1] H2* adsorption (parallel): {len(sites)} sites")
 
-    for site in sites:
+    _h2_todo_ids = []
+    for _site_idx, site in enumerate(sites):
         sid        = site['site_id']
         centroid   = site['level1']['position']    # [x, y, z]
         site_xy    = centroid[:2]
@@ -799,6 +800,8 @@ def run_phase1_h2_adsorption(
         # must stay in the index -- a no-op stub keeps array indexing intact
         # while skipping the wasted resubmission.
         _site_already_done = os.path.exists(relaxed_path) or is_done(h2_done_marker)
+        if not _site_already_done:
+            _h2_todo_ids.append(_site_idx)
 
         add_adsorbate(
             slab_path=relaxed_slab_path,
@@ -872,6 +875,7 @@ def run_phase1_h2_adsorption(
             job_name       = 'h2_ads_array',
             queue_max      = _qmax,
             concurrent     = _conc,
+            task_ids       = _h2_todo_ids,
         )
 
     status = 'submitted' if not dry_run else 'generated'
@@ -1031,7 +1035,8 @@ def run_phase2_h_adsorption(
 
     print(f"[Section B Phase 2] H* adsorption: {len(sites)} sites")
 
-    for site in sites:
+    _h_todo_ids = []
+    for _site_idx, site in enumerate(sites):
         sid        = site['site_id']
         centroid   = site['level1']['position']    # [x, y, z]
         site_xy    = centroid[:2]
@@ -1046,6 +1051,8 @@ def run_phase2_h_adsorption(
         # Skip regenerating already-completed sites' SLURM command -- see the
         # matching comment in run_phase1_h2_adsorption above.
         _site_already_done = os.path.exists(relaxed_path) or is_done(h_done_marker)
+        if not _site_already_done:
+            _h_todo_ids.append(_site_idx)
 
         add_adsorbate(
             slab_path=relaxed_slab_path,
@@ -1115,6 +1122,7 @@ def run_phase2_h_adsorption(
             job_name       = 'h_ads_array',
             queue_max      = _qmax,
             concurrent     = _conc,
+            task_ids       = _h_todo_ids,
         )
 
     status = 'submitted' if not dry_run else 'generated'
@@ -1917,8 +1925,10 @@ def orchestrate_neb(
     kk         = ' '.join(KOKKOS_FLAGS)
 
     neb_jobs = []
+    _fsmin_todo_ids = []
+    _neb_todo_ids   = []
 
-    for c in deduped_combinations:
+    for _combo_idx, c in enumerate(deduped_combinations):
         is_sid = c['is_site']
         s1, s2 = c['fs_site1'], c['fs_site2']
         label  = c['label']
@@ -1940,6 +1950,8 @@ def orchestrate_neb(
         min_script = job_dir / 'min_fs.lammps'
         fsmin_done_marker = job_dir / 'fsmin.done'
         fs_already_done = fs_relaxed.exists() or is_done(fsmin_done_marker)
+        if not fs_already_done:
+            _fsmin_todo_ids.append(_combo_idx)
 
         is_dest = job_dir / 'neb_initial.lammps'
         fs_raw  = job_dir / 'neb_final_raw.lammps'
@@ -2056,6 +2068,8 @@ def orchestrate_neb(
         # convergence (exit 0) -- reuse that existing marker instead of
         # writing a second one; no new command needed here.
         neb_already_done = neb_barrier_file.exists() or is_done(neb_sh + '.done')
+        if not neb_already_done:
+            _neb_todo_ids.append(_combo_idx)
         if neb_already_done:
             write_slurm_job(
                 job_name=f'neb_{label}',
@@ -2162,6 +2176,8 @@ def orchestrate_neb(
         'pairs_json'         : pairs_json,
         'n_jobs'             : len(neb_jobs),
         'status'             : status,
+        'fsmin_todo_ids'     : _fsmin_todo_ids,
+        'neb_todo_ids'       : _neb_todo_ids,
     }
 
 
@@ -2409,6 +2425,8 @@ def orchestrate_neb_pipeline(
         'neb_array_script'   : neb_result['neb_array_script'],
         'pairs_json'         : neb_result['pairs_json'],
         'status'             : neb_result['status'],
+        'n_fsmin_todo'       : len(neb_result['fsmin_todo_ids']),
+        'n_neb_todo'         : len(neb_result['neb_todo_ids']),
     }
     summary_path = Path(outdir) / 'section_c_summary.json'
     with open(summary_path, 'w') as f:
@@ -2573,6 +2591,8 @@ def orchestrate_full_neb_workflow(
         'fsmin_array_script' : c_result['neb_result']['fsmin_array_script'],
         'neb_array_script'   : c_result['neb_result']['neb_array_script'],
         'n_neb_jobs'         : c_result['neb_result']['n_jobs'],
+        'fsmin_todo_ids'     : c_result['neb_result']['fsmin_todo_ids'],
+        'neb_todo_ids'       : c_result['neb_result']['neb_todo_ids'],
         'status'             : c_result['status'],
     }
 
@@ -2775,6 +2795,7 @@ if not os.path.exists(_ranked_f):
         job_name       = 'fsmin_array',
         queue_max      = _fsmin_qmax,
         concurrent     = _fsmin_conc,
+        task_ids       = result['fsmin_todo_ids'],
     )
     print('  All FS minimisations done.')
 
@@ -2788,6 +2809,7 @@ if not os.path.exists(_ranked_f):
         job_name       = 'neb_array',
         queue_max      = _neb_qmax,
         concurrent     = _neb_conc,
+        task_ids       = result['neb_todo_ids'],
     )
     print('  All NEB calculations done.')
 

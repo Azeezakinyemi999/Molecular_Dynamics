@@ -285,6 +285,7 @@ def auto_submit(
     concurrent=4,
     interval=60,
     pre_submit_scripts=None,
+    task_ids=None,
 ):
     """
     Continuously submit SLURM array jobs, keeping the queue filled.
@@ -309,6 +310,9 @@ def auto_submit(
         ``'*/neb_barrier.txt'``.
     n_total : int
         Total number of array tasks (0-indexed: 0 to n_total-1).
+        Used for the pending/complete summary regardless of
+        ``task_ids``; only ``task_ids`` (when given) controls what
+        actually gets submitted.
     job_name : str
         SLURM job name used to filter ``squeue`` output (``-n`` flag).
     queue_max : int, optional
@@ -323,6 +327,15 @@ def auto_submit(
     pre_submit_scripts : list of str, optional
         SLURM scripts submitted once before the main loop, e.g.
         reference ``clean_slab`` and ``h2_gas`` jobs in NB05b.
+    task_ids : list of int, optional
+        Specific 0-indexed array-task IDs to submit (e.g. only the
+        tasks whose output doesn't already exist). When given, only
+        these IDs are ever passed to ``sbatch --array=``, so
+        already-completed tasks never occupy a queue slot.
+        ``index_file`` still maps every original position to its
+        label unchanged, so IDs stay meaningful across reruns.
+        Defaults to ``None`` (submit every ID from 0 to
+        ``n_total - 1``, i.e. today's behaviour).
 
     Returns
     -------
@@ -353,29 +366,58 @@ def auto_submit(
             time.sleep(2)
 
     # ── Main submission loop ──────────────────────────────────────
-    next_task = 0
-    print(f'Auto-submit: {n_total} tasks, queue_max={queue_max}, '
-          f'concurrent={concurrent}')
+    if task_ids is not None:
+        pending = sorted(task_ids)
+        print(f'Auto-submit: {len(pending)}/{n_total} tasks pending '
+              f'(rest already done), queue_max={queue_max}, '
+              f'concurrent={concurrent}')
 
-    while next_task < n_total:
-        n_queued = _queue_count()
-        room = queue_max - n_queued
+        pos = 0
+        while pos < len(pending):
+            n_queued = _queue_count()
+            room = queue_max - n_queued
 
-        if room > 0:
-            end_task = min(next_task + room - 1, n_total - 1)
-            print(f'  [{time.strftime("%H:%M:%S")}] '
-                  f'Queue={n_queued}, submitting {next_task}–{end_task}')
-            subprocess.run([
-                'sbatch',
-                f'--array={next_task}-{end_task}%{concurrent}',
-                array_script,
-            ])
-            next_task = end_task + 1
-            time.sleep(5)
-        else:
-            print(f'  [{time.strftime("%H:%M:%S")}] '
-                  f'Queue full ({n_queued}/{queue_max}), waiting {interval}s...')
-            time.sleep(interval)
+            if room > 0:
+                chunk = pending[pos:pos + room]
+                ids_str = ','.join(map(str, chunk))
+                print(f'  [{time.strftime("%H:%M:%S")}] '
+                      f'Queue={n_queued}, submitting {len(chunk)} task(s) '
+                      f'({chunk[0]}..{chunk[-1]})')
+                subprocess.run([
+                    'sbatch',
+                    f'--array={ids_str}%{concurrent}',
+                    array_script,
+                ])
+                pos += len(chunk)
+                time.sleep(5)
+            else:
+                print(f'  [{time.strftime("%H:%M:%S")}] '
+                      f'Queue full ({n_queued}/{queue_max}), waiting {interval}s...')
+                time.sleep(interval)
+    else:
+        next_task = 0
+        print(f'Auto-submit: {n_total} tasks, queue_max={queue_max}, '
+              f'concurrent={concurrent}')
+
+        while next_task < n_total:
+            n_queued = _queue_count()
+            room = queue_max - n_queued
+
+            if room > 0:
+                end_task = min(next_task + room - 1, n_total - 1)
+                print(f'  [{time.strftime("%H:%M:%S")}] '
+                      f'Queue={n_queued}, submitting {next_task}–{end_task}')
+                subprocess.run([
+                    'sbatch',
+                    f'--array={next_task}-{end_task}%{concurrent}',
+                    array_script,
+                ])
+                next_task = end_task + 1
+                time.sleep(5)
+            else:
+                print(f'  [{time.strftime("%H:%M:%S")}] '
+                      f'Queue full ({n_queued}/{queue_max}), waiting {interval}s...')
+                time.sleep(interval)
 
     # ── Wait for drain ────────────────────────────────────────────
     print('All submitted. Waiting for queue to drain...')

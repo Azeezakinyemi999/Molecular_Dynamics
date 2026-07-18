@@ -310,7 +310,8 @@ class TestWriteNebRunScript:
         def _fake_neb_pipeline(**kw):
             calls['neb_pipeline'] = kw['slurm_opts']
             return {
-                'neb_result': {'job_index': '', 'fsmin_array_script': '', 'neb_array_script': '', 'n_jobs': 0, 'status': 'ok'},
+                'neb_result': {'job_index': '', 'fsmin_array_script': '', 'neb_array_script': '', 'n_jobs': 0, 'status': 'ok',
+                                'fsmin_todo_ids': [], 'neb_todo_ids': []},
                 'status': 'ok',
             }
 
@@ -1028,6 +1029,110 @@ class TestOrchestrateNebFsMinSkip:
             assert array_call['array_range'] == (0, 0)   # 1 combo -> indices [0, 0]
             assert any('SLURM_ARRAY_TASK_ID+1' in c for c in array_call['commands'])
 
+    # ── fsmin_todo_ids / neb_todo_ids: sparse-submission index lists ────────
+    # job_index.txt/array_range stay a full, stable, positional listing of
+    # every combo (asserted above) -- these two new return-dict keys are the
+    # separate, independent list of *which* of those positions still need a
+    # real sbatch submission, consumed by auto_submit(task_ids=...) so
+    # already-done combos never occupy a queue slot.
+
+    def test_fsmin_todo_ids_empty_when_fs_relaxed_exists(self, tmp_path, monkeypatch):
+        result, *_ = self._run(tmp_path, monkeypatch, pre_create_fs_relaxed=True)
+        assert result['fsmin_todo_ids'] == []
+
+    def test_fsmin_todo_ids_includes_index_when_fs_relaxed_missing(
+            self, tmp_path, monkeypatch):
+        result, *_ = self._run(tmp_path, monkeypatch, pre_create_fs_relaxed=False)
+        assert result['fsmin_todo_ids'] == [0]
+
+    def test_neb_todo_ids_empty_when_neb_barrier_exists(self, tmp_path, monkeypatch):
+        result, *_ = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=True, pre_create_neb_barrier=True)
+        assert result['neb_todo_ids'] == []
+
+    def test_neb_todo_ids_includes_index_when_neb_barrier_missing(
+            self, tmp_path, monkeypatch):
+        result, *_ = self._run(
+            tmp_path, monkeypatch, pre_create_fs_relaxed=False, pre_create_neb_barrier=False)
+        assert result['neb_todo_ids'] == [0]
+
+    def test_todo_ids_track_stable_position_not_just_presence(self, tmp_path, monkeypatch):
+        """The real point of these lists: with multiple combos, a
+        already-done combo's *position* must be excluded while others stay
+        -- not just "any done combo empties the list". Combo 0 (fs0) is
+        already FS-min'd and NEB-converged; combo 1 (fs1) is untouched."""
+        from models.neb_workflow import orchestrate_neb
+        from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
+        from ase import Atoms
+        from ase.io import write as ase_write
+
+        is_dir = tmp_path / 'ads' / 'phase1_h2' / 'results'
+        is_dir.mkdir(parents=True)
+        atoms = Atoms(
+            'Ni2H2',
+            positions=[[0, 0, 0], [2.5, 0, 0], [1.0, 0.5, 3.0], [1.5, 0.5, 3.0]],
+            cell=[10, 10, 20], pbc=[True, True, False],
+        )
+        ase_write(str(is_dir / 'h2_s0_relaxed.lammps'), atoms,
+                  format='lammps-data', masses=True, specorder=['Ni', 'H'])
+        pools = {
+            'phase1_h2_dir': str(tmp_path / 'ads' / 'phase1_h2'),
+            'fs_xy': {'s0': (0.5, 0.5), 's1': (2.0, 0.5), 's2': (3.0, 0.5)},
+            'is_energies': {'s0': -50.0},
+        }
+        combo0 = {
+            'is_site': 's0', 'fs_site1': 's0', 'fs_site2': 's1',
+            'label': 'combo0_done',
+            'E_FS': -49.7, 'delta_E': 0.30, 'is_fs_dist': 2.8,
+        }
+        combo1 = {
+            'is_site': 's0', 'fs_site1': 's0', 'fs_site2': 's2',
+            'label': 'combo1_pending',
+            'E_FS': -49.6, 'delta_E': 0.40, 'is_fs_dist': 3.1,
+        }
+        neb_outdir = tmp_path / 'neb_out'
+        job_dir0 = neb_outdir / 'neb' / combo0['label']
+        job_dir0.mkdir(parents=True)
+        (job_dir0 / 'neb_final_relaxed.lammps').write_text('fake relaxed FS')
+        (job_dir0 / 'neb_barrier.txt').write_text('fake barrier')
+
+        monkeypatch.setattr(
+            'models.neb_workflow.write_adsorbate_min_script',
+            lambda **kw: str(tmp_path / 'min_fs.lammps'),
+        )
+        monkeypatch.setattr('models.neb_workflow.run_neb_pipeline',
+                             lambda **kw: str(tmp_path / 'run_neb.py'))
+        monkeypatch.setattr(
+            'models.neb_workflow.write_slurm_job',
+            lambda **kw: str(tmp_path / f"{kw['job_name']}.sh"),
+        )
+        monkeypatch.setattr(
+            'models.neb_workflow.write_chained_slurm_job',
+            lambda **kw: str(tmp_path / 'slurm_neb.sh'),
+        )
+
+        result = orchestrate_neb(
+            deduped_combinations=[combo0, combo1],
+            pools=pools,
+            e_clean=-50.3,
+            outdir=str(neb_outdir),
+            slurm_opts=dict(SLURM_DEFAULTS, partition='sharing', time='01:00:00'),
+            neb_slurm_opts=dict(SLURM_DEFAULTS, partition='short', time='12:00:00',
+                                 gpu=None, cpus_per_task=18),
+            n_images=4,
+            dry_run=False,
+            elem_str=ELEM_STR_7,
+            e2t=E2T_7,
+            masses=MASSES_7,
+        )
+
+        assert result['n_jobs'] == 2
+        assert result['fsmin_todo_ids'] == [1]
+        assert result['neb_todo_ids'] == [1]
+        with open(result['job_index']) as f:
+            labels = [line.strip() for line in f if line.strip()]
+        assert labels == ['combo0_done', 'combo1_pending']
+
     # ── explicit .done markers (Section C, per-pair) ────────────────────────
 
     def test_fsmin_skips_via_done_marker_alone(self, tmp_path, monkeypatch):
@@ -1281,3 +1386,72 @@ class TestSectionBAdsorptionDoneMarkers:
         site_call = next(c for c in write_slurm_calls if c['job_name'] == 'Hads_s_0')
         joined = ' '.join(site_call['commands'])
         assert 'touch' in joined and 'h_s_0.done' in joined
+
+    def _two_sites_json(self, tmp_path):
+        import json
+        sites = {'sites': [
+            {'site_id': 's_0', 'level1': {'position': [1.0, 2.0, 3.0], 'full_label': 'L1_hollow'}},
+            {'site_id': 's_1', 'level1': {'position': [4.0, 5.0, 3.0], 'full_label': 'L1_bridge'}},
+        ]}
+        p = tmp_path / 'surface_sites_2.json'
+        p.write_text(json.dumps(sites))
+        return str(p)
+
+    def test_h2_adsorption_task_ids_excludes_already_done_site_position(
+            self, tmp_path, monkeypatch):
+        """auto_submit(task_ids=...) must carry only the not-yet-done site's
+        0-indexed position -- s_0 (index 0) already has its relaxed output
+        on disk, s_1 (index 1) doesn't."""
+        from models.neb_workflow import run_phase1_h2_adsorption
+
+        sites_json = self._two_sites_json(tmp_path)
+        outdir = tmp_path / 'ads'
+        relaxed_path = outdir / 'phase1_h2' / 'results' / 'h2_s_0_relaxed.lammps'
+        relaxed_path.parent.mkdir(parents=True)
+        relaxed_path.write_text('fake relaxed H2 site')
+
+        self._patch_common(monkeypatch, tmp_path)
+        auto_submit_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.auto_submit',
+            lambda **kw: auto_submit_calls.append(kw),
+        )
+
+        run_phase1_h2_adsorption(
+            surface_sites_json=sites_json,
+            relaxed_slab_path=str(tmp_path / 'relaxed_slab.lammps'),
+            e_clean=-50.3, e_h2_gas=-6.77,
+            outdir=str(outdir), dry_run=False,
+            z_freeze_cutoff=10.0,
+        )
+
+        assert len(auto_submit_calls) == 1
+        assert auto_submit_calls[0]['task_ids'] == [1]
+
+    def test_h_adsorption_task_ids_excludes_already_done_site_position(
+            self, tmp_path, monkeypatch):
+        from models.neb_workflow import run_phase2_h_adsorption
+
+        sites_json = self._two_sites_json(tmp_path)
+        outdir = tmp_path / 'ads'
+        relaxed_path = outdir / 'phase2_h' / 'results' / 'h_atom_s_1_relaxed.lammps'
+        relaxed_path.parent.mkdir(parents=True)
+        relaxed_path.write_text('fake relaxed H site')
+
+        self._patch_common(monkeypatch, tmp_path)
+        auto_submit_calls = []
+        monkeypatch.setattr(
+            'models.neb_workflow.auto_submit',
+            lambda **kw: auto_submit_calls.append(kw),
+        )
+
+        run_phase2_h_adsorption(
+            surface_sites_json=sites_json,
+            relaxed_slab_path=str(tmp_path / 'relaxed_slab.lammps'),
+            e_clean=-50.3, e_h2_gas=-6.77,
+            outdir=str(outdir), dry_run=False,
+            z_freeze_cutoff=10.0,
+        )
+
+        assert len(auto_submit_calls) == 1
+        assert auto_submit_calls[0]['task_ids'] == [0]
