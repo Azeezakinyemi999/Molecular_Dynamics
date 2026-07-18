@@ -29,6 +29,7 @@ from models.create_slurm import (
     write_chained_slurm_job,
     check_jobs,
     submit_with_retry,
+    auto_submit,
     _hms_to_seconds,
 )
 
@@ -802,3 +803,170 @@ class TestWriteChainedSlurmJobResubmitIntegration:
         assert result.returncode == 0, result.stdout + result.stderr
         assert os.path.exists(out + '.done')
         assert not os.path.exists(out + '.failed')
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# auto_submit — task_ids: sparse array submission for already-done items
+# ═════════════════════════════════════════════════════════════════════════════
+# auto_submit() used to always sweep 0..n_total-1 on every call -- an
+# already-done item still got a real array-task slot (and a queue-slot/sbatch
+# call) every rerun, even though its own command body was just a no-op skip
+# stub. task_ids lets the caller pass only the indices that still need real
+# work; indices not in task_ids never reach `sbatch --array=` at all.
+
+class TestAutoSubmitTaskIds:
+
+    @staticmethod
+    def _mock_run(sbatch_calls):
+        def _side_effect(cmd, *args, **kwargs):
+            if cmd[0] == 'squeue':
+                return MagicMock(stdout='')  # queue always empty -> full room every poll
+            if cmd[0] == 'sbatch':
+                sbatch_calls.append(cmd)
+            return MagicMock(stdout='', returncode=0)
+        return _side_effect
+
+    def _submitted_ids(self, sbatch_calls):
+        ids = set()
+        for cmd in sbatch_calls:
+            array_arg = next(a for a in cmd if a.startswith('--array='))
+            ids_part = array_arg.split('=', 1)[1].split('%')[0]
+            ids.update(int(x) for x in ids_part.split(','))
+        return ids
+
+    def test_task_ids_submits_only_those_indices(self, tmp_path, monkeypatch):
+        sbatch_calls = []
+        monkeypatch.setattr('models.create_slurm.subprocess.run',
+                             self._mock_run(sbatch_calls))
+        monkeypatch.setattr('models.create_slurm.time.sleep', lambda s: None)
+
+        index_file = tmp_path / 'job_index.txt'
+        index_file.write_text('a\nb\nc\nd\ne\n')
+        result_dir = tmp_path / 'results'
+        result_dir.mkdir()
+
+        auto_submit(
+            array_script=str(tmp_path / 'array.sh'),
+            index_file=str(index_file),
+            result_dir=str(result_dir),
+            result_pattern='*.out',
+            n_total=5,
+            job_name='test_array',
+            queue_max=10, concurrent=4,
+            task_ids=[1, 3],
+        )
+
+        assert self._submitted_ids(sbatch_calls) == {1, 3}
+
+    def test_task_ids_none_falls_back_to_dense_range(self, tmp_path, monkeypatch):
+        """Backward compatibility: omitting task_ids must reproduce exactly
+        today's behaviour (a single contiguous 0..n_total-1 range) for the
+        other six existing call sites that don't pass it."""
+        sbatch_calls = []
+        monkeypatch.setattr('models.create_slurm.subprocess.run',
+                             self._mock_run(sbatch_calls))
+        monkeypatch.setattr('models.create_slurm.time.sleep', lambda s: None)
+
+        index_file = tmp_path / 'job_index.txt'
+        index_file.write_text('a\nb\nc\n')
+        result_dir = tmp_path / 'results'
+        result_dir.mkdir()
+
+        auto_submit(
+            array_script=str(tmp_path / 'array.sh'),
+            index_file=str(index_file),
+            result_dir=str(result_dir),
+            result_pattern='*.out',
+            n_total=3,
+            job_name='test_array',
+            queue_max=10, concurrent=4,
+        )
+
+        array_arg = next(a for a in sbatch_calls[0] if a.startswith('--array='))
+        assert array_arg == '--array=0-2%4'
+
+    def test_task_ids_respects_queue_max_chunking(self, tmp_path, monkeypatch):
+        """A pending list larger than queue_max must still be split across
+        multiple sbatch calls, same chunking guarantee as the dense path."""
+        sbatch_calls = []
+        monkeypatch.setattr('models.create_slurm.subprocess.run',
+                             self._mock_run(sbatch_calls))
+        monkeypatch.setattr('models.create_slurm.time.sleep', lambda s: None)
+
+        index_file = tmp_path / 'job_index.txt'
+        index_file.write_text('\n'.join('abcdefghij') + '\n')  # 10 labels
+        result_dir = tmp_path / 'results'
+        result_dir.mkdir()
+
+        auto_submit(
+            array_script=str(tmp_path / 'array.sh'),
+            index_file=str(index_file),
+            result_dir=str(result_dir),
+            result_pattern='*.out',
+            n_total=10,
+            job_name='test_array',
+            queue_max=2, concurrent=1,
+            task_ids=[0, 2, 4, 6, 8],
+        )
+
+        assert len(sbatch_calls) >= 3   # 5 ids, room=2 per chunk -> >=3 chunks
+        assert self._submitted_ids(sbatch_calls) == {0, 2, 4, 6, 8}
+
+    def test_already_done_items_not_reported_missing_even_though_unsubmitted(
+            self, tmp_path, monkeypatch):
+        """Items excluded from task_ids (already done) must not show up as
+        missing at the end -- their output already exists on disk from a
+        prior run, independent of whether this invocation submitted them."""
+        monkeypatch.setattr('models.create_slurm.subprocess.run',
+                             self._mock_run([]))
+        monkeypatch.setattr('models.create_slurm.time.sleep', lambda s: None)
+
+        index_file = tmp_path / 'job_index.txt'
+        index_file.write_text('a\nb\n')
+        result_dir = tmp_path / 'results'
+        result_dir.mkdir()
+        (result_dir / 'a.out').write_text('done')  # index 0 -- already done, excluded
+        (result_dir / 'b.out').write_text('done')  # index 1 -- freshly submitted+done
+
+        missing = auto_submit(
+            array_script=str(tmp_path / 'array.sh'),
+            index_file=str(index_file),
+            result_dir=str(result_dir),
+            result_pattern='*.out',
+            n_total=2,
+            job_name='test_array',
+            queue_max=10, concurrent=4,
+            task_ids=[1],
+        )
+        assert missing == []
+
+    def test_empty_task_ids_submits_nothing_and_returns_immediately(
+            self, tmp_path, monkeypatch):
+        """Everything already done (task_ids=[]) must skip sbatch entirely
+        and drain/complete near-instantly rather than hanging or submitting
+        a degenerate empty --array= range."""
+        sbatch_calls = []
+        monkeypatch.setattr('models.create_slurm.subprocess.run',
+                             self._mock_run(sbatch_calls))
+        monkeypatch.setattr('models.create_slurm.time.sleep', lambda s: None)
+
+        index_file = tmp_path / 'job_index.txt'
+        index_file.write_text('a\nb\n')
+        result_dir = tmp_path / 'results'
+        result_dir.mkdir()
+        (result_dir / 'a.out').write_text('done')
+        (result_dir / 'b.out').write_text('done')
+
+        missing = auto_submit(
+            array_script=str(tmp_path / 'array.sh'),
+            index_file=str(index_file),
+            result_dir=str(result_dir),
+            result_pattern='*.out',
+            n_total=2,
+            job_name='test_array',
+            queue_max=10, concurrent=4,
+            task_ids=[],
+        )
+
+        assert sbatch_calls == []
+        assert missing == []
