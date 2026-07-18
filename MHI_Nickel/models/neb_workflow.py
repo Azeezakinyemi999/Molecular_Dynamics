@@ -1987,6 +1987,17 @@ def orchestrate_neb(
         E_IS        = is_eng.get(is_sid, float('nan'))
         traj_p1     = str(job_dir / 'neb_phase1.traj')
         traj_p2     = str(job_dir / 'neb_phase2.traj')
+        # Derive device/parallel from the SLURM config instead of a second,
+        # independently-hardcoded literal -- a mismatched partition/device
+        # pair (GPU-shaped SLURM config, device='cpu' hardcoded, or vice
+        # versa) is exactly the kind of silent drift this avoids. parallel
+        # (one Python thread per image, CPU-bound MACE evaluation) is a
+        # CPU-only optimisation with no evidence it helps once a single GPU
+        # is shared across images -- default it off on GPU, matching the
+        # old proven single-process GPU NEB runs.
+        _neb_is_gpu = bool(neb_slurm_opts.get('gpu'))
+        _neb_device   = 'cuda' if _neb_is_gpu else 'cpu'
+        _neb_parallel = not _neb_is_gpu
         neb_script  = run_neb_pipeline(
             is_file=str(is_dest),
             fs_file=str(fs_relaxed),
@@ -2001,7 +2012,8 @@ def orchestrate_neb(
             spring_const=spring_const,
             neb_ftol=neb_ftol,
             z_freeze_cutoff=z_freeze_cutoff,
-            device='cpu',
+            device=_neb_device,
+            parallel=_neb_parallel,
             label_is=f'IS:{is_sid}',
             label_fs=f'FS:{s1}+{s2}',
             traj_phase1=traj_p1,
