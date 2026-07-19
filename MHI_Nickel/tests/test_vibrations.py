@@ -23,9 +23,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from models.vibrations import (
     extract_ts_structure,
     write_vibration_script,
+    write_diss_vibration_script,
     collect_is_ts_paths,
     load_vibration_results,
     orchestrate_vibrations,
+    orchestrate_diss_vibrations,
 )
 
 # ── shared constants ──────────────────────────────────────────────────────────
@@ -471,3 +473,235 @@ class TestOrchestrateVibrationsCheckpoint:
             slurm_opts=self._SLURM, dry_run=True)
 
         assert result['hopa_Ni3Mo_IS']['slurm'] is None
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 2b. write_diss_vibration_script -- 2-H variant (H2 surface dissociation)
+# ═════════════════════════════════════════════════════════════════════════════
+# write_vibration_script hard-requires exactly 1 H atom (correct for Hop A/Hop B
+# single-interstitial-H hopping) -- but an H2 dissociation pathway's IS (intact
+# H2*) and TS (peak-energy NEB image) always have 2 H atoms, so neb_workflow.py's
+# Phase E (diss vibrations) needs this separate, 2-H-aware generator instead.
+
+class TestWriteDissVibrationScript:
+
+    @pytest.fixture
+    def script_result(self, tmp_path):
+        out_path = str(tmp_path / 'scripts' / 'vib_run.py')
+        ret = write_diss_vibration_script(
+            structure_path  = _STRUCT,
+            mace_model_path = _MACE,
+            out_path        = out_path,
+            outdir          = _OUTDIR,
+            delta           = 0.01,
+            device          = 'cpu',
+        )
+        content = pathlib.Path(out_path).read_text()
+        return ret, out_path, content
+
+    def test_file_created(self, script_result):
+        _, out_path, _ = script_result
+        assert pathlib.Path(out_path).exists()
+
+    def test_returns_out_path(self, script_result):
+        ret, out_path, _ = script_result
+        assert ret == out_path
+
+    def test_structure_path_embedded(self, script_result):
+        _, _, content = script_result
+        assert _STRUCT in content
+
+    def test_requires_exactly_2_h_atoms(self, script_result):
+        _, _, content = script_result
+        assert 'len(h_indices) != 2' in content
+        assert 'Expected exactly 2 H atoms' in content
+
+    def test_does_not_require_exactly_1_h_atom(self, script_result):
+        """Regression guard: must not accidentally reuse the single-H check."""
+        _, _, content = script_result
+        assert 'len(h_indices) != 1' not in content
+        assert 'Expected exactly 1 H atom' not in content
+
+    def test_neighbour_union_logic_present(self, script_result):
+        _, _, content = script_result
+        assert 'neighbour_set' in content
+        assert 'for h in h_indices:' in content
+
+    def test_output_uses_h_indices_list_not_h_index(self, script_result):
+        """h_indices (list of 2) replaces write_vibration_script's h_index
+        (single int) -- confirmed safe since load_vibration_results and
+        tst_rates.py's split_vib_results/vineyard_prefactor/build_rate_dict
+        only ever read frequencies_real_cm1/frequencies_imag_cm1."""
+        _, _, content = script_result
+        assert '"h_indices":' in content
+        assert '"h_index":' not in content
+
+    def test_mace_calculator_imported(self, script_result):
+        _, _, content = script_result
+        assert 'MACECalculator' in content
+
+    def test_vibrations_class_imported(self, script_result):
+        _, _, content = script_result
+        assert 'Vibrations' in content
+
+    def test_vib_frequencies_json_in_script(self, script_result):
+        _, _, content = script_result
+        assert 'vib_frequencies.json' in content
+
+    def test_file_is_executable(self, script_result):
+        _, out_path, _ = script_result
+        assert os.access(out_path, os.X_OK)
+
+    def test_parent_directory_created(self, tmp_path):
+        nested = str(tmp_path / 'a' / 'b' / 'c' / 'vib_run.py')
+        write_diss_vibration_script(_STRUCT, _MACE, nested, _OUTDIR)
+        assert pathlib.Path(nested).exists()
+
+    def test_custom_delta_and_device(self, tmp_path):
+        out = str(tmp_path / 'vib.py')
+        write_diss_vibration_script(_STRUCT, _MACE, out, _OUTDIR,
+                                     delta=0.05, device='cuda')
+        content = pathlib.Path(out).read_text()
+        assert '0.05' in content
+        assert "'cuda'" in content
+
+    def test_default_dtype_is_float32(self, script_result):
+        _, _, content = script_result
+        assert "DTYPE      = 'float32'" in content
+        assert 'default_dtype=DTYPE' in content
+
+    def test_custom_dtype_override(self, tmp_path):
+        out = str(tmp_path / 'vib.py')
+        write_diss_vibration_script(_STRUCT, _MACE, out, _OUTDIR, dtype='float64')
+        content = pathlib.Path(out).read_text()
+        assert "DTYPE      = 'float64'" in content
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 5b. orchestrate_diss_vibrations -- 2-H variant orchestrator
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestOrchestrateDissVibrations:
+
+    _PAIRS = [
+        ('s_12__s_1+s_65_IS', '/data/is.lammps'),
+        ('s_12__s_1+s_65_TS', '/data/ts.lammps'),
+    ]
+    _SLURM = {
+        'partition'    : 'cpu',
+        'ntasks'       : 1,
+        'cpus_per_task': 4,
+        'time'         : '02:00:00',
+        'mem'          : '8G',
+        'conda_env'    : 'ase-env',
+        'openmpi_ver'  : '4.1.4',
+    }
+
+    def test_creates_vib_run_py_per_label(self, tmp_path):
+        orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE, dry_run=True)
+        for label, _ in self._PAIRS:
+            p = tmp_path / 'out' / label / 'vib_run.py'
+            assert p.exists(), f'{label}/vib_run.py not found'
+
+    def test_generated_script_uses_2h_generator(self, tmp_path):
+        """Confirms the orchestrator calls write_diss_vibration_script, not
+        write_vibration_script -- the whole point of this function existing."""
+        orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE, dry_run=True)
+        script = (tmp_path / 'out' / 's_12__s_1+s_65_IS' / 'vib_run.py').read_text()
+        assert 'Expected exactly 2 H atoms' in script
+
+    def test_returns_dict_keyed_by_label(self, tmp_path):
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE, dry_run=True)
+        for label, _ in self._PAIRS:
+            assert label in result
+
+    def test_result_has_vib_script_key(self, tmp_path):
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE, dry_run=True)
+        for label, _ in self._PAIRS:
+            assert 'vib_script' in result[label]
+
+    def test_result_has_vib_json_key(self, tmp_path):
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE, dry_run=True)
+        for label, _ in self._PAIRS:
+            assert 'vib_json' in result[label]
+
+    def test_no_slurm_file_when_opts_none(self, tmp_path):
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=None, dry_run=True)
+        for label, _ in self._PAIRS:
+            assert result[label]['slurm'] is None
+
+    def test_slurm_file_created_when_opts_provided(self, tmp_path):
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=self._SLURM, dry_run=True)
+        for label, _ in self._PAIRS:
+            slurm_path = result[label]['slurm']
+            assert slurm_path is not None
+            assert pathlib.Path(slurm_path).exists()
+
+    def test_empty_structure_list_returns_empty_dict(self, tmp_path):
+        result = orchestrate_diss_vibrations(
+            [], str(tmp_path / 'out'), _MACE, dry_run=True)
+        assert result == {}
+
+
+class TestOrchestrateDissVibrationsCheckpoint:
+    """Same vib.done checkpoint-skip convention as orchestrate_vibrations,
+    mirrored here since orchestrate_diss_vibrations is a deliberate parallel
+    duplicate rather than a shared code path."""
+
+    _PAIRS = [('s_12__s_1+s_65_IS', '/data/is.lammps')]
+    _SLURM = {
+        'partition'    : 'cpu',
+        'ntasks'       : 1,
+        'cpus_per_task': 4,
+        'time'         : '02:00:00',
+        'mem'          : '8G',
+        'conda_env'    : 'ase-env',
+        'openmpi_ver'  : '4.1.4',
+    }
+
+    def test_skips_regeneration_when_done_marker_present(self, tmp_path, monkeypatch):
+        job_outdir = tmp_path / 'out' / 's_12__s_1+s_65_IS'
+        job_outdir.mkdir(parents=True)
+        (job_outdir / 'vib.done').touch()
+
+        calls = []
+        monkeypatch.setattr(
+            'models.vibrations.write_diss_vibration_script',
+            lambda **kw: calls.append(kw),
+        )
+
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=self._SLURM, dry_run=True)
+
+        assert calls == []
+        assert result['s_12__s_1+s_65_IS']['slurm'] is None
+
+    def test_regenerates_when_done_marker_absent(self, tmp_path):
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=self._SLURM, dry_run=True)
+
+        assert result['s_12__s_1+s_65_IS']['slurm'] is not None
+        assert pathlib.Path(result['s_12__s_1+s_65_IS']['vib_script']).exists()
+
+    def test_skip_never_returns_stale_slurm_path(self, tmp_path):
+        job_outdir = tmp_path / 'out' / 's_12__s_1+s_65_IS'
+        job_outdir.mkdir(parents=True)
+        (job_outdir / 'vib.done').touch()
+        (job_outdir / 'vib_job.sh').write_text('#!/bin/bash\necho real work\n')
+
+        result = orchestrate_diss_vibrations(
+            self._PAIRS, str(tmp_path / 'out'), _MACE,
+            slurm_opts=self._SLURM, dry_run=True)
+
+        assert result['s_12__s_1+s_65_IS']['slurm'] is None
