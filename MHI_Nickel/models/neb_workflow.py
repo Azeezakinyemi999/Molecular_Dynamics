@@ -2830,7 +2830,7 @@ import json as _json_e
 import glob as _glob_e
 
 from models.config import MACE_MODEL_ASE as _MACE_ASE_E
-from models.vibrations import orchestrate_vibrations as _orch_vib_e
+from models.vibrations import orchestrate_diss_vibrations as _orch_vib_e
 from models.tst_rates import (
     split_vib_results as _split_vib_e,
     build_rate_dict as _brd_e,
