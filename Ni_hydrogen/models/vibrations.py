@@ -3,16 +3,20 @@ models/vibrations.py
 ====================
 Frozen-phonon vibrational frequency calculations using ASE Vibrations + MACE.
 
-Applies a partial Hessian — H atom + 6 nearest metal neighbours, 42 single-points
-per structure — to compute IS and TS frequencies for Vineyard prefactor evaluation.
+Applies a partial Hessian — H atom(s) + nearest metal neighbours — to compute IS and TS
+frequencies for Vineyard prefactor evaluation. Two variants: single-H (Hop A/Hop B
+subsurface interstitial hopping, 7 atoms/42 single-points) and 2-H (H2 surface
+dissociation IS/TS, 8-14 atoms depending on neighbour overlap).
 
 Workflow
 --------
-1. ``write_vibration_script``  — generate standalone ``vib_run.py`` for one structure
+1. ``write_vibration_script``       — generate standalone ``vib_run.py`` (1 H atom)
+1b. ``write_diss_vibration_script`` — generate standalone ``vib_run.py`` (2 H atoms, dissociation)
 2. ``extract_ts_structure``    — locate the TS image from a converged NEB job directory
 3. ``collect_is_ts_paths``     — build (label, path) list from Hop A / Hop B job dicts
 4. ``load_vibration_results``  — read ``vib_frequencies.json`` after the cluster run
-5. ``orchestrate_vibrations``  — write + (optionally submit) SLURM jobs for a batch
+5. ``orchestrate_vibrations``       — write + (optionally submit) SLURM jobs for a batch (1 H atom)
+5b. ``orchestrate_diss_vibrations`` — write + (optionally submit) SLURM jobs for a batch (2 H atoms)
 """
 
 from __future__ import annotations
@@ -242,6 +246,156 @@ def write_vibration_script(
 
 
 # ---------------------------------------------------------------------------
+# Section 2b — Script generator (2-H variant, H2 surface dissociation)
+# ---------------------------------------------------------------------------
+
+def write_diss_vibration_script(
+    structure_path: str,
+    mace_model_path: str,
+    out_path: str,
+    outdir: str,
+    delta: float = 0.01,
+    device: str = 'cpu',
+    dtype: str = 'float32',
+) -> str:
+    """Write a standalone Python script computing partial-Hessian frequencies
+    for an H2 surface-dissociation IS/TS structure (2 H atoms).
+
+    ``write_vibration_script`` requires exactly 1 H atom -- correct for the
+    single-interstitial-H Hop A/Hop B subsurface hopping case, but an H2
+    dissociation pathway's IS (intact H2*) and TS (peak-energy NEB image,
+    still mid-dissociation) always have 2 H atoms. This is a separate
+    function rather than a generalisation of ``write_vibration_script``, so
+    that function and its Hop A/Hop B callers are unaffected.
+
+    The generated script:
+
+    1. Loads the structure from a LAMMPS data file via ASE.
+    2. Attaches ``MACECalculator``.
+    3. Identifies both H atoms and the *union* of each H atom's 6 nearest
+       metal neighbours (8-14 atoms total depending on overlap between the
+       two H atoms' neighbour sets).
+    4. Runs ``ASE Vibrations`` on those atoms.
+    5. Saves ``{outdir}/vib_frequencies.json``.
+
+    Parameters
+    ----------
+    structure_path : str
+        LAMMPS data file (dissociation IS or TS geometry).
+    mace_model_path : str
+        Path to the MACE ``.model`` file.
+    out_path : str
+        Destination path for the generated ``vib_run.py``.
+    outdir : str
+        Directory for ASE cache files and output ``vib_frequencies.json``.
+    delta : float
+        Finite-difference displacement magnitude (Å).  Default 0.01.
+    device : str
+        MACE device string — ``'cpu'`` or ``'cuda'``.  Default ``'cpu'``.
+    dtype : str
+        MACE ``default_dtype`` — ``'float32'`` (default) or ``'float64'``.
+
+    Returns
+    -------
+    str
+        Path to the written script.
+    """
+    script = textwrap.dedent(f'''\
+        #!/usr/bin/env python3
+        """Partial-Hessian vibrational frequency calculation via ASE + MACE (2 H atoms)."""
+        import json, os
+        import numpy as np
+        from ase.io import read
+        from ase.vibrations import Vibrations
+        from mace.calculators import MACECalculator
+
+        STRUCTURE  = {structure_path!r}
+        MACE_MODEL = {mace_model_path!r}
+        OUTDIR     = {outdir!r}
+        DELTA      = {delta}
+        DEVICE     = {device!r}
+        DTYPE      = {dtype!r}
+
+        os.makedirs(OUTDIR, exist_ok=True)
+
+        # ── Load structure ────────────────────────────────────────────────────
+        atoms = read(STRUCTURE, format="lammps-data", atom_style="atomic")
+        atoms.wrap()
+        calc  = MACECalculator(
+            model_paths=MACE_MODEL, device=DEVICE, default_dtype=DTYPE, head="omat_pbe"
+        )
+        atoms.calc = calc
+
+        # ── Identify both H atoms + union of each H atom's 6 nearest metal neighbours ──
+        syms      = np.array(atoms.get_chemical_symbols())
+        pos       = atoms.get_positions()
+        h_indices = np.where(syms == "H")[0]
+        if len(h_indices) != 2:
+            raise RuntimeError(
+                "Expected exactly 2 H atoms (H2 dissociation IS/TS), found " + str(len(h_indices))
+            )
+        metal_idx      = np.where(syms != "H")[0]
+        neighbour_set   = set()
+        for h in h_indices:
+            dists = np.linalg.norm(pos[metal_idx] - pos[h], axis=1)
+            neighbour_set.update(metal_idx[np.argsort(dists)[:6]].tolist())
+        nearest_metals = sorted(neighbour_set)
+        indices        = [int(h) for h in h_indices] + nearest_metals
+        print("Displacing", len(indices), "atoms: H @", [int(h) for h in h_indices],
+              "metals @", nearest_metals)
+
+        # ── Finite-difference vibrations ──────────────────────────────────────
+        vib_name = os.path.join(OUTDIR, "vib")
+        vib = Vibrations(atoms, indices=indices, delta=DELTA, name=vib_name)
+        vib.run()
+        vib.summary()
+
+        # ── Extract real and imaginary frequencies ────────────────────────────
+        # ASE returns complex cm^-1: imaginary modes have f.imag != 0
+        freqs_raw      = vib.get_frequencies()
+        freqs_real_cm1 = []
+        freqs_imag_cm1 = []
+        for f in freqs_raw:
+            if abs(f.imag) > 1e-6:
+                freqs_imag_cm1.append(float(abs(f.imag)))
+            elif f.real > 0:
+                freqs_real_cm1.append(float(f.real))
+            else:
+                # near-zero or slightly negative — treat as imaginary
+                freqs_imag_cm1.append(float(abs(f.real)))
+
+        result = {{
+            "structure":            STRUCTURE,
+            "n_atoms_displaced":    len(indices),
+            "h_indices":            [int(h) for h in h_indices],
+            "metal_indices":        nearest_metals,
+            "delta_ang":            DELTA,
+            "frequencies_real_cm1": freqs_real_cm1,
+            "frequencies_imag_cm1": freqs_imag_cm1,
+        }}
+
+        out_json = os.path.join(OUTDIR, "vib_frequencies.json")
+        with open(out_json, "w") as fh:
+            json.dump(result, fh, indent=2)
+        print("Wrote:", out_json)
+        print("Real modes (", len(freqs_real_cm1), "):", freqs_real_cm1[:5], "...")
+        print("Imag modes (", len(freqs_imag_cm1), "):", freqs_imag_cm1)
+
+        # Checkpoint marker -- written last, only after vib_frequencies.json
+        # is confirmed on disk, so a killed job never leaves a false "done".
+        with open(os.path.join(OUTDIR, "vib.done"), "w") as fh:
+            fh.write("")
+    ''')
+
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    with open(out_path, 'w', encoding='utf-8') as fh:
+        fh.write(script)
+    os.chmod(out_path, 0o755)
+    print(f'Written: {out_path}')
+    return out_path
+
+
+# ---------------------------------------------------------------------------
 # Section 3 — Collect IS / TS paths from job dicts
 # ---------------------------------------------------------------------------
 
@@ -429,4 +583,105 @@ def orchestrate_vibrations(
     n      = len(structure_paths)
     status = 'scripts written (dry_run)' if dry_run else f'{n} jobs submitted'
     print(f'[orchestrate_vibrations] {n} structures → {outdir}  ({status})')
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Section 5b — Orchestrator (2-H variant, H2 surface dissociation)
+# ---------------------------------------------------------------------------
+
+def orchestrate_diss_vibrations(
+    structure_paths: list,
+    outdir: str,
+    mace_model_path: str,
+    slurm_opts: dict | None = None,
+    delta: float = 0.01,
+    device: str = 'cpu',
+    dry_run: bool = True,
+) -> dict:
+    """Write and optionally submit one ``vib_run.py`` + SLURM job per
+    dissociation IS/TS structure (2 H atoms).
+
+    Parallel duplicate of ``orchestrate_vibrations`` calling
+    ``write_diss_vibration_script`` instead of ``write_vibration_script`` --
+    kept separate (rather than adding a branch to ``orchestrate_vibrations``)
+    so Hop A/Hop B's proven single-H path is completely unaffected.
+
+    Parameters
+    ----------
+    structure_paths : list of (label, lammps_path)
+        Dissociation IS/TS structures to compute frequencies for. Labels
+        should be unique, e.g. ``[('s_12__s_1+s_65_IS', '...'),
+        ('s_12__s_1+s_65_TS', '...'), ...]``.
+    outdir : str
+        Root output directory.  Each label gets its own sub-directory
+        ``{outdir}/{label}/``.
+    mace_model_path : str
+        Path to the MACE ``.model`` file.
+    slurm_opts : dict, optional
+        SLURM cluster configuration passed to ``write_slurm_job``.
+        If ``None``, only Python scripts are written (no SLURM scripts).
+    delta : float
+        Finite-difference displacement magnitude (Å).
+    device : str
+        MACE device string.  Vibration runs are CPU-bound; default ``'cpu'``.
+    dry_run : bool
+        If ``True``, write scripts without calling ``sbatch``.
+
+    Returns
+    -------
+    dict
+        ``{label: {'vib_script': str, 'vib_json': str, 'slurm': str | None}}``
+    """
+    os.makedirs(outdir, exist_ok=True)
+    results: dict = {}
+
+    for label, lammps_path in structure_paths:
+        job_outdir  = os.path.join(outdir, label)
+        os.makedirs(job_outdir, exist_ok=True)
+        script_path = os.path.join(job_outdir, 'vib_run.py')
+        vib_json    = os.path.join(job_outdir, 'vib_frequencies.json')
+        done_marker = os.path.join(job_outdir, 'vib.done')
+
+        if is_done(done_marker):
+            print(f'  [{label}] already done ({done_marker}) — skipping')
+            results[label] = {
+                'vib_script': script_path,
+                'vib_json'  : vib_json,
+                'slurm'     : None,
+            }
+            continue
+
+        write_diss_vibration_script(
+            structure_path  = lammps_path,
+            mace_model_path = mace_model_path,
+            out_path        = script_path,
+            outdir          = job_outdir,
+            delta           = delta,
+            device          = device,
+        )
+
+        slurm_path = None
+        if slurm_opts is not None:
+            slurm_path = os.path.join(job_outdir, 'vib_job.sh')
+            write_slurm_job(
+                job_name   = f'vib_{label}',
+                slurm_config = slurm_opts,
+                out_path   = slurm_path,
+                script_path= script_path,
+                runner     = 'python',
+                output_log = os.path.join(job_outdir, f'vib_{label}_%j.out'),
+            )
+            if not dry_run:
+                submit_with_retry(slurm_path)
+
+        results[label] = {
+            'vib_script': script_path,
+            'vib_json'  : vib_json,
+            'slurm'     : slurm_path,
+        }
+
+    n      = len(structure_paths)
+    status = 'scripts written (dry_run)' if dry_run else f'{n} jobs submitted'
+    print(f'[orchestrate_diss_vibrations] {n} structures → {outdir}  ({status})')
     return results
