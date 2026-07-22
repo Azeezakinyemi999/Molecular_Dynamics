@@ -158,6 +158,17 @@ def build_neb_images(
     from ase.mep import NEB
     from ase.calculators.singlepoint import SinglePointCalculator
 
+    # NOTE: the ASE LAMMPS-data reader below always defaults atoms.pbc to
+    # (True, True, True) -- these files carry no periodicity metadata --
+    # even though these are slabs with a vacuum gap, not periodic in z.
+    # Investigated whether this could let the MACE
+    # calculator's periodic neighbour search spuriously "see" an atom's own
+    # image across the vacuum during force evaluation: with this pipeline's
+    # real production model (r_max=6.0 A, 2 interaction layers) and the
+    # real vacuum geometry (~31 A total gap -- VACUUM=15.0 A applied on
+    # both sides of the slab, not just one), no atom pair can ever be
+    # within r_max of its periodic image across z. Confirmed harmless;
+    # left as-is rather than fixed.
     is_raw = read(is_file, format='lammps-data', atom_style='atomic')
     is_raw.wrap()
     fs_raw = read(fs_file, format='lammps-data', atom_style='atomic')
@@ -656,6 +667,11 @@ def write_ase_neb_script(
                 model_paths=MACE_MODEL, device=DEVICE, default_dtype=DTYPE, head="omat_pbe")
 
         # ── Load structures and pin endpoint energies ─────────────────────
+        # NOTE: atoms.pbc defaults to (True, True, True) from this read()
+        # despite the vacuum gap in z -- investigated and confirmed harmless
+        # for the actual MACE calculator's periodic neighbour search given
+        # this pipeline's real r_max/vacuum geometry; see the matching note
+        # in build_neb_images() in models/ase_neb.py for the full reasoning.
         is_raw = read(NEB_IS_FILE, format="lammps-data", atom_style="atomic")
         is_raw.wrap()
         fs_raw = read(FS_RELAXED_DATA, format="lammps-data", atom_style="atomic")
