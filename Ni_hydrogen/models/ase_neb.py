@@ -157,11 +157,48 @@ def build_neb_images(
     from ase.io import read
     from ase.mep import NEB
     from ase.calculators.singlepoint import SinglePointCalculator
+    from ase.geometry import find_mic
+    import warnings
 
     is_raw = read(is_file, format='lammps-data', atom_style='atomic')
     is_raw.wrap()
     fs_raw = read(fs_file, format='lammps-data', atom_style='atomic')
-    fs_raw.wrap()
+
+    if not np.allclose(is_raw.cell.array, fs_raw.cell.array):
+        raise RuntimeError(
+            f'IS and FS cells differ ({is_file} vs {fs_file}) -- find_mic() '
+            f'assumes a shared cell; check both LAMMPS outputs.'
+        )
+
+    # Align FS to IS's frame via minimum-image displacement per atom, instead
+    # of wrapping independently -- an atom near a cell boundary in one
+    # structure but not the other otherwise shows a spurious ~cell-length
+    # "jump" that NEB.interpolate() takes as a literal path to traverse
+    # (confirmed on a real pair: metal atoms with ~cell-length naive
+    # displacement but ~0.01 Å true displacement). pbc=(True, True, False)
+    # matches every slab in this pipeline -- periodic in-plane (x, y), fixed
+    # in z (surface normal, topped with vacuum). This is passed to find_mic
+    # only; it deliberately does NOT change is_raw/fs_raw's own .pbc, so
+    # calculator behaviour (periodic neighbour lists) elsewhere in the NEB
+    # run is unaffected by this alignment step.
+    _slab_pbc = (True, True, False)
+    _diff = fs_raw.get_positions() - is_raw.get_positions()
+    # Gate the ambiguity check by the same pbc mask used below -- z is not
+    # periodic (vacuum gap), so any raw z-displacement, however large, is
+    # the true motion with zero wrap ambiguity. Checking all 3 axes
+    # uniformly would false-positive on a real, unambiguous desorption-like
+    # z-motion that's well over half the (typically huge, vacuum-inflated)
+    # z cell length but was never a candidate for wrapping in the first place.
+    _half_cell = 0.5 * is_raw.cell.lengths()
+    if np.any((np.abs(_diff) > _half_cell) & np.array(_slab_pbc)):
+        warnings.warn(
+            f"Some atom's raw IS->FS displacement in {fs_file} exceeds half "
+            f'the cell length along a periodic axis -- find_mic() cannot '
+            f'distinguish a genuine large hop from wrapping around the box '
+            f'in that case; inspect manually.'
+        )
+    _mic_vec, _ = find_mic(_diff, is_raw.cell, pbc=_slab_pbc)
+    fs_raw.set_positions(is_raw.get_positions() + _mic_vec)
 
     # Pin endpoint energies if supplied
     def _pin(atoms, energy):
@@ -590,6 +627,7 @@ def write_ase_neb_script(
         # Two-phase: regular NEB (phase 1) → CINEB (phase 2)
 
         import os, sys
+        import warnings
         import numpy as np
 
         # Strip cpu stubs from LD_LIBRARY_PATH — causes segfault on some nodes
@@ -606,6 +644,7 @@ def write_ase_neb_script(
         from ase.mep import NEB
         from ase.optimize import FIRE
         from ase.calculators.singlepoint import SinglePointCalculator
+        from ase.geometry import find_mic
         from mace.calculators import MACECalculator
         from models.structure import write_lammps_data
 
@@ -659,7 +698,43 @@ def write_ase_neb_script(
         is_raw = read(NEB_IS_FILE, format="lammps-data", atom_style="atomic")
         is_raw.wrap()
         fs_raw = read(FS_RELAXED_DATA, format="lammps-data", atom_style="atomic")
-        fs_raw.wrap()
+
+        if not np.allclose(is_raw.cell.array, fs_raw.cell.array):
+            raise RuntimeError(
+                f"IS and FS cells differ ({{NEB_IS_FILE}} vs {{FS_RELAXED_DATA}}) -- "
+                f"find_mic() assumes a shared cell; check both LAMMPS outputs."
+            )
+
+        # Align FS to IS's frame via minimum-image displacement per atom,
+        # instead of wrapping independently -- an atom near a cell boundary
+        # in one structure but not the other otherwise shows a spurious
+        # ~cell-length "jump" that NEB.interpolate() takes as a literal path
+        # to traverse (confirmed on a real pair: metal atoms with
+        # ~cell-length naive displacement but ~0.01 Å true displacement).
+        # pbc=(True, True, False) matches every slab in this pipeline --
+        # periodic in-plane (x, y), fixed in z (surface normal, topped with
+        # vacuum). This is passed to find_mic only; it deliberately does NOT
+        # change is_raw/fs_raw's own .pbc, so calculator behaviour (periodic
+        # neighbour lists) elsewhere in the NEB run is unaffected.
+        _slab_pbc = (True, True, False)
+        _diff = fs_raw.get_positions() - is_raw.get_positions()
+        # Gate the ambiguity check by the same pbc mask used below -- z is
+        # not periodic (vacuum gap), so any raw z-displacement, however
+        # large, is the true motion with zero wrap ambiguity. Checking all
+        # 3 axes uniformly would false-positive on a real, unambiguous
+        # desorption-like z-motion that's well over half the (typically
+        # huge, vacuum-inflated) z cell length but was never a candidate
+        # for wrapping in the first place.
+        _half_cell = 0.5 * is_raw.cell.lengths()
+        if np.any((np.abs(_diff) > _half_cell) & np.array(_slab_pbc)):
+            warnings.warn(
+                f"Some atom's raw IS->FS displacement in {{FS_RELAXED_DATA}} "
+                f"exceeds half the cell length along a periodic axis -- "
+                f"find_mic() cannot distinguish a genuine large hop from "
+                f"wrapping around the box in that case; inspect manually."
+            )
+        _mic_vec, _ = find_mic(_diff, is_raw.cell, pbc=_slab_pbc)
+        fs_raw.set_positions(is_raw.get_positions() + _mic_vec)
 
         def pin(atoms, energy):
             atoms = atoms.copy()
