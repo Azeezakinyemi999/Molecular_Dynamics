@@ -25,6 +25,7 @@ matplotlib.use('Agg')   # must precede any pyplot import
 
 from models.diffusivity_workflow import (
     generate_diffusivity_scripts,
+    write_diffusivity_run_script,
     generate_orchestrator_sh,
     load_diffusivity_results,
     qc_minimizations,
@@ -220,6 +221,160 @@ class TestGenerateDiffusivityScripts:
         _, _, content = gen_result
         assert 'diffusivity_failures.json' in content
         assert 'sys.exit(1)' in content
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1b. write_diffusivity_run_script — per-metal counterpart
+# ═══════════════════════════════════════════════════════════════════════════
+# generate_diffusivity_scripts handles every metal in one combined script,
+# serially (a `for struct_path in INPUT_STRUCTURES:` loop) -- unlike
+# write_neb_run_script / generate_permeation_scripts, which are per-metal.
+# write_diffusivity_run_script closes that gap: same phases, one structure,
+# no outer loop. generate_diffusivity_scripts itself is untouched.
+
+_PERMETAL_CFG = dict(
+    struct_path='/data/Ni3Mo.lammps',
+    stem='Ni3Mo',
+    n_h_values=_NH,
+    temperatures=_TEMPS,
+    work_dir='/work',
+    nvt_wall_time='48:00:00',
+    cutoff='47:50:00',
+    gpu_partition='gpu_p100',
+    gpu_time='48:00:00',
+    timestep_ps=0.0005,
+    tau_t_ps=0.1,
+    n_equil_steps=2_000_000,
+    n_prod_steps=7_000_000,
+    thermo_every=1000,
+    dump_every=1000,
+    velocity_seed=12345,
+    restart_every=10000,
+)
+
+
+class TestWriteDiffusivityRunScript:
+
+    @pytest.fixture()
+    def gen_result(self, tmp_path):
+        out_py = str(tmp_path / 'scripts' / 'diffusivity_run_Ni3Mo.py')
+        ret = write_diffusivity_run_script(**_PERMETAL_CFG, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        return ret, out_py, content
+
+    def test_file_created(self, gen_result):
+        _, out_py, _ = gen_result
+        assert pathlib.Path(out_py).exists()
+
+    def test_returns_out_py_path(self, gen_result):
+        ret, out_py, _ = gen_result
+        assert ret == out_py
+
+    def test_struct_path_and_stem_embedded(self, gen_result):
+        _, _, content = gen_result
+        assert 'Ni3Mo.lammps' in content
+        assert "STRUCT_STEM      = 'Ni3Mo'" in content
+
+    def test_no_input_structures_loop(self, gen_result):
+        """The whole point of this function: no outer metals loop."""
+        _, _, content = gen_result
+        assert 'INPUT_STRUCTURES' not in content
+        assert 'for struct_path in' not in content
+
+    def test_no_metal_table(self, gen_result):
+        """elem_str/e2t/masses are injected directly for this one metal,
+        not looked up from a METAL_TABLE dict keyed by every metal's stem."""
+        _, _, content = gen_result
+        assert 'METAL_TABLE' not in content
+
+    def test_elem_str_e2t_masses_embedded_directly(self, tmp_path):
+        out_py = str(tmp_path / 'run.py')
+        write_diffusivity_run_script(
+            **_PERMETAL_CFG, elem_str='Ni Mo H',
+            e2t={'Ni': 1, 'Mo': 2, 'H': 3}, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        assert "ELEM_STR         = 'Ni Mo H'" in content
+        assert "E2T              = {'Ni': 1, 'Mo': 2, 'H': 3}" in content
+
+    def test_temperatures_embedded(self, gen_result):
+        _, _, content = gen_result
+        assert 'TEMPERATURES' in content
+        assert '600' in content
+        assert '1000' in content
+
+    def test_phase1a_label_in_body(self, gen_result):
+        _, _, content = gen_result
+        assert 'Phase 1a' in content
+
+    def test_phase2_label_in_body(self, gen_result):
+        _, _, content = gen_result
+        assert 'Phase 2' in content
+
+    def test_phase3_label_in_body(self, gen_result):
+        _, _, content = gen_result
+        assert 'Phase 3' in content
+
+    def test_minimization_restart_script_imported(self, gen_result):
+        _, _, content = gen_result
+        assert 'write_minimization_restart_script' in content
+
+    def test_min_restart_every_embedded_with_default(self, gen_result):
+        _, _, content = gen_result
+        assert 'MIN_RESTART_EVERY = 2000' in content
+
+    def test_short_gpu_cutoff_auto_computed(self, tmp_path):
+        out_py = str(tmp_path / 'run.py')
+        write_diffusivity_run_script(**_PERMETAL_CFG, short_gpu_time='04:00:00',
+                                      short_gpu_cutoff=None, out_py=out_py)
+        content = pathlib.Path(out_py).read_text()
+        assert "'03:55:00'" in content
+
+    def test_arrhenius_json_path_is_per_run_not_shared(self, gen_result):
+        _, _, content = gen_result
+        assert "os.path.join(dirs['root'], 'diffusivity_arrhenius.json')" in content
+        assert "os.path.join(WORK_DIR, 'results', struct_stem, 'diffusivity_arrhenius.json')" not in content
+
+    def test_per_combo_try_except_wraps_full_body(self, gen_result):
+        """Same regression guard as generate_diffusivity_scripts: the inner
+        per-(stem, n_H) try/except must span the whole body."""
+        _, _, content = gen_result
+        run_name_idx = content.index("run_name = f'{struct_stem}_{n_h}H'")
+        try_idx      = content.index('try:', run_name_idx)
+        except_idx   = content.index('except Exception as _exc:', try_idx)
+        saved_idx    = content.rindex("print(f'  Saved diffusivity_arrhenius.json")
+        assert run_name_idx < try_idx < saved_idx < except_idx
+
+    def test_per_stem_failure_manifest_and_nonzero_exit(self, gen_result):
+        """Failures file is namespaced per stem (diffusivity_failures_{stem}.json),
+        not the shared diffusivity_failures.json from the all-metals script --
+        otherwise concurrent per-metal runs in the same WORK_DIR would clobber
+        each other's failure reports."""
+        _, _, content = gen_result
+        assert "diffusivity_failures_{struct_stem}.json" in content
+        assert "diffusivity_failures.json'" not in content
+        assert 'sys.exit(1)' in content
+
+    def test_shared_phase_failure_exits_instead_of_continuing(self, gen_result):
+        """generate_diffusivity_scripts' shared bare-bulk/NPT except block
+        does `continue` to skip to the next structure in the outer loop --
+        with no outer loop here, a shared-phase failure must write the
+        failures file and exit(1) instead, not silently fall through to the
+        n_H loop with an undefined/stale state."""
+        _, _, content = gen_result
+        shared_except_idx = content.index(
+            "FAILED (shared bare-bulk/NPT for {struct_stem})")
+        block = content[shared_except_idx:shared_except_idx + 800]
+        assert 'sys.exit(1)' in block
+        assert '\n    continue' not in block
+
+    def test_default_elem_str_e2t_masses_fall_back_to_7_type_tables(self, gen_result):
+        """Omitting elem_str/e2t/masses must still produce a runnable script
+        using the standard 7-type (non-oxide) tables, same fallback
+        generate_diffusivity_scripts' METAL_TABLE.get(..., default) used."""
+        _, _, content = gen_result
+        assert 'ELEM_STR         =' in content
+        assert 'E2T              =' in content
+        assert 'MASSES           =' in content
 
 
 class TestDiffusivityFailureIsolation:
