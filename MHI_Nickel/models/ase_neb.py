@@ -252,7 +252,7 @@ def run_cineb(
     images: list,
     calc_fn,
     spring_const: float = 1.0,
-    neb_ftol: float = 2.5,
+    neb_ftol: float = 0.05,
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     logfile_phase1: str = 'neb_phase1.log',
@@ -306,7 +306,7 @@ def run_cineb(
     neb = NEB(images, climb=False, k=spring_const, method='aseneb')
 
     # Phase 1 — regular NEB
-    phase1_fmax = neb_ftol * 1.5
+    phase1_fmax = neb_ftol * 3.0
     print(f'\nPhase 1: regular NEB  ({phase1_steps} steps, fmax={phase1_fmax:.3f} eV/Å)')
     sys.stdout.flush()
     opt1 = FIRE(neb, logfile=logfile_phase1, dt=0.05)
@@ -495,7 +495,7 @@ def write_ase_neb_script(
     fs_log_file: str | None = None,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 2.5,
+    neb_ftol: float = 0.05,
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
@@ -677,7 +677,7 @@ def write_ase_neb_script(
         N_IMAGES        = {n_images}           # intermediate images
         SPRING_CONST    = {spring_const}       # eV/Å²
         NEB_FMAX        = {neb_ftol}           # eV/Å — CINEB convergence
-        N1_FMAX         = NEB_FMAX * 1.5       # eV/Å — phase 1 (looser)
+        N1_FMAX         = NEB_FMAX * 3         # eV/Å — phase 1 (looser)
         N1_STEPS        = {phase1_steps}
         NEB_STEPS       = {phase2_steps}
         DEVICE          = "{device}"
@@ -1014,7 +1014,7 @@ def run_neb_pipeline(
     job_name: str = 'neb',
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 2.5,
+    neb_ftol: float = 0.05,
     phase1_steps: int = 5000,
     phase2_steps: int = 10000,
     z_freeze_cutoff: float = 22.115,
@@ -1070,7 +1070,7 @@ def run_neb_pipeline(
     spring_const : float
         Elastic-band spring constant in eV/Å² (default 2.0).
     neb_ftol : float
-        CINEB force convergence tolerance in eV/Å (default 2.5).
+        CINEB force convergence tolerance in eV/Å (default 0.05).
     phase1_steps : int
         Phase 1 FIRE step limit (default 5000).
     phase2_steps : int
