@@ -18,7 +18,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
-from models.ase_neb import run_neb_pipeline
+from models.ase_neb import run_neb_pipeline, build_neb_images
 from models.config import MASSES_7, E2T_7
 
 
@@ -149,6 +149,80 @@ class TestRunNebPipeline:
         assert 'from ase.optimize import FIRE' in content
         assert content.count('FIRE(neb,') == 2
         assert 'MDMin' not in content
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# IS/FS periodic alignment -- independent wrap() calls used to let an atom
+# near a cell boundary in one endpoint but not the other get wrapped to
+# opposite sides of the cell, so NEB.interpolate() (raw Cartesian, no
+# periodic awareness) would treat that as a literal ~cell-length path to
+# traverse. Confirmed on a real pair (Hastelloy_N_1234_supercell,
+# s_145__s_73+s_144): 3 metal atoms showed ~12.6 Å naive displacement
+# (essentially the full 12.619 Å cell x-length) vs ~0.01 Å true
+# (minimum-image) displacement.
+
+class TestFsAlignedViaMinimumImage:
+
+    def test_find_mic_import_present(self, tmp_path):
+        _, content = _generate(tmp_path)
+        assert 'from ase.geometry import find_mic' in content
+
+    def test_fs_no_longer_wrapped_independently(self, tmp_path):
+        _, content = _generate(tmp_path)
+        assert 'fs_raw.wrap()' not in content
+
+    def test_is_still_wrapped_as_the_anchor_frame(self, tmp_path):
+        _, content = _generate(tmp_path)
+        assert 'is_raw.wrap()' in content
+
+    def test_fs_positions_set_from_minimum_image_vector(self, tmp_path):
+        _, content = _generate(tmp_path)
+        assert 'find_mic(_diff, is_raw.cell, pbc=_slab_pbc)' in content
+        assert 'fs_raw.set_positions(is_raw.get_positions() + _mic_vec)' in content
+        # The alignment must happen after IS is loaded/wrapped (it aligns
+        # FS *to* IS's frame) and before FS's positions are used elsewhere.
+        wrap_idx  = content.index('is_raw.wrap()')
+        align_idx = content.index('fs_raw.set_positions(')
+        assert wrap_idx < align_idx
+
+    def test_slab_pbc_is_xy_periodic_z_fixed(self, tmp_path):
+        """find_mic must NOT treat z as periodic -- these are slabs with a
+        vacuum gap, not bulk-periodic in z. A pbc=True blanket would let
+        find_mic "shortcut" a real z-motion (e.g. toward desorption) through
+        the vacuum as if it wrapped around the box, which is physically
+        nonsensical for a non-periodic direction."""
+        _, content = _generate(tmp_path)
+        assert '_slab_pbc = (True, True, False)' in content
+
+    def test_slab_pbc_passed_to_find_mic_not_atoms_pbc(self, tmp_path):
+        """The fix must only affect the find_mic() call, not is_raw/fs_raw's
+        own .pbc attribute -- changing that would alter calculator behaviour
+        (periodic neighbour lists) for every force evaluation in the NEB
+        run, not just this alignment step."""
+        _, content = _generate(tmp_path)
+        assert 'is_raw.pbc = ' not in content
+        assert 'fs_raw.pbc = ' not in content
+
+    def test_cell_mismatch_raises_before_find_mic(self, tmp_path):
+        """find_mic() uses is_raw.cell only -- if FS's own minimisation ever
+        produced a different cell, aligning FS's positions against the
+        wrong periodic geometry would silently produce garbage."""
+        _, content = _generate(tmp_path)
+        assert 'np.allclose(is_raw.cell.array, fs_raw.cell.array)' in content
+        assert 'IS and FS cells differ' in content
+        cell_check_idx = content.index('np.allclose(is_raw.cell.array')
+        find_mic_call_idx = content.index('_mic_vec, _ = find_mic(')
+        assert cell_check_idx < find_mic_call_idx
+
+    def test_half_cell_length_warning_present(self, tmp_path):
+        """find_mic() structurally cannot distinguish a genuine displacement
+        > L/2 from a shorter wrap-around candidate -- flag it rather than
+        silently returning a possibly-ambiguous answer."""
+        _, content = _generate(tmp_path)
+        assert 'import warnings' in content
+        assert '0.5 * is_raw.cell.lengths()' in content
+        assert 'warnings.warn(' in content
+        assert 'find_mic() cannot distinguish a genuine large hop' in content
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -437,3 +511,246 @@ class TestNebFmaxMatchesOptimizerConvergence:
             "formula could never be an UNDER-estimate, i.e. Bug 21's phase1 "
             "convergence gate was always safe-direction, just imprecise"
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# build_neb_images -- numeric confirmation of the periodic-alignment fix
+# ═══════════════════════════════════════════════════════════════════════════
+# Synthetic reproduction of the real-pair bug: a metal atom sitting near a
+# cell face in IS, whose true physical relaxation is tiny (< 1 Å) but crosses
+# the boundary in FS. Independently wrapping each endpoint used to map that
+# atom to opposite sides of the cell -- a ~cell-length apparent jump that
+# NEB.interpolate() would take as a literal path. A control atom (safely
+# mid-cell) and the 2 H atoms (which genuinely move several Å -- the real
+# reaction coordinate) must be unaffected by the fix.
+
+class TestBuildNebImagesPeriodicAlignment:
+
+    _CELL = [10.0, 10.0, 10.0]
+    _SYMBOLS = ['Ni', 'Ni', 'H', 'H']
+
+    def _write_structure(self, path, positions):
+        from ase import Atoms
+        from ase.io import write as ase_write
+        atoms = Atoms(self._SYMBOLS, positions=positions, cell=self._CELL, pbc=True)
+        ase_write(path, atoms, format='lammps-data', masses=True,
+                  specorder=['Ni', 'H'])
+
+    @pytest.fixture()
+    def images(self, tmp_path):
+        # IS: "problem" Ni atom near the x=0 face; control Ni safely mid-cell;
+        # 2 H atoms mid-cell (intact H2-like separation).
+        is_positions = [
+            [0.2, 5.0, 5.0],    # problem atom
+            [5.0, 5.0, 5.0],    # control atom
+            [3.0, 3.0, 7.0],    # H
+            [3.0, 3.0, 7.5],    # H
+        ]
+        # FS: problem atom's TRUE displacement is 0.3 Å (0.2 -> -0.1) --
+        # independent wrapping would map -0.1 to 9.9, a ~9.7 Å apparent jump.
+        # Control atom moves a trivial 0.05 Å. H atoms move several Å (the
+        # real reaction coordinate) and must be left alone by the fix.
+        fs_positions = [
+            [-0.1, 5.0, 5.0],   # problem atom -- true displacement 0.3 Å
+            [5.05, 5.0, 5.0],   # control atom -- true displacement 0.05 Å
+            [4.0, 4.0, 7.0],    # H -- moved several Å (real reaction coordinate)
+            [4.0, 4.0, 7.5],    # H -- moved several Å
+        ]
+
+        is_file = str(tmp_path / 'is.lammps')
+        fs_file = str(tmp_path / 'fs.lammps')
+        self._write_structure(is_file, is_positions)
+        self._write_structure(fs_file, fs_positions)
+
+        return build_neb_images(is_file, fs_file, n_images=3)
+
+    def test_boundary_atom_does_not_jump_full_cell_length(self, images):
+        is_img, fs_img = images[0], images[-1]
+        problem_disp = np.linalg.norm(
+            fs_img.get_positions()[0] - is_img.get_positions()[0])
+        assert problem_disp < 1.0, (
+            f'boundary atom displaced {problem_disp:.2f} Å end-to-end -- '
+            f'looks like a wrap-boundary artifact, not the true ~0.3 Å '
+            f'relaxation'
+        )
+
+    def test_intermediate_images_never_show_a_large_jump_for_that_atom(self, images):
+        """Even if the endpoints happened to line up, IDPP could still route
+        an intermediate image far away -- check every image, not just the
+        two ends."""
+        disps = [
+            np.linalg.norm(img.get_positions()[0] - images[0].get_positions()[0])
+            for img in images
+        ]
+        assert max(disps) < 1.0, (
+            f'largest intermediate-image displacement for the boundary atom '
+            f'was {max(disps):.2f} Å across the path'
+        )
+
+    def test_control_atom_displacement_unaffected(self, images):
+        is_img, fs_img = images[0], images[-1]
+        control_disp = np.linalg.norm(
+            fs_img.get_positions()[1] - is_img.get_positions()[1])
+        assert control_disp == pytest.approx(0.05, abs=1e-6)
+
+    def test_h_atoms_still_move_the_real_reaction_distance(self, images):
+        """The fix must not clip or distort the genuine, large H
+        displacement -- only correct the spurious metal-atom wrap jump."""
+        is_img, fs_img = images[0], images[-1]
+        is_h = is_img.get_positions()[2:4]
+        fs_h = fs_img.get_positions()[2:4]
+        h_disps = np.linalg.norm(fs_h - is_h, axis=1)
+        assert all(d > 1.0 for d in h_disps), (
+            f'H displacements {h_disps} were clipped -- the fix must only '
+            f'correct metal-atom wrap artifacts, not the real reaction '
+            f'coordinate'
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# build_neb_images -- hardening: pbc=(True,True,False), half-cell warning,
+# cell-mismatch guard
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestBuildNebImagesHardening:
+
+    _CELL = [10.0, 10.0, 10.0]
+    _SYMBOLS = ['Ni', 'Ni', 'H', 'H']
+
+    def _write_structure(self, path, positions, cell=None):
+        from ase import Atoms
+        from ase.io import write as ase_write
+        atoms = Atoms(self._SYMBOLS, positions=positions,
+                       cell=cell or self._CELL, pbc=True)
+        ase_write(path, atoms, format='lammps-data', masses=True,
+                  specorder=['Ni', 'H'])
+
+    def test_large_z_motion_not_shortcut_through_vacuum(self, tmp_path):
+        """z must NOT be treated as periodic -- these are slabs with a
+        vacuum gap. A real, large z-displacement (e.g. toward desorption)
+        must be preserved as-is, not "wrapped" through the non-existent
+        periodic boundary in z the way it legitimately can in x/y."""
+        from models.ase_neb import build_neb_images
+
+        # z-displacement of 7 Å is > half of Lz=10 -- if z were (wrongly)
+        # treated as periodic, find_mic would shortcut this to ~-3 Å
+        # (7 - 10) instead of preserving the real 7 Å motion.
+        is_positions = [
+            [5.0, 5.0, 1.0],   # atom moving a lot in z (e.g. toward vacuum)
+            [5.0, 5.0, 5.0],   # control atom
+            [3.0, 3.0, 3.0],   # H
+            [3.0, 3.0, 3.5],   # H
+        ]
+        fs_positions = [
+            [5.0, 5.0, 8.0],   # true z-displacement: 7 Å
+            [5.05, 5.0, 5.0],
+            [4.0, 4.0, 3.0],
+            [4.0, 4.0, 3.5],
+        ]
+        is_file = str(tmp_path / 'is.lammps')
+        fs_file = str(tmp_path / 'fs.lammps')
+        self._write_structure(is_file, is_positions)
+        self._write_structure(fs_file, fs_positions)
+
+        images = build_neb_images(is_file, fs_file, n_images=3)
+        is_img, fs_img = images[0], images[-1]
+        z_disp = fs_img.get_positions()[0, 2] - is_img.get_positions()[0, 2]
+        assert z_disp == pytest.approx(7.0, abs=1e-6), (
+            f'z-displacement came back {z_disp:.3f} Å instead of the true '
+            f'7.0 Å -- z is being treated as periodic when it should not be'
+        )
+
+    def test_no_warning_for_large_z_only_displacement(self, tmp_path):
+        """The half-cell warning must be gated by the same pbc mask as
+        find_mic itself -- z is non-periodic, so a large z-motion (even one
+        that exceeds half the z cell length) is never ambiguous and must
+        not trigger the "find_mic() cannot distinguish..." warning. Same
+        scenario as test_large_z_motion_not_shortcut_through_vacuum, this
+        time asserting on the warning behaviour rather than the position."""
+        import warnings
+        from models.ase_neb import build_neb_images
+
+        is_positions = [
+            [5.0, 5.0, 1.0],
+            [5.0, 5.0, 5.0],
+            [3.0, 3.0, 3.0],
+            [3.0, 3.0, 3.5],
+        ]
+        fs_positions = [
+            [5.0, 5.0, 8.0],   # z-displacement 7 Å, > half of Lz=10 -- but
+                               # z isn't periodic, so this is unambiguous.
+            [5.05, 5.0, 5.0],
+            [4.0, 4.0, 3.0],
+            [4.0, 4.0, 3.5],
+        ]
+        is_file = str(tmp_path / 'is.lammps')
+        fs_file = str(tmp_path / 'fs.lammps')
+        self._write_structure(is_file, is_positions)
+        self._write_structure(fs_file, fs_positions)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            build_neb_images(is_file, fs_file, n_images=3)
+            assert len(w) == 0, (
+                f'unexpected warning(s) for an unambiguous, non-periodic '
+                f'z-only displacement: {[str(x.message) for x in w]}'
+            )
+
+    def test_warns_when_displacement_exceeds_half_cell_length(self, tmp_path):
+        from models.ase_neb import build_neb_images
+
+        # x-displacement of 6 Å is > half of Lx=10 -- find_mic cannot tell
+        # this apart from a genuine -4 Å (6 - 10) motion; must warn.
+        is_positions = [
+            [1.0, 5.0, 5.0],
+            [5.0, 5.0, 5.0],
+            [3.0, 3.0, 7.0],
+            [3.0, 3.0, 7.5],
+        ]
+        fs_positions = [
+            [7.0, 5.0, 5.0],   # true x-displacement: 6 Å (> half of Lx=10)
+            [5.05, 5.0, 5.0],
+            [4.0, 4.0, 7.0],
+            [4.0, 4.0, 7.5],
+        ]
+        is_file = str(tmp_path / 'is.lammps')
+        fs_file = str(tmp_path / 'fs.lammps')
+        self._write_structure(is_file, is_positions)
+        self._write_structure(fs_file, fs_positions)
+
+        with pytest.warns(UserWarning, match='exceeds half the cell length'):
+            build_neb_images(is_file, fs_file, n_images=3)
+
+    def test_no_warning_when_all_displacements_are_small(self, tmp_path):
+        from models.ase_neb import build_neb_images
+        import warnings
+
+        is_positions = [
+            [5.0, 5.0, 5.0], [4.0, 4.0, 5.0], [3.0, 3.0, 7.0], [3.0, 3.0, 7.5],
+        ]
+        fs_positions = [
+            [5.05, 5.0, 5.0], [4.05, 4.0, 5.0], [3.5, 3.5, 7.0], [3.5, 3.5, 7.5],
+        ]
+        is_file = str(tmp_path / 'is.lammps')
+        fs_file = str(tmp_path / 'fs.lammps')
+        self._write_structure(is_file, is_positions)
+        self._write_structure(fs_file, fs_positions)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            build_neb_images(is_file, fs_file, n_images=3)
+            assert len(w) == 0, f'unexpected warning(s): {[str(x.message) for x in w]}'
+
+    def test_mismatched_cells_raise_before_find_mic(self, tmp_path):
+        from models.ase_neb import build_neb_images
+
+        positions = [
+            [5.0, 5.0, 5.0], [4.0, 4.0, 5.0], [3.0, 3.0, 7.0], [3.0, 3.0, 7.5],
+        ]
+        is_file = str(tmp_path / 'is.lammps')
+        fs_file = str(tmp_path / 'fs.lammps')
+        self._write_structure(is_file, positions, cell=[10.0, 10.0, 10.0])
+        self._write_structure(fs_file, positions, cell=[10.5, 10.0, 10.0])
+
+        with pytest.raises(RuntimeError, match='IS and FS cells differ'):
+            build_neb_images(is_file, fs_file, n_images=3)
