@@ -172,6 +172,13 @@ def write_vibration_script(
         os.makedirs(OUTDIR, exist_ok=True)
 
         # ── Load structure ────────────────────────────────────────────────────
+        # NOTE: atoms.pbc defaults to (True, True, True) from this read()
+        # even for Hop A/Hop B structures, which inherit the same
+        # vacuum-topped slab cell as surface NEB (not bulk-periodic).
+        # Investigated and confirmed harmless for the MACE calculator's
+        # periodic neighbour search given this pipeline's real r_max=6.0 A
+        # / 2 layers vs. the real ~31 A vacuum gap (VACUUM=15.0 A per side);
+        # see models/ase_neb.py::build_neb_images() for the full reasoning.
         atoms = read(STRUCTURE, format="lammps-data", atom_style="atomic")
         atoms.wrap()
         calc  = MACECalculator(
@@ -319,6 +326,9 @@ def write_diss_vibration_script(
         os.makedirs(OUTDIR, exist_ok=True)
 
         # ── Load structure ────────────────────────────────────────────────────
+        # NOTE: atoms.pbc defaults to (True, True, True) here too -- same
+        # vacuum-topped slab geometry as surface NEB. Confirmed harmless;
+        # see models/ase_neb.py::build_neb_images() for the full reasoning.
         atoms = read(STRUCTURE, format="lammps-data", atom_style="atomic")
         atoms.wrap()
         calc  = MACECalculator(
