@@ -1775,7 +1775,7 @@ def build_is_fs_cross_product(
 def apply_proximity_and_dedup_filter(
     all_combinations: list,
     outdir: str,
-    prox_cutoff: float = 5.0,
+    prox_cutoff: float = 3.0,
 ) -> list:
     """
     Section C Phase 2b: Proximity filter then true-label + graph-dist dedup.
@@ -1828,7 +1828,7 @@ def orchestrate_neb(
     neb_slurm_opts: dict | None = None,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 2.5,
+    neb_ftol: float = 0.05,
     h_height: float = 1.5,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
@@ -1872,7 +1872,7 @@ def orchestrate_neb(
     spring_const : float
         Spring constant eV/Å². Default 1.0.
     neb_ftol : float
-        CINEB force tolerance eV/Å. Default 2.5.
+        CINEB force tolerance eV/Å. Default 0.05.
     h_height : float
         FS H placement height above max metal z (Å). Default 1.5.
     dry_run : bool
@@ -2306,10 +2306,10 @@ def orchestrate_neb_pipeline(
     sep_min: float = 2.5,
     sep_max: float = 5.0,
     graph_dist_min: int = 2,
-    prox_cutoff: float = 5.0,
+    prox_cutoff: float = 3.0,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 2.5,
+    neb_ftol: float = 0.05,
     h_height: float = 1.5,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
@@ -2343,13 +2343,13 @@ def orchestrate_neb_pipeline(
     graph_dist_min : int
         Minimum graph distance for FS pairs. Default 2.
     prox_cutoff : float
-        IS ↔ FS midpoint XY cutoff (Å). Default 5.0.
+        IS ↔ FS midpoint XY cutoff (Å). Default 3.0.
     n_images : int
         NEB intermediate images. Default 18.
     spring_const : float
         NEB spring constant (eV/Å²). Default 1.0.
     neb_ftol : float
-        CINEB force tolerance (eV/Å). Default 2.5.
+        CINEB force tolerance (eV/Å). Default 0.05.
     h_height : float
         FS H height above max metal z (Å). Default 1.5.
     dry_run : bool
@@ -2471,10 +2471,10 @@ def orchestrate_full_neb_workflow(
     sep_min: float = 2.5,
     sep_max: float = 5.0,
     graph_dist_min: int = 2,
-    prox_cutoff: float = 5.0,
+    prox_cutoff: float = 3.0,
     n_images: int = 18,
     spring_const: float = 1.0,
-    neb_ftol: float = 2.5,
+    neb_ftol: float = 0.05,
     h_height: float = 1.5,
     gpu_slurm_cfg: dict | None = None,
     neb_slurm_cfg: dict | None = None,
