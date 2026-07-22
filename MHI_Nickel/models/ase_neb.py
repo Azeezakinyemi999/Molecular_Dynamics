@@ -161,7 +161,7 @@ def build_neb_images(
     import warnings
 
     is_raw = read(is_file, format='lammps-data', atom_style='atomic')
-    is_raw.wrap()
+    #is_raw.wrap()
     fs_raw = read(fs_file, format='lammps-data', atom_style='atomic')
 
     if not np.allclose(is_raw.cell.array, fs_raw.cell.array):
@@ -696,7 +696,7 @@ def write_ase_neb_script(
 
         # ── Load structures and pin endpoint energies ─────────────────────
         is_raw = read(NEB_IS_FILE, format="lammps-data", atom_style="atomic")
-        is_raw.wrap()
+        #is_raw.wrap()
         fs_raw = read(FS_RELAXED_DATA, format="lammps-data", atom_style="atomic")
 
         if not np.allclose(is_raw.cell.array, fs_raw.cell.array):
