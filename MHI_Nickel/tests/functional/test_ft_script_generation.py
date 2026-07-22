@@ -372,12 +372,17 @@ class TestSlurmDefaultRegressionGuards:
 
 def _lines_after_lammps_read(src_text):
     """
-    Return a list of (read_lineno, next_2_lines) tuples for every line in
+    Return a list of (read_lineno, next_10_lines) tuples for every line in
     src_text that is a lammps-data READ call (not a write call).  Used to
-    check that .wrap() appears on one of the two lines immediately after.
+    check that .wrap() (or an equivalent periodic-consistent realignment,
+    e.g. find_mic(...)-based) appears within the lines immediately after.
 
     Write calls use `write(`, `_ase_write(`, or `ase_write(` and must be
     excluded — they do not need .wrap() and do not unwrap image flags.
+
+    Window is 10 lines (not 2) to accommodate ase_neb.py's FS read, which is
+    followed by a multi-line explanatory comment before its find_mic(...)
+    realignment call (see TestWrapRegressionGuards docstring).
     """
     lines = src_text.splitlines()
     result = []
@@ -391,7 +396,7 @@ def _lines_after_lammps_read(src_text):
         # Generic write: if the function call token right before '(' is 'write'
         if 'write(' in line and 'read(' not in line and 'ase_read(' not in line:
             continue
-        following = lines[i + 1 : i + 3]
+        following = lines[i + 1 : i + 11]
         result.append((i + 1, following))
     return result
 
@@ -399,7 +404,8 @@ def _lines_after_lammps_read(src_text):
 class TestWrapRegressionGuards:
     """
     Bug 2 fix: every `read(format='lammps-data')` call must be immediately
-    followed by `.wrap()` within the next two source lines.
+    followed by `.wrap()` — or an equivalent periodic-consistent realignment
+    — within the next source lines.
 
     If any of these guards fails it means the wrap fix was reverted (e.g. via
     a merge conflict, regenerated .py, or accidental revert), which would
@@ -408,6 +414,17 @@ class TestWrapRegressionGuards:
     Exception: permeation_workflow.py:85 — the read is inside a generated
     script body (template string) and only uses get_cell(); wrapping has no
     effect on cell dimensions so it is intentionally omitted.
+
+    Second accepted pattern: ase_neb.py's FS read is followed by a
+    find_mic(...)-based realignment to IS's frame instead of a bare
+    .wrap() — independently wrapping IS and FS let an atom whose real
+    relaxation crosses a cell boundary in one endpoint but not the other
+    get mapped to opposite sides of the cell, which NEB.interpolate() (raw
+    Cartesian, no periodic awareness) would treat as a literal ~cell-length
+    path to traverse (confirmed on a real pair: metal atoms with ~12.6 Å
+    naive displacement vs ~0.01 Å true displacement). find_mic(...)
+    guarantees the same "atoms end up in a well-defined, bounded frame"
+    property .wrap() does, just relative to IS instead of the origin.
     """
 
     def _src(self, filename):
@@ -419,11 +436,12 @@ class TestWrapRegressionGuards:
         assert reads, f"No lammps-data reads found in {filename} — guards may be stale"
         unwrapped = [
             lineno for lineno, following in reads
-            if not any('.wrap()' in ln for ln in following)
+            if not any('.wrap()' in ln or 'find_mic(' in ln for ln in following)
         ]
         assert not unwrapped, (
-            f"{filename}: lammps-data read(s) at line(s) {unwrapped} "
-            f"are NOT followed by .wrap() within 2 lines — Bug 2 may be re-introduced"
+            f"{filename}: lammps-data read(s) at line(s) {unwrapped} are NOT "
+            f"followed by .wrap() (or a find_mic(...) realignment) within "
+            f"the next 10 lines — Bug 2 may be re-introduced"
         )
 
     def test_surface_graph_reads_are_wrapped(self):
