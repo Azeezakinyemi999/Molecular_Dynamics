@@ -1,11 +1,23 @@
 (written by ASE)
 
 500 atoms
-7 atom types
+8 atom types
 
 0.0      17.375730000000001  xlo xhi
 0.0      17.375730000000001  ylo yhi
 0.0      17.375730000000001  zlo zhi
+
+
+Masses
+
+1  26.9815  # Al
+2  10.811  # B
+3  12.011  # C
+4  51.9961  # Cr
+5  55.845  # Fe
+6  95.96  # Mo
+7  58.6934  # Ni
+8  1.008  # H
 
 Atoms # atomic
 
