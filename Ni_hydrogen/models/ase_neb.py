@@ -172,7 +172,7 @@ def build_neb_images(
     # within r_max of its periodic image across z. Confirmed harmless;
     # left as-is rather than fixed.
     is_raw = read(is_file, format='lammps-data', atom_style='atomic')
-    is_raw.wrap()
+    #is_raw.wrap()
     fs_raw = read(fs_file, format='lammps-data', atom_style='atomic')
 
     if not np.allclose(is_raw.cell.array, fs_raw.cell.array):
@@ -712,7 +712,7 @@ def write_ase_neb_script(
         # this pipeline's real r_max/vacuum geometry; see the matching note
         # in build_neb_images() in models/ase_neb.py for the full reasoning.
         is_raw = read(NEB_IS_FILE, format="lammps-data", atom_style="atomic")
-        is_raw.wrap()
+        #is_raw.wrap()
         fs_raw = read(FS_RELAXED_DATA, format="lammps-data", atom_style="atomic")
 
         if not np.allclose(is_raw.cell.array, fs_raw.cell.array):
