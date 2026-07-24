@@ -94,7 +94,10 @@ from ase.io import read as _ase_read
 
 from models.config import MACE_MODEL_ASE
 from models.subsurface_graph import build_subsurface_graph, connect_to_surface
-from models.neb_subsurface import orchestrate_hopa_neb, orchestrate_hopb_neb
+from models.neb_subsurface import (
+    orchestrate_hopa_neb, orchestrate_hopb_neb,
+    build_sub1_sub2_map, collect_entry_h_sources, build_surface_sub1_sub2_map,
+)
 from models.vibrations import collect_is_ts_paths, orchestrate_vibrations
 from models.tst_rates import (
     collect_neb_results,
@@ -163,14 +166,40 @@ if METAL_TYPE == 'oxide':
     _kmc_composition = {k: v / _tot for k, v in _cnt.items()}
     print(f'  KMC surface composition (oxide): {_kmc_composition}')
 
-# ── Collect dedup IS labels ────────────────────────────────────────────────────
-dedup_is_labels = collect_dedup_is_labels(PHASE2_H_DIR)
-print(f'Dedup IS labels: {len(dedup_is_labels)}')
-if not dedup_is_labels:
+# ── Subsurface-entry maps (dissociation-seeded, oct-anchored) ───────────────────
+# The H that enters the subsurface is the H that dissociated: seed Hop A from the
+# 2H* products of each converged dissociation NEB run, threaded through the
+# octahedral-site maps (sub1↔sub2 and surface→sub1→sub2). Replaces the old
+# wholesale h_atom_* enumeration (collect_dedup_is_labels). The dissociation
+# results are per-metal at neb/{STEM}/ (NOT neb/ — the older WORK_DIR/neb paths
+# below at _DISS_JSON/_DISS_VIB_JSON/_ranked6_f omit STEM and are a separate,
+# pre-existing issue slated for the Part 4/5 rework).
+_DISS_NEB_DIR = os.path.join(WORK_DIR, 'neb', STEM)
+_sub1_sub2_map = build_sub1_sub2_map(
+    (G, subsurface_sites),
+    out_json=os.path.join(SUB_NEB_DIR, 'sub1_sub2_map.json'),
+)
+_entry_sources = collect_entry_h_sources(
+    _DISS_NEB_DIR, PHASE2_H_DIR,
+    out_json=os.path.join(SUB_NEB_DIR, 'entry_h_sources.json'),
+)
+if not _entry_sources:
     raise FileNotFoundError(
-        f'No h_atom_*_relaxed.lammps found in {PHASE2_H_DIR}. '
-        'Run Part 1 (neb_calculation.ipynb) first.'
+        f'No dissociation-product H* found for {STEM}. Expected converged runs in '
+        f'{os.path.join(_DISS_NEB_DIR, "ranked_barriers.json")} with their '
+        f'h_atom_{{sid}}_relaxed.lammps present in {PHASE2_H_DIR}. '
+        'Run Part 1 (neb_calculation.ipynb) surface dissociation NEB first.'
     )
+_entry_path_map = build_surface_sub1_sub2_map(
+    _entry_sources, surface_connections, _sub1_sub2_map, (G, subsurface_sites),
+    out_json=os.path.join(SUB_NEB_DIR, 'surface_sub1_sub2_map.json'),
+)
+# Collapsed, dissociation-seeded IS triples fed to Hop A (drop-in for the old
+# collect_dedup_is_labels output; the map-driven orchestrator rework that also
+# carries sub1_env/sub2_env into the job dicts is Part 2).
+dedup_is_labels = [(e['surface_sid'], e['is_path'], e['e_is']) for e in _entry_path_map]
+print(f'Entry Hop A pathways: {len(dedup_is_labels)} '
+      f'(dissociation-seeded, collapsed by shared sub1)')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Phase 1 — Hop A NEB: surface H* → subsurface-1 oct
