@@ -12,6 +12,14 @@ was superseded by `test_npt_uses_its_own_gpu_partition_not_short_gpu` (see the c
 inline below) once NPT was split onto its own `NPT_GPU_PARTITION=gpu` config, distinct from
 bare-min/bulk+H-min's `SHORT_GPU_SLURM_CFG` — see `audits/task_B_audit.md` §8.
 
+**2026-07 note (subsurface-entry reframing):** Sections 8 (`test_kmc.py`) and 9
+(`test_permeation.py`) were rewritten for the two-layer-KMC / per-environment-rate /
+dual-S₀-route reframing on the `fix-subsurface-entry-kmc` branch, and Section 7
+(`test_tst_rates.py`) gained FS-vibration, per-hop-artifact, and partition-function
+coverage. The class
+listings under §7–§9 below reflect the reframed suite; the full suite is 1634 tests as of
+that branch.
+
 ---
 
 ## Ground Rules
@@ -618,7 +626,7 @@ Tests `_weighted_linregress()` (internal helper).
 ## Section 7 — `test_tst_rates.py`
 
 ### What it covers
-`models/tst_rates.py`: ZPE correction, Vineyard prefactor, Arrhenius rate, `build_rate_dict` assembly, and result serialization.
+`models/tst_rates.py`: physical constants, ZPE correction, Vineyard prefactor, Arrhenius rate, `build_rate_dict` assembly and serialization, plus the reframing additions — FS-vibration splitting (`split_vib_fs`), the env-carrying per-hop ranked/vib-rate artifacts (`write_hop_ranked`/`write_hop_vib_rates`), and the dissolved-H and gas-phase-H₂ partition functions for the vibrational-S₀ route.
 
 ### Test Classes
 
@@ -694,214 +702,329 @@ Tests `_weighted_linregress()` (internal helper).
 | `test_creates_parent_dirs` | Parent directory auto-created |
 | `test_returns_path` | Returns path string of written file |
 
+#### `TestConstants`
+| Test | What it asserts |
+|------|----------------|
+| `test_boltzmann_ev` | `_KB_EV` matches the accepted value |
+| `test_cm1_to_ev` | cm⁻¹→eV conversion constant correct |
+| `test_speed_light_cm_s` | Speed of light (cm/s) used by the Vineyard prefactor correct |
+
+#### `TestSplitVibFs`
+| Test | What it asserts |
+|------|----------------|
+| `test_extracts_only_fs_entries` | Returns only the `_FS` (dissolved-H) vibration paths |
+| `test_empty_when_no_fs` | No FS entries → empty mapping |
+
+#### `TestWriteHopRanked`
+| Test | What it asserts |
+|------|----------------|
+| `test_ranks_by_barrier_and_carries_env` | Ranks hops by barrier and carries the oct-site env label |
+| `test_missing_barrier_listed_not_dropped` | A hop with a missing barrier is listed, not silently dropped |
+
+#### `TestWriteHopVibRates`
+| Test | What it asserts |
+|------|----------------|
+| `test_filters_by_hop_and_tags_env` | Filters to the requested hop and tags each entry with its env |
+| `test_hopb_uses_sub2_env` | Hop B artifacts are keyed by the sub2 environment |
+
+#### `TestVibPartitionFunction`
+| Test | What it asserts |
+|------|----------------|
+| `test_at_least_one` | `q_vib ≥ 1` |
+| `test_approaches_one_at_low_T` | q_vib → 1 as T → 0 |
+| `test_increases_with_temperature` | Higher T → larger q_vib |
+| `test_soft_modes_below_threshold_dropped` | Modes below `min_freq_cm1` excluded |
+| `test_single_mode_exact` | Single-mode q_vib matches the closed form |
+
+#### `TestH2GasPartitionFunction`
+| Test | What it asserts |
+|------|----------------|
+| `test_returns_components` | Returns translational/rotational/vibrational components |
+| `test_translational_inverse_in_pressure` | `q_trans ∝ 1/P` |
+| `test_rotational_high_T_formula` | High-T rigid-rotor form correct (σ=2) |
+| `test_vibrational_near_unity` | Stiff H₂ stretch → q_vib ≈ 1 |
+| `test_rejects_nonpositive` | Non-positive T or P → raises |
+
 ---
 
 ## Section 8 — `test_kmc.py`
 
 ### What it covers
-`models/kmc.py`: grid creation, event enumeration, BKL stepper, full KMC run, steady-state convergence.
+`models/kmc.py`: the two-layer grid (surface + sub1 + sub2), per-environment rate lookup with a per-class mean fallback, event enumeration (`adsorb`/`desorb`/`surf_diff`/`enter`/`exit`/`hopB_enter`/`hopB_exit`/`drain`), the BKL stepper, and a fixed-length KMC run. Steady-state convergence of `run_kmc_to_steady_state` is exercised end-to-end in `test_functional_kmc_sieverts.py`.
 
 ### Test Classes
 
 #### `TestGasStrikeRate`
 | Test | What it asserts |
 |------|----------------|
-| `test_positive_output` | `R > 0` for all positive inputs |
-| `test_scales_with_pressure` | `R ∝ P` (linear) |
-| `test_scales_with_area` | `R ∝ A_site` (linear) |
-| `test_scales_with_temperature` | `R ∝ 1/√T` |
-| `test_known_value` | Hand-computed Hertz-Knudsen at 300K, 1e5 Pa matches within 1% |
-| `test_zero_pressure_gives_zero` | `P=0` → `R=0` |
-| `test_negative_temperature_gives_nan_or_raises` | `T_K<=0` → unphysical (documented) |
+| `test_returns_positive_float` | `R > 0` for positive inputs |
+| `test_exact_formula` | Hand-computed Hertz-Knudsen matches |
+| `test_linear_in_pressure` | `R ∝ P` |
+| `test_linear_in_area` | `R ∝ A_site` |
+| `test_decreases_with_temperature` | Higher T → lower R |
+| `test_inverse_sqrt_temperature_dependence` | `R ∝ 1/√T` |
 
 #### `TestDrainRate`
 | Test | What it asserts |
 |------|----------------|
-| `test_positive_output` | `k_drain > 0` for positive inputs |
-| `test_formula_correct` | `k_drain == D / (a0/√2)²` hand computation |
-| `test_scales_with_diffusivity` | `k_drain ∝ D` |
-| `test_zero_a0_raises` | `a0_m=0` → `ZeroDivisionError` |
-| `test_zero_diffusivity_gives_zero` | `D_m2s=0` → `k_drain=0` |
+| `test_returns_positive_float` | `k_drain > 0` for positive inputs |
+| `test_exact_formula` | `k_drain == D / (a0/√2)²` (single oct–oct hop out of sub2) |
+| `test_linear_in_diffusivity` | `k_drain ∝ D` |
+| `test_inverse_square_in_a0` | `k_drain ∝ 1/a0²` |
+
+#### `TestRateLookup`
+Tests `_rate_lookup()`/`_mean_of()` — per-environment lookup with per-class mean fallback.
+
+| Test | What it asserts |
+|------|----------------|
+| `test_hit_returns_value` | Present env key → its rate |
+| `test_miss_returns_fallback_mean_not_zero` | Unknown env → mean over the class, never a silent 0.0 |
+| `test_empty_group_returns_zero` | Genuinely absent rate class → 0.0 |
+| `test_mean_of` | `_mean_of` returns the arithmetic mean of a rate dict |
 
 #### `TestMakeGrid`
 | Test | What it asserts |
 |------|----------------|
-| `test_returns_dict` | Returns `dict` |
-| `test_required_keys_present` | Keys: `surface_elem`, `surface_occ`, `subsurface_occ`, `nx`, `ny` |
-| `test_surface_elem_shape` | `surface_elem.shape == (nx, ny)` |
-| `test_surface_occ_all_zero_initially` | `surface_occ` all False/0 initially |
-| `test_subsurface_occ_all_zero_initially` | `subsurface_occ` all False/0 initially |
-| `test_composition_respected` | Pure-Ni composition → all sites == 'Ni' |
-| `test_mixed_composition` | `{'Ni': 0.5, 'Mo': 0.5}` → roughly 50% each |
-| `test_same_seed_reproducible` | Two calls with same seed → identical `surface_elem` |
-| `test_different_seeds_differ` | Different seeds → different element placement |
-| `test_composition_sums_to_one` | Fractional grid composition sums to 1.0 (within rounding) |
-| `test_invalid_composition_raises` | Fractions not summing to 1 → `ValueError` |
+| `test_returns_dict_with_required_keys` | Keys: `surface_elem`, `surface_occ`, `sub1_occ`, `sub2_occ`, `sub1_env`, `sub2_env`, `nx`, `ny` |
+| `test_layer_shapes` | Every layer array is `(nx, ny)` |
+| `test_all_occ_zero_initially` | `surface_occ`/`sub1_occ`/`sub2_occ` all 0 initially |
+| `test_env_defaults_to_surface_element` | With no env composition, env labels default to the surface element |
+| `test_env_composition_draws_labels` | A supplied `sub1_env_composition`/`sub2_env_composition` is sampled |
+| `test_env_labels_not_truncated` | Object-dtype env arrays keep full labels (no fixed-width truncation) |
+| `test_default_composition_hastelloy_n` | Default composition ≈ Hastelloy N fractions |
+| `test_reproducible_with_same_seed` | Same seed → identical grid |
 
 #### `TestGridNeighbors`
 | Test | What it asserts |
 |------|----------------|
-| `test_returns_four_neighbors` | Always returns exactly 4 tuples |
-| `test_interior_site` | Site (3,3) on 10×10 grid → 4 adjacent interior sites |
-| `test_corner_wraps` | Site (0,0) → wraps to (nx-1, 0), (0, ny-1), etc. |
-| `test_edge_wraps` | Site (0, j) → top row wraps to (nx-1, j) |
-| `test_all_in_bounds` | All returned coordinates 0 ≤ i < nx, 0 ≤ j < ny |
-| `test_no_self_neighbor` | No returned tuple equals input `(i, j)` |
+| `test_returns_four_neighbors` | Always exactly 4 neighbours |
+| `test_interior_neighbors_correct` | Interior site → correct 4 adjacencies |
+| `test_boundary_wraps` | Edge/corner sites wrap periodically |
 
-#### `TestGridMetrics`
-Tests `surface_coverage()`, `subsurface_population()`, `subsurface_concentration()`.
+#### `TestElementPair`
+| Test | What it asserts |
+|------|----------------|
+| `test_alphabetic_ordering` | Pair key is a sorted (alphabetic) tuple |
+| `test_symmetric_lookup` | (A,B) and (B,A) map to the same key |
+
+#### `TestGridQueries`
+Tests `surface_coverage()`, `sub1_population()`, `sub2_population()`, `subsurface_concentration()`.
 
 | Test | What it asserts |
 |------|----------------|
-| `test_empty_surface_coverage_zero` | Empty grid → coverage = 0.0 |
-| `test_full_surface_coverage_one` | All occupied → coverage = 1.0 |
-| `test_half_coverage` | Exactly half sites occupied → coverage = 0.5 |
-| `test_subsurface_population_zero_initially` | Fresh grid → `n_sub = 0` |
-| `test_subsurface_population_count` | Set some subsurface_occ → count matches |
-| `test_concentration_formula` | `C = n_sub / (nx * ny * a0³/√2)` |
-| `test_concentration_zero_a0_raises` | `a0_m=0` → `ZeroDivisionError` |
+| `test_coverage_partial` | Partial occupancy → correct coverage fraction |
+| `test_sub1_and_sub2_population` | sub1 and sub2 populations counted independently |
+| `test_concentration_uses_sub2_only` | C₀ is built from sub2 occupancy, not sub1 |
+| `test_concentration_exact_formula` | `C = N_sub2 / (nx·ny·a0³/√2)` |
 
 #### `TestBuildEventList`
 | Test | What it asserts |
 |------|----------------|
-| `test_returns_list` | Returns `list` |
-| `test_event_dict_has_kind_sites_rate` | Each event has `'kind'`, `'sites'`, `'rate'` |
-| `test_rates_nonnegative` | All `event['rate'] >= 0` |
-| `test_adsorption_requires_empty_pair` | Adsorb events only for unoccupied pairs |
-| `test_desorption_requires_occupied_pair` | Desorb events only for occupied pairs |
-| `test_empty_grid_no_desorb_events` | Fresh empty grid → no desorb events |
-| `test_full_grid_no_adsorb_events` | All sites occupied → no adsorb events |
-| `test_missing_rate_dict_key_defaults_zero` | Missing key in rate_dict → rate=0, no crash |
-| `test_drain_event_in_list` | Occupied subsurface → drain event present |
-| `test_entry_event_in_list` | Occupied surface → entry event possible |
+| `test_empty_grid_only_adsorb` | Fresh grid → only `adsorb` events |
+| `test_surface_occupied_generates_enter` | Surface occupied, sub1 empty → `enter` |
+| `test_sub1_occupied_empty_surface_generates_exit` | → `exit` |
+| `test_sub1_occupied_empty_sub2_generates_hopB_enter` | → `hopB_enter` |
+| `test_sub2_occupied_empty_sub1_generates_hopB_exit` | → `hopB_exit` |
+| `test_sub2_occupied_generates_drain` | sub2 occupied → `drain` |
+| `test_sub1_occupied_does_not_drain` | sub1 never drains (only sub2 does) |
+| `test_adjacent_occupied_pair_desorbs` | Adjacent occupied surface pair → `desorb` |
+| `test_occupied_site_adjacent_empty_diffuses` | → `surf_diff` |
+| `test_no_adsorb_when_k_diss_absent` | Missing `k_diss` → no adsorb, no crash |
+| `test_all_event_rates_positive` | All enumerated rates > 0 |
+| `test_entry_rate_resolves_per_env` | `enter` rate looked up by the cell's sub1 env |
+| `test_unknown_env_falls_back_to_mean_not_zero` | Unknown env → per-class mean, not 0.0 |
+
+#### `TestExecuteEvent`
+| Test | What it asserts |
+|------|----------------|
+| `test_adsorb_occupies_both_surface_sites` | `adsorb` fills both surface sites |
+| `test_desorb_clears_both_surface_sites` | `desorb` clears both |
+| `test_surf_diff_moves_h` | `surf_diff` moves H to the empty neighbour |
+| `test_enter_surface_to_sub1` | `enter` moves H surface→sub1 |
+| `test_exit_sub1_to_surface` | `exit` moves H sub1→surface |
+| `test_hopB_enter_sub1_to_sub2` | `hopB_enter` moves H sub1→sub2 |
+| `test_hopB_exit_sub2_to_sub1` | `hopB_exit` moves H sub2→sub1 |
+| `test_drain_clears_sub2` | `drain` removes H from sub2 |
 
 #### `TestKmcStep`
 | Test | What it asserts |
 |------|----------------|
-| `test_returns_float_dt` | Returns `float >= 0` |
-| `test_empty_events_returns_zero` | `events=[]` → `dt = 0.0` |
-| `test_all_zero_rates_returns_zero` | All events with `rate=0` → `dt = 0.0` |
-| `test_dt_positive_for_valid_events` | Positive rates → `dt > 0` |
-| `test_grid_mutated` | Grid state changes after step |
-| `test_adsorb_event_sets_occupancy` | An adsorb event at (i,j) sets `surface_occ[i,j] = True` |
-| `test_desorb_event_clears_occupancy` | A desorb event clears `surface_occ[i,j]` |
+| `test_empty_event_list_returns_zero` | `events=[]` → `dt = 0.0` |
+| `test_returns_positive_dt_when_events_present` | Positive rates → `dt > 0` |
+| `test_grid_mutated_after_step` | Grid state changes after a step |
+| `test_dt_scales_inversely_with_total_rate` | `dt ∝ 1/R_total` |
+| `test_zero_total_rate_returns_zero` | All-zero rates → `dt = 0.0` |
 
 #### `TestRunKmc`
 | Test | What it asserts |
 |------|----------------|
-| `test_returns_dict_with_arrays` | Keys: `t_arr`, `theta_arr`, `n_sub_arr` |
-| `test_array_length` | Each array length = `n_steps + 1` |
-| `test_t_arr_monotonic` | `t_arr` strictly non-decreasing |
-| `test_initial_state_at_index_zero` | `theta_arr[0]` matches initial coverage before any steps |
-| `test_coverage_bounded` | `0.0 <= theta_arr <= 1.0` always |
-| `test_n_sub_nonnegative` | `n_sub_arr >= 0` always |
-| `test_zero_steps` | `n_steps=0` → arrays length 1 (initial state only) |
-
-#### `TestRunKmcToSteadyState`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_dict` | Returns `dict` |
-| `test_required_keys` | Keys: `t_total`, `theta_ss`, `C0`, `n_steps`, `converged` |
-| `test_converges_simple_case` | Balanced adsorb/desorb rates → `converged=True` within max_steps |
-| `test_converged_false_if_not_converged` | Tiny `max_steps=10` → `converged=False` (unless trivially fast) |
-| `test_theta_ss_in_range` | `0.0 <= theta_ss <= 1.0` |
-| `test_c0_nonnegative` | `C0 >= 0.0` |
-| `test_n_steps_le_max_steps` | `result['n_steps'] <= max_steps` |
+| `test_returns_dict_with_required_keys` | Returns the time and layer-population arrays |
+| `test_array_length_is_n_steps_plus_one` | Arrays length = `n_steps + 1` |
+| `test_t_arr_monotonically_nondecreasing` | Time array non-decreasing |
+| `test_initial_state_zero` | Index-0 state is the empty initial grid |
 
 ---
 
 ## Section 9 — `test_permeation.py`
 
 ### What it covers
-`models/permeation.py`: flux computations, Sieverts law fit, solubility routes, permeability.
+`models/permeation.py`: flux computations, Sieverts-law fit, the geometric and vibrational S₀ routes, per-environment solubility, Arrhenius S/Φ fits, permeability, and per-`n_H` diffusivity resolution. `sweep_pressure` and end-to-end Sieverts behaviour are exercised in `test_functional_kmc_sieverts.py`.
 
 ### Test Classes
 
 #### `TestFickFlux`
 | Test | What it asserts |
 |------|----------------|
-| `test_known_value` | `J = D * (C0 - C_low) / L` hand computation |
-| `test_zero_length_raises` | `L_m=0` → `ValueError` |
-| `test_zero_concentration_gradient` | `C0 == C_low` → `J = 0` |
-| `test_negative_gradient_negative_flux` | `C0 < C_low` → negative flux (not an error) |
-| `test_scales_with_diffusivity` | `J ∝ D` |
+| `test_basic_formula` | `J = D * (C0 - C_low) / L` hand computation |
+| `test_with_nonzero_c_low` | Non-zero downstream concentration handled |
+| `test_raises_for_zero_thickness` | `L_m=0` → `ValueError` |
+| `test_raises_for_negative_thickness` | `L_m<0` → `ValueError` |
+| `test_linear_in_diffusivity` | `J ∝ D` |
+| `test_inversely_proportional_to_thickness` | `J ∝ 1/L` |
+| `test_equal_concentrations_gives_zero_flux` | `C0 == C_low` → `J = 0` |
 
-#### `TestSweepPressure`
+#### `TestCheckSievertsFit`
 | Test | What it asserts |
 |------|----------------|
-| `test_returns_dict` | Returns `dict` |
-| `test_output_lists_same_length` | All output lists same length as `P_vals_Pa` |
-| `test_empty_pressure_list_returns_empty` | `P_vals_Pa=[]` → all lists empty |
-| `test_convergence_flag_present` | `result['converged']` list present |
-| `test_j_nonnegative` | `J_vals[i] >= 0` for positive pressures |
-| `test_higher_pressure_higher_flux` | Sorted P → monotonic J (in Sieverts regime) |
-| `test_theta_bounded` | `0 <= theta_vals[i] <= 1` |
-
-#### `TestCheckSievertsLaw`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_dict` | Returns `dict` |
-| `test_required_keys` | Keys: `slope`, `intercept`, `r_squared`, `is_sieverts` |
-| `test_perfect_sieverts_r2_near_one` | `J = k * √P` data → `R2 ≥ 0.98`, `is_sieverts=True` |
-| `test_non_sieverts_r2_low` | `J = k * P` (surface limited) → `R2 < 0.98`, `is_sieverts=False` |
-| `test_single_point_raises_or_returns` | < 2 points → handled gracefully |
-| `test_slope_positive` | Positive pressures → positive slope |
+| `test_returns_required_keys` | Keys: `slope`, `r_squared`, `is_sieverts`, … |
+| `test_perfect_linear_gives_r2_one` | `J = k·√P` → `R² ≈ 1` |
+| `test_perfect_linear_is_sieverts_true` | Perfect √P scaling → `is_sieverts=True` |
+| `test_nonlinear_j_not_sieverts` | `J = k·P` (surface-limited) → `is_sieverts=False` |
+| `test_slope_matches_coefficient` | Fitted slope recovers the input coefficient |
+| `test_threshold_at_0_98` | R² threshold for the Sieverts verdict is 0.98 |
+| `test_constant_j_r2_is_one` | Constant J degenerate case handled |
 
 #### `TestArrheniusDiffusivity`
 | Test | What it asserts |
 |------|----------------|
-| `test_known_value` | `D0 * exp(-ED / kB*T)` matches |
-| `test_t_zero_raises` | `T_K=0` → `ValueError` |
-| `test_negative_t_raises` | `T_K < 0` → `ValueError` |
-| `test_ea_zero_gives_d0` | `E_D=0` → `D = D0` |
-| `test_decreases_with_ea` | Higher E_D → lower D |
+| `test_exact_formula` | `D0 · exp(−E_D / kB·T)` matches |
+| `test_raises_for_zero_temperature` | `T_K=0` → `ValueError` |
+| `test_raises_for_negative_temperature` | `T_K<0` → `ValueError` |
+| `test_higher_temperature_gives_higher_d` | Higher T → higher D |
+| `test_zero_barrier_returns_d0` | `E_D=0` → `D = D0` |
 
-#### `TestLatticeS0`
+#### `TestLatticeSiteS0`
 | Test | What it asserts |
 |------|----------------|
-| `test_formula_correct` | `S0 = 4 / a0³` (4 oct sites per FCC cell) |
-| `test_a0_zero_raises` | `a0_m=0` → `ZeroDivisionError` |
-| `test_positive_result` | `S0 > 0` for positive `a0_m` |
+| `test_exact_formula` | `S0 = 4 / a0³` (4 oct sites per FCC cell) |
+| `test_returns_positive_float` | `S0 > 0` for positive `a0_m` |
+| `test_inversely_proportional_to_a0_cubed` | `S0 ∝ 1/a0³` |
+| `test_smaller_lattice_higher_density` | Smaller a₀ → higher site density |
 
 #### `TestSolubilityFromRates`
+Legacy analytic route — retained and tested, but no longer wired into the workflow.
+
 | Test | What it asserts |
 |------|----------------|
 | `test_returns_positive_float` | `S(T) > 0` for physical inputs |
-| `test_t_zero_raises` | `T_K=0` → `ValueError` |
-| `test_k_des_zero_raises` | `k_des_s1=0` → `ValueError` |
-| `test_k_exit_zero_raises` | `k_exit_s1=0` → `ValueError` |
-| `test_temperature_dependence` | Higher T → different S (depends on `dH_sol`) |
+| `test_raises_for_zero_temperature` | `T_K=0` → `ValueError` |
+| `test_raises_for_zero_k_des` | `k_des=0` → `ValueError` |
+| `test_raises_for_zero_k_exit` | `k_exit=0` → `ValueError` |
+| `test_higher_k_entry_gives_higher_s` | S monotone in k_entry |
+| `test_higher_k_exit_gives_lower_s` | S monotone (inverse) in k_exit |
+| `test_exact_formula` | Matches the detailed-balance expression |
 
 #### `TestFitSolubilityFromKmc`
 | Test | What it asserts |
 |------|----------------|
-| `test_returns_dict` | Returns `dict` with `S_vals`, `S_mean`, `S_std`, `n_converged` |
-| `test_no_converged_gives_zero_mean` | `converged=False` for all → `S_mean=0.0`, `n_converged=0` |
-| `test_zero_pressure_excluded` | `P=0` entries → excluded from S calculation |
-| `test_s_mean_positive` | For physical KMC sweep → `S_mean > 0` |
-| `test_single_converged_point_std_zero` | 1 converged point → `S_std=0.0` |
+| `test_returns_required_keys` | Returns `S_vals`, `S_mean`, `S_std`, `n_converged` |
+| `test_s_vals_equal_c0_over_sqrt_p` | `S = C₀/√P` per point |
+| `test_s_mean_correct` | Mean over converged points |
+| `test_non_converged_excluded_from_mean` | Non-converged points dropped from the mean |
+| `test_non_converged_appears_as_none_in_s_vals` | Non-converged entries surface as `None` |
+| `test_all_non_converged_gives_zero_mean` | All non-converged → `S_mean=0`, `n_converged=0` |
+| `test_single_converged_gives_zero_std` | 1 converged point → `S_std=0` |
+| `test_zero_pressure_point_excluded_even_if_converged` | `P=0` excluded even when converged |
 
 #### `TestSievertsSolubility`
 | Test | What it asserts |
 |------|----------------|
-| `test_known_value` | `S = S0 * exp(-dH / kB*T)` matches |
-| `test_t_zero_raises` | `T_K=0` → `ValueError` |
-| `test_positive_s0_positive_output` | `S > 0` for positive `S0` and any T |
+| `test_exact_formula` | `S = S0 · exp(−dH / kB·T)` matches |
+| `test_raises_for_zero_temperature` | `T_K=0` → `ValueError` |
+| `test_zero_enthalpy_returns_s0` | `dH=0` → `S = S0` |
+| `test_higher_dh_gives_lower_s` | Higher dH_sol → lower S |
+| `test_higher_temperature_gives_higher_s_for_endothermic` | Endothermic → S rises with T |
 
 #### `TestPermeability`
 | Test | What it asserts |
 |------|----------------|
-| `test_formula` | `Phi = D * S` |
-| `test_zero_d_gives_zero_phi` | `D=0` → `Phi=0` |
-| `test_zero_s_gives_zero_phi` | `S=0` → `Phi=0` |
+| `test_exact_product` | `Phi = D · S` |
+| `test_linear_in_diffusivity` | `Phi ∝ D` |
+| `test_linear_in_solubility` | `Phi ∝ S` |
+| `test_returns_positive_float` | `Phi > 0` for positive inputs |
 
 #### `TestRichardsonFlux`
 | Test | What it asserts |
 |------|----------------|
-| `test_known_value` | `J = (Phi/L) * (√P_high - √P_low)` hand computation |
-| `test_zero_length_raises` | `L_m=0` → `ValueError` |
-| `test_equal_pressures_zero_flux` | `P_high == P_low` → `J = 0` |
-| `test_negative_p_low_clamped` | `P_low < 0` → treated as 0 (based on docs) |
+| `test_exact_formula` | `J = (Phi/L)·(√P_high − √P_low)` hand computation |
+| `test_zero_low_pressure` | `P_low=0` handled |
+| `test_raises_for_zero_thickness` | `L_m=0` → `ValueError` |
+| `test_raises_for_negative_thickness` | `L_m<0` → `ValueError` |
+| `test_linear_in_permeability` | `J ∝ Phi` |
+| `test_inversely_proportional_to_thickness` | `J ∝ 1/L` |
+| `test_negative_p_low_clamped_to_zero` | `P_low<0` clamped to 0 |
+
+#### `TestResolveNhDiffusivity`
+Tests `resolve_nh_diffusivity()` — the per-`n_H` diffusivity-fit loader (fail-loud skip on missing/invalid).
+
+| Test | What it asserts |
+|------|----------------|
+| `test_missing_file_not_ready` | Missing fit → `ready=False` |
+| `test_valid_fit_is_ready` | Valid fit → `ready=True` with `D0_m2s`/`E_D_eV` |
+| `test_nan_d0_not_ready` | NaN `D0` → not ready |
+| `test_nan_ea_not_ready` | NaN `E_D` → not ready |
+| `test_missing_d0_key_not_ready` | Missing `D0` key → not ready |
+| `test_dilute_limit_n_h_1_has_no_caveat` | `n_H=1` → no dilute-limit caveat |
+| `test_non_dilute_n_h_gt_1_has_caveat` | `n_H>1` → carries a dilute-limit caveat |
+| `test_different_n_h_use_independent_paths` | Each `n_H` reads its own `{stem}_{n_h}H` dir |
+| `test_one_n_h_missing_does_not_affect_the_other` | One missing `n_H` doesn't disable the others |
+
+#### `TestVibrationalS0`
+Tests `vibrational_S0()` — the partition-function S₀ route.
+
+| Test | What it asserts |
+|------|----------------|
+| `test_positive` | `S0 > 0` for physical inputs |
+| `test_scales_with_site_density` | Scales with the oct-site density |
+| `test_stiffer_dissolved_modes_raise_S0` | Stiffer dissolved-H modes → higher S0 |
+
+#### `TestBuildDhSolByEnv`
+Tests `build_dh_sol_by_env()` — per-environment ΔH_sol assembly.
+
+| Test | What it asserts |
+|------|----------------|
+| `test_groups_by_sub1_env_with_weights` | Groups Hop A/B by sub1 env, with population weights |
+| `test_dh_sol_formula` | `ΔH_sol(env) = ½ΔH_diss + ΔH_HopA(env) + ΔH_HopB` |
+| `test_writes_json` | Writes `dH_sol_by_env.json` |
+
+#### `TestSolubilityByEnvironment`
+Tests `solubility_by_environment()` — the Boltzmann-weighted sum.
+
+| Test | What it asserts |
+|------|----------------|
+| `test_single_env_reduces_to_boltzmann` | One env → plain Boltzmann factor |
+| `test_weighted_sum_over_envs` | Multi-env → population-weighted sum |
+| `test_lower_barrier_env_dominates` | Lowest-ΔH_sol env dominates the sum |
+| `test_empty_returns_zero` | No environments → 0.0 |
+
+#### `TestFitArrhenius`
+Tests `fit_arrhenius()` — the `ln(y) vs 1/T` fit used for S(T) and Φ(T).
+
+| Test | What it asserts |
+|------|----------------|
+| `test_recovers_known_parameters` | Recovers a known (prefactor, Ea) |
+| `test_curvature_lowers_r2` | Deliberately curved input → R² < 1 (curvature flag) |
+| `test_fewer_than_two_points_is_nan` | < 2 points → NaN fit |
+| `test_drops_nonpositive_points` | Non-positive y values dropped before the log fit |
+
+#### `TestPermeabilityArrhenius`
+Tests `permeability_arrhenius()`.
+
+| Test | What it asserts |
+|------|----------------|
+| `test_phi0_is_product` | `Φ0 = D0 · S0` |
+| `test_e_phi_is_sum` | `E_Φ = E_D + ΔH_sol` |
+| `test_consistent_with_direct_fit` | Matches a direct `ln(Φ) vs 1/T` fit |
 
 ---
 

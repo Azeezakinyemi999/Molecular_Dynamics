@@ -39,6 +39,7 @@ tests/
     test_ft_subsurface_neb.py          # Section 3: Hop A + Hop B scripts
     test_ft_diffusivity.py             # Section 4: script gen + MSD parse + Arrhenius
     test_ft_permeability.py            # Section 5: TST + KMC + Sieverts + permeability
+    test_ft_permeation_validation.py   # Section 5b: end-to-end reframed maps→rates→KMC→Arrhenius
 ```
 
 ---
@@ -124,21 +125,32 @@ tests/
 ## Section 5 — Permeability (TST + KMC + Sieverts)
 
 **File:** `test_ft_permeability.py`
-**Model functions:** `build_rate_dict()` (`tst_rates.py`), `sweep_pressure()` (`permeation.py`),
-`permeability()`, `richardson_flux()`, `check_sieverts_law()`, `fit_solubility_from_kmc()`
-**Sub-phases covered:** Phase 4 (TST rates), Phase 5 (KMC), Phase 6 (Sieverts + permeability)
+**Model functions:** `build_rate_dict()`, `env_rate_dict()` (`tst_rates.py`), `sweep_pressure()` (`permeation.py`),
+`permeability()`, `richardson_flux()`, `check_sieverts_law()`, `fit_solubility_from_kmc()`,
+`build_dh_sol_by_env()`, `solubility_by_environment()`, `lattice_site_S0()`/`vibrational_S0()` (both S₀ routes),
+`fit_arrhenius()`, `permeability_arrhenius()`
+**Sub-phases covered:** Phase 4 (TST rates + env-keyed assembly), Phase 5 (two-layer KMC), Phase 6 (per-env solubility, both S₀ routes, Sieverts + Arrhenius permeability)
 
 | Test | Category | What it checks |
 |---|---|---|
 | `test_tst_rate_detailed_balance` | D | Synthetic barrier: `Ea=0.5 eV`, `dE=-0.1 eV`, `T=700K` → `k_fwd/k_rev = exp(dE/kT)` within 0.1% |
-| `test_kmc_flux_positive` | D | `sweep_pressure()` with synthetic rates → `J > 0` for all P values |
+| `test_kmc_flux_positive` | D | `sweep_pressure()` with synthetic env-keyed rates on the two-layer grid → `J > 0` for all P values |
 | `test_kmc_sieverts_linear` | D | `J` vs `√P` is linear (`R² > 0.98`) for bulk-diffusion-limited synthetic rates |
 | `test_kmc_convergence_flag` | D | Very high rate → `sweep_pressure()` returns `converged=True` for all pressures |
 | `test_permeability_is_D_times_S` | D | `permeability(D, S)` returns `D × S` exactly |
 | `test_richardson_flux_scales_with_L` | D | Doubling membrane thickness L halves flux J |
 | `test_permeation_script_written` | A | `generate_permeation_scripts(..., dry_run=True)` writes `permeation_run.py`; `partition=sharing` in GPU_SLURM_CFG |
 | `test_permeation_script_phases_present` | A | Generated script contains Phase 1–6 markers |
-| `test_rate_dict_schema` | C | `rate_dict_T700K.json` has `k_forward`, `k_reverse`, `Ea_eV`, `T_K` keys per entry |
+| `test_rate_dict_schema` | C | `rate_dict_T700K.json` has per-hop `k_forward`, `k_reverse`, `Ea_zpe`, `T_K` keys per entry (the env-keyed KMC rate dict is assembled from these by `env_rate_dict()`) |
+
+**Section 5b — end-to-end reframed chain (`test_ft_permeation_validation.py`):** a fixture-driven
+test that supplies the upstream data that would come from SLURM/MACE (a Part-3 diffusivity fit;
+`ranked_barriers.json` dissociation products + `h_atom` structures; per-pathway Hop A/B ZPE rates +
+oct-site env), then exercises the genuinely-new pure-Python + KMC assembly: `build_sub1_sub2_map` /
+`collect_entry_h_sources` / `build_surface_sub1_sub2_map` → `env_rate_dict` → two-layer KMC sweep →
+`build_dh_sol_by_env` + `solubility_by_environment` (both S₀ routes) → `fit_arrhenius` +
+`permeability_arrhenius`. Asserts, among others, the `E_Φ = E_D + ΔH_sol` and `Φ₀ = D₀·S₀` identities
+and that entry is seeded from the dissociation products.
 
 ---
 
