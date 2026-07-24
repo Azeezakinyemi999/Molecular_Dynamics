@@ -614,6 +614,7 @@ def run_kmc_to_steady_state(
     step      = 0
     th_hist: list[float] = []
     ns_hist: list[float] = []
+    ns2_hist: list[float] = []
     converged = False
 
     while step < max_steps:
@@ -622,6 +623,7 @@ def run_kmc_to_steady_state(
         step   += 1
         th_hist.append(surface_coverage(grid))
         ns_hist.append(float(subsurface_population(grid)))
+        ns2_hist.append(float(sub2_population(grid)))
 
         if step >= 2 * window:
             th_now  = float(np.mean(th_hist[-window:]))
@@ -640,7 +642,14 @@ def run_kmc_to_steady_state(
                 break
 
     theta_ss = float(np.mean(th_hist[-window:])) if len(th_hist) >= window else float(np.mean(th_hist))
-    C0       = subsurface_concentration(grid, a0_m)
+    # C0 is the STEADY-STATE (time-averaged) sub2 concentration over the same
+    # window as theta_ss -- not a single final snapshot. sub2 holds relatively
+    # few atoms in the two-layer model, so a snapshot is dominated by shot
+    # noise; averaging over the window gives a stable, Sieverts-clean C0.
+    _n2 = ns2_hist[-window:] if len(ns2_hist) >= window else ns2_hist
+    _N_sub2_avg = float(np.mean(_n2)) if _n2 else 0.0
+    _vol = grid['nx'] * grid['ny'] * (a0_m ** 3) / math.sqrt(2.0)
+    C0   = _N_sub2_avg / _vol if _vol > 0.0 else 0.0
 
     print(f'[KMC] converged={converged}  steps={step}  t={t:.3e} s  θ={theta_ss:.4f}  C0={C0:.3e} atoms/m³')
     return {

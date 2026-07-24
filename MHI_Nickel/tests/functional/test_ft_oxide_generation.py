@@ -66,22 +66,28 @@ def test_permeation_metal_type_defaults_to_alloy(tmp_path):
 
 
 def test_permeation_species_are_slab_derived(tmp_path):
-    """The k_entry scan and diss placeholder pairs must come from the slab,
-    not a hardcoded metal tuple — oxides have O; other alloys differ too."""
+    """The k_diss placeholder pairs and the KMC env populations must come from
+    the slab, not a hardcoded metal tuple — oxides have O; other alloys differ.
+    Post-reframing the surface→sub1 entry rates are keyed by oct-site
+    environment (drawn from the real subsurface sites), not by element."""
     src = _generate(tmp_path, 'perm_species.py', metal_type='oxide')
     assert "('Ni', 'Mo', 'Cr', 'Fe')" not in src
     assert '_slab_species' in src
     assert 'combinations_with_replacement' in src
-    # bare-sid fallback resolves site composition from surface_sites.json
-    assert '_sid2comp' in src
+    # env populations for the KMC grid are built from the real subsurface sites
+    assert '_sub1_env_comp' in src
+    assert 'env_rate_dict(' in src
 
 
 def test_permeation_oxide_kmc_composition(tmp_path):
     src = _generate(tmp_path, 'perm_kmc.py', metal_type='oxide')
     assert '_kmc_composition' in src
     assert 'composition = _kmc_composition' in src
-    # metals keep make_grid's default: composition only set when oxide
-    assert "if METAL_TYPE == 'oxide':" in src
+    # Grid composition is now drawn from the real slab for EVERY metal type;
+    # the old oxide-only gate is gone (metals no longer fall back to make_grid's
+    # hardcoded Hastelloy default).
+    assert "if METAL_TYPE == 'oxide':" not in src
+    assert "_surf_data.get('surface_atoms'" in src
 
 
 # ─── metal_type threading through Part 1 site enumeration ────────────────────
