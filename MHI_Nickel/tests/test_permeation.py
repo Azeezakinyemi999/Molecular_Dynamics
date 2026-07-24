@@ -504,3 +504,94 @@ class TestResolveNhDiffusivity:
         res3 = resolve_nh_diffusivity(str(tmp_path), 'ni_bulk_test', 3)
         assert res1['ready'] is True
         assert res3['ready'] is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Section 4b — Heterogeneous, per-environment solubility (both S0 routes)
+# ═══════════════════════════════════════════════════════════════════════════
+
+from models.permeation import (
+    vibrational_S0, build_dh_sol_by_env, solubility_by_environment,
+)
+
+
+class TestVibrationalS0:
+
+    def test_positive(self):
+        assert vibrational_S0(_A0, _T, [500.0, 800.0, 1200.0]) > 0.0
+
+    def test_scales_with_site_density(self):
+        # rho_oct = 4/a0^3, so halving a0 multiplies S0 by 8 (all else equal)
+        s_big = vibrational_S0(_A0,       _T, [500.0, 800.0, 1200.0])
+        s_sml = vibrational_S0(_A0 / 2.0, _T, [500.0, 800.0, 1200.0])
+        assert s_sml == pytest.approx(8.0 * s_big, rel=1e-6)
+
+    def test_stiffer_dissolved_modes_raise_S0(self):
+        # larger q_H (softer modes) -> larger S0; stiffer modes -> smaller
+        s_soft = vibrational_S0(_A0, _T, [200.0, 200.0, 200.0])
+        s_stiff = vibrational_S0(_A0, _T, [2000.0, 2000.0, 2000.0])
+        assert s_soft > s_stiff
+
+
+class TestBuildDhSolByEnv:
+
+    def _hopa(self):
+        # reaction energy = Ea_zpe - Ed_zpe
+        return {
+            'hopa_s_0': {'env': 'Ni6_oct',   'Ea_zpe': 0.30, 'Ed_zpe': 0.10},  # ΔH_A=+0.20
+            'hopa_s_1': {'env': 'Ni6_oct',   'Ea_zpe': 0.40, 'Ed_zpe': 0.20},  # ΔH_A=+0.20
+            'hopa_s_2': {'env': 'Ni5Mo_oct', 'Ea_zpe': 0.25, 'Ed_zpe': 0.35},  # ΔH_A=-0.10
+        }
+
+    def _hopb(self):
+        return {'hopb_s_0': {'env': 'Ni6_oct', 'Ea_zpe': 0.50, 'Ed_zpe': 0.40}}  # ΔH_B=+0.10
+
+    def test_groups_by_sub1_env_with_weights(self):
+        out = build_dh_sol_by_env(self._hopa(), self._hopb(), dh_diss_eV=-1.0)
+        assert set(out) == {'Ni6_oct', 'Ni5Mo_oct'}
+        assert out['Ni6_oct']['n_sites'] == 2
+        assert out['Ni5Mo_oct']['n_sites'] == 1
+        assert out['Ni6_oct']['w_env'] == pytest.approx(2 / 3)
+        assert out['Ni5Mo_oct']['w_env'] == pytest.approx(1 / 3)
+
+    def test_dh_sol_formula(self):
+        out = build_dh_sol_by_env(self._hopa(), self._hopb(), dh_diss_eV=-1.0)
+        # Ni6_oct: 0.5*(-1.0) + mean(0.20,0.20) + 0.10 = -0.5 + 0.20 + 0.10 = -0.20
+        assert out['Ni6_oct']['dH_sol_eV'] == pytest.approx(-0.20)
+        # Ni5Mo_oct: -0.5 + (-0.10) + 0.10 = -0.50
+        assert out['Ni5Mo_oct']['dH_sol_eV'] == pytest.approx(-0.50)
+
+    def test_writes_json(self, tmp_path):
+        out_json = str(tmp_path / 'dH_sol_by_env.json')
+        build_dh_sol_by_env(self._hopa(), self._hopb(), -1.0, out_json=out_json)
+        assert pathlib.Path(out_json).exists()
+        loaded = json.loads(pathlib.Path(out_json).read_text())
+        assert 'Ni6_oct' in loaded
+
+
+class TestSolubilityByEnvironment:
+
+    def test_single_env_reduces_to_boltzmann(self):
+        d = {'Ni6_oct': {'dH_sol_eV': 0.15, 'w_env': 1.0, 'n_sites': 1}}
+        S0 = 2.0e28
+        got = solubility_by_environment(d, S0, _T)
+        assert got == pytest.approx(S0 * math.exp(-0.15 / (_KB_EV * _T)))
+
+    def test_weighted_sum_over_envs(self):
+        d = {
+            'a': {'dH_sol_eV': 0.10, 'w_env': 0.5, 'n_sites': 1},
+            'b': {'dH_sol_eV': 0.40, 'w_env': 0.5, 'n_sites': 1},
+        }
+        S0 = 1.0
+        kT = _KB_EV * _T
+        expected = 0.5 * math.exp(-0.10 / kT) + 0.5 * math.exp(-0.40 / kT)
+        assert solubility_by_environment(d, S0, _T) == pytest.approx(expected)
+
+    def test_lower_barrier_env_dominates(self):
+        # a more favourable (lower ΔH_sol) environment gives higher solubility
+        d_lo = {'x': {'dH_sol_eV': 0.05, 'w_env': 1.0, 'n_sites': 1}}
+        d_hi = {'x': {'dH_sol_eV': 0.50, 'w_env': 1.0, 'n_sites': 1}}
+        assert solubility_by_environment(d_lo, 1.0, _T) > solubility_by_environment(d_hi, 1.0, _T)
+
+    def test_empty_returns_zero(self):
+        assert solubility_by_environment({}, 1.0, _T) == 0.0

@@ -50,6 +50,7 @@ import os
 import numpy as np
 
 from models.kmc import make_grid, run_kmc_to_steady_state
+from models.tst_rates import vib_partition_function, h2_gas_partition_function
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +389,164 @@ def solubility_from_rates(
     S = rho_oct * (k_entry_s1 / k_exit_s1) * np.sqrt(k_diss * A_site / denom)
     print(f'[S opt2] S(T={T_K:.0f}K)={S:.3e} atoms·m⁻³·Pa⁻⁰·⁵')
     return S
+
+
+# ---------------------------------------------------------------------------
+# Section 4b — Heterogeneous, per-environment thermodynamic solubility
+#
+# Solubility is an equilibrium property: it depends on the reaction ENERGIES
+# along the connected chain (½ H₂ dissociation + Hop A + Hop B, to sub2), not
+# the barriers. Different octahedral environments have different ΔH_sol, so the
+# statistically-correct solubility is a population-weighted Boltzmann sum over
+# environments — never a single collapsed representative. Two S₀ prefactor
+# routes are offered: geometric (lattice_site_S0) and vibrational
+# (vibrational_S0, reusing the dissolved-H FS modes + gas-phase H₂ reference).
+# ---------------------------------------------------------------------------
+
+def vibrational_S0(a0_m: float, T_K: float, freqs_dissolved_cm1,
+                   P_ref_Pa: float = 1.0) -> float:
+    """Vibrational (partition-function) solubility pre-exponential S₀.
+
+    .. math::
+
+        S_0 = \\rho_{\\text{oct}} \\cdot
+              \\frac{q_{\\text{vib}}^{\\text{H,dissolved}}(T)}
+                   {\\sqrt{q^{\\text{H}_2,\\text{gas}}(T, P_{\\text{ref}})}}
+
+    The √ on the gas partition function reflects the H₂ → 2H stoichiometry
+    (per dissolved H atom). The gas translational term carries a 1/P factor, so
+    with ``P_ref_Pa = 1`` the resulting S₀ has units atoms·m⁻³·Pa^(−½) and
+    ``C₀ = S₀·exp(−ΔH_sol/kT)·√P`` with P in Pa (see
+    :func:`solubility_by_environment` / :func:`sieverts_solubility`).
+
+    Parameters
+    ----------
+    a0_m : float
+        FCC lattice constant [m].
+    T_K : float
+        Temperature [K].
+    freqs_dissolved_cm1 : iterable of float
+        Real vibrational frequencies [cm⁻¹] of a dissolved H in its oct cage
+        (the FS-endpoint modes from Part 2's vibration run).
+    P_ref_Pa : float
+        Reference pressure fixing the S₀ units. Default 1.0 Pa.
+
+    Returns
+    -------
+    float
+        S₀ in atoms·m⁻³·Pa^(−½).
+    """
+    rho_oct = 4.0 / (a0_m ** 3)
+    q_H  = vib_partition_function(freqs_dissolved_cm1, T_K)
+    q_H2 = h2_gas_partition_function(T_K, P_ref_Pa)['total']
+    _S0 = rho_oct * q_H / np.sqrt(q_H2)
+    print(f'[S0 vib] S0={_S0:.3e} atoms·m⁻³·Pa⁻⁰·⁵  (q_H={q_H:.3f}, q_H2={q_H2:.3e})')
+    return _S0
+
+
+def build_dh_sol_by_env(hopa_vib: dict, hopb_vib: dict, dh_diss_eV: float,
+                        out_json: str | None = None) -> dict:
+    """Per-environment solution enthalpy ΔH_sol(env), carried to sub2.
+
+    ``ΔH_sol(env) = ½·ΔH_diss + ΔH_HopA(env) + ΔH_HopB``, built from the
+    ZPE-corrected reaction energies of the hops (reaction energy = forward
+    barrier − reverse barrier = ``Ea_zpe − Ed_zpe``), grouped by the sub1
+    entry environment. ΔH_HopB enters as the mean over Hop B pathways (Hop B is
+    keyed by sub2 env; each sub1 leads on to some sub2, so its aggregate mean is
+    used — an explicit, documented simplification). Population weight ``w_env``
+    is the fraction of Hop A pathways in each environment.
+
+    Parameters
+    ----------
+    hopa_vib : dict
+        ``{label: {env, Ea_zpe, Ed_zpe, ...}}`` from
+        ``tst_rates.write_hop_vib_rates`` (env = sub1 env).
+    hopb_vib : dict
+        Same shape for Hop B (env = sub2 env).
+    dh_diss_eV : float
+        H₂ dissociation reaction energy [eV] (per H₂).
+    out_json : str, optional
+        If given, written here as ``dH_sol_by_env.json``.
+
+    Returns
+    -------
+    dict
+        ``{env: {dH_sol_eV, w_env, n_sites, dH_hopA_eV, dH_hopB_mean_eV}}``.
+    """
+    def _rxn(r):
+        a, d = r.get('Ea_zpe'), r.get('Ed_zpe')
+        return None if (a is None or d is None) else float(a) - float(d)
+
+    a_by_env: dict = {}
+    for r in hopa_vib.values():
+        env = r.get('env') or r.get('sub1_env')
+        dr  = _rxn(r)
+        if env is None or dr is None:
+            continue
+        a_by_env.setdefault(env, []).append(dr)
+
+    b_deltas = [d for d in (_rxn(r) for r in hopb_vib.values()) if d is not None]
+    dh_hopb_mean = float(np.mean(b_deltas)) if b_deltas else 0.0
+
+    total = sum(len(v) for v in a_by_env.values()) or 1
+    out: dict = {}
+    for env, deltas in a_by_env.items():
+        dh_hopa = float(np.mean(deltas))
+        out[env] = {
+            'dH_sol_eV':       0.5 * dh_diss_eV + dh_hopa + dh_hopb_mean,
+            'w_env':           len(deltas) / total,
+            'n_sites':         len(deltas),
+            'dH_hopA_eV':      dh_hopa,
+            'dH_hopB_mean_eV': dh_hopb_mean,
+        }
+
+    if out_json:
+        os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
+        with open(out_json, 'w') as fh:
+            json.dump(out, fh, indent=2)
+        print(f'[dH_sol by env] {len(out)} environments → {out_json}')
+    return out
+
+
+def solubility_by_environment(dh_sol_by_env: dict, S0: float, T_K: float) -> float:
+    """Population-weighted Boltzmann solubility over oct-site environments.
+
+    .. math::
+
+        S(T) = S_0 \\cdot \\sum_{\\text{env}} w_{\\text{env}}\\,
+               e^{-\\Delta H_{\\text{sol}}(\\text{env}) / k_B T}
+
+    ``S0`` supplies the prefactor (ρ_oct-bearing) — either the geometric
+    :func:`lattice_site_S0` or the vibrational :func:`vibrational_S0`. The sum
+    is the dimensionless population-weighted Boltzmann average; the most
+    favourable environments dominate but all contribute (replacing the old
+    single-representative collapse).
+
+    Parameters
+    ----------
+    dh_sol_by_env : dict
+        Output of :func:`build_dh_sol_by_env`.
+    S0 : float
+        Solubility pre-exponential [atoms·m⁻³·Pa^(−½)].
+    T_K : float
+        Temperature [K].
+
+    Returns
+    -------
+    float
+        S(T) in atoms·m⁻³·Pa^(−½).
+    """
+    if T_K <= 0:
+        raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
+    if not dh_sol_by_env:
+        return 0.0
+    kT = _KB_EV * T_K
+    boltz = sum(d['w_env'] * np.exp(-d['dH_sol_eV'] / kT)
+                for d in dh_sol_by_env.values())
+    _S = float(S0 * boltz)
+    print(f'[S by env] S(T={T_K:.0f}K)={_S:.3e}  (Σw·e^(−ΔH/kT)={boltz:.3e}, '
+          f'{len(dh_sol_by_env)} envs)')
+    return _S
 
 
 def fit_solubility_from_kmc(sweep_result: dict) -> dict:
