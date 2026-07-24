@@ -595,3 +595,65 @@ class TestSolubilityByEnvironment:
 
     def test_empty_returns_zero(self):
         assert solubility_by_environment({}, 1.0, _T) == 0.0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Section 5 — Arrhenius output fitters (S0/dH_sol, Phi0/E_phi)
+# ═══════════════════════════════════════════════════════════════════════════
+
+from models.permeation import fit_arrhenius, permeability_arrhenius
+
+
+class TestFitArrhenius:
+
+    def test_recovers_known_parameters(self):
+        A, Ea = 5.0e12, 0.42
+        T = np.array([400.0, 600.0, 800.0])
+        y = A * np.exp(-Ea / (_KB_EV * T))
+        fit = fit_arrhenius(T, y)
+        assert fit['prefactor'] == pytest.approx(A, rel=1e-6)
+        assert fit['Ea_eV'] == pytest.approx(Ea, rel=1e-6)
+        assert fit['r2'] == pytest.approx(1.0, abs=1e-9)
+
+    def test_curvature_lowers_r2(self):
+        # A sum of two Arrhenius terms with a genuine crossover (low-ΔH term
+        # dominates at low T, high-ΔH + huge-prefactor term at high T) is not a
+        # single line -> visible curvature -> R2 meaningfully below 1.
+        T = np.array([400.0, 500.0, 600.0, 700.0, 800.0])
+        y = np.exp(-0.1 / (_KB_EV * T)) + 1e8 * np.exp(-0.9 / (_KB_EV * T))
+        fit = fit_arrhenius(T, y)
+        assert fit['r2'] < 0.999
+
+    def test_fewer_than_two_points_is_nan(self):
+        fit = fit_arrhenius([600.0], [1.0])
+        assert fit['n_points'] == 1
+        assert math.isnan(fit['prefactor'])
+
+    def test_drops_nonpositive_points(self):
+        A, Ea = 1.0e10, 0.3
+        T = np.array([400.0, 600.0, 800.0])
+        y = A * np.exp(-Ea / (_KB_EV * T))
+        fit = fit_arrhenius(np.append(T, 900.0), np.append(y, 0.0))  # 0.0 dropped
+        assert fit['n_points'] == 3
+        assert fit['Ea_eV'] == pytest.approx(Ea, rel=1e-6)
+
+
+class TestPermeabilityArrhenius:
+
+    def test_phi0_is_product(self):
+        r = permeability_arrhenius(1e-7, 0.40, 2e28, 0.15)
+        assert r['Phi0'] == pytest.approx(1e-7 * 2e28)
+
+    def test_e_phi_is_sum(self):
+        r = permeability_arrhenius(1e-7, 0.40, 2e28, 0.15)
+        assert r['E_phi_eV'] == pytest.approx(0.55)
+
+    def test_consistent_with_direct_fit(self):
+        # Phi(T) = D0*S0 * exp(-(E_D+dH)/kT) must fit back to Phi0/E_phi
+        D0, E_D, S0, dH = 1e-7, 0.40, 2e28, 0.15
+        params = permeability_arrhenius(D0, E_D, S0, dH)
+        T = np.array([400.0, 600.0, 800.0])
+        Phi = (D0 * np.exp(-E_D / (_KB_EV * T))) * (S0 * np.exp(-dH / (_KB_EV * T)))
+        fit = fit_arrhenius(T, Phi)
+        assert fit['prefactor'] == pytest.approx(params['Phi0'], rel=1e-6)
+        assert fit['Ea_eV'] == pytest.approx(params['E_phi_eV'], rel=1e-6)
