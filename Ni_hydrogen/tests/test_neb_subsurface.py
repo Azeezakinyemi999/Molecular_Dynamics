@@ -231,3 +231,136 @@ class TestOrchestrateHopbNebSkip:
             array_call = next(c for c in write_slurm_calls if c['job_name'] == array_name)
             assert array_call['array_range'] == (0, 0)
             assert any('SLURM_ARRAY_TASK_ID+1' in c for c in array_call['commands'])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Part 1 — subsurface entry maps (surface → sub1 → sub2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _fake_subsurface_graph():
+    """(G, subsurface_sites) with two sub1 (one mapped, one unmatched) + one sub2."""
+    import networkx as nx
+    subsurface_sites = [
+        {'site_id': 'ss_0', 'position': [1.0, 1.0, 10.0],
+         'layer_classification': 'subsurface_1', 'composition_label': 'Ni6_oct'},
+        {'site_id': 'ss_1', 'position': [1.0, 1.0, 8.0],
+         'layer_classification': 'subsurface_2', 'composition_label': 'Ni5Mo_oct'},
+        {'site_id': 'ss_2', 'position': [3.0, 3.0, 10.0],
+         'layer_classification': 'subsurface_1', 'composition_label': 'Ni4Mo2_oct'},
+    ]
+    G = nx.Graph()
+    for s in subsurface_sites:
+        G.add_node(s['site_id'], position=s['position'],
+                   layer_classification=s['layer_classification'],
+                   composition_label=s['composition_label'])
+    G.add_edge('ss_0', 'ss_1')          # ss_0 (sub1) → ss_1 (sub2)
+    # ss_2 has no subsurface_2 neighbour on purpose (unmatched case)
+    return G, subsurface_sites
+
+
+class TestBuildSub1Sub2Map:
+
+    def test_matched_and_unmatched(self, tmp_path):
+        from models.neb_subsurface import build_sub1_sub2_map
+        out = str(tmp_path / 'sub1_sub2_map.json')
+        m = build_sub1_sub2_map(_fake_subsurface_graph(), out_json=out)
+
+        assert m['ss_0']['sub2_id'] == 'ss_1'
+        assert m['ss_0']['sub1_env'] == 'Ni6_oct'
+        assert m['ss_0']['sub2_env'] == 'Ni5Mo_oct'
+        # unmatched sub1 recorded, not dropped
+        assert 'ss_2' in m
+        assert m['ss_2']['sub2_id'] is None
+        assert 'reason' in m['ss_2']
+        assert os.path.exists(out)
+
+    def test_only_sub1_sites_are_keys(self, tmp_path):
+        from models.neb_subsurface import build_sub1_sub2_map
+        m = build_sub1_sub2_map(_fake_subsurface_graph())
+        # ss_1 is a sub2 site — must not appear as a top-level (sub1) key
+        assert set(m.keys()) == {'ss_0', 'ss_2'}
+
+
+def _write_h_site(dirpath, sid, pe):
+    """Write a minimal h_atom_{sid}_relaxed.lammps + h_min_{sid}.log pair."""
+    os.makedirs(dirpath, exist_ok=True)
+    open(os.path.join(dirpath, f'h_atom_{sid}_relaxed.lammps'), 'w').write('fake\n')
+    open(os.path.join(dirpath, f'h_min_{sid}.log'), 'w').write(f'pe_final_eV: {pe}\n')
+
+
+class TestCollectEntryHSources:
+
+    def _ranked(self, dirpath, jobs):
+        os.makedirs(dirpath, exist_ok=True)
+        import json as _j
+        with open(os.path.join(dirpath, 'ranked_barriers.json'), 'w') as f:
+            _j.dump(jobs, f)
+
+    def test_only_converged_products_seed_entry(self, tmp_path):
+        from models.neb_subsurface import collect_entry_h_sources
+        neb_dir = str(tmp_path / 'neb')
+        ph2 = str(tmp_path / 'phase2_h')
+        self._ranked(neb_dir, [
+            {'label': 's_9__s_1+s_2',  'fs_site1': 's_1', 'fs_site2': 's_2', 'converged': True},
+            {'label': 's_9__s_2+s_3',  'fs_site1': 's_2', 'fs_site2': 's_3', 'converged': True},
+            {'label': 's_9__s_4+s_5',  'fs_site1': 's_4', 'fs_site2': 's_5', 'converged': False},
+        ])
+        for sid, pe in [('s_1', -100.1), ('s_2', -100.2), ('s_3', -100.3)]:
+            _write_h_site(ph2, sid, pe)
+
+        out = str(tmp_path / 'entry_h_sources.json')
+        triples = collect_entry_h_sources(neb_dir, ph2, out_json=out)
+        sids = [t[0] for t in triples]
+        # s_1, s_2, s_3 from converged runs; s_2 deduped once; s_4/s_5 excluded (unconverged)
+        assert sids == ['s_1', 's_2', 's_3']
+        # provenance: s_2 appears in two runs
+        import json as _j
+        recs = {r['surface_sid']: r for r in _j.load(open(out))}
+        assert len(recs['s_2']['source_diss_runs']) == 2
+
+    def test_missing_structure_or_log_skipped(self, tmp_path):
+        from models.neb_subsurface import collect_entry_h_sources
+        neb_dir = str(tmp_path / 'neb')
+        ph2 = str(tmp_path / 'phase2_h')
+        self._ranked(neb_dir, [
+            {'label': 's_9__s_1+s_2', 'fs_site1': 's_1', 'fs_site2': 's_2', 'converged': True},
+        ])
+        _write_h_site(ph2, 's_1', -100.1)   # s_2 deliberately absent
+        triples = collect_entry_h_sources(neb_dir, ph2)
+        assert [t[0] for t in triples] == ['s_1']
+
+
+class TestBuildSurfaceSub1Sub2Map:
+
+    def test_two_h_to_same_sub1_collapses_to_lower_energy(self, tmp_path):
+        from models.neb_subsurface import build_surface_sub1_sub2_map
+        graph = _fake_subsurface_graph()
+        sub1_sub2 = {'ss_0': {'sub2_id': 'ss_1', 'sub2_env': 'Ni5Mo_oct',
+                              'sub1_env': 'Ni6_oct'}}
+        # s_a and s_b both map to sub1 ss_0; s_b is lower-energy IS
+        entry_sources = [('s_a', '/p/h_atom_s_a.lammps', -100.0),
+                         ('s_b', '/p/h_atom_s_b.lammps', -100.5)]
+        surface_connections = [('ss_0', 's_a', 0.5), ('ss_0', 's_b', 0.6)]
+
+        pm = build_surface_sub1_sub2_map(entry_sources, surface_connections,
+                                         sub1_sub2, graph)
+        assert len(pm) == 1                       # collapsed to one Hop A
+        assert pm[0]['surface_sid'] == 's_b'      # lower-energy IS kept
+        assert pm[0]['collapsed_from'] == ['s_a']
+        assert pm[0]['sub1_id'] == 'ss_0'
+        assert pm[0]['sub2_id'] == 'ss_1'
+
+    def test_distinct_sub1_kept_separate(self, tmp_path):
+        from models.neb_subsurface import build_surface_sub1_sub2_map
+        graph = _fake_subsurface_graph()
+        sub1_sub2 = {
+            'ss_0': {'sub2_id': 'ss_1', 'sub2_env': 'Ni5Mo_oct', 'sub1_env': 'Ni6_oct'},
+            'ss_2': {'sub2_id': None, 'sub1_env': 'Ni4Mo2_oct'},
+        }
+        entry_sources = [('s_a', '/p/a.lammps', -100.0), ('s_b', '/p/b.lammps', -100.5)]
+        surface_connections = [('ss_0', 's_a', 0.5), ('ss_2', 's_b', 0.6)]
+        pm = build_surface_sub1_sub2_map(entry_sources, surface_connections,
+                                         sub1_sub2, graph)
+        assert len(pm) == 2
+        by_sid = {e['surface_sid']: e for e in pm}
+        assert by_sid['s_b']['sub2_id'] is None   # sub1 with no sub2 carried through
