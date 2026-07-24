@@ -413,13 +413,20 @@ def collect_is_ts_paths(
     neb_jobs: list,
     hop: str = 'hopa',
     is_key: str = 'is_path',
+    fs_key: str | None = None,
 ) -> list[tuple[str, str]]:
-    """Build a ``(label, lammps_path)`` list for IS and TS of each NEB job.
+    """Build a ``(label, lammps_path)`` list for IS/TS (and optionally FS) of each NEB job.
 
     The TS path is extracted at call time by parsing ``neb_barrier.txt`` inside
     each job's ``job_dir``.  Jobs whose NEB has not yet converged (missing barrier
     file or image files) emit a warning and are skipped for the TS entry only;
     the IS entry is always included when ``is_key`` resolves to an existing file.
+
+    When ``fs_key`` is given, the relaxed final-state structure (the dissolved H
+    sitting in its sub1/sub2 octahedral site) is also included as
+    ``'{hop}_{sid}_FS'``. These FS vibrational modes are the dissolved-H
+    partition-function inputs the vibrational solubility prefactor needs (Part 4);
+    they are not used by the IS→TS barrier ZPE correction.
 
     Parameters
     ----------
@@ -431,11 +438,16 @@ def collect_is_ts_paths(
     is_key : str
         Key in each job dict that holds the IS LAMMPS path.
         Use ``'is_path'`` for Hop A jobs, ``'hopb_is'`` for Hop B jobs.
+    fs_key : str, optional
+        Key in each job dict that holds the relaxed FS LAMMPS path (e.g.
+        ``'fs_relaxed'``). When ``None`` (default), no FS entry is emitted —
+        preserving the IS+TS-only behaviour for callers that only need barriers.
 
     Returns
     -------
     list of (label, lammps_path)
-        Labels follow the pattern ``'{hop}_{sid}_IS'`` and ``'{hop}_{sid}_TS'``.
+        Labels follow the pattern ``'{hop}_{sid}_IS'``, ``'{hop}_{sid}_TS'``,
+        and (when ``fs_key`` is set) ``'{hop}_{sid}_FS'``.
     """
     pairs: list[tuple[str, str]] = []
     for job in neb_jobs:
@@ -458,6 +470,16 @@ def collect_is_ts_paths(
                 warnings.warn(
                     f'[{hop}_{sid}] TS extraction failed: {exc}; '
                     'run NEB first or check images/ directory.'
+                )
+
+        if fs_key is not None:
+            fs_path = job.get(fs_key, '')
+            if fs_path and os.path.exists(fs_path):
+                pairs.append((f'{hop}_{sid}_FS', fs_path))
+            else:
+                warnings.warn(
+                    f'[{hop}_{sid}] FS file not found at {fs_path!r}; skipping FS '
+                    '(dissolved-H vibrational modes will be unavailable for it).'
                 )
 
     return pairs

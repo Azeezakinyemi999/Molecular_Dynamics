@@ -295,6 +295,28 @@ class TestCollectIsTsPaths:
         is_paths = [path for lbl, path in pairs if '_IS' in lbl]
         assert str(is_file) in is_paths
 
+    def test_no_fs_entry_by_default(self, neb_job):
+        pairs = collect_is_ts_paths([neb_job], hop='hopa')
+        assert not any(lbl.endswith('_FS') for lbl, _ in pairs)
+
+    def test_fs_entry_emitted_when_fs_key_given(self, neb_job, tmp_path):
+        fs = tmp_path / 'sub1_fs_relaxed.lammps'
+        fs.write_text('dummy FS')
+        job = {**neb_job, 'fs_relaxed': str(fs)}
+        pairs = collect_is_ts_paths([job], hop='hopa', fs_key='fs_relaxed')
+        fs_entries = [(lbl, path) for lbl, path in pairs if lbl.endswith('_FS')]
+        assert len(fs_entries) == 1
+        assert fs_entries[0][0] == 'hopa_Ni3Mo_s0_s1_FS'
+        assert fs_entries[0][1] == str(fs)
+
+    def test_missing_fs_file_warns_and_skips_fs(self, neb_job, tmp_path):
+        job = {**neb_job, 'fs_relaxed': str(tmp_path / 'nope.lammps')}
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            pairs = collect_is_ts_paths([job], hop='hopa', fs_key='fs_relaxed')
+        assert not any(lbl.endswith('_FS') for lbl, _ in pairs)
+        assert any('FS file not found' in str(x.message) for x in w)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. load_vibration_results
