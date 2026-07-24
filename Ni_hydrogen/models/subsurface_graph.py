@@ -149,6 +149,36 @@ def _identify_layers(positions, n_layers=12, z_tol=None):
     return layer_map, layer_z
 
 
+def _n_layers_from_metadata(surface_sites_json_path):
+    """Derive the slab's construction layer count from surface_sites.json metadata.
+
+    ``n_layers = n_atoms_total // n_atoms_surface`` — the total atom count divided
+    by the atoms in one (111) plane (the surface layer). This is the number of
+    z-layers the slab was *built* with, recovered from the slab's own recorded
+    atom counts rather than from the relaxed geometry (which rumpling blurs).
+
+    Valid only for metals/alloys, where every plane has the same atom count; the
+    caller must not use it for oxides.
+
+    Returns
+    -------
+    int or None
+        The layer count, or ``None`` if the metadata is missing/unreadable or
+        ``n_atoms_total`` is not an exact multiple of ``n_atoms_surface`` (in
+        which case the surface count is not one clean plane — fall back).
+    """
+    try:
+        with open(surface_sites_json_path) as fh:
+            meta = json.load(fh).get('metadata', {})
+        n_total   = int(meta.get('n_atoms_total', 0))
+        n_surface = int(meta.get('n_atoms_surface', 0))
+    except (OSError, ValueError, TypeError):
+        return None
+    if n_surface > 0 and n_total > 0 and n_total % n_surface == 0:
+        return n_total // n_surface
+    return None
+
+
 def _identify_layers_by_gaps(positions, gap_tol=0.5):
     """
     Bin atoms into z-layers by gap detection (no equal-count assumption).
@@ -701,20 +731,35 @@ def build_subsurface_graph(
 
     _is_oxide = (metal_type == 'oxide')
 
-    # Step 1: auto-detect the total layer count up front (needed before
-    # Voronoi so the rank-path z-smoothing bins atoms into the right number
-    # of layers). Gap-based clustering is cheap — no Voronoi involved — and
-    # is used purely as a layer *counter* here; the oxide path also uses it
-    # for the actual atom→layer binning further down, while the metal path
-    # re-bins with the rank-based method (immune to alloy z-scatter).
-    if n_layers_total is None:
-        _probe_atoms = _slab_to_atoms(slab_path)
-        _probe_elem = np.array(_probe_atoms.get_chemical_symbols())
-        _probe_pos = _probe_atoms.get_positions()[_probe_elem != 'H']
-        _, _probe_layer_z = _identify_layers_by_gaps(_probe_pos)
-        _N = len(_probe_layer_z)
-    else:
+    # Step 1: determine the total layer count up front (needed before Voronoi
+    # so the rank-path z-smoothing bins atoms into the right number of layers).
+    #
+    # Priority for metals/alloys:
+    #   1. explicit n_layers_total from the caller;
+    #   2. the CONSTRUCTION count derived from the slab's own metadata,
+    #      n_layers = n_atoms_total // n_atoms_surface (atoms per (111) plane) —
+    #      robust to relaxation/rumpling, which blurs adjacent planes and makes
+    #      gap-based z-clustering over-count (e.g. a 12-layer Ni slab read as 17);
+    #   3. gap-based auto-detect as a last resort (with a warning).
+    # Oxide planes have unequal atom counts, so total/surface is meaningless
+    # there — oxides keep the gap-based path.
+    _layer_src = 'caller (n_layers_total)'
+    if n_layers_total is not None:
         _N = n_layers_total
+    else:
+        _N = None
+        if not _is_oxide:
+            _N = _n_layers_from_metadata(surface_sites_json_path)
+            if _N is not None:
+                _layer_src = 'slab metadata (n_atoms_total / n_atoms_surface)'
+        if _N is None:
+            _probe_atoms = _slab_to_atoms(slab_path)
+            _probe_elem = np.array(_probe_atoms.get_chemical_symbols())
+            _probe_pos = _probe_atoms.get_positions()[_probe_elem != 'H']
+            _, _probe_layer_z = _identify_layers_by_gaps(_probe_pos)
+            _N = len(_probe_layer_z)
+            _layer_src = ('gap-based auto-detect (fallback — may over-count on '
+                          'rumpled/relaxed slabs)')
 
     n_frozen = round(_N / 3)
     if subsurface_layers is not None:
@@ -722,7 +767,7 @@ def build_subsurface_graph(
     else:
         _sub1_L, _sub2_L = _N - 1, _N - 2
 
-    print(f"\nStep 1: {_N} total layers detected -> frozen: bottom "
+    print(f"\nStep 1: {_N} total layers [{_layer_src}] -> frozen: bottom "
           f"{n_frozen}, subsurface_1: L{_sub1_L}, "
           f"subsurface_2 (bulk entry): L{_sub2_L}")
 
