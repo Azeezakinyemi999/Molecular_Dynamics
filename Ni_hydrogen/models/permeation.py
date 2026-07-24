@@ -660,6 +660,82 @@ def permeability(D_m2s: float, S_m3_pasqrt: float) -> float:
     return _Phi
 
 
+def fit_arrhenius(T_K_arr, y_arr) -> dict:
+    """Fit ``y(T) = A·exp(−Ea / kB T)`` by linear regression of ln y vs 1/T.
+
+    Reusable for the solubility (Ea = ΔH_sol) and permeability (Ea = E_Φ)
+    Arrhenius outputs. Points with non-positive T or y are dropped. The R² of
+    the ln-linear fit is the curvature/fit-quality flag the plan calls for: a
+    per-environment S(T) is a *sum* of Arrhenius terms, so R² < 1 flags the
+    physically-real curvature (the dominant environment shifting with T) rather
+    than hiding it behind a forced straight line.
+
+    Parameters
+    ----------
+    T_K_arr : iterable of float
+        Temperatures [K].
+    y_arr : iterable of float
+        Quantity at each temperature (e.g. S or Φ).
+
+    Returns
+    -------
+    dict
+        ``{'prefactor': A, 'Ea_eV': float, 'r2': float, 'n_points': int}``.
+        ``prefactor``/``Ea_eV`` are NaN if fewer than two valid points remain.
+    """
+    T = np.asarray(list(T_K_arr), dtype=float)
+    y = np.asarray(list(y_arr),   dtype=float)
+    mask = (T > 0) & (y > 0)
+    T, y = T[mask], y[mask]
+    if len(T) < 2:
+        return {'prefactor': float('nan'), 'Ea_eV': float('nan'),
+                'r2': float('nan'), 'n_points': int(len(T))}
+    x  = 1.0 / T
+    ly = np.log(y)
+    slope, inter = np.polyfit(x, ly, 1)
+    Ea = -float(slope) * _KB_EV
+    A  = float(np.exp(inter))
+    pred   = slope * x + inter
+    ss_res = float(np.sum((ly - pred) ** 2))
+    ss_tot = float(np.sum((ly - ly.mean()) ** 2))
+    r2     = 1.0 - ss_res / ss_tot if ss_tot > 0.0 else 1.0
+    print(f'[Arrhenius fit] A={A:.3e}  Ea={Ea:.4f} eV  R²={r2:.4f}  (n={len(T)})')
+    return {'prefactor': A, 'Ea_eV': Ea, 'r2': float(r2), 'n_points': int(len(T))}
+
+
+def permeability_arrhenius(D0_m2s: float, E_D_eV: float,
+                           S0: float, dH_sol_eV: float) -> dict:
+    """Permeability Arrhenius parameters from the diffusivity and solubility fits.
+
+    Since Φ = D·S with D = D₀·exp(−E_D/kT) and S = S₀·exp(−ΔH_sol/kT):
+
+    .. math::
+
+        \\Phi_0 = D_0 \\cdot S_0, \\qquad E_\\Phi = E_D + \\Delta H_{\\text{sol}}
+
+    the textbook result that the permeation activation energy is the diffusion
+    barrier plus the solution enthalpy. No separate fit is required; a direct
+    ``ln Φ`` vs 1/T fit (via :func:`fit_arrhenius`) is the cross-check.
+
+    Parameters
+    ----------
+    D0_m2s : float
+        Diffusivity pre-exponential [m²/s].
+    E_D_eV : float
+        Diffusion activation energy [eV].
+    S0 : float
+        Solubility pre-exponential [atoms·m⁻³·Pa^(−½)] (geometric or vibrational).
+    dH_sol_eV : float
+        Solution enthalpy [eV].
+
+    Returns
+    -------
+    dict
+        ``{'Phi0': float, 'E_phi_eV': float}``.
+    """
+    return {'Phi0': float(D0_m2s * S0), 'E_phi_eV': float(E_D_eV + dH_sol_eV)}
+
+
 def richardson_flux(
     Phi: float,
     P_high_Pa: float,
