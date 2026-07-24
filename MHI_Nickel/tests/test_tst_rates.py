@@ -536,3 +536,67 @@ class TestWriteHopVibRates:
         res = write_hop_vib_rates(rate_dict, jobs_b, 'hopb', str(tmp_path / 'v.json'),
                                   env_key='sub2_env')
         assert res['hopb_s_0']['env'] == 'Ni4Mo2_oct'
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 9. Partition functions (vibrational solubility prefactor building blocks)
+# ═══════════════════════════════════════════════════════════════════════════
+
+from models.tst_rates import (
+    vib_partition_function, h2_gas_partition_function,
+    _THETA_ROT_H2_K, _SIGMA_H2,
+)
+
+
+class TestVibPartitionFunction:
+
+    def test_at_least_one(self):
+        assert vib_partition_function([500.0, 800.0, 1200.0], 600.0) >= 1.0
+
+    def test_approaches_one_at_low_T(self):
+        # all modes frozen out → q → 1
+        assert vib_partition_function([1000.0, 1000.0, 1000.0], 1.0) == pytest.approx(1.0, abs=1e-9)
+
+    def test_increases_with_temperature(self):
+        q_lo = vib_partition_function([300.0, 300.0], 300.0)
+        q_hi = vib_partition_function([300.0, 300.0], 900.0)
+        assert q_hi > q_lo
+
+    def test_soft_modes_below_threshold_dropped(self):
+        # a 10 cm-1 mode is below the 50 cm-1 floor -> ignored
+        q_with_soft = vib_partition_function([10.0, 500.0], 600.0)
+        q_stiff     = vib_partition_function([500.0], 600.0)
+        assert q_with_soft == pytest.approx(q_stiff)
+
+    def test_single_mode_exact(self):
+        nu, T = 500.0, 600.0
+        from models.tst_rates import CM1_TO_EV, BOLTZMANN_eV
+        x = (CM1_TO_EV * nu) / (BOLTZMANN_eV * T)
+        assert vib_partition_function([nu], T) == pytest.approx(1.0 / (1.0 - math.exp(-x)))
+
+
+class TestH2GasPartitionFunction:
+
+    def test_returns_components(self):
+        q = h2_gas_partition_function(600.0, 1.0)
+        for k in ('trans', 'rot', 'vib', 'total'):
+            assert k in q and q[k] > 0.0
+
+    def test_translational_inverse_in_pressure(self):
+        q_lo = h2_gas_partition_function(600.0, 1.0)['trans']
+        q_hi = h2_gas_partition_function(600.0, 2.0)['trans']
+        assert q_lo == pytest.approx(2.0 * q_hi, rel=1e-8)   # q_trans ∝ V ∝ 1/P
+
+    def test_rotational_high_T_formula(self):
+        q = h2_gas_partition_function(600.0, 1.0)
+        assert q['rot'] == pytest.approx(600.0 / (_SIGMA_H2 * _THETA_ROT_H2_K), rel=1e-8)
+
+    def test_vibrational_near_unity(self):
+        # θ_vib(H2) ≈ 6332 K >> 600 K, so q_vib ≈ 1
+        assert h2_gas_partition_function(600.0, 1.0)['vib'] == pytest.approx(1.0, abs=1e-3)
+
+    def test_rejects_nonpositive(self):
+        with pytest.raises(ValueError):
+            h2_gas_partition_function(0.0, 1.0)
+        with pytest.raises(ValueError):
+            h2_gas_partition_function(600.0, 0.0)

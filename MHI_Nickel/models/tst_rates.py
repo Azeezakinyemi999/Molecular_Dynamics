@@ -534,3 +534,92 @@ def write_hop_vib_rates(rate_dict: dict, neb_jobs: list, hop: str, out_json: str
         json.dump(out, fh, indent=2)
     print(f'[{hop} vib rates] {len(out)} labels → {out_json}')
     return out
+
+
+# ---------------------------------------------------------------------------
+# Section 9 — Partition functions (for the vibrational solubility prefactor)
+#
+# Building blocks for models/permeation.py's vibrational S0 route: the
+# dissolved-H vibrational partition function (from the FS oct-cage modes) and
+# the gas-phase H2 reference partition function. Standard ideal-gas statistical
+# mechanics; see e.g. McQuarrie, "Statistical Mechanics".
+# ---------------------------------------------------------------------------
+
+_PLANCK_J_S     = 6.62607015e-34   # J·s
+_KB_J           = 1.380649e-23     # J/K
+_M_H2_KG        = 2.0 * 1.6735575e-27   # kg  (H2 molecule)
+_THETA_ROT_H2_K = 87.6             # K, rotational temperature of H2
+_THETA_VIB_H2_K = 6332.0           # K, vibrational temperature of H2 (~4401 cm^-1)
+_SIGMA_H2       = 2                # symmetry number (homonuclear diatomic)
+
+
+def vib_partition_function(freqs_cm1, T_K: float, min_freq_cm1: float = 50.0) -> float:
+    """Harmonic vibrational partition function q_vib = Π 1/(1 − e^(−hcν/kT)).
+
+    Zero-point energy is taken as the reference (q → 1 as T → 0), the usual
+    convention when the ZPE is carried separately in ΔH_sol. Soft/spurious
+    modes below ``min_freq_cm1`` are dropped (they are the translational/
+    rotational near-zero modes an harmonic analysis of an adsorbate produces).
+
+    Parameters
+    ----------
+    freqs_cm1 : iterable of float
+        Real vibrational frequencies [cm⁻¹].
+    T_K : float
+        Temperature [K].
+    min_freq_cm1 : float
+        Discard modes below this threshold. Default 50 cm⁻¹.
+
+    Returns
+    -------
+    float
+        Dimensionless vibrational partition function (≥ 1).
+    """
+    if T_K <= 0:
+        raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
+    q = 1.0
+    for nu in freqs_cm1:
+        if nu is None or nu < min_freq_cm1:
+            continue
+        x = (CM1_TO_EV * float(nu)) / (BOLTZMANN_eV * T_K)   # hcν / kT
+        q *= 1.0 / (1.0 - math.exp(-x))
+    return q
+
+
+def h2_gas_partition_function(T_K: float, P_Pa: float) -> dict:
+    """Gas-phase H₂ molecular partition function at (T, P), ideal-gas.
+
+    Returns the translational (per-molecule, using V = k_B T / P), rotational
+    (rigid rotor, high-T with symmetry number σ=2), and vibrational (ZPE
+    reference) components, plus their product. The translational term carries
+    the pressure dependence that makes the Sieverts prefactor ∝ P^(−½) once
+    the H₂ → 2H stoichiometry (a square-root on q_H2) is applied downstream.
+
+    Parameters
+    ----------
+    T_K : float
+        Temperature [K].
+    P_Pa : float
+        H₂ reference pressure [Pa].
+
+    Returns
+    -------
+    dict
+        ``{'trans', 'rot', 'vib', 'total'}`` — all dimensionless except that
+        ``trans`` embeds the per-molecule volume, so ``total`` has the units of
+        the translational term (m⁻³·m³ = dimensionless per molecule at V).
+
+    Notes
+    -----
+    The high-T rigid-rotor form ``q_rot = T/(σ·θ_rot)`` is used. For H₂
+    (θ_rot ≈ 87.6 K) this is accurate to a few percent above ~400 K, the
+    regime of this pipeline; it is not valid near/below θ_rot.
+    """
+    if T_K <= 0 or P_Pa <= 0:
+        raise ValueError(f'T_K and P_Pa must be positive; got {T_K}, {P_Pa}.')
+    V_per_molecule = _KB_J * T_K / P_Pa
+    q_trans = (2.0 * math.pi * _M_H2_KG * _KB_J * T_K / _PLANCK_J_S ** 2) ** 1.5 * V_per_molecule
+    q_rot   = T_K / (_SIGMA_H2 * _THETA_ROT_H2_K)
+    q_vib   = 1.0 / (1.0 - math.exp(-_THETA_VIB_H2_K / T_K))
+    return {'trans': q_trans, 'rot': q_rot, 'vib': q_vib,
+            'total': q_trans * q_rot * q_vib}
