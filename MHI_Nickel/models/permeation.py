@@ -107,6 +107,8 @@ def sweep_pressure(
     composition: dict | None = None,
     seed: int = 42,
     kmc_kwargs: dict | None = None,
+    sub1_env_composition: dict | None = None,
+    sub2_env_composition: dict | None = None,
 ) -> dict:
     """Run KMC to steady state at each pressure and compute permeation flux.
 
@@ -137,6 +139,11 @@ def sweep_pressure(
     kmc_kwargs : dict, optional
         Extra keyword arguments forwarded to ``run_kmc_to_steady_state``
         (e.g. ``window``, ``rtol``, ``max_steps``).
+    sub1_env_composition, sub2_env_composition : dict, optional
+        Oct-site environment fractions for the sub1/sub2 layers, forwarded to
+        ``make_grid`` so entry/exit/hopB rates resolve per environment. When
+        ``None`` each layer's env defaults to the surface element (see
+        ``make_grid``).
 
     Returns
     -------
@@ -155,7 +162,9 @@ def sweep_pressure(
     nsteps_out:  list[int]   = []
 
     for P in P_vals_Pa:
-        grid = make_grid(nx, ny, composition=composition, seed=seed)
+        grid = make_grid(nx, ny, composition=composition, seed=seed,
+                         sub1_env_composition=sub1_env_composition,
+                         sub2_env_composition=sub2_env_composition)
         ss   = run_kmc_to_steady_state(grid, rate_dict, P, T_K, D_m2s, a0_m, **kw)
         C0   = ss['C0']
         J    = fick_flux(D_m2s, C0, L_m)
