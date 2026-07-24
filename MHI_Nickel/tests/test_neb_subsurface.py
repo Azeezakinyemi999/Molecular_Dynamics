@@ -378,3 +378,92 @@ class TestBuildSurfaceSub1Sub2Map:
         assert len(pm) == 2
         by_sid = {e['surface_sid']: e for e in pm}
         assert by_sid['s_b']['sub2_id'] is None   # sub1 with no sub2 carried through
+
+    def test_records_site_type_and_via_connected(self, tmp_path):
+        from models.neb_subsurface import build_surface_sub1_sub2_map
+        graph = _fake_subsurface_graph()
+        sub1_sub2 = {'ss_0': {'sub2_id': 'ss_1', 'sub2_env': 'Ni5Mo_oct',
+                              'sub1_env': 'Ni6_oct', 'sub1_type': 'oct', 'sub2_type': 'oct'}}
+        pm = build_surface_sub1_sub2_map(
+            [('s_a', '/p/a.lammps', -100.0)], [('ss_0', 's_a', 0.5)], sub1_sub2, graph)
+        assert pm[0]['via'] == 'connected'
+        assert pm[0]['sub1_type'] == 'oct'          # from composition_label suffix
+        assert pm[0]['far_mapping'] is False
+
+    def test_nearest_fallback_when_not_connected(self, tmp_path):
+        # Finding A: an entry H* with no surface connection is mapped to its
+        # nearest sub1 (never dropped) when entry_mapping='nearest'.
+        from models.neb_subsurface import build_surface_sub1_sub2_map
+        graph = _fake_subsurface_graph()   # ss_0@(1,1), ss_2@(3,3) are sub1
+        sub1_sub2 = {'ss_0': {'sub2_id': 'ss_1', 'sub2_env': 'Ni5Mo_oct', 'sub1_env': 'Ni6_oct'}}
+        surf_data = {'sites': [{'site_id': 's_c', 'position': [1.2, 1.1, 14.0]}]}
+        pm = build_surface_sub1_sub2_map(
+            [('s_c', '/p/c.lammps', -100.0)], [], sub1_sub2, graph,
+            entry_mapping='nearest', surface_sites_data=surf_data, cell=[10.0, 10.0, 10.0])
+        assert len(pm) == 1
+        assert pm[0]['sub1_id'] == 'ss_0'           # nearest sub1 by xy
+        assert pm[0]['via'] == 'nearest'
+        assert pm[0]['xy_offset_ang'] < 0.5
+
+    def test_directly_below_still_drops_unconnected(self, tmp_path):
+        from models.neb_subsurface import build_surface_sub1_sub2_map
+        graph = _fake_subsurface_graph()
+        surf_data = {'sites': [{'site_id': 's_c', 'position': [1.2, 1.1, 14.0]}]}
+        pm = build_surface_sub1_sub2_map(
+            [('s_c', '/p/c.lammps', -100.0)], [], {}, graph,
+            entry_mapping='directly_below', surface_sites_data=surf_data, cell=[10.0, 10.0, 10.0])
+        assert pm == []                              # dropped (old behaviour)
+
+    def test_far_mapping_flagged(self, tmp_path):
+        from models.neb_subsurface import build_surface_sub1_sub2_map
+        graph = _fake_subsurface_graph()
+        sub1_sub2 = {'ss_0': {'sub2_id': 'ss_1'}}
+        # s_far@(6,6): nearest sub1 is ss_2@(3,3) at ~4.24 Å (xy) -> > 3.0 -> flagged
+        surf_data = {'sites': [{'site_id': 's_far', 'position': [6.0, 6.0, 14.0]}]}
+        pm = build_surface_sub1_sub2_map(
+            [('s_far', '/p/f.lammps', -100.0)], [], sub1_sub2, graph,
+            entry_mapping='nearest', surface_sites_data=surf_data, cell=[10.0, 10.0, 10.0],
+            far_offset_ang=3.0)
+        assert pm[0]['far_mapping'] is True
+        assert pm[0]['xy_offset_ang'] > 3.0
+
+
+class TestInterstitialEnvAndReclassify:
+
+    def test_env_label_and_alias(self):
+        from models.neb_subsurface import interstitial_env_label, oct_env_label
+        assert interstitial_env_label({'composition_label': 'Al4_tet'}) == 'Al4_tet'
+        assert oct_env_label is interstitial_env_label           # back-compat alias
+        assert interstitial_env_label({}) == 'unknown_env'
+
+    def test_site_type_of(self):
+        from models.neb_subsurface import site_type_of
+        assert site_type_of({'site_type': 'tet'}) == 'tet'       # explicit field
+        assert site_type_of({'composition_label': 'Ni6_oct'}) == 'oct'   # from suffix
+        assert site_type_of({'composition_label': 'Al4_tet'}) == 'tet'
+        assert site_type_of({}) == 'unknown'
+
+    def test_classify_relaxed_h_env_octahedral(self, tmp_path):
+        # 6 Ni octahedrally around one H (all within the 2.2 Å cutoff) -> Ni6_oct
+        from ase import Atoms
+        from ase.io import write as ase_write
+        from models.neb_subsurface import classify_relaxed_h_env
+        c = 10.0
+        atoms = Atoms(
+            'Ni6H',
+            positions=[[c/2 - 2, c/2, c/2], [c/2 + 2, c/2, c/2],
+                       [c/2, c/2 - 2, c/2], [c/2, c/2 + 2, c/2],
+                       [c/2, c/2, c/2 - 2], [c/2, c/2, c/2 + 2],
+                       [c/2, c/2, c/2]],
+            cell=[c, c, c], pbc=[True, True, False])
+        p = str(tmp_path / 'relaxed.lammps')
+        ase_write(p, atoms, format='lammps-data', masses=True, specorder=['Ni', 'H'])
+        rc = classify_relaxed_h_env(p)
+        assert rc['site_type'] == 'oct'
+        assert rc['coord_count'] == 6
+        assert rc['env'] == 'Ni6_oct'
+
+    def test_classify_relaxed_h_env_missing_file(self, tmp_path):
+        from models.neb_subsurface import classify_relaxed_h_env
+        rc = classify_relaxed_h_env(str(tmp_path / 'nope.lammps'))
+        assert rc['site_type'] == 'unknown' and rc['env'] == 'unknown_env'
