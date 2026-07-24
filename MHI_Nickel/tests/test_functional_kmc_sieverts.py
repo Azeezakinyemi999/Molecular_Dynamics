@@ -19,15 +19,15 @@ At steady state (dilute regime θ ≪ 1):
     k_diss × R_strike × (1-θ)² ≈ k_des × θ²
     → θ ∝ √P  (Sieverts' law)
 
-Subsurface equilibrium:
-    k_entry × θ × (1-sub) = (k_exit + k_drain) × sub
-    → sub ∝ θ  (when subsurface is not saturated)
-    → C₀ ∝ √P
+Two-layer subsurface equilibrium (surface ⇄ sub1 ⇄ sub2 → bulk):
+    sub1:  k_entry × θ ≈ (k_exit + k_hopB_entry) × sub1         → sub1 ∝ θ
+    sub2:  k_hopB_entry × sub1 ≈ (k_hopB_exit + k_drain) × sub2 → sub2 ∝ sub1
+    → C₀ (= sub2 concentration, the layer that feeds bulk) ∝ √P
 
 Rate parameters are chosen so that k_drain (= D/dx²) is much smaller than
-k_entry and k_exit, keeping both layers unsaturated while ensuring they
-equilibrate on a timescale short enough for convergence within ~2000 KMC steps
-per pressure point.
+k_entry/k_exit and k_hopB_entry/k_hopB_exit, keeping all three layers
+unsaturated while ensuring they equilibrate on a timescale short enough for
+convergence within a few thousand KMC steps per pressure point.
 """
 
 import math
@@ -65,11 +65,16 @@ _D_M2S = 6.2e-17   # m²/s — scaled down for test tractability
 # k_diss sticking coefficient chosen so θ ≈ 0.05–0.19 across the pressure sweep
 # (dilute-regime Sieverts' scaling holds throughout)
 _RATE_DICT = {
-    'k_diss':  {('Ni', 'Ni'): 1e-4},   # dimensionless sticking coefficient
-    'k_des':   {('Ni', 'Ni'): 2e5},    # s⁻¹ recombinative desorption
-    'k_entry': {'Ni': 2e5},            # s⁻¹ surface → subsurface
-    'k_exit':  {'Ni': 2e5},            # s⁻¹ subsurface → surface
+    'k_diss':       {('Ni', 'Ni'): 1e-4},   # dimensionless sticking coefficient
+    'k_des':        {('Ni', 'Ni'): 2e5},    # s⁻¹ recombinative desorption
+    'k_entry':      {'Ni': 2e5},            # s⁻¹ surface → sub1  (Hop A fwd)
+    'k_exit':       {'Ni': 2e5},            # s⁻¹ sub1 → surface  (Hop A rev)
+    'k_hopB_entry': {'Ni': 2e5},            # s⁻¹ sub1 → sub2     (Hop B fwd)
+    'k_hopB_exit':  {'Ni': 2e5},            # s⁻¹ sub2 → sub1     (Hop B rev)
 }
+# NOTE: k_entry/k_exit/k_hopB_* keyed by 'Ni' rely on make_grid's degenerate
+# env default (sub1_env == sub2_env == surface element) for this pure-Ni grid,
+# so the env-resolved lookups in build_event_list resolve to these rates.
 
 # Pressure sweep spanning factor of 16 (√P ratio = 4:1)
 _P_VALS = [1000.0, 4000.0, 9000.0, 16000.0]   # Pa
