@@ -35,46 +35,6 @@ except ImportError:
     _display = print
 
 
-def collect_dedup_is_labels(phase2_h_dir: str) -> list:
-    """
-    Build ``(sid, is_path, e_is)`` triples for Hop A's NEB.
-
-    ``e_is`` is the ABSOLUTE relaxed total energy of each H* adsorption
-    structure (from Part 1's own ``h_min_{sid}.log``) — not a binding or
-    adsorption energy. Hop A's NEB needs the same absolute-energy
-    reference ``E_FS`` uses (parsed from ``fs_min.log``); a placeholder
-    like ``0.0`` here would silently produce reaction energies and
-    barriers offset by the slab's entire total energy (~100+ eV), since
-    0.0 sits nowhere near this structure's real energy scale.
-
-    Sites whose ``h_min_{sid}.log`` is missing or unparseable are skipped
-    with a warning — never assigned a fabricated energy.
-
-    Parameters
-    ----------
-    phase2_h_dir : str
-        Directory containing ``h_atom_{sid}_relaxed.lammps`` and
-        ``h_min_{sid}.log`` for each surface site (Part 1 Section B
-        Phase 2 output).
-
-    Returns
-    -------
-    list of (sid, is_path, e_is)
-        Sorted by ``sid``. Sites with no parseable log are omitted.
-    """
-    dedup_is_labels = []
-    for p in sorted(glob.glob(os.path.join(phase2_h_dir, 'h_atom_*_relaxed.lammps'))):
-        sid = os.path.basename(p).replace('h_atom_', '').replace('_relaxed.lammps', '')
-        log_p = os.path.join(phase2_h_dir, f'h_min_{sid}.log')
-        parsed = parse_energy_log(log_p) if os.path.exists(log_p) else None
-        if not parsed or 'pe_final_eV' not in parsed:
-            print(f'  WARNING: could not parse E_IS for sid={sid} from {log_p} '
-                  f'— skipping (no fabricated energy).')
-            continue
-        dedup_is_labels.append((sid, p, parsed['pe_final_eV']))
-    return dedup_is_labels
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section A — Script generation
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -116,7 +76,6 @@ from models.permeation import (
     richardson_flux,
     resolve_nh_diffusivity,
 )
-from models.permeation_workflow import collect_dedup_is_labels
 from models.parsers import parse_barrier_file
 from models.create_slurm import (
     wait_for_jobs, auto_submit, partition_submit_limits,
@@ -170,7 +129,7 @@ if METAL_TYPE == 'oxide':
 # The H that enters the subsurface is the H that dissociated: seed Hop A from the
 # 2H* products of each converged dissociation NEB run, threaded through the
 # octahedral-site maps (sub1↔sub2 and surface→sub1→sub2). Replaces the old
-# wholesale h_atom_* enumeration (collect_dedup_is_labels). The dissociation
+# wholesale h_atom_* enumeration (removed this session). The dissociation
 # results are per-metal at neb/{STEM}/ (NOT neb/ — the older WORK_DIR/neb paths
 # below at _DISS_JSON/_DISS_VIB_JSON/_ranked6_f omit STEM and are a separate,
 # pre-existing issue slated for the Part 4/5 rework).
@@ -194,9 +153,9 @@ _entry_path_map = build_surface_sub1_sub2_map(
     _entry_sources, surface_connections, _sub1_sub2_map, (G, subsurface_sites),
     out_json=os.path.join(SUB_NEB_DIR, 'surface_sub1_sub2_map.json'),
 )
-# Collapsed, dissociation-seeded IS triples fed to Hop A (drop-in for the old
-# collect_dedup_is_labels output; the map-driven orchestrator rework that also
-# carries sub1_env/sub2_env into the job dicts is Part 2).
+# Collapsed, dissociation-seeded IS triples fed to Hop A (same (sid, is_path,
+# e_is) shape the old wholesale glob produced; the map-driven orchestrator
+# rework that also carries sub1_env/sub2_env into the job dicts is Part 2).
 dedup_is_labels = [(e['surface_sid'], e['is_path'], e['e_is']) for e in _entry_path_map]
 print(f'Entry Hop A pathways: {len(dedup_is_labels)} '
       f'(dissociation-seeded, collapsed by shared sub1)')
