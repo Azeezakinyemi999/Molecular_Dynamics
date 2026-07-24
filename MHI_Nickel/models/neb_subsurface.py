@@ -67,6 +67,309 @@ def find_sub2_neighbor(G, ss1_id: str, subsurface_sites: list) -> str:
     return best_id
 
 
+def _closest_sub2(G, ss1_id: str, site_lookup: dict) -> tuple:
+    """Non-raising variant of ``find_sub2_neighbor``.
+
+    Returns ``(ss2_id, dz)`` for the closest-below subsurface_2 neighbour of
+    ``ss1_id``, or ``(None, None)`` when the graph has no subsurface_2 neighbour
+    for it (e.g. sub2 fell inside the frozen region). Used by
+    :func:`build_sub1_sub2_map`, which must record the unmatched case rather
+    than abort the whole map — ``find_sub2_neighbor`` is kept as-is for the
+    single-site call sites that legitimately want the hard error.
+    """
+    z1 = site_lookup[ss1_id]['position'][2]
+    best_id, best_dz = None, float('inf')
+    for nbr in G.neighbors(ss1_id):
+        if G.nodes[nbr].get('layer_classification') != 'subsurface_2':
+            continue
+        z2 = G.nodes[nbr].get('position', [0, 0, 0])[2]
+        dz = abs(z1 - z2)
+        if dz < best_dz:
+            best_dz, best_id = dz, nbr
+    return (best_id, best_dz if best_id is not None else None)
+
+
+def oct_env_label(site: dict) -> str:
+    """Environment label for a subsurface octahedral site.
+
+    Uses the site's ``composition_label`` (already a deterministic
+    coordination fingerprint like ``'Ni3MoCrFe_oct'``, produced by
+    ``subsurface_graph._composition_label``) as the per-environment key that
+    Hop A/B rates and the KMC grid are keyed on. Falls back to
+    ``'unknown_env'`` if the label is absent, never a silent empty string.
+    """
+    return str(site.get('composition_label') or 'unknown_env')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Section — Subsurface entry maps (surface → sub1 → sub2)
+#
+# These build and persist the physically-anchored path maps that drive Hop A/B:
+# the H that enters the bulk is the H that dissociated on the surface, threaded
+# through the octahedral interstitial sites. See the approved plan for the full
+# rationale.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_sub1_sub2_map(
+    subsurface_graph: tuple,
+    out_json: str | None = None,
+) -> dict:
+    """Map each subsurface-1 oct site to its closest-below subsurface-2 oct site.
+
+    Enumerated independently of the surface (per the reframing): the sub1↔sub2
+    connectivity is a property of the lattice, not of which H happens to be
+    entering. Unequal sub1/sub2 counts are handled explicitly — a sub1 with no
+    sub2 neighbour is recorded with ``sub2_id: None`` and a reason, never dropped.
+
+    Parameters
+    ----------
+    subsurface_graph : (G, subsurface_sites)
+        Output of ``models.subsurface_graph.build_subsurface_graph``.
+    out_json : str, optional
+        If given, the map is written here as ``sub1_sub2_map.json``.
+
+    Returns
+    -------
+    dict
+        ``{ss1_id: {sub2_id, z_dist, sub1_env, sub2_env}}`` for matched sub1
+        sites, and ``{ss1_id: {sub2_id: None, reason}}`` for unmatched ones.
+    """
+    G, subsurface_sites = subsurface_graph
+    site_lookup = {s['site_id']: s for s in subsurface_sites}
+    sub1_ids = [s['site_id'] for s in subsurface_sites
+                if s.get('layer_classification') == 'subsurface_1']
+
+    mapping: dict = {}
+    n_matched = 0
+    for ss1_id in sub1_ids:
+        ss2_id, dz = _closest_sub2(G, ss1_id, site_lookup)
+        if ss2_id is None:
+            mapping[ss1_id] = {
+                'sub2_id': None,
+                'reason': 'no subsurface_2 neighbour in graph '
+                          '(sub2 may fall inside the frozen region)',
+                'sub1_env': oct_env_label(site_lookup[ss1_id]),
+            }
+            continue
+        mapping[ss1_id] = {
+            'sub2_id': ss2_id,
+            'z_dist': float(dz),
+            'sub1_env': oct_env_label(site_lookup[ss1_id]),
+            'sub2_env': oct_env_label(site_lookup[ss2_id]),
+        }
+        n_matched += 1
+
+    print(f'[sub1→sub2 map] {n_matched}/{len(sub1_ids)} sub1 sites mapped to a sub2 '
+          f'({len(sub1_ids) - n_matched} unmatched)')
+    if out_json:
+        os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
+        with open(out_json, 'w') as fh:
+            json.dump(mapping, fh, indent=2)
+        print(f'  → {out_json}')
+    return mapping
+
+
+def collect_entry_h_sources(
+    neb_dir: str,
+    phase2_h_dir: str,
+    out_json: str | None = None,
+) -> list:
+    """Collect the surface H\\* atoms that seed Hop A, from dissociation products.
+
+    The H that enters the subsurface is the H that dissociated on the surface,
+    so Hop A is seeded from the 2H\\* final states of each *converged* surface
+    dissociation NEB run — not the full standalone adsorption-site enumeration
+    (that decoupling was the over-enumeration bug this replaces).
+
+    Each converged run in ``ranked_barriers.json`` records ``fs_site1``/
+    ``fs_site2`` (the two H\\* surface site ids). Those ids map directly to the
+    already-relaxed single-H\\* structures ``h_atom_{sid}_relaxed.lammps`` and
+    their ``h_min_{sid}.log`` energies in ``phase2_h_dir`` — copied, not rebuilt.
+
+    A given surface site can be an FS product of more than one dissociation run;
+    it is emitted once, with every source run recorded for provenance.
+
+    Parameters
+    ----------
+    neb_dir : str
+        Directory containing the dissociation ``ranked_barriers.json``.
+    phase2_h_dir : str
+        Directory with ``h_atom_{sid}_relaxed.lammps`` / ``h_min_{sid}.log``.
+    out_json : str, optional
+        If given, the provenance record is written here as
+        ``entry_h_sources.json``.
+
+    Returns
+    -------
+    list of (sid, is_path, e_is)
+        Same triple shape as ``collect_dedup_is_labels`` (drop-in for
+        ``orchestrate_hopa_neb``), sorted by ``sid``. Sites whose structure or
+        energy log is missing/unparseable are skipped with a warning — never a
+        fabricated energy.
+    """
+    from models.parsers import parse_energy_log
+
+    ranked_json = os.path.join(neb_dir, 'ranked_barriers.json')
+    if not os.path.exists(ranked_json):
+        raise FileNotFoundError(
+            f'{ranked_json} not found — run Part 1 surface dissociation NEB '
+            f'(collect_neb_results) before collecting entry H* sources.'
+        )
+    with open(ranked_json) as fh:
+        ranked = json.load(fh)
+
+    # sid -> set of source dissociation-run labels (order-preserving via dict)
+    sources: dict = {}
+    for job in ranked:
+        if not job.get('converged', False):
+            continue
+        run_label = job.get('label', '')
+        for key in ('fs_site1', 'fs_site2'):
+            sid = job.get(key)
+            if sid is None:
+                continue
+            sources.setdefault(str(sid), [])
+            if run_label and run_label not in sources[str(sid)]:
+                sources[str(sid)].append(run_label)
+
+    triples: list = []
+    records: list = []
+    for sid in sorted(sources):
+        is_path = os.path.join(phase2_h_dir, f'h_atom_{sid}_relaxed.lammps')
+        log_p   = os.path.join(phase2_h_dir, f'h_min_{sid}.log')
+        if not os.path.exists(is_path):
+            print(f'  WARNING: entry H* sid={sid}: {is_path} missing — skipping.')
+            continue
+        parsed = parse_energy_log(log_p) if os.path.exists(log_p) else None
+        if not parsed or 'pe_final_eV' not in parsed:
+            print(f'  WARNING: entry H* sid={sid}: could not parse E_IS from '
+                  f'{log_p} — skipping (no fabricated energy).')
+            continue
+        e_is = parsed['pe_final_eV']
+        triples.append((sid, is_path, e_is))
+        records.append({
+            'surface_sid':      sid,
+            'source_diss_runs': sources[sid],
+            'is_structure':     is_path,
+            'e_is_eV':          e_is,
+        })
+
+    print(f'[entry H* sources] {len(triples)} surface H* from '
+          f'{sum(1 for j in ranked if j.get("converged"))} converged dissociation runs')
+    if out_json:
+        os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
+        with open(out_json, 'w') as fh:
+            json.dump(records, fh, indent=2)
+        print(f'  → {out_json}')
+    return triples
+
+
+def build_surface_sub1_sub2_map(
+    entry_sources: list,
+    surface_connections: list,
+    sub1_sub2_map: dict,
+    subsurface_graph: tuple,
+    out_json: str | None = None,
+) -> list:
+    """Join entry H\\* → closest sub1 oct → mapped sub2 oct into the full path map.
+
+    For each entry H\\* surface site, picks the closest subsurface-1 oct site
+    (smallest xy-distance, from ``connect_to_surface``) and looks up that sub1's
+    mapped sub2 (from :func:`build_sub1_sub2_map`), attaching both environment
+    labels.
+
+    Two-H\\*-to-same-sub1 collapse: if several entry H\\* map to the *same* sub1
+    oct site, only the lowest-energy IS is kept as the Hop A pathway (they share
+    the same FS); the dropped alternates are recorded on the survivor.
+
+    Parameters
+    ----------
+    entry_sources : list of (sid, is_path, e_is)
+        Output of :func:`collect_entry_h_sources`.
+    surface_connections : list of (ss1_id, surface_sid, xy_dist)
+        Output of ``models.subsurface_graph.connect_to_surface``.
+    sub1_sub2_map : dict
+        Output of :func:`build_sub1_sub2_map`.
+    subsurface_graph : (G, subsurface_sites)
+        Used only for the sub1 position/env lookup.
+    out_json : str, optional
+        If given, written here as ``surface_sub1_sub2_map.json``.
+
+    Returns
+    -------
+    list of dict
+        One entry per surviving Hop A pathway, each with keys:
+        ``surface_sid, is_path, e_is, sub1_id, sub1_env, sub1_xyz,
+        sub2_id, sub2_env, collapsed_from``.
+    """
+    _G, subsurface_sites = subsurface_graph
+    site_lookup = {s['site_id']: s for s in subsurface_sites}
+
+    # surface_sid -> (ss1_id, xy_dist), keeping the closest sub1 if several match
+    surf_to_ss1: dict = {}
+    for ss1_id, surf_id, xy_dist in surface_connections:
+        if surf_id not in surf_to_ss1 or xy_dist < surf_to_ss1[surf_id][1]:
+            surf_to_ss1[surf_id] = (ss1_id, float(xy_dist))
+
+    # Build one candidate per entry H* that has a sub1 above it
+    candidates: list = []
+    for sid, is_path, e_is in entry_sources:
+        if sid not in surf_to_ss1:
+            print(f'[surface→sub1→sub2] no sub1 above surface sid={sid} — skipping.')
+            continue
+        ss1_id, xy_dist = surf_to_ss1[sid]
+        s1_entry = sub1_sub2_map.get(ss1_id, {})
+        candidates.append({
+            'surface_sid': sid,
+            'is_path':     is_path,
+            'e_is':        e_is,
+            'sub1_id':     ss1_id,
+            'sub1_env':    oct_env_label(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown_env',
+            'sub1_xyz':    site_lookup[ss1_id]['position'] if ss1_id in site_lookup else None,
+            'sub2_id':     s1_entry.get('sub2_id'),
+            'sub2_env':    s1_entry.get('sub2_env'),
+            'xy_dist':     xy_dist,
+        })
+
+    # Collapse two-H*-to-same-sub1: keep the lowest-e_is IS per sub1 oct
+    by_sub1: dict = {}
+    for c in candidates:
+        key = c['sub1_id']
+        if key not in by_sub1 or c['e_is'] < by_sub1[key]['e_is']:
+            by_sub1[key] = c
+    # record dropped alternates on the survivor
+    dropped: dict = {}
+    for c in candidates:
+        key = c['sub1_id']
+        if by_sub1[key]['surface_sid'] != c['surface_sid']:
+            dropped.setdefault(key, []).append(c['surface_sid'])
+
+    path_map: list = []
+    for key, c in by_sub1.items():
+        path_map.append({
+            'surface_sid':   c['surface_sid'],
+            'is_path':       c['is_path'],
+            'e_is':          c['e_is'],
+            'sub1_id':       c['sub1_id'],
+            'sub1_env':      c['sub1_env'],
+            'sub1_xyz':      c['sub1_xyz'],
+            'sub2_id':       c['sub2_id'],
+            'sub2_env':      c['sub2_env'],
+            'collapsed_from': dropped.get(key, []),
+        })
+    path_map.sort(key=lambda x: str(x['surface_sid']))
+
+    n_collapsed = sum(len(v) for v in dropped.values())
+    print(f'[surface→sub1→sub2] {len(path_map)} Hop A pathways '
+          f'({n_collapsed} surface H* collapsed onto a shared sub1)')
+    if out_json:
+        os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
+        with open(out_json, 'w') as fh:
+            json.dump(path_map, fh, indent=2)
+        print(f'  → {out_json}')
+    return path_map
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Structure builders
 # ─────────────────────────────────────────────────────────────────────────────
