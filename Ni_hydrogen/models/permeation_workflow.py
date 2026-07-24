@@ -57,26 +57,34 @@ from models.subsurface_graph import build_subsurface_graph, connect_to_surface
 from models.neb_subsurface import (
     orchestrate_hopa_neb, orchestrate_hopb_neb,
     build_sub1_sub2_map, collect_entry_h_sources, build_surface_sub1_sub2_map,
+    oct_env_label,
 )
-from models.vibrations import collect_is_ts_paths, orchestrate_vibrations
+from models.vibrations import (
+    collect_is_ts_paths, orchestrate_vibrations, load_vibration_results,
+)
 from models.tst_rates import (
     collect_neb_results,
     split_vib_results,
+    split_vib_fs,
     build_rate_dict,
     rates_to_json,
     write_hop_ranked,
     write_hop_vib_rates,
+    env_rate_dict,
 )
 from models.permeation import (
     sweep_pressure,
     arrhenius_diffusivity,
     fit_solubility_from_kmc,
     lattice_site_S0,
-    solubility_from_rates,
-    sieverts_solubility,
     permeability,
     richardson_flux,
     resolve_nh_diffusivity,
+    vibrational_S0,
+    build_dh_sol_by_env,
+    solubility_by_environment,
+    fit_arrhenius,
+    permeability_arrhenius,
 )
 from models.parsers import parse_barrier_file
 from models.create_slurm import (
@@ -113,19 +121,36 @@ _slab_species = sorted(
     {s for s in _slab_atoms.get_chemical_symbols() if s != 'H'},
     key=len, reverse=True,
 )
-_sid2comp = {s['site_id']: str(s.get('level1', {}).get('composition', ''))
-             for s in _surf_data.get('sites', [])}
 
-# KMC surface composition: oxide surfaces use the actual surface-atom
-# element fractions; metals keep make_grid's Hastelloy default (unchanged).
-_kmc_composition = None
-if METAL_TYPE == 'oxide':
-    _cnt = {}
-    for _a in _surf_data.get('surface_atoms', []):
-        _cnt[_a['element']] = _cnt.get(_a['element'], 0) + 1
-    _tot = sum(_cnt.values()) or 1
-    _kmc_composition = {k: v / _tot for k, v in _cnt.items()}
-    print(f'  KMC surface composition (oxide): {_kmc_composition}')
+# KMC grid composition drawn from the REAL slab for EVERY metal type. Formerly
+# only oxide slabs used the actual surface-atom fractions; metals silently fell
+# back to make_grid's hardcoded Hastelloy default (a separate pre-existing gap,
+# fixed here alongside the env work).
+_cnt = {}
+for _a in _surf_data.get('surface_atoms', []):
+    _cnt[_a['element']] = _cnt.get(_a['element'], 0) + 1
+_tot = sum(_cnt.values())
+_kmc_composition = {k: v / _tot for k, v in _cnt.items()} if _tot else None
+print(f'  KMC surface composition ({METAL_TYPE}): {_kmc_composition}')
+
+# Oct-site environment populations for the sub1/sub2 KMC layers, from the real
+# subsurface sites (composition_label per site). These drive make_grid's
+# per-cell env draw so the grid reflects the real environment mix, and the
+# entry/exit/hopB rates resolve per environment rather than collapsing to one
+# rate per element.
+_sub1_env_cnt, _sub2_env_cnt = {}, {}
+for _s in subsurface_sites:
+    _lc  = _s.get('layer_classification')
+    _env = oct_env_label(_s)
+    if _lc == 'subsurface_1':
+        _sub1_env_cnt[_env] = _sub1_env_cnt.get(_env, 0) + 1
+    elif _lc == 'subsurface_2':
+        _sub2_env_cnt[_env] = _sub2_env_cnt.get(_env, 0) + 1
+_s1tot = sum(_sub1_env_cnt.values())
+_s2tot = sum(_sub2_env_cnt.values())
+_sub1_env_comp = {k: v / _s1tot for k, v in _sub1_env_cnt.items()} if _s1tot else None
+_sub2_env_comp = {k: v / _s2tot for k, v in _sub2_env_cnt.items()} if _s2tot else None
+print(f'  sub1 env classes: {len(_sub1_env_cnt)}   sub2 env classes: {len(_sub2_env_cnt)}')
 
 # ── Subsurface-entry maps (dissociation-seeded, oct-anchored) ───────────────────
 # The H that enters the subsurface is the H that dissociated: seed Hop A from the
@@ -337,8 +362,27 @@ write_hop_ranked(hopb_jobs, 'hopb', os.path.join(_hopb_dir, 'hopb_ranked.json'),
 # Ed_zpe/nu are T-independent; the file exists whether freshly built or skipped).
 with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(TEMPERATURES[0])}K.json')) as _f:
     _rd_ref = json.load(_f)
-write_hop_vib_rates(_rd_ref, hopa_jobs, 'hopa', os.path.join(_hopa_dir, 'hopa_vib_rates.json'), env_key='sub1_env')
-write_hop_vib_rates(_rd_ref, hopb_jobs, 'hopb', os.path.join(_hopb_dir, 'hopb_vib_rates.json'), env_key='sub2_env')
+_hopa_vib = write_hop_vib_rates(_rd_ref, hopa_jobs, 'hopa',
+                                os.path.join(_hopa_dir, 'hopa_vib_rates.json'), env_key='sub1_env')
+_hopb_vib = write_hop_vib_rates(_rd_ref, hopb_jobs, 'hopb',
+                                os.path.join(_hopb_dir, 'hopb_vib_rates.json'), env_key='sub2_env')
+
+# Representative dissolved-H vibrational frequencies for the vibrational S0
+# route (Part 4): pooled per-mode from the FS (dissolved-H oct-cage) vibration
+# results. vibrational_S0 is evaluated per FS structure and averaged, so we
+# just collect each FS's real-mode list here; empty if no FS vibs were run.
+_fs_vib_paths = split_vib_fs(vib_out)
+_fs_freq_sets = []
+for _fp in _fs_vib_paths.values():
+    try:
+        _vd = load_vibration_results(_fp)
+        _freqs = _vd.get('frequencies_real_cm1', [])
+        if _freqs:
+            _fs_freq_sets.append(_freqs)
+    except FileNotFoundError:
+        continue
+print(f'  dissolved-H FS vibration sets: {len(_fs_freq_sets)} '
+      f'(vibrational S0 route {"available" if _fs_freq_sets else "unavailable"})')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Phases 5-6 — Per H-concentration: KMC pressure sweeps + permeability
@@ -350,7 +394,7 @@ write_hop_vib_rates(_rd_ref, hopb_jobs, 'hopb', os.path.join(_hopb_dir, 'hopb_vi
 # own MD-fitted Arrhenius diffusivity from Part 3 — never a placeholder. If a
 # concentration's fit is missing or invalid, that concentration is skipped
 # entirely (loud error, no output files for it), not faked.
-_DISS_JSON = os.path.join(WORK_DIR, 'neb', 'diss_jobs.json')
+_DISS_JSON = os.path.join(_DISS_NEB_DIR, 'diss_jobs.json')
 _NU_DISS   = 1e13   # s⁻¹ — fallback prefactor when ZPE rates unavailable
 
 # T-dependent lattice parameter from Part 3 NPT MD (n_H-independent — the
@@ -368,7 +412,7 @@ else:
 # ZPE-corrected dissociation rates from Part 1 Phase E (n_H-independent —
 # see GitHub issue on collect_neb_results never being called; this is
 # expected to be absent today).
-_DISS_VIB_JSON = os.path.join(WORK_DIR, 'neb', 'diss_vib_rates.json')
+_DISS_VIB_JSON = os.path.join(_DISS_NEB_DIR, 'diss_vib_rates.json')
 _diss_vib = {}   # {tuple(pair): {Ea_zpe, Ed_zpe, nu}}
 if os.path.exists(_DISS_VIB_JSON):
     with open(_DISS_VIB_JSON) as _f:
@@ -400,7 +444,7 @@ if _DH_ENTRY_USED is None:
                   f'(mean of {len(_hopa_de)} Hop A barriers)')
 
 if _DH_DISS_USED is None:
-    _ranked6_f = os.path.join(WORK_DIR, 'neb', 'ranked_barriers.json')
+    _ranked6_f = os.path.join(_DISS_NEB_DIR, 'ranked_barriers.json')
     if os.path.exists(_ranked6_f):
         with open(_ranked6_f) as _f: _ranked6 = json.load(_f)
         _diss_de6 = [_r.get('delta_E', 0.0) for _r in _ranked6
@@ -417,6 +461,12 @@ if not _PHASE6_READY:
     print('  Fill DH_DISS_EV and DH_ENTRY_EV in permeation.ipynb Cell 2 and regenerate.')
 else:
     _DH_SOL = _DH_DISS_USED / 2.0 + _DH_ENTRY_USED
+    # Per-oct-environment solution enthalpy (carried to sub2), n_H-independent:
+    # ½·ΔH_diss + ΔH_HopA(sub1 env) + mean ΔH_HopB. Written once per stem.
+    _dh_sol_by_env = build_dh_sol_by_env(
+        _hopa_vib, _hopb_vib, _DH_DISS_USED,
+        out_json=os.path.join(RESULTS_DIR, 'dH_sol_by_env.json'),
+    )
 _P_HIGH = max(P_VALS_PA)
 
 # Tracks what actually got produced across all n_H, since every skip below is
@@ -459,31 +509,17 @@ for _n_h in N_H_VALUES:
             print(f'  T={_T:4.0f} K  KMC sweep already done — skipping')
             continue
 
-        with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
-            _tst = json.load(_f)
-
         _kBT = _KB_EV * _T
         _a0_T = _a0_dict.get(_T, A0_M)
-        _k_diss, _k_des, _k_entry, _k_exit = {}, {}, {}, {}
+        _k_diss, _k_des = {}, {}
 
-        for _lbl, _r in _tst.items():
-            if _lbl.startswith('hopa_'):
-                _sid = _lbl[len('hopa_'):]
-                _matched = False
-                for _el in _slab_species:
-                    if _el in _sid:
-                        _k_entry[_el] = _r['k_forward']
-                        _k_exit[_el]  = _r['k_reverse']
-                        _matched = True
-                        break
-                if not _matched:
-                    # Bare site ids (s_NN) carry no element name — resolve via
-                    # the site's level1 composition from surface_sites.json.
-                    _comp = _sid2comp.get(_sid, '')
-                    for _el in _slab_species:
-                        if _el in _comp:
-                            _k_entry.setdefault(_el, _r['k_forward'])
-                            _k_exit.setdefault(_el, _r['k_reverse'])
+        # Env-keyed inter-layer rates (Part 6): surface⇄sub1 (k_entry/k_exit)
+        # resolved per sub1 oct-environment, sub1⇄sub2 (k_hopB_entry/k_hopB_exit)
+        # per sub2 oct-environment — arithmetic mean of the Arrhenius rates
+        # within each environment (env_rate_dict). Replaces the old
+        # sort-order-dependent collapse to one rate per element.
+        _k_entry, _k_exit           = env_rate_dict(_hopa_vib, _T)
+        _k_hopB_entry, _k_hopB_exit = env_rate_dict(_hopb_vib, _T)
 
         if _diss_vib:
             for _pkey5, _dv5 in _diss_vib.items():
@@ -509,10 +545,12 @@ for _n_h in N_H_VALUES:
                 _k_diss[_pair] = np.exp(-0.5  / _kBT)
                 _k_des[_pair]  = _NU_DISS * np.exp(-1.2 / _kBT)
 
-        for _el, _ke in _k_entry.items():
-            print(f'  [{_T:.0f}K] k_entry({_el})={_ke:.3e} s⁻¹  k_exit({_el})={_k_exit.get(_el, float("nan")):.3e} s⁻¹')
+        for _env, _ke in _k_entry.items():
+            print(f'  [{_T:.0f}K] k_entry({_env})={_ke:.3e} s⁻¹  '
+                  f'k_exit={_k_exit.get(_env, float("nan")):.3e} s⁻¹')
         _rate_dict = {'k_diss': _k_diss, 'k_des': _k_des,
-                      'k_entry': _k_entry, 'k_exit': _k_exit}
+                      'k_entry': _k_entry, 'k_exit': _k_exit,
+                      'k_hopB_entry': _k_hopB_entry, 'k_hopB_exit': _k_hopB_exit}
         _D_T = arrhenius_diffusivity(_D0_nh, _ED_nh, _T)
         np.random.seed(SEED)
         _sweep = sweep_pressure(
@@ -526,6 +564,8 @@ for _n_h in N_H_VALUES:
             ny         = NY,
             seed       = SEED,
             composition = _kmc_composition,
+            sub1_env_composition = _sub1_env_comp,
+            sub2_env_composition = _sub2_env_comp,
             kmc_kwargs = {'window': 2000, 'rtol': 0.02, 'max_steps': KMC_MAX_STEPS},
         )
         _sweep['T_K']   = _T
@@ -546,6 +586,9 @@ for _n_h in N_H_VALUES:
         continue
     print(f'\n── Phase 6 (n_H={_n_h}): Richardson-Sieverts permeability ─────────')
 
+    # per-route S(T) accumulators for the multi-T Arrhenius fits after the loop
+    _S_geo_arr, _S_vib_arr, _S_kmc_arr, _T_arr6 = [], [], [], []
+
     for _T in TEMPERATURES:
         _sweep_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
         if not os.path.exists(_sweep_f):
@@ -562,31 +605,26 @@ for _n_h in N_H_VALUES:
         _a0_T6 = _a0_dict.get(_T, A0_M)
         _kBT6  = _KB_EV * _T
 
-        # Option 1 — lattice site density (per-T a₀)
-        _S0_lat6 = lattice_site_S0(_a0_T6)
-        _S1      = sieverts_solubility(_DH_SOL, _S0_lat6, _T)
-        _Phi1    = permeability(_D_T, _S1)
-        _J1      = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
+        # Option 1 — geometric S0, per-environment Boltzmann-weighted solubility
+        # (ΔH_sol carried to sub2 via dH_sol_by_env). Replaces the old single
+        # scalar-ΔH_sol lattice route.
+        _S0_geo = lattice_site_S0(_a0_T6)
+        _S1     = solubility_by_environment(_dh_sol_by_env, _S0_geo, _T)
+        _Phi1   = permeability(_D_T, _S1)
+        _J1     = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
 
-        # Option 2 — TST detailed balance (first Hop A rate as representative)
-        with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(_T)}K.json')) as _f:
-            _rd2 = json.load(_f)
-        _repr_entry, _repr_exit = 1e9, 1e8
-        for _lbl, _r in _rd2.items():
-            if _lbl.startswith('hopa_'):
-                _repr_entry, _repr_exit = _r['k_forward'], _r['k_reverse']
-                break
-        if _diss_vib:
-            _dv0_t = next(iter(_diss_vib.values()))
-            _repr_diss = np.exp(-_dv0_t['Ea_zpe'] / _kBT6)
-            _repr_des  = _dv0_t['nu'] * np.exp(-_dv0_t['Ed_zpe'] / _kBT6)
+        # Option 2 — vibrational S0 (partition-function prefactor), same per-env
+        # ΔH_sol. S0_vib is averaged over the dissolved-H FS structures (each
+        # gives one q_H). Unavailable if no FS vibrations were run. Replaces the
+        # old TST-detailed-balance route that used a single arbitrary Hop A rate.
+        if _fs_freq_sets:
+            _S0_vib = float(np.mean([vibrational_S0(_a0_T6, _T, _fq)
+                                     for _fq in _fs_freq_sets]))
+            _S2   = solubility_by_environment(_dh_sol_by_env, _S0_vib, _T)
+            _Phi2 = permeability(_D_T, _S2)
+            _J2   = richardson_flux(_Phi2, _P_HIGH, 0.0, L_M)
         else:
-            _repr_diss = np.exp(-0.5  / _kBT6)
-            _repr_des  = _NU_DISS * np.exp(-1.2 / _kBT6)
-        _S2   = solubility_from_rates(_repr_diss, _repr_des, _repr_entry, _repr_exit,
-                                      _a0_T6, _T)
-        _Phi2 = permeability(_D_T, _S2)
-        _J2   = richardson_flux(_Phi2, _P_HIGH, 0.0, L_M)
+            _S0_vib = _S2 = _Phi2 = _J2 = None
 
         # Option 3 — KMC empirical Sieverts fit
         _kmc_sol = fit_solubility_from_kmc(_sw)
@@ -594,16 +632,27 @@ for _n_h in N_H_VALUES:
         _Phi3 = permeability(_D_T, _S3)
         _J3   = richardson_flux(_Phi3, _P_HIGH, 0.0, L_M)
 
+        # accumulate per-route S(T) for the multi-T Arrhenius fits below
+        _S_geo_arr.append(_S1); _S_vib_arr.append(_S2)
+        _S_kmc_arr.append(_S3); _T_arr6.append(float(_T))
+
         _perm_f = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
         _perm_payload = {
             'T_K': _T, 'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
-            'dH_sol_eV': _DH_SOL, 'a0_m': _a0_T6,
+            'dH_sol_mean_eV': _DH_SOL, 'a0_m': _a0_T6,
             'dH_diss_eV': _DH_DISS_USED, 'dH_entry_eV': _DH_ENTRY_USED,
-            'option1': {'S': _S1, 'Phi': _Phi1, 'J': _J1},
-            'option2': {'S': _S2, 'Phi': _Phi2, 'J': _J2},
+            'n_env': len(_dh_sol_by_env),
+            'option1': {'S0': _S0_geo, 'S': _S1, 'Phi': _Phi1, 'J': _J1,
+                        'route': 'geometric S0, per-env Boltzmann'},
+            'option2': ({'S0': _S0_vib, 'S': _S2, 'Phi': _Phi2, 'J': _J2,
+                         'route': 'vibrational S0, per-env Boltzmann'}
+                        if _fs_freq_sets else
+                        {'S0': None, 'S': None, 'Phi': None, 'J': None,
+                         'route': 'vibrational S0 unavailable (no FS vibrations)'}),
             'option3': {'S': _S3, 'Phi': _Phi3, 'J': _J3,
                         'S_std':       _kmc_sol['S_std'],
-                        'n_converged': _kmc_sol['n_converged']},
+                        'n_converged': _kmc_sol['n_converged'],
+                        'route': 'KMC empirical Sieverts fit'},
             'P_high_Pa': _P_HIGH, 'L_m': L_M,
         }
         if _dilute_note:
@@ -612,51 +661,71 @@ for _n_h in N_H_VALUES:
             json.dump(_perm_payload, _f, indent=2)
         mark_done(_perm_done_marker)
         _PERM_STATUS['permeability_written'].append(f'{_n_h}H_T{int(_T)}K')
-        print(f'  T={_T:4.0f} K  Opt1(lattice):  S={_S1:.3e}  Phi={_Phi1:.3e}  J={_J1:.3e} atoms/m²/s')
-        print(f'  T={_T:4.0f} K  Opt2(TST):      S={_S2:.3e}  Phi={_Phi2:.3e}  J={_J2:.3e} atoms/m²/s')
-        print(f'  T={_T:4.0f} K  Opt3(KMC):      S={_S3:.3e}  Phi={_Phi3:.3e}  J={_J3:.3e} atoms/m²/s')
+        _s2_str = f'{_S2:.3e}' if _S2 is not None else 'n/a'
+        _phi2_str = f'{_Phi2:.3e}' if _Phi2 is not None else 'n/a'
+        print(f'  T={_T:4.0f} K  Opt1(geom):  S={_S1:.3e}  Phi={_Phi1:.3e}  J={_J1:.3e} atoms/m²/s')
+        print(f'  T={_T:4.0f} K  Opt2(vib):   S={_s2_str}  Phi={_phi2_str}')
+        print(f'  T={_T:4.0f} K  Opt3(KMC):   S={_S3:.3e}  Phi={_Phi3:.3e}  J={_J3:.3e} atoms/m²/s')
 
-    # Multi-T Arrhenius S₀ fit from KMC, for this n_H
-    _sol_out = os.path.join(_nh_dir, 'solubility_arrhenius_kmc.json')
-    _sol_done_marker = os.path.join(_nh_dir, 'solubility.done')
-    if is_done(_sol_done_marker) and os.path.exists(_sol_out):
-        print(f'  Solubility Arrhenius fit already done — skipping ({_sol_out})')
-    else:
-        _S_arr, _T_arr = [], []
-        for _T in TEMPERATURES:
-            _sw_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
-            if not os.path.exists(_sw_f):
-                continue
-            with open(_sw_f) as _f:
-                _sw = json.load(_f)
-            _sol = fit_solubility_from_kmc(_sw)
-            if _sol['n_converged'] > 0:
-                _S_arr.append(_sol['S_mean'])
-                _T_arr.append(float(_T))
+    # ── Multi-T Arrhenius fits for this n_H ──────────────────────────────────
+    # Fit each solubility route (geometric, vibrational, KMC-empirical) as
+    # ln S vs 1/T -> (S0, ΔH_sol, R²), then derive permeability Arrhenius
+    # params Φ0 = D0·S0, E_Φ = E_D + ΔH_sol for each. R² is the curvature flag
+    # (per-env S(T) is a sum of Arrhenius terms; R² < 1 is physical, not error).
+    _sol_routes = {}
+    for _route, _S_list in (('geometric', _S_geo_arr),
+                            ('vibrational', _S_vib_arr),
+                            ('kmc', _S_kmc_arr)):
+        _pts = [(t, s) for t, s in zip(_T_arr6, _S_list)
+                if s is not None and s == s and s > 0.0]
+        if len(_pts) < 2:
+            _sol_routes[_route] = {'available': False, 'n_points': len(_pts)}
+            continue
+        _tt = [p[0] for p in _pts]
+        _ss = [p[1] for p in _pts]
+        _fit = fit_arrhenius(_tt, _ss)
+        _sol_routes[_route] = {
+            'available':  True,
+            'T_K_arr':    _tt,
+            'S_arr':      _ss,
+            'S0':         _fit['prefactor'],
+            'dH_sol_eV':  _fit['Ea_eV'],
+            'r2':         _fit['r2'],
+            'n_points':   _fit['n_points'],
+        }
 
-        if len(_S_arr) >= 2:
-            _S_np    = np.array(_S_arr)
-            _T_np    = np.array(_T_arr)
-            _slope, _inter = np.polyfit(1.0 / _T_np, np.log(_S_np), 1)
-            _dH_kmc  = -_slope * _KB_EV
-            _S0_kmc  = np.exp(_inter)
-            _log_pred = _slope / _T_np + _inter
-            _ss_res  = np.sum((np.log(_S_np) - _log_pred) ** 2)
-            _ss_tot  = np.sum((np.log(_S_np) - np.mean(np.log(_S_np))) ** 2)
-            _r2      = 1.0 - _ss_res / _ss_tot if _ss_tot > 0.0 else 1.0
-            with open(_sol_out, 'w') as _f:
-                json.dump({'T_K_arr':       _T_arr,
-                           'S_mean_arr':    _S_arr,
-                           'S0_kmc':        _S0_kmc,
-                           'dH_sol_kmc_eV': _dH_kmc,
-                           'r2_fit':        _r2,
-                           'n_H':           _n_h,
-                           'D0_m2s':        _D0_nh,
-                           'E_D_eV':        _ED_nh}, _f, indent=2)
-            mark_done(_sol_done_marker)
-            print(f'\nArrhenius  S0={_S0_kmc:.3e}  dH_sol={_dH_kmc:.3f} eV  R²={_r2:.4f} → {_sol_out}')
-        else:
-            print(f'WARNING: fewer than 2 valid temperatures for n_H={_n_h} — Arrhenius S₀ fit skipped.')
+    _sol_out = os.path.join(_nh_dir, 'solubility_arrhenius.json')
+    with open(_sol_out, 'w') as _f:
+        json.dump({'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
+                   'dH_sol_mean_eV': _DH_SOL, 'routes': _sol_routes}, _f, indent=2)
+    print(f'  → {_sol_out}')
+
+    # Permeability Arrhenius (Φ0, E_Φ) per route, from D and each S fit.
+    _perm_routes = {}
+    for _route, _info in _sol_routes.items():
+        if not _info.get('available'):
+            _perm_routes[_route] = {'available': False}
+            continue
+        _pa = permeability_arrhenius(_D0_nh, _ED_nh, _info['S0'], _info['dH_sol_eV'])
+        _perm_routes[_route] = {'available': True,
+                                'Phi0': _pa['Phi0'], 'E_phi_eV': _pa['E_phi_eV'],
+                                'r2_S': _info['r2']}
+        print(f'  [{_route}] Φ0={_pa["Phi0"]:.3e}  E_Φ={_pa["E_phi_eV"]:.4f} eV '
+              f'(= E_D {_ED_nh:.4f} + ΔH_sol {_info["dH_sol_eV"]:.4f})')
+    _perm_arr_out = os.path.join(_nh_dir, 'permeability_arrhenius.json')
+    with open(_perm_arr_out, 'w') as _f:
+        json.dump({'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
+                   'routes': _perm_routes}, _f, indent=2)
+    print(f'  → {_perm_arr_out}')
+
+    # Backward-compatible KMC-only Arrhenius file (consumed by plot_arrhenius_S0).
+    if _sol_routes.get('kmc', {}).get('available'):
+        _k = _sol_routes['kmc']
+        with open(os.path.join(_nh_dir, 'solubility_arrhenius_kmc.json'), 'w') as _f:
+            json.dump({'T_K_arr': _k['T_K_arr'], 'S_mean_arr': _k['S_arr'],
+                       'S0_kmc': _k['S0'], 'dH_sol_kmc_eV': _k['dH_sol_eV'],
+                       'r2_fit': _k['r2'], 'n_H': _n_h,
+                       'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh}, _f, indent=2)
 
 _status_path = os.path.join(RESULTS_DIR, 'permeation_status.json')
 with open(_status_path, 'w') as _f:
@@ -1018,15 +1087,18 @@ def plot_permeability_vs_T(results_dir, temperatures):
 
     T_arr   = sorted(perms.keys())
     Phi1    = [perms[T]['option1']['Phi'] for T in T_arr]
-    Phi2    = [perms[T]['option2']['Phi'] for T in T_arr]
+    # vibrational (option2) may be None when no FS vibrations were run;
+    # substitute NaN so matplotlib leaves a gap instead of raising.
+    Phi2    = [perms[T].get('option2', {}).get('Phi') for T in T_arr]
+    Phi2    = [float(v) if v is not None else float('nan') for v in Phi2]
     Phi3    = [perms[T]['option3']['Phi'] for T in T_arr]
     inv_T   = [1000.0 / T for T in T_arr]
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
 
     ax0 = axes[0]
-    ax0.plot(T_arr, Phi1, 'o-', color='steelblue', lw=1.6, label='Option 1 (lattice S₀)')
-    ax0.plot(T_arr, Phi2, 's-', color='coral',     lw=1.6, label='Option 2 (TST rates)')
+    ax0.plot(T_arr, Phi1, 'o-', color='steelblue', lw=1.6, label='Option 1 (geometric S₀)')
+    ax0.plot(T_arr, Phi2, 's-', color='coral',     lw=1.6, label='Option 2 (vibrational S₀)')
     ax0.plot(T_arr, Phi3, '^-', color='seagreen',  lw=1.6, label='Option 3 (KMC fit)')
     ax0.set_xlabel('Temperature  [K]')
     ax0.set_ylabel('$\\Phi$  [atoms m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')

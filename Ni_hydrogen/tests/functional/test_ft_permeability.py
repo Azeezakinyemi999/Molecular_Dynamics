@@ -413,13 +413,19 @@ class TestKMCIntegration:
     _A0   = 3.52e-10     # m
     _L    = 1e-3         # m  membrane thickness
 
-    # Pure Ni rates — k_diss kept moderate; k_entry >> k_drain (D/dx^2 ≈ 1.6e4 s^-1)
+    # Pure Ni rates — k_diss kept moderate; k_entry/k_hopB >> k_drain
+    # (D/dx^2 ≈ 1.6e4 s^-1) so H flows surface→sub1→sub2 and C0 (the sub2
+    # concentration that feeds the bulk) stays > 0. k_entry/k_exit/k_hopB_*
+    # keyed by 'Ni' rely on make_grid's degenerate env default for this
+    # pure-Ni grid (sub1_env == sub2_env == 'Ni').
     _RATES = {
-        'k_diss':      {('Ni', 'Ni'): 0.5},
-        'k_des':       {('Ni', 'Ni'): 1e6},
-        'k_surf_diff': {('Ni', 'Ni'): 1e8},
-        'k_entry':     {'Ni': 1e8},
-        'k_exit':      {'Ni': 1e4},
+        'k_diss':       {('Ni', 'Ni'): 0.5},
+        'k_des':        {('Ni', 'Ni'): 1e6},
+        'k_surf_diff':  {('Ni', 'Ni'): 1e8},
+        'k_entry':      {'Ni': 1e8},
+        'k_exit':       {'Ni': 1e4},
+        'k_hopB_entry': {'Ni': 1e8},
+        'k_hopB_exit':  {'Ni': 1e4},
     }
 
     @pytest.fixture(scope='class')
