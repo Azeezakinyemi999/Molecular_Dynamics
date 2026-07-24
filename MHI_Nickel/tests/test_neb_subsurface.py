@@ -130,6 +130,12 @@ class TestOrchestrateHopaNebSkip:
             assert array_call['array_range'] == (0, 0)   # 1 site -> indices [0, 0]
             assert any('SLURM_ARRAY_TASK_ID+1' in c for c in array_call['commands'])
 
+    def test_job_dict_carries_sub1_env(self, tmp_path, monkeypatch):
+        # Part 2: the sub1 oct-site environment must be persisted in each Hop A
+        # job dict so Part 6 can key k_entry/k_exit by environment.
+        result, _, _, _ = self._run(tmp_path, monkeypatch)
+        assert 'sub1_env' in result['jobs'][0]
+
 
 class TestOrchestrateHopbNebSkip:
     """Mirrors TestOrchestrateHopaNebSkip for Hop B -- same fix pattern,
@@ -231,6 +237,14 @@ class TestOrchestrateHopbNebSkip:
             array_call = next(c for c in write_slurm_calls if c['job_name'] == array_name)
             assert array_call['array_range'] == (0, 0)
             assert any('SLURM_ARRAY_TASK_ID+1' in c for c in array_call['commands'])
+
+    def test_job_dict_carries_sub1_and_sub2_env(self, tmp_path, monkeypatch):
+        # Part 2: Hop B job dicts must carry both oct-site environments; sub2_env
+        # is the per-environment key Part 6 uses for the deeper (sub1→sub2)
+        # entry/exit rates in the two-layer KMC.
+        result, _, _, _ = self._run(tmp_path, monkeypatch)
+        assert 'sub1_env' in result['jobs'][0]
+        assert 'sub2_env' in result['jobs'][0]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

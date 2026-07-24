@@ -695,6 +695,10 @@ def orchestrate_hopa_neb(
             'e_is'        : float(e_is),
             'ss1_id'      : ss1_id,
             'sub1_xyz'    : sub1_xyz,
+            # Oct-site coordination environment of the sub1 destination — the
+            # per-environment key Part 6 uses to build env-resolved k_entry/
+            # k_exit (instead of the old collapse to one rate per element).
+            'sub1_env'    : oct_env_label(site_lookup[ss1_id]),
             'fs_raw'      : fs_raw,
             'fs_relaxed'  : fs_relaxed,
             'fsmin_script': min_script,
@@ -1017,6 +1021,11 @@ def orchestrate_hopb_neb(
             'hopb_is'     : str(hopb_is),
             'e_is'        : e_is_hopb,
             'sub2_xyz'    : sub2_xyz,
+            # Oct-site coordination environments of the sub1 origin and sub2
+            # destination — sub2_env is the per-environment key Part 6 uses for
+            # the deeper (sub1→sub2) entry/exit rates in the two-layer KMC.
+            'sub1_env'    : oct_env_label(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown_env',
+            'sub2_env'    : oct_env_label(site_lookup[ss2_id]),
             'fs_raw'      : fs_raw,
             'fs_relaxed'  : fs_relaxed,
             'fsmin_script': min_script,

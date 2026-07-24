@@ -128,6 +128,38 @@ class TestSplitVibResults:
         vis, vts = split_vib_results({})
         assert vis == {} and vts == {}
 
+    def test_fs_key_ignored_without_warning(self):
+        # FS (dissolved-H) modes are consumed by split_vib_fs, not the
+        # IS->TS barrier ZPE correction: split_vib_results must skip them
+        # silently rather than warn (which would be spurious noise now that
+        # the vibration set includes FS endpoints).
+        vd = {'hopa_Ni3Mo_IS': {'vib_json': '/is.json'},
+              'hopa_Ni3Mo_TS': {'vib_json': '/ts.json'},
+              'hopa_Ni3Mo_FS': {'vib_json': '/fs.json'}}
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            vis, vts = split_vib_results(vd)
+        assert not any('unexpected key' in str(wn.message) for wn in w)
+        assert 'hopa_Ni3Mo' in vis and 'hopa_Ni3Mo' in vts
+
+
+class TestSplitVibFs:
+
+    def test_extracts_only_fs_entries(self):
+        from models.tst_rates import split_vib_fs
+        vd = {'hopa_A_IS': {'vib_json': '/a_is.json'},
+              'hopa_A_TS': {'vib_json': '/a_ts.json'},
+              'hopa_A_FS': {'vib_json': '/a_fs.json'},
+              'hopb_B_FS': {'vib_json': '/b_fs.json'}}
+        fs = split_vib_fs(vd)
+        assert set(fs.keys()) == {'hopa_A', 'hopb_B'}
+        assert fs['hopa_A'] == '/a_fs.json'
+
+    def test_empty_when_no_fs(self):
+        from models.tst_rates import split_vib_fs
+        vd = {'hopa_A_IS': {'vib_json': '/a_is.json'}}
+        assert split_vib_fs(vd) == {}
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. apply_zpe_correction

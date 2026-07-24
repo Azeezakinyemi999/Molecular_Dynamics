@@ -117,12 +117,31 @@ def split_vib_results(vib_dict: dict) -> tuple[dict, dict]:
             vib_is[key[:-3]] = path
         elif key.endswith('_TS'):
             vib_ts[key[:-3]] = path
+        elif key.endswith('_FS'):
+            # Dissolved-H FS modes are consumed by the solubility prefactor
+            # (see split_vib_fs), not by the IS->TS barrier ZPE correction.
+            continue
         else:
             warnings.warn(
-                f'split_vib_results: unexpected key {key!r} (expected _IS or _TS suffix); '
+                f'split_vib_results: unexpected key {key!r} (expected _IS/_TS/_FS suffix); '
                 'skipping.'
             )
     return vib_is, vib_ts
+
+
+def split_vib_fs(vib_dict: dict) -> dict:
+    """Extract the FS (dissolved-H) vibration results from ``orchestrate_vibrations`` output.
+
+    Companion to :func:`split_vib_results`. Returns ``{base_label: vib_json_path}``
+    for every ``'..._FS'`` entry — the dissolved-H octahedral-cage modes that the
+    vibrational solubility prefactor (Part 4) needs. Entries without an ``_FS``
+    suffix are ignored.
+    """
+    vib_fs: dict = {}
+    for key, info in vib_dict.items():
+        if key.endswith('_FS'):
+            vib_fs[key[:-3]] = info['vib_json']
+    return vib_fs
 
 
 # ---------------------------------------------------------------------------

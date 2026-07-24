@@ -276,10 +276,13 @@ else:
 # Phase 3 — Vibrational frequencies (IS + TS, both hops)
 # ══════════════════════════════════════════════════════════════════════════════
 print('\n── Phase 3: Vibrational frequencies ────────────────────────────────────')
-_pairs_a = collect_is_ts_paths(hopa_jobs, hop='hopa', is_key='is_path')
-_pairs_b = collect_is_ts_paths(hopb_jobs, hop='hopb', is_key='hopb_is')
+# Include the FS (dissolved-H oct-cage) endpoints too: their vibrational modes
+# are the dissolved-H partition-function inputs the vibrational solubility
+# prefactor needs (Part 4). fs_key='fs_relaxed' works for both hop job dicts.
+_pairs_a = collect_is_ts_paths(hopa_jobs, hop='hopa', is_key='is_path',  fs_key='fs_relaxed')
+_pairs_b = collect_is_ts_paths(hopb_jobs, hop='hopb', is_key='hopb_is', fs_key='fs_relaxed')
 _all_pairs = _pairs_a + _pairs_b
-print(f'  Structures: {len(_all_pairs)} (IS + TS for both hops)')
+print(f'  Structures: {len(_all_pairs)} (IS + TS + FS for both hops)')
 
 vib_out = orchestrate_vibrations(
     structure_paths = _all_pairs,
