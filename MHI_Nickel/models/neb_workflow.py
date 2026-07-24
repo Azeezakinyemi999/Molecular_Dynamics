@@ -1339,9 +1339,9 @@ Phases:
 Key implementation notes (matching NB06b2 exactly):
     - FS raw structure = IS metal atoms + 2 H at NB06b relaxed XY coords,
       z = max_metal_z + 1.5 Å, then LAMMPS-minimized before NEB.
-    - NEB uses ASE CI-NEB: spring_const=2.0 eV/Å², n_images=18.
-    - Two-phase NEB: phase-1 fmax=0.15 eV/Å (5000 steps);
-                     phase-2 CI fmax=0.05 eV/Å (10000 steps).
+    - NEB uses ASE CI-NEB: spring_const=2.0 eV/Å², n_images=9.
+    - Two-phase NEB: phase-1 fmax=0.3 eV/Å (5000 steps);
+                     phase-2 CI fmax=0.1 eV/Å (10000 steps).
     - E_IS is hardcoded in run_neb.py; E_FS is parsed at runtime from fs_min.log.
 """
 
@@ -1826,9 +1826,9 @@ def orchestrate_neb(
     outdir: str,
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
-    n_images: int = 18,
+    n_images: int = 9,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 0.1,
     h_height: float = 1.5,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
@@ -2307,9 +2307,9 @@ def orchestrate_neb_pipeline(
     sep_max: float = 5.0,
     graph_dist_min: int = 2,
     prox_cutoff: float = 3.0,
-    n_images: int = 18,
+    n_images: int = 9,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 0.1,
     h_height: float = 1.5,
     dry_run: bool = True,
     elem_str: str = ELEM_STR_7,
@@ -2472,9 +2472,9 @@ def orchestrate_full_neb_workflow(
     sep_max: float = 5.0,
     graph_dist_min: int = 2,
     prox_cutoff: float = 3.0,
-    n_images: int = 18,
+    n_images: int = 9,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 0.1,
     h_height: float = 1.5,
     gpu_slurm_cfg: dict | None = None,
     neb_slurm_cfg: dict | None = None,
