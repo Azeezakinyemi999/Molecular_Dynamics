@@ -1,15 +1,22 @@
 """
 models/kmc.py
 =============
-Rejection-free BKL kinetic Monte Carlo on a 2D dual-layer alloy surface.
+Rejection-free BKL kinetic Monte Carlo on a 2D three-layer alloy slab.
 
-Models H permeation through a Hastelloy N slab:
+Models H permeation through a Hastelloy N slab as a connected chain:
 
-  Gas H₂  ←→  H* surface  ←→  H subsurface  →  bulk (drain)
+  Gas H₂  ⇄  H* surface  ⇄  H sub1 (oct)  ⇄  H sub2 (oct)  →  bulk (drain)
 
-The surface layer is a 2D alloy grid (Ni/Mo/Cr/Fe).  Each grid point has a
-corresponding subsurface-1 octahedral site directly beneath it (one-to-one,
-from the topology built by ``subsurface_graph.py``).
+Each lateral grid point (i, j) is one surface unit cell with a sub1 octahedral
+site directly beneath it and a sub2 octahedral site beneath that (one-to-one,
+from the topology built by ``subsurface_graph.py``). A single H occupies one
+layer at a time; every inter-layer move is column-local (same (i, j)).
+
+This is the two-layer engine: the surface→sub1 (Hop A) and sub1→sub2 (Hop B)
+entry/exit rates are resolved per **octahedral-site environment** (the
+coordination fingerprint ``composition_label``, e.g. ``'Ni3MoCrFe_oct'``),
+not collapsed to one rate per element. The irreversible drain to bulk happens
+from **sub2**, the deepest explicit layer.
 
 Algorithm
 ---------
@@ -25,35 +32,37 @@ Random state
 ------------
 ``kmc_step`` draws from NumPy's global random state.  Set ``np.random.seed(n)``
 before calling ``run_kmc`` / ``run_kmc_to_steady_state`` for reproducibility.
+``make_grid`` uses its own seeded ``default_rng`` for the lattice realisation.
 
 Rate dict format
 ----------------
-The ``rate_dict`` argument consumed by ``build_event_list`` must follow this
-structure (all rates in s⁻¹ unless noted):
+The ``rate_dict`` argument consumed by ``build_event_list`` (all rates s⁻¹
+unless noted):
 
 .. code-block:: python
 
     rate_dict = {
-        # H₂ → 2H* sticking probability (dimensionless Boltzmann factor)
-        # Multiply by gas_strike_rate(P,T) inside build_event_list.
-        # Derive as: exp(-Ea_diss_zpe / (kB * T)) from tst_rates output.
-        'k_diss':      {('Ni', 'Ni'): float, ('Mo', 'Ni'): float, ...},
+        # Surface pair rates — keyed by a sorted element pair (unchanged).
+        'k_diss':      {('Ni', 'Ni'): float, ('Mo', 'Ni'): float, ...},  # dimensionless sticking
+        'k_des':       {('Ni', 'Ni'): float, ...},                       # 2H* → H₂ desorption
+        'k_surf_diff': {('Ni', 'Ni'): float, ...},                       # optional H* surface hop
 
-        # 2H* → H₂ desorption rate [s⁻¹]  (full TST: ν × exp(-Ea/kT))
-        'k_des':       {('Ni', 'Ni'): float, ...},
-
-        # H* surface diffusion rate [s⁻¹]  (optional; omit or leave empty)
-        'k_surf_diff': {('Ni', 'Ni'): float, ...},
-
-        # H* → H subsurface entry [s⁻¹]  (Hop A k_forward from build_rate_dict)
-        'k_entry':     {'Ni': float, 'Mo': float, 'Cr': float, 'Fe': float},
-
-        # H subsurface → H* surface exit [s⁻¹]  (Hop A k_reverse)
-        'k_exit':      {'Ni': float, 'Mo': float, 'Cr': float, 'Fe': float},
+        # Inter-layer rates — keyed by OCTAHEDRAL-SITE ENVIRONMENT
+        # (composition_label). Surface⇄sub1 uses the sub1 env; sub1⇄sub2 uses
+        # the sub2 env. A grid cell whose env has no entry falls back to the
+        # mean over that dict's known environments (never a silent 0.0).
+        'k_entry':      {'Ni6_oct': float, 'Ni5Mo_oct': float, ...},  # Hop A fwd (surf→sub1)
+        'k_exit':       {'Ni6_oct': float, ...},                      # Hop A rev (sub1→surf)
+        'k_hopB_entry': {'Ni6_oct': float, ...},                      # Hop B fwd (sub1→sub2)
+        'k_hopB_exit':  {'Ni6_oct': float, ...},                      # Hop B rev (sub2→sub1)
     }
 
+Back-compatibility: if an inter-layer dict is keyed by bare element symbols
+(the pre-two-layer convention) and the grid's env labels default to the
+surface element (the degenerate ``make_grid`` case), the lookups still resolve.
+
 k_drain is not stored here — it is computed from ``drain_rate(D_m2s, a0_m)``
-inside ``build_event_list``.
+inside ``build_event_list`` and applied to occupied sub2 sites.
 """
 
 from __future__ import annotations
@@ -99,7 +108,7 @@ def gas_strike_rate(P_Pa: float, T_K: float, m_H2_kg: float, site_area_m2: float
 
 
 def drain_rate(D_m2s: float, a0_m: float) -> float:
-    """Rate of H leaving the subsurface layer into the bulk [s⁻¹].
+    """Rate of H leaving the sub2 layer into the bulk [s⁻¹].
 
     Derived from 1-D Fick's law applied to a single hop of length
     dx = a₀/√2  (FCC oct–oct nearest-neighbour distance):
@@ -126,41 +135,101 @@ def drain_rate(D_m2s: float, a0_m: float) -> float:
     return D_m2s / (dx * dx)
 
 
+def _rate_lookup(group: dict, key, fallback_mean: float) -> float:
+    """Look up ``group[key]``, falling back to a precomputed mean, never 0.0-on-miss.
+
+    ``group`` is one rate-class dict (e.g. ``k_entry``). If ``key`` (an env
+    label) is present, its rate is returned; otherwise ``fallback_mean`` (the
+    mean over that dict's known environments, precomputed once per
+    ``build_event_list`` call) is returned. An empty ``group`` yields 0.0 —
+    the only way this returns 0.0, and only when the rate class is genuinely
+    absent, so a key/schema mismatch never silently produces an inert site.
+    """
+    if not group:
+        return 0.0
+    v = group.get(key)
+    if v is not None:
+        return float(v)
+    return float(fallback_mean)
+
+
+def _mean_of(group: dict) -> float:
+    """Mean over a rate-class dict's values (0.0 if empty)."""
+    if not group:
+        return 0.0
+    return float(sum(group.values()) / len(group))
+
+
 # ---------------------------------------------------------------------------
 # Section 2 — Grid construction and queries
 # ---------------------------------------------------------------------------
 
-def make_grid(nx: int, ny: int, composition: dict | None = None, seed: int = 42) -> dict:
-    """Create a fresh KMC grid state dict.
+def make_grid(
+    nx: int,
+    ny: int,
+    composition: dict | None = None,
+    seed: int = 42,
+    sub1_env_composition: dict | None = None,
+    sub2_env_composition: dict | None = None,
+) -> dict:
+    """Create a fresh three-layer KMC grid state dict.
 
     Parameters
     ----------
     nx, ny : int
         Grid dimensions.
     composition : dict, optional
-        Element probabilities, e.g. ``{'Ni':0.71,'Mo':0.16,'Cr':0.07,'Fe':0.06}``.
+        Surface element probabilities, e.g.
+        ``{'Ni':0.71,'Mo':0.16,'Cr':0.07,'Fe':0.06}``.
         Defaults to Hastelloy N composition.
     seed : int
-        Seed for the element assignment RNG.
+        Seed for the lattice realisation RNG (element + env draws).
+    sub1_env_composition : dict, optional
+        Oct-site environment probabilities for the sub1 layer, e.g.
+        ``{'Ni6_oct':0.6,'Ni5Mo_oct':0.3,...}``. When ``None`` (default), the
+        sub1 environment of each cell defaults to that cell's surface element —
+        the degenerate case where env-keyed rate dicts reduce to element-keyed.
+    sub2_env_composition : dict, optional
+        Oct-site environment probabilities for the sub2 layer. Same default
+        behaviour as ``sub1_env_composition``.
 
     Returns
     -------
     dict
-        Keys: ``surface_elem`` (ndarray[nx,ny], dtype str),
-        ``surface_occ`` (ndarray[nx,ny], int8, 0/1),
-        ``subsurface_occ`` (ndarray[nx,ny], int8, 0/1),
+        Keys: ``surface_elem`` (ndarray[nx,ny] str), ``surface_occ``,
+        ``sub1_occ``, ``sub2_occ`` (ndarray[nx,ny] int8, 0/1),
+        ``sub1_env``, ``sub2_env`` (ndarray[nx,ny] object, env labels),
         ``nx``, ``ny``.
     """
     if composition is None:
         composition = {'Ni': 0.71, 'Mo': 0.16, 'Cr': 0.07, 'Fe': 0.06}
     elems = list(composition.keys())
-    probs = [composition[e] for e in elems]
+    probs = np.array([composition[e] for e in elems], dtype=float)
+    probs = probs / probs.sum()
     rng   = np.random.default_rng(seed)
-    choices = rng.choice(elems, size=(nx, ny), p=probs)
+    surface_elem = rng.choice(elems, size=(nx, ny), p=probs)
+
+    def _draw_env(env_comp):
+        # object dtype avoids fixed-width truncation of long env labels
+        # (e.g. 'Ni3MoCrFe_oct') — the exact silent-corruption class this
+        # whole change is meant to eliminate.
+        if not env_comp:
+            return surface_elem.astype(object)
+        labels = list(env_comp.keys())
+        p = np.array([env_comp[k] for k in labels], dtype=float)
+        p = p / p.sum()
+        return rng.choice(labels, size=(nx, ny), p=p).astype(object)
+
+    sub1_env = _draw_env(sub1_env_composition)
+    sub2_env = _draw_env(sub2_env_composition)
+
     return {
-        'surface_elem':   choices,
-        'surface_occ':    np.zeros((nx, ny), dtype=np.int8),
-        'subsurface_occ': np.zeros((nx, ny), dtype=np.int8),
+        'surface_elem': surface_elem,
+        'surface_occ':  np.zeros((nx, ny), dtype=np.int8),
+        'sub1_occ':     np.zeros((nx, ny), dtype=np.int8),
+        'sub2_occ':     np.zeros((nx, ny), dtype=np.int8),
+        'sub1_env':     sub1_env,
+        'sub2_env':     sub2_env,
         'nx': nx,
         'ny': ny,
     }
@@ -177,7 +246,7 @@ def grid_neighbors(i: int, j: int, nx: int, ny: int) -> list[tuple[int, int]]:
 
 
 def element_pair(grid: dict, i1: int, j1: int, i2: int, j2: int) -> tuple[str, str]:
-    """Sorted (elem1, elem2) for symmetric rate dict lookup."""
+    """Sorted (elem1, elem2) for symmetric surface-pair rate dict lookup."""
     e1 = grid['surface_elem'][i1, j1]
     e2 = grid['surface_elem'][i2, j2]
     return (e1, e2) if e1 <= e2 else (e2, e1)
@@ -188,21 +257,32 @@ def surface_coverage(grid: dict) -> float:
     return float(grid['surface_occ'].sum()) / (grid['nx'] * grid['ny'])
 
 
+def sub1_population(grid: dict) -> int:
+    """Total H atoms in the sub1 layer."""
+    return int(grid['sub1_occ'].sum())
+
+
+def sub2_population(grid: dict) -> int:
+    """Total H atoms in the sub2 layer."""
+    return int(grid['sub2_occ'].sum())
+
+
 def subsurface_population(grid: dict) -> int:
-    """Total H atoms in the subsurface layer."""
-    return int(grid['subsurface_occ'].sum())
+    """Total H atoms across both subsurface layers (sub1 + sub2)."""
+    return sub1_population(grid) + sub2_population(grid)
 
 
 def subsurface_concentration(grid: dict, a0_m: float) -> float:
-    """Subsurface H concentration C₀ [atoms/m³].
+    """Near-bulk H concentration C₀ [atoms/m³], from the **sub2** layer.
 
-    Volume of the simulated subsurface layer:
-    V = nx × a₀ × ny × a₀ × (a₀/√2)
+    sub2 is the deepest explicit layer and the one that hands off to the bulk
+    via the drain, so its occupancy is what drives Fick diffusion. Per-layer
+    oct-site volume: V = nx × ny × a₀³ / √2.
     """
-    N_sub = subsurface_population(grid)
+    N_sub2 = sub2_population(grid)
     nx, ny = grid['nx'], grid['ny']
     vol    = nx * ny * (a0_m ** 3) / math.sqrt(2.0)
-    return N_sub / vol if vol > 0.0 else 0.0
+    return N_sub2 / vol if vol > 0.0 else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -217,18 +297,20 @@ def build_event_list(
     D_m2s: float,
     a0_m: float,
 ) -> list[dict]:
-    """Enumerate all active events for the current grid state.
+    """Enumerate all active events for the current three-layer grid state.
 
     Each event is a dict ``{'kind': str, 'sites': list, 'rate': float}``.
 
     Event kinds
     -----------
-    ``'adsorb'``    : H₂ → 2H* on adjacent empty site pair (sites = 2 tuples)
-    ``'desorb'``    : 2H* → H₂ from adjacent occupied pair (sites = 2 tuples)
-    ``'surf_diff'`` : H* hops to adjacent empty site       (sites = [src, dst])
-    ``'enter'``     : H* surface → H subsurface            (sites = 1 tuple)
-    ``'exit'``      : H subsurface → H* surface            (sites = 1 tuple)
-    ``'drain'``     : H subsurface → bulk                  (sites = 1 tuple)
+    ``'adsorb'``     : H₂ → 2H* on adjacent empty surface pair (2 tuples)
+    ``'desorb'``     : 2H* → H₂ from adjacent occupied surface pair (2 tuples)
+    ``'surf_diff'``  : H* hops to adjacent empty surface site (src, dst)
+    ``'enter'``      : H* surface → sub1        (1 tuple; rate by sub1 env)
+    ``'exit'``       : H sub1 → surface         (1 tuple; rate by sub1 env)
+    ``'hopB_enter'`` : H sub1 → sub2            (1 tuple; rate by sub2 env)
+    ``'hopB_exit'``  : H sub2 → sub1            (1 tuple; rate by sub2 env)
+    ``'drain'``      : H sub2 → bulk            (1 tuple)
 
     Parameters
     ----------
@@ -236,14 +318,8 @@ def build_event_list(
         Grid state from :func:`make_grid`.
     rate_dict : dict
         Rate constants (see module docstring for format).
-    P_Pa : float
-        H₂ partial pressure [Pa].
-    T_K : float
-        Temperature [K].
-    D_m2s : float
-        Bulk diffusivity [m²/s] for drain rate.
-    a0_m : float
-        FCC lattice constant [m].
+    P_Pa, T_K, D_m2s, a0_m : float
+        Pressure, temperature, bulk diffusivity, lattice constant.
 
     Returns
     -------
@@ -252,55 +328,80 @@ def build_event_list(
     """
     events: list[dict] = []
 
-    nx      = grid['nx']
-    ny      = grid['ny']
-    s_occ   = grid['surface_occ']
-    sub_occ = grid['subsurface_occ']
+    nx       = grid['nx']
+    ny       = grid['ny']
+    s_occ    = grid['surface_occ']
+    s1_occ   = grid['sub1_occ']
+    s2_occ   = grid['sub2_occ']
+    sub1_env = grid['sub1_env']
+    sub2_env = grid['sub2_env']
 
     # Precomputed scalars
     site_area  = (a0_m / math.sqrt(2.0)) ** 2
     R_str      = gas_strike_rate(P_Pa, T_K, _M_H2_KG, site_area)
     k_drain_v  = drain_rate(D_m2s, a0_m)
 
-    k_diss = rate_dict.get('k_diss',      {})
-    k_des  = rate_dict.get('k_des',       {})
-    k_diff = rate_dict.get('k_surf_diff', {})
-    k_ent  = rate_dict.get('k_entry',     {})
-    k_ext  = rate_dict.get('k_exit',      {})
+    k_diss  = rate_dict.get('k_diss',       {})
+    k_des   = rate_dict.get('k_des',        {})
+    k_diff  = rate_dict.get('k_surf_diff',  {})
+    k_ent   = rate_dict.get('k_entry',      {})
+    k_ext   = rate_dict.get('k_exit',       {})
+    k_hbent = rate_dict.get('k_hopB_entry', {})
+    k_hbext = rate_dict.get('k_hopB_exit',  {})
+
+    # Fallback means precomputed once (outside the i/j loops — build_event_list
+    # runs every KMC step, so recomputing per cell would dominate cost).
+    _m_ent   = _mean_of(k_ent)
+    _m_ext   = _mean_of(k_ext)
+    _m_hbent = _mean_of(k_hbent)
+    _m_hbext = _mean_of(k_hbext)
 
     for i in range(nx):
         for j in range(ny):
-            occ_ij  = s_occ[i, j]
-            sub_ij  = sub_occ[i, j]
-            elem_ij = grid['surface_elem'][i, j]
+            occ_s  = s_occ[i, j]
+            occ_1  = s1_occ[i, j]
+            occ_2  = s2_occ[i, j]
+            env1   = sub1_env[i, j]
+            env2   = sub2_env[i, j]
 
-            # ── Single-site events ─────────────────────────────────────────
+            # ── Inter-layer single-site events (column-local) ───────────────
 
-            # H* → subsurface entry (surface occupied, subsurface empty)
-            if occ_ij and not sub_ij:
-                r = k_ent.get(elem_ij, 0.0)
+            # Hop A forward: surface → sub1  (surface occupied, sub1 empty)
+            if occ_s and not occ_1:
+                r = _rate_lookup(k_ent, env1, _m_ent)
                 if r > 0.0:
                     events.append({'kind': 'enter', 'sites': [(i, j)], 'rate': r})
 
-            # H subsurface → surface exit (subsurface occupied, surface empty)
-            if sub_ij and not occ_ij:
-                r = k_ext.get(elem_ij, 0.0)
+            # Hop A reverse: sub1 → surface  (sub1 occupied, surface empty)
+            if occ_1 and not occ_s:
+                r = _rate_lookup(k_ext, env1, _m_ext)
                 if r > 0.0:
                     events.append({'kind': 'exit', 'sites': [(i, j)], 'rate': r})
 
-            # H subsurface → bulk drain (subsurface occupied, unconditional)
-            if sub_ij and k_drain_v > 0.0:
+            # Hop B forward: sub1 → sub2  (sub1 occupied, sub2 empty)
+            if occ_1 and not occ_2:
+                r = _rate_lookup(k_hbent, env2, _m_hbent)
+                if r > 0.0:
+                    events.append({'kind': 'hopB_enter', 'sites': [(i, j)], 'rate': r})
+
+            # Hop B reverse: sub2 → sub1  (sub2 occupied, sub1 empty)
+            if occ_2 and not occ_1:
+                r = _rate_lookup(k_hbext, env2, _m_hbext)
+                if r > 0.0:
+                    events.append({'kind': 'hopB_exit', 'sites': [(i, j)], 'rate': r})
+
+            # Drain: sub2 → bulk  (sub2 occupied, unconditional)
+            if occ_2 and k_drain_v > 0.0:
                 events.append({'kind': 'drain', 'sites': [(i, j)], 'rate': k_drain_v})
 
-            # ── Pairwise events ────────────────────────────────────────────
+            # ── Pairwise surface events ─────────────────────────────────────
             for (i2, j2) in grid_neighbors(i, j, nx, ny):
-                occ_2  = s_occ[i2, j2]
+                occ_s2 = s_occ[i2, j2]
                 pair   = element_pair(grid, i, j, i2, j2)
 
                 # Adsorption / desorption — symmetric, enumerate once per pair
                 if (i2, j2) > (i, j):
-                    if not occ_ij and not occ_2:
-                        # H₂ adsorbs on two empty adjacent sites
+                    if not occ_s and not occ_s2:
                         sticking = k_diss.get(pair, 0.0)
                         r = R_str * sticking
                         if r > 0.0:
@@ -309,8 +410,7 @@ def build_event_list(
                                 'sites': [(i, j), (i2, j2)],
                                 'rate': r,
                             })
-                    elif occ_ij and occ_2:
-                        # 2H* desorbs from two occupied adjacent sites
+                    elif occ_s and occ_s2:
                         r = k_des.get(pair, 0.0)
                         if r > 0.0:
                             events.append({
@@ -320,7 +420,7 @@ def build_event_list(
                             })
 
                 # Surface diffusion — directional: src=(i,j) must be occupied
-                if occ_ij and not occ_2:
+                if occ_s and not occ_s2:
                     r = k_diff.get(pair, 0.0)
                     if r > 0.0:
                         events.append({
@@ -341,7 +441,8 @@ def _execute_event(grid: dict, event: dict) -> None:
     kind    = event['kind']
     sites   = event['sites']
     s_occ   = grid['surface_occ']
-    sub_occ = grid['subsurface_occ']
+    s1_occ  = grid['sub1_occ']
+    s2_occ  = grid['sub2_occ']
 
     if kind == 'adsorb':
         (i1, j1), (i2, j2) = sites
@@ -358,19 +459,29 @@ def _execute_event(grid: dict, event: dict) -> None:
         s_occ[si, sj] = 0
         s_occ[di, dj] = 1
 
-    elif kind == 'enter':
+    elif kind == 'enter':               # surface → sub1
         (i, j) = sites[0]
-        s_occ[i, j]   = 0
-        sub_occ[i, j] = 1
+        s_occ[i, j]  = 0
+        s1_occ[i, j] = 1
 
-    elif kind == 'exit':
+    elif kind == 'exit':                # sub1 → surface
         (i, j) = sites[0]
-        sub_occ[i, j] = 0
-        s_occ[i, j]   = 1
+        s1_occ[i, j] = 0
+        s_occ[i, j]  = 1
 
-    elif kind == 'drain':
+    elif kind == 'hopB_enter':          # sub1 → sub2
         (i, j) = sites[0]
-        sub_occ[i, j] = 0
+        s1_occ[i, j] = 0
+        s2_occ[i, j] = 1
+
+    elif kind == 'hopB_exit':           # sub2 → sub1
+        (i, j) = sites[0]
+        s2_occ[i, j] = 0
+        s1_occ[i, j] = 1
+
+    elif kind == 'drain':               # sub2 → bulk
+        (i, j) = sites[0]
+        s2_occ[i, j] = 0
 
 
 # ---------------------------------------------------------------------------
@@ -431,16 +542,7 @@ def run_kmc(
     ----------
     grid : dict
         Grid state (mutated in-place during the run).
-    rate_dict : dict
-        Rate constants (see module docstring).
-    P_Pa : float
-        H₂ partial pressure [Pa].
-    T_K : float
-        Temperature [K].
-    D_m2s : float
-        Bulk diffusivity [m²/s].
-    a0_m : float
-        FCC lattice constant [m].
+    rate_dict, P_Pa, T_K, D_m2s, a0_m : see module docstring / :func:`build_event_list`.
     n_steps : int
         Number of KMC steps to execute.
 
@@ -449,6 +551,7 @@ def run_kmc(
     dict
         ``{'t_arr': ndarray, 'theta_arr': ndarray, 'n_sub_arr': ndarray}``
         Length n_steps + 1 (includes initial state at index 0).
+        ``n_sub_arr`` is the total subsurface population (sub1 + sub2).
     """
     t       = 0.0
     t_arr   = np.empty(n_steps + 1)
@@ -485,9 +588,9 @@ def run_kmc_to_steady_state(
 ) -> dict:
     """Run until surface coverage and subsurface population reach steady state.
 
-    Convergence criterion: the rolling mean of θ and N_sub over the last
-    *window* steps changes by less than *rtol* relative to the preceding
-    window.
+    Convergence criterion: the rolling mean of θ and total N_sub (sub1 + sub2)
+    over the last *window* steps changes by less than *rtol* relative to the
+    preceding window.
 
     Parameters
     ----------
@@ -505,7 +608,7 @@ def run_kmc_to_steady_state(
     -------
     dict
         ``{'t_total': float, 'theta_ss': float, 'C0': float, 'n_steps': int,
-           'converged': bool}``
+           'converged': bool}``.  ``C0`` is the sub2 (near-bulk) concentration.
     """
     t         = 0.0
     step      = 0
