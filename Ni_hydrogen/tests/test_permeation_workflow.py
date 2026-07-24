@@ -34,7 +34,6 @@ from models.permeation_workflow import (
     load_kmc_sweeps,
     load_permeability_results,
     plot_bottleneck,
-    collect_dedup_is_labels,
 )
 
 
@@ -223,14 +222,19 @@ class TestGeneratePermeationScripts:
         assert '_slab_atoms.get_cell().diagonal()' in content
 
     def test_dedup_is_labels_uses_real_energies(self, gen_result):
-        """Regression test: Hop A's e_is must come from
-        collect_dedup_is_labels() (real absolute energies from Part 1's
-        h_min_{sid}.log), not a hardcoded 0.0 -- a 0.0 placeholder
-        silently produced ~100+ eV 'barriers' the first time this ever
-        ran for real, since 0.0 sits nowhere near the slab's true energy
-        scale (~-125 eV)."""
+        """Regression test: Hop A's e_is must be the real absolute relaxed
+        energy from Part 1's h_min_{sid}.log, not a hardcoded 0.0 -- a 0.0
+        placeholder silently produced ~100+ eV 'barriers' the first time
+        this ever ran for real, since 0.0 sits nowhere near the slab's true
+        energy scale (~-125 eV). Post-Part-1 the entry H* are seeded from
+        dissociation products via collect_entry_h_sources /
+        build_surface_sub1_sub2_map, whose (sid, is_path, e_is) triples
+        carry that same real e_is."""
         _, _, content = gen_result
-        assert 'collect_dedup_is_labels(PHASE2_H_DIR)' in content
+        assert 'collect_entry_h_sources(' in content
+        assert 'build_surface_sub1_sub2_map(' in content
+        # e_is threaded from the path map, never a 0.0 placeholder
+        assert "e['e_is']" in content
         assert "h_atom_'), p, 0.0)" not in content
 
     def test_all_six_phase_labels_in_body(self, gen_result):
@@ -630,54 +634,9 @@ class TestPlotBottleneck:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 8. collect_dedup_is_labels
+# 8. Entry H* sourcing — moved to collect_entry_h_sources
 # ═══════════════════════════════════════════════════════════════════════════
-
-def _write_h_site(phase2_dir, sid, pe_final_eV):
-    pathlib.Path(phase2_dir).mkdir(parents=True, exist_ok=True)
-    (pathlib.Path(phase2_dir) / f'h_atom_{sid}_relaxed.lammps').write_text('dummy')
-    (pathlib.Path(phase2_dir) / f'h_min_{sid}.log').write_text(
-        f'  pe_final_eV     : {pe_final_eV}\n'
-        f'  fmax_eV_per_Ang : 4.08e-07\n'
-    )
-
-
-class TestCollectDedupIsLabels:
-
-    def test_uses_absolute_energy_not_placeholder(self, tmp_path):
-        """Regression test: e_is must be the real relaxed total energy
-        (~-125 eV for this structure), never a hardcoded 0.0 -- a 0.0
-        placeholder silently produced ~100+ eV Hop A 'barriers' the first
-        time this code ever ran for real, since 0.0 sits nowhere near
-        this slab's actual energy scale."""
-        _write_h_site(tmp_path, 's_0', -125.489223)
-        labels = collect_dedup_is_labels(str(tmp_path))
-        assert len(labels) == 1
-        sid, path, e_is = labels[0]
-        assert sid == 's_0'
-        assert e_is == pytest.approx(-125.489223)
-        assert e_is != 0.0
-
-    def test_multiple_sites_sorted_by_sid(self, tmp_path):
-        _write_h_site(tmp_path, 's_1', -125.489223)
-        _write_h_site(tmp_path, 's_0', -125.489223)
-        labels = collect_dedup_is_labels(str(tmp_path))
-        assert [l[0] for l in labels] == ['s_0', 's_1']
-
-    def test_missing_log_skipped_not_fabricated(self, tmp_path):
-        """A site with a relaxed structure but no parseable log must be
-        skipped entirely -- never assigned a fabricated e_is."""
-        pathlib.Path(tmp_path).mkdir(parents=True, exist_ok=True)
-        (pathlib.Path(tmp_path) / 'h_atom_s_0_relaxed.lammps').write_text('dummy')
-        # no h_min_s_0.log written
-        labels = collect_dedup_is_labels(str(tmp_path))
-        assert labels == []
-
-    def test_empty_dir_returns_empty_list(self, tmp_path):
-        assert collect_dedup_is_labels(str(tmp_path)) == []
-
-    def test_is_path_points_to_relaxed_structure(self, tmp_path):
-        _write_h_site(tmp_path, 's_0', -125.489223)
-        sid, path, e_is = collect_dedup_is_labels(str(tmp_path))[0]
-        assert path.endswith('h_atom_s_0_relaxed.lammps')
-        assert os.path.exists(path)
+# collect_dedup_is_labels was removed in the Part 1 reframing: Hop A is now
+# seeded from dissociation products, not a wholesale h_atom_* glob. Its
+# replacement, collect_entry_h_sources (models/neb_subsurface.py), is covered
+# by TestCollectEntryHSources in tests/test_neb_subsurface.py.
