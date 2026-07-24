@@ -73,7 +73,7 @@ Imported names and their roles:
 | `ELEM_STR_10`, `E2T_10`, `MASSES_10` | 10-type table adding O (`Al B C Cr Fe Mo Ni O H`) | Oxide structures only |
 | `SLURM_DEFAULTS` | Dict with ntasks, cpus_per_task, GPU type, conda env path, CUDA version, LD_LIBRARY_PATH | Base SLURM config that Part-specific configs update with partition/time |
 | `BASE_DIR` | Root project directory on the cluster (`/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel`, Northeastern Explorer) | Used to construct all output paths — `WORK_DIR = os.path.join(BASE_DIR, 'calculation')` |
-| `N_REPLICAS`, `SPRING_CONST`, `NEB_FTOL` | Default NEB images (18), spring constant (1.0 eV/Å²), force tolerance (0.05 eV/Å) | Fallback defaults if Cell 2 variables are not overridden |
+| `N_REPLICAS`, `SPRING_CONST`, `NEB_FTOL` | Default NEB images (9), spring constant (1.0 eV/Å²), force tolerance (0.1 eV/Å) | Fallback defaults if Cell 2 variables are not overridden |
 
 ### `models/create_slurm.py`
 
@@ -191,9 +191,9 @@ With `dry_run=True`: if `adsorption/ref_energies/h2_ref_energy.json` already exi
 
 | Variable | Value | Meaning |
 |----------|-------|---------|
-| `N_IMAGES` | `18` (`N_REPLICAS`) | Number of intermediate images placed between IS and FS along the NEB chain. |
+| `N_IMAGES` | `9` (`N_REPLICAS`) | Number of intermediate images placed between IS and FS along the NEB chain. |
 | `SPRING_K` | `1.0` eV/Å² (`SPRING_CONST`) | Spring constant coupling adjacent NEB images. |
-| `NEB_FTOL_VAL` | `0.05` eV/Å (`NEB_FTOL`) | CI-NEB convergence criterion: the maximum force component perpendicular to the NEB chain on any image must fall below this value. |
+| `NEB_FTOL_VAL` | `0.1` eV/Å (`NEB_FTOL`) | CI-NEB convergence criterion: the maximum force component perpendicular to the NEB chain on any image must fall below this value. |
 | `SURF_TIMESTEP_PS` | `0.0005` ps | Timestep (0.5 fs) for the surface relaxation MD in Phase A. |
 | `H_HEIGHT` | `1.5` Å | Height above a surface site at which an H atom is initially placed before minimisation. |
 
@@ -203,7 +203,7 @@ With `dry_run=True`: if `adsorption/ref_energies/h2_ref_energy.json` already exi
 |----------|-----------|-----------|-------|
 | `NEB_GPU_SLURM` | `gpu` | 8 h | Section A only — slab surface relaxation's four-phase chained MD run (min → heat → NVT → quench). This is real, long-running dynamics, so it gets its own GPU wall-time budget separate from the quick minimisations below. |
 | `MIN_SLURM` | `sharing` | 1 h | Every quick one-shot CG minimisation shared across the whole pipeline: the shared H₂ reference energy, H₂*/H* adsorption energy (Section B), and FS-min before NEB (Section C). |
-| `NEB_CPU_SLURM` | `short` | 12 h, 16 CPUs | No GPU. NEB in LAMMPS uses the `neb` command which runs MPI-parallel across images — each MPI rank owns one image. GPU acceleration is not supported for multi-replica NEB in LAMMPS, so this runs on CPUs only. |
+| `NEB_CPU_SLURM` | `short` | 12 h, 9 CPUs | No GPU. NEB in LAMMPS uses the `neb` command which runs MPI-parallel across images — each MPI rank owns one image. GPU acceleration is not supported for multi-replica NEB in LAMMPS, so this runs on CPUs only. |
 | `NEB_VIB_SLURM` | `short` | 6 h, 8 CPUs | Vibrational-frequency (Hessian) jobs for Phase E — also CPU-only. |
 
 ### 2c — Part 3 (Diffusivity MD) Settings
@@ -281,7 +281,7 @@ Each `permeation_run_{stem}.py` loads its own diffusivity fit from `results/{ste
 | Variable | Value | Meaning |
 |----------|-------|---------|
 | `P_VALS_PA` | `list(np.logspace(-5, 6, 40))` — 40 log-spaced points, 1×10⁻⁵ to 1×10⁶ Pa | Spans ultra-high vacuum to 10 bar, covering the full experimental range for H permeation measurements. |
-| `NX`, `NY` | `40`, `40` | 1600 surface sites and 1600 subsurface sites (3200 total) — large enough to capture cooperative coverage effects and avoid finite-size artifacts. |
+| `NX`, `NY` | `40`, `40` | 1600 surface + 1600 sub1 + 1600 sub2 sites (4800 total) — large enough to capture cooperative coverage effects and avoid finite-size artifacts. |
 | `SEED` | `42` | Integer random seed for the BKL KMC random number generator, and for the alloy composition assignment on the KMC grid. |
 | `KMC_MAX_STEPS` | `500,000` | Maximum KMC events per (T, P) point; the simulation stops early if steady state is reached first. |
 
@@ -297,7 +297,7 @@ Each `permeation_run_{stem}.py` loads its own diffusivity fit from `results/{ste
 | Variable | Partition | Wall time | Used for |
 |----------|-----------|-----------|----------|
 | `PERM_GPU_SLURM` | `sharing` | 1 h | Hop A/B FS-minimisation — one-shot CG minimisations. |
-| `PERM_NEB_SLURM` | `short` | 12 h, 16 CPUs | Hop A/B CI-NEB arrays — same reasoning as Part 1's `NEB_CPU_SLURM`. |
+| `PERM_NEB_SLURM` | `short` | 12 h, 9 CPUs | Hop A/B CI-NEB arrays — same reasoning as Part 1's `NEB_CPU_SLURM`. |
 | `PERM_VIB_SLURM` | `short` | 6 h, 8 CPUs | Hop A/B vibrational-frequency jobs. |
 
 ### 2e — Pipeline SLURM
@@ -375,7 +375,7 @@ A negative E_ads means the H* state is lower in energy than H in the gas phase. 
 
 For each NEB transition (dissociation H₂*→2H*, or surface diffusion H*→H*):
 1. An FS-minimisation script is written and submitted on `sharing`/1 h.
-2. A CI-NEB script is written; all CI-NEB jobs are collected into a single CPU SLURM array (`neb_array.sh`) and submitted on `short`/12 h, 16 CPUs per array element.
+2. A CI-NEB script is written; all CI-NEB jobs are collected into a single CPU SLURM array (`neb_array.sh`) and submitted on `short`/12 h, 9 CPUs per array element.
 
 ### Phase D — Barrier Parsing
 
@@ -454,45 +454,45 @@ Like the other generators, it writes a Python script with header constants baked
 
 ### Phase 1 — Hop A NEB (H* surface → H subsurface-1)
 
-**Goal**: Compute the barrier for H to move from its preferred surface adsorption site into the first subsurface interstitial site — the surface-to-bulk entry step.
+**Goal**: Compute the barrier for H to move from its surface adsorption site into the first subsurface interstitial site — the surface-to-bulk entry step.
 
-1. **IS construction**: the lowest-energy single-H* structure from that metal's `adsorption/{stem}/phase2_h/results/` directory.
-2. **FS construction**: the first subsurface interstitial site (built via `build_subsurface_graph`, `metal_type`-aware — octahedral/tetrahedral classification for alloy/pure via rank-based layers, generic "interstitial" classification for oxide via gap-based layers), using the T-appropriate a₀ from `lattice_params_vs_T.json`.
-3. **NEB run**: 18-image CI-NEB, submitted as a CPU array on `short`/12 h (FS-min on `sharing`/1 h first).
-4. **Energy extraction**: ΔE_entry, ΔE_exit, ΔH_entry (stored, auto-fills `DH_ENTRY_EV`).
-5. **Output**: `neb_subsurface/{stem}/hopa/ranked_hopa.json`. Guarded by an existence check on `hopa_jobs.json` so a restarted run skips Hop A if already submitted (`audits/task_F_audit.md`).
+1. **Entry-H\* seeding**: the H* that attempt subsurface entry are the **2H\* products of each converged surface-dissociation NEB** (from `ranked_barriers.json`'s FS site IDs → the existing `h_atom_{sid}_relaxed.lammps`), deduplicated to unique surface sites and written to `entry_h_sources.json`. The H that permeates is the H that dissociated — not a wholesale enumeration of every adsorption site.
+2. **IS/FS mapping**: each entry H* is mapped to its **nearest** subsurface-1 interstitial (directly-below if a connection exists, else nearest by periodic xy-distance) and is never dropped (Finding A); two entry H* mapping to the same sub1 collapse to one Hop A (lower-energy IS kept). The subsurface graph is built via `build_subsurface_graph` (`metal_type`-aware — octahedral/tetrahedral classification for alloy/pure via rank-based layers, generic "interstitial" classification for oxide via gap-based layers), using the T-appropriate a₀ from `lattice_params_vs_T.json`. The maps go to `sub1_sub2_map.json` and `surface_sub1_sub2_map.json`, each carrying the sub1 environment label and oct/tet type.
+3. **NEB run**: 18-image CI-NEB, one job per mapped path, submitted as a CPU array on `short`/12 h (FS-min on `sharing`/1 h first).
+4. **Energy extraction**: ΔE_entry, ΔE_exit, ΔH_entry (stored, auto-fills `DH_ENTRY_EV`); each hop's environment is re-classified from where H actually sits in the relaxed FS (Finding B), not the pre-placement site.
+5. **Output**: `neb_subsurface/{stem}/hopa/hopa_ranked.json` (env-carrying), plus `entry_h_sources.json`/`surface_sub1_sub2_map.json`. Guarded by an existence check on `hopa_jobs.json` so a restarted run skips Hop A if already submitted (`audits/task_F_audit.md`).
 
 ### Phase 2 — Hop B NEB (H subsurface-1 → subsurface-2)
 
 **Goal**: Compute the bulk migration barrier ΔE_mig between adjacent interstitial sites — a consistency check against Part 3's E_D.
 
-The sub1↔sub2 connectivity this phase depends on was previously missing from `subsurface_graph.py` for every metal (a dead-path bug where Hop B silently found zero neighbors and skipped); it is now built explicitly via periodic xy proximity between sub1 and sub2 layers (`audits/oxide_support_plan.md`). Same NEB/FS-min partition split as Hop A.
+The sub1↔sub2 connectivity this phase depends on was previously missing from `subsurface_graph.py` for every metal (a dead-path bug where Hop B silently found zero neighbors and skipped); it is now built explicitly via periodic xy proximity between sub1 and sub2 layers (`audits/oxide_support_plan.md`). Each sub1→sub2 path comes from the `sub1_sub2_map.json` built in Phase 1. Same NEB/FS-min partition split as Hop A.
 
-**Output**: `neb_subsurface/{stem}/hopb/ranked_hopb.json`, guarded the same way as Hop A.
+**Output**: `neb_subsurface/{stem}/hopb/hopb_ranked.json` (env-carrying, sub2 environment), guarded the same way as Hop A.
 
 ### Phase 3 — Vibrational Frequencies for Hop A and Hop B
 
-Submitted on `short`/6 h, 8 CPUs. Same ZPE/Vineyard procedure as Part 1 Phase E, applied to the Hop A and Hop B IS/TS structures. `DH_DISS_EV` is also auto-extracted here from that metal's own `neb/{stem}/ranked_barriers.json`.
+Submitted on `short`/6 h, 8 CPUs. Same ZPE/Vineyard procedure as Part 1 Phase E, applied to the Hop A and Hop B IS, TS, **and FS** structures. The FS (dissolved-H) modes additionally feed the vibrational-S₀ route in Phase 6 (via the gas-phase-H₂ and dissolved-H partition functions in `tst_rates.py`). `DH_DISS_EV` is also auto-extracted here from that metal's own `neb/{stem}/ranked_barriers.json`.
 
-**Outputs**: `vibrations/{stem}/hopa_is_vib.json`, `hopa_ts_vib.json`, `hopb_is_vib.json`, `hopb_ts_vib.json`; partial update to `results/{stem}/rate_dict_T{T}K.json`.
+**Outputs**: `vibrations/{stem}/` IS/TS/FS vibration files for both hops; the env-carrying `hopa_vib_rates.json`/`hopb_vib_rates.json`; partial update to `results/{stem}/rate_dict_T{T}K.json`.
 
 ### Phase 4 — TST Rate Constants: Complete Assembly
 
-Assembles all six elementary rate constants per temperature (see Section 8 for the full formula table — unchanged physics). The bulk drainage rate `k_drain(T) = D(T) / dx²` now uses D₀/E_D loaded **per `n_H`** from `results/{stem}_{n_h}H/diffusivity_arrhenius.json`, so `rate_dict_T{T}K.json` is effectively computed once per `(stem, n_H, T)` inside the main loop, not once per `(stem, T)`.
+Assembles the ZPE-corrected TST rates per temperature (see Section 8 for the full formula table). `build_rate_dict()` writes the per-hop `rate_dict_T{T}K.json` (one entry per `hopa_`/`hopb_` label, with `k_forward`/`k_reverse`/`Ea_zpe`/`nu`) **once per `(stem, T)`** — Phases 1–4 are H-concentration-independent, so they run a single time per metal. The env-keyed KMC rate dict is then assembled per oct-site environment via `env_rate_dict()` (arithmetic mean of the Arrhenius rates within each environment): `k_entry`/`k_exit` per sub1 environment, `k_hopB_entry`/`k_hopB_exit` per sub2 environment — replacing the old sort-order-dependent collapse to one rate per element. `k_diss`/`k_des` stay element-pair-keyed. The bulk drainage rate `k_drain(T) = D(T)/dx²` is **not** part of this file; it is computed inside the KMC event builder in Phase 5 from the per-`n_H` D(T).
 
-**Output**: `results/{stem}/rate_dict_T{T}K.json` per `n_H` iteration (path includes the `n_H`-specific results subdirectory in practice — see the generated script for the exact join).
+**Outputs**: `results/{stem}/rate_dict_T{T}K.json`; the T-independent, env-carrying `hopa_ranked.json`/`hopb_ranked.json` and `hopa_vib_rates.json`/`hopb_vib_rates.json`.
 
 ### Phase 5 — KMC Pressure Sweep
 
-Guarded per-temperature by an existence check on `permeation_sweep_T{T}K.json` (`audits/task_F_audit.md`). Runs the BKL KMC algorithm on the 40×40 dual-layer grid (see Section 8/original event catalog below — physics unchanged) at each of the 40 `P_VALS_PA` points.
+Runs once per `(stem, n_H, T)`, guarded per-temperature by an existence check on `permeation_sweep_T{T}K.json` (`audits/task_F_audit.md`). Runs the two-layer BKL KMC (surface ⇄ sub1 ⇄ sub2 → bulk drain from sub2; see Section 8 event catalog) at each of the 40 `P_VALS_PA` points, with the sub1/sub2 environment populations drawn from the real relaxed slab. The reported `C₀` is the **time-averaged sub2** concentration at steady state (sub2 being the layer that feeds the bulk), not a single final snapshot.
 
-**Output**: `results/{stem}/permeation_sweep_T{T}K.json`.
+**Output**: `results/{stem}_{n_h}H/permeation_sweep_T{T}K.json`.
 
 ### Phase 6 — Permeability Calculation
 
-Three cross-validated Φ(T) routes (geometric, TST detailed-balance, KMC-empirical), Arrhenius fit, Richardson-Sieverts flux — unchanged physics, see Section 8.
+Per-environment Boltzmann-weighted solubility with two S₀ routes — geometric (`4/a₀³`) and vibrational (partition-function `vibrational_S0`) — plus the KMC-empirical Sieverts route, then Richardson-Sieverts flux and Arrhenius fits of both S(T) and Φ(T) (Φ₀ = D₀·S₀, E_Φ = E_D + ΔH_sol per route). The old TST-detailed-balance route (a single arbitrary Hop A rate) has been retired. See Section 8.
 
-**Outputs**: `results/{stem}/permeability_T{T}K.json`, `results/{stem}/solubility_arrhenius_kmc.json`.
+**Outputs** (per `n_H`): `results/{stem}_{n_h}H/permeability_T{T}K.json`, `solubility_arrhenius.json`, `permeability_arrhenius.json`, and the backward-compatible `solubility_arrhenius_kmc.json`.
 
 ### Success tracking across `n_H` values
 
@@ -652,12 +652,12 @@ The complete end-to-end dependency map showing every file produced and consumed,
                                                              │
                                               Phase 1 — Hop A NEB
                                          ┌───────────────────────┐
-                                         │IS: h_atom lowest-E    │
-                                         │FS: H at nearest sub1  │
+                                         │IS: dissociation 2H*   │
+                                         │FS: nearest sub1 (kept)│
                                          │NEB → ΔE_entry,ΔE_exit,ΔH_entry│
                                          └───────────────────────┘
                                               ▼
-                                         neb_subsurface/{stem}/hopa/ranked_hopa.json
+                                         neb_subsurface/{stem}/hopa/hopa_ranked.json
                                               │
                                               Phase 2 — Hop B NEB
                                          ┌───────────────────────┐
@@ -665,24 +665,26 @@ The complete end-to-end dependency map showing every file produced and consumed,
                                          │NEB → ΔE_mig, ΔH_mig  │
                                          └───────────────────────┘
                                               ▼
-                                         neb_subsurface/{stem}/hopb/ranked_hopb.json
+                                         neb_subsurface/{stem}/hopb/hopb_ranked.json
                                               │
-                                              Phase 3 — Vibrations → k_entry,k_exit,k_mig
-                                              Phase 4 — TST rates (all 6 + k_drain=D(T)/dx² per n_H)
+                                              Phase 3 — Vibrations (IS/TS/FS) → k_entry,k_exit,k_hopB
+                                              Phase 4 — TST rates, env-keyed (k_entry/k_exit per sub1 env,
+                                                        k_hopB per sub2 env); k_drain moved to Phase 5
                                               ▼
-                                         results/{stem}/rate_dict_T{T}K.json
+                                         results/{stem}/rate_dict_T{T}K.json  (once per stem,T)
                                               │
-                                              Phase 5 — KMC sweep (guarded per-T)
+                                              Phase 5 — KMC sweep (per n_H, guarded per-T)
                                          ┌───────────────────────┐
-                                         │40×40 dual-layer grid, BKL KMC, 40 pressures → C₀(P,T)│
+                                         │40×40 two-layer grid (sub1+sub2), BKL KMC, 40 pressures → C₀=avg(sub2)│
                                          └───────────────────────┘
                                               ▼
-                                         results/{stem}/permeation_sweep_T{T}K.json
+                                         results/{stem}_{n_h}H/permeation_sweep_T{T}K.json
                                               │
-                                              Phase 6 — permeability (Sieverts fit, Φ_A/B/C, Arrhenius)
+                                              Phase 6 — permeability (per-env S; geom+vib S₀ + KMC; Arrhenius Φ)
                                               ▼
-                                         results/{stem}/permeability_T{T}K.json
-                                         results/{stem}/solubility_arrhenius_kmc.json
+                                         results/{stem}_{n_h}H/permeability_T{T}K.json
+                                         results/{stem}_{n_h}H/solubility_arrhenius.json
+                                         results/{stem}_{n_h}H/permeability_arrhenius.json
                                          results/{stem}/permeation_status.json  (success tracking, all n_H)
                                               ▼
                                     Φ(T) = Φ₀ exp(−E_Φ / k_B T)   [per metal, per n_H]
@@ -702,11 +704,15 @@ The complete end-to-end dependency map showing every file produced and consumed,
 | `neb/{stem}/diss_vib_rates.json` | Part 1, Phase E | Part 2 Phase 4 (k_diss, k_des) | k_diss(T), k_des(T), k_diff(T) with Vineyard ν and ZPE |
 | `results/{stem}/lattice_params_vs_T.json` | Part 3, Phase 1b (once per structure) | Part 2 Phase 4 (a₀(T)) | a₀(T) in Å at each of the 3 temperatures |
 | `results/{stem}_{n_h}H/diffusivity_arrhenius.json` | Part 3, Phase 3 (per `n_H`) | Part 2 Phase 4 (D₀, E_D, per `n_H`) | D₀ (m²/s), E_D (eV), D(T) at 3 T, per H concentration |
-| `neb_subsurface/{stem}/hopa/ranked_hopa.json` | Part 2, Phase 1 | Part 2 Phase 3 (ΔE_entry, ΔE_exit, ΔH_entry) | Hop A NEB barriers and reaction energy |
-| `neb_subsurface/{stem}/hopb/ranked_hopb.json` | Part 2, Phase 2 | Part 2 Phase 3 (ΔE_mig) | Hop B NEB barrier |
-| `results/{stem}/rate_dict_T{T}K.json` | Part 2, Phase 4 | Part 2 Phase 5 (KMC event rates) | All 6 rate constants + k_drain at each T, per `n_H` |
-| `results/{stem}/permeation_sweep_T{T}K.json` | Part 2, Phase 5 | Part 2 Phase 6 (Sieverts fit) | C₀(P,T) from KMC at each T and 40 P values |
-| `results/{stem}/permeability_T{T}K.json` | Part 2, Phase 6 | Final result | Φ from options A, B, C; Φ₀; E_Φ, per `n_H` |
+| `neb_subsurface/{stem}/entry_h_sources.json` | Part 2, Phase 1 | Part 2 Phase 1 (Hop A seeding) | Dissociation-product H* seeded as subsurface-entry sources |
+| `neb_subsurface/{stem}/surface_sub1_sub2_map.json` | Part 2, Phase 1 | Part 2 Phases 1–2 (Hop A/B paths) | Each entry H* → nearest sub1 (+ sub1→sub2), with env/oct-tet labels |
+| `neb_subsurface/{stem}/hopa/hopa_ranked.json` | Part 2, Phase 1 | Part 2 Phase 3/4 (ΔE_entry, ΔE_exit, ΔH_entry) | Hop A NEB barriers + reaction energy, per sub1 env |
+| `neb_subsurface/{stem}/hopb/hopb_ranked.json` | Part 2, Phase 2 | Part 2 Phase 3/4 (ΔE_mig) | Hop B NEB barrier, per sub2 env |
+| `results/{stem}/rate_dict_T{T}K.json` | Part 2, Phase 4 | Part 2 Phase 5 (KMC event rates) | Per-hop `hopa_`/`hopb_` labels (k_forward/k_reverse/Ea_zpe/nu); once per `(stem, T)` |
+| `results/{stem}/dH_sol_by_env.json` | Part 2, Phase 4 | Part 2 Phase 6 (per-env solubility) | ΔH_sol per interstitial environment + population weight |
+| `results/{stem}_{n_h}H/permeation_sweep_T{T}K.json` | Part 2, Phase 5 | Part 2 Phase 6 (Sieverts fit) | C₀(P,T) from KMC at each T and 40 P values, per `n_H` |
+| `results/{stem}_{n_h}H/permeability_T{T}K.json` | Part 2, Phase 6 | Final result | Φ from options 1 (geom), 2 (vib), 3 (KMC), per `n_H` |
+| `results/{stem}_{n_h}H/solubility_arrhenius.json`, `permeability_arrhenius.json` | Part 2, Phase 6 | Final result | Per-route S₀/ΔH_sol and Φ₀/E_Φ, per `n_H` |
 | `results/{stem}/permeation_status.json` | Part 2, end of run | Diagnostics | Which `n_H` succeeded/were skipped, and why |
 | `diffusivity_failures.json` | Part 3, end of run | Diagnostics | Which `(structure, n_H)` combinations failed |
 
@@ -816,30 +822,32 @@ This asymmetry — gas kinetic theory for adsorption, harmonic TST for desorptio
 
 ### The BKL rejection-free KMC algorithm and event catalog
 
-At each KMC step: enumerate all possible events across the 40×40 grid; compute the rate Rₙ for each; advance time by Δt = −ln(u₁)/R_total; select an event with probability Rₙ/R_total; execute it. "Rejection-free" means every step executes exactly one physical event, unlike Metropolis MC which may reject proposed events — essential for simulating rare, low-pressure adsorption events efficiently.
+At each KMC step: enumerate all possible events across the 40×40 two-layer grid (surface + sub1 + sub2); compute the rate Rₙ for each; advance time by Δt = −ln(u₁)/R_total; select an event with probability Rₙ/R_total; execute it. "Rejection-free" means every step executes exactly one physical event, unlike Metropolis MC which may reject proposed events — essential for simulating rare, low-pressure adsorption events efficiently.
 
-| Event | Rate | Condition |
+| Event (`kind`) | Rate | Condition |
 |-------|------|-----------|
-| H₂ adsorption + dissociation at pair (i,j) | R_strike × k_diss(T) | Both sites empty, adjacent |
-| H* recombination + desorption | k_des(T) | Both sites occupied, adjacent |
-| H* surface hop | k_surf_diff(T) | Occupied → empty neighbor |
-| H* entry to subsurface | k_entry(T) | Surface occupied, subsurface empty |
-| H_sub exit to surface | k_exit(T) | Subsurface occupied, surface empty |
-| H_sub bulk drainage | k_drain(T) = D(T)/dx² | Subsurface occupied |
+| H₂ adsorption + dissociation (`adsorb`) | R_strike × k_diss(T) | Both surface sites empty, adjacent |
+| H* recombination + desorption (`desorb`) | k_des(T) | Both surface sites occupied, adjacent |
+| H* surface hop (`surf_diff`) | k_surf_diff(T) | Occupied → empty neighbour |
+| H* surface → sub1 (`enter`, Hop A) | k_entry(sub1 env) | Surface occupied, sub1 empty |
+| H sub1 → surface (`exit`) | k_exit(sub1 env) | sub1 occupied, surface empty |
+| H sub1 → sub2 (`hopB_enter`, Hop B) | k_hopB_entry(sub2 env) | sub1 occupied, sub2 empty |
+| H sub2 → sub1 (`hopB_exit`) | k_hopB_exit(sub2 env) | sub2 occupied, sub1 empty |
+| H sub2 → bulk drainage (`drain`) | k_drain(T) = D(T)/dx² | sub2 occupied |
 
-The drainage event is the model's representation of bulk permeation: once an H_sub atom drains from the subsurface layer, it has effectively entered the bulk membrane and will diffuse through to the other side — valid in the steady-state regime where downstream bulk concentration is approximately zero.
+The inter-layer rates are looked up per oct-site environment (surface⇄sub1 by the sub1 env, sub1⇄sub2 by the sub2 env), with a per-class mean fallback so a site whose exact environment has no entry never becomes silently inert. The drainage event is the model's representation of bulk permeation: once an H atom drains from **sub2** — the deepest explicit layer — it has effectively entered the bulk membrane and will diffuse through to the other side, valid in the steady-state regime where the downstream bulk concentration is ≈ 0.
 
 ---
 
 ### Richardson-Sieverts permeability: three cross-validated routes
 
-All three routes use Φ = D(T) × S(T), where D(T) is taken from Part 3 for the relevant `n_H`. They differ only in how S(T) is computed:
+All three routes use Φ = D(T) × S(T), where D(T) is taken from Part 3 for the relevant `n_H`. The solubility is a **per-environment Boltzmann sum**, `S(T) = S₀ × Σ_env w_env·exp(−ΔH_sol(env)/k_BT)`, with ΔH_sol(env) = ½ΔH_diss + ΔH_HopA(env) + ΔH_HopB carried to sub2 (assembled in `dH_sol_by_env.json`). The three routes differ only in the S₀ prefactor / how S is obtained:
 
-- **Option A — geometric lattice site density**: `S_A(T) = (site density) × exp(−ΔH_sol/k_BT)`, using only geometric and thermodynamic inputs, no KMC output.
-- **Option B — TST detailed balance**: `S_B(T) = k_entry(T) × R_strike / k_exit(T)`, using the TST rate constants, not the KMC output — an independent check.
-- **Option C — KMC empirical**: `S_C(T) = C₀(P,T)/√P` from the Phase 5 Sieverts fit — the most physically complete but most expensive.
+- **Option 1 — geometric S₀**: `S₀ = 4/a₀³` (the geometric oct-site density ceiling), fed into the per-env Boltzmann sum.
+- **Option 2 — vibrational S₀**: `S₀` from the ratio of the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`), fed into the same per-env Boltzmann sum. Available only when the dissolved-H FS vibrations were computed. This replaces the retired TST-detailed-balance route (which used a single arbitrary Hop A rate).
+- **Option 3 — KMC empirical**: `S(T) = C₀(P,T)/√P` from the Phase 5 Sieverts fit — the most physically complete but most expensive.
 
-If A, B, and C agree to within ~20%, the Sieverts regime holds and the permeability is robust. Each Φ(T) series is fit to `Φ(T) = Φ₀ exp(−E_Φ/k_BT)`, where `E_Φ = E_D + ΔH_sol` combines the bulk diffusion barrier (Part 3, per `n_H`) and the solution enthalpy (Parts 1+2 NEBs, per metal). The Richardson-Sieverts flux `J = (Φ(T)/L) × (√P_high − √P_low)` is the quantity measured in experimental permeation studies.
+Each S(T) and Φ(T) series is fit to Arrhenius form `Φ(T) = Φ₀ exp(−E_Φ/k_BT)`, with `Φ₀ = D₀·S₀` and `E_Φ = E_D + ΔH_sol` combining the bulk diffusion barrier (Part 3, per `n_H`) and the solution enthalpy (Parts 1+2 NEBs, per metal). Because a per-env S(T) is a sum of Arrhenius terms, the fit R² doubles as a curvature flag (R² < 1 is physical, not error). The Richardson-Sieverts flux `J = (Φ(T)/L) × (√P_high − √P_low)` is the quantity measured in experimental permeation studies.
 
 ---
 
@@ -849,9 +857,10 @@ If A, B, and C agree to within ~20%, the Sieverts regime holds and the permeabil
 | --- | --- | --- | --- |
 | `k_diss(T)` | Part 1 Phase E, ZPE-corrected Ea | Boltzmann factor exp(−Ea_ZPE/kBT) | No ν prefactor — uses gas Hertz-Knudsen flux |
 | `k_des(T)` | Part 1 Phase E, ZPE-corrected Ed | ν_Vineyard × exp(−Ed_ZPE/kBT) | Full TST rate (s⁻¹) |
-| `k_entry(T)` | Part 2 Phase 3, Hop A ZPE-corrected | ν_A × exp(−ΔE_entry_ZPE/kBT) | Full TST rate (s⁻¹) |
-| `k_exit(T)` | Part 2 Phase 3, Hop A ZPE-corrected | ν_A × exp(−ΔE_exit_ZPE/kBT) | Full TST rate (s⁻¹) |
-| `k_mig(T)` | Part 2 Phase 3, Hop B ZPE-corrected | ν_B × exp(−ΔE_mig_ZPE/kBT) | Full TST rate (s⁻¹) |
+| `k_entry(T)` | Part 2 Phase 3, Hop A ZPE-corrected | ν_A × exp(−ΔE_entry_ZPE/kBT) | Full TST rate (s⁻¹), keyed per sub1 env |
+| `k_exit(T)` | Part 2 Phase 3, Hop A ZPE-corrected | ν_A × exp(−ΔE_exit_ZPE/kBT) | Full TST rate (s⁻¹), keyed per sub1 env |
+| `k_hopB_entry(T)` | Part 2 Phase 3, Hop B ZPE-corrected | ν_B × exp(−ΔE_mig_ZPE/kBT) | Full TST rate (s⁻¹), keyed per sub2 env |
+| `k_hopB_exit(T)` | Part 2 Phase 3, Hop B ZPE-corrected | ν_B × exp(−ΔE_migrev_ZPE/kBT) | Full TST rate (s⁻¹), keyed per sub2 env |
 | `k_surf_diff(T)` | Part 1 Phase E, ZPE-corrected | ν_diff × exp(−ΔE_diff_ZPE/kBT) | Full TST rate (s⁻¹) |
 | `k_drain(T)` | Part 3 Phase 3 Arrhenius D(T), per `n_H` | D(T) = D₀ exp(−E_D/kBT), then D/dx² | Not from NEB — from MD MSD |
 
@@ -859,4 +868,4 @@ All ZPE-corrected barriers and Vineyard prefactors are stored as temperature-ind
 
 ---
 
-*Document originally generated from `pipeline.ipynb` source — 2026-06-22. Revised 2026-07-06 to reflect the multi-metal (`METAL_CONFIGS`/`classify_metal`) architecture, the current `gpu`/`sharing`/`short`/`multigpu`/`west` partition split, hoisted bare-bulk-min/NPT (once per structure), the shared `E_H2_GAS` cache, per-`(stem, n_H)` diffusivity loading with skip-on-missing, and the Hop B `sub1↔sub2` connectivity fix — see `Molecular_Dynamics/MHI_Nickel/audits/` for the individual task audits underlying each change.*
+*Document originally generated from `pipeline.ipynb` source — 2026-06-22. Revised 2026-07-06 to reflect the multi-metal (`METAL_CONFIGS`/`classify_metal`) architecture, the current `gpu`/`sharing`/`short`/`multigpu`/`west` partition split, hoisted bare-bulk-min/NPT (once per structure), the shared `E_H2_GAS` cache, per-`(stem, n_H)` diffusivity loading with skip-on-missing, and the Hop B `sub1↔sub2` connectivity fix — see `Molecular_Dynamics/MHI_Nickel/audits/` for the individual task audits underlying each change. Revised again 2026-07 for the subsurface-entry reframing: dissociation-seeded Hop A (never-drop nearest-sub1 mapping, Findings A/B), two-layer KMC (surface → sub1 → sub2 → drain-from-sub2) with per-oct-environment rates, per-environment thermodynamic solubility with both geometric and vibrational S₀ routes, metadata-derived subsurface layer count, and Arrhenius S/Φ outputs.*

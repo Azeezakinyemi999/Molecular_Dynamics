@@ -13,7 +13,8 @@ applies here — `build_subsurface_graph()` is called from `permeation_workflow.
 metal, `metal_type`-aware): (1) **Bulk site sampling (Stage 4 below) has been removed
 entirely** — see the note at Stage 4; (2) layer identification now has an oxide-specific
 gap-based mode alongside the original rank-based mode, and the total layer count is
-auto-detected rather than hardcoded; (3) site classification can keep out-of-range
+derived from the slab's construction metadata (gap-based detection is only a fallback)
+rather than hardcoded; (3) site classification can keep out-of-range
 coordination counts as `'interstitial'` sites instead of discarding them, for oxides; (4)
 **the Hop B `sub1↔sub2` edges described as a future Stage 7 export are now built directly
 into the graph** — see Stage 6.
@@ -161,7 +162,7 @@ The third attempt, which works, is **rank based binning** (`_identify_layers`). 
 
 **Update — a second, gap-based mode now exists for oxides.** Rank-based binning assumes every layer has the same atom count, which is true for the constructed alloy/pure metal slabs but false for oxide slabs (e.g. an O₃ plane and a Cr plane in corundum Cr₂O₃ have different atom counts). `subsurface_graph.py` now has `_identify_layers_by_gaps(positions, gap_tol=0.5)` — the same gap-detection idea the second attempt above tried and abandoned for metals, but it works fine for oxides because oxide interlayer gaps don't have the frozen-layer collision problem that broke it for Hastelloy N. `find_voronoi_sites(..., layer_mode='rank'|'gaps')` and `build_subsurface_graph(..., metal_type='alloy'|'oxide')` select between the two: `metal_type='alloy'`/`'pure'` still uses rank-based binning exactly as described below; `metal_type='oxide'` uses gap-based binning end-to-end.
 
-**Update — the total layer count is no longer a hardcoded constant.** `build_subsurface_graph()`'s `n_layers_total` parameter defaults to `None`, in which case the total layer count `N` is auto-detected via `_identify_layers_by_gaps()` used purely as a *counter* (not for the actual atom→layer assignment on the alloy/pure path, which still re-bins by rank once `N` is known). The frozen-bottom fraction, `subsurface_1`, and `subsurface_2` layer numbers are then all derived from `N` rather than hardcoded to 12/11/10 — see the updated Stage 5 below.
+**Update — the total layer count is no longer a hardcoded constant.** `build_subsurface_graph()`'s `n_layers_total` parameter defaults to `None`, in which case the total layer count `N` is derived from the slab's construction metadata: `_n_layers_from_metadata()` reads `surface_sites.json` and returns `n_atoms_total // n_atoms_surface` (for the standard 360-atom slab with 30 atoms per layer, that is 12). Gap-based clustering (`_identify_layers_by_gaps()`) is kept only as a *fallback* when the metadata is unavailable — and as the primary counter on the oxide path — because on a relaxed/rumpled metal slab the interlayer gaps over-split the layers (it counted a 12-layer slab as 17). The atom→layer assignment on the alloy/pure path still re-bins by rank once `N` is known. The frozen-bottom fraction, `subsurface_1`, and `subsurface_2` layer numbers are then all derived from `N` rather than hardcoded to 12/11/10 — see the updated Stage 5 below.
 
 ### Sub workflow
 
@@ -342,7 +343,7 @@ For Hop A (the surface-to-subsurface NEB calculation, `neb_subsurface.py::orches
 
 We define "directly above" as xy proximity within a tolerance. For each subsurface_1 site we scan every surface site from `surface_sites.json` and record any that fall within 1.5 A in the xy plane (using periodic boundary conditions).
 
-**Update — the layer number is no longer hardcoded to 11.** As described in Stage 2, `build_subsurface_graph()` now derives `subsurface_1`/`subsurface_2` as `N-1`/`N-2` from the slab's auto-detected (or explicitly passed) total layer count `N`, so the concrete numbers below (layer 11 for a 12-layer slab) are the specific case for the standard slab thickness, not a fixed constant in the code.
+**Update — the layer number is no longer hardcoded to 11.** As described in Stage 2, `build_subsurface_graph()` now derives `subsurface_1`/`subsurface_2` as `N-1`/`N-2` from the slab's total layer count `N` — itself derived from the construction metadata (`n_atoms_total // n_atoms_surface`), or explicitly passed. So the concrete numbers below (layer 11 for a 12-layer slab) are the specific case for the standard slab thickness, not a fixed constant in the code.
 
 ### Sub workflow
 
@@ -576,7 +577,7 @@ A record of the key choices made during development of `subsurface_graph.py`:
 | Voronoi backend | scipy not pymatgen | pymatgen hung on disordered alloy due to symmetry analysis. scipy runs in 1 to 3 seconds. |
 | PBC handling | Manual 3x3 in xy | scipy.spatial.Voronoi does not handle PBC. Replication is simple and correct. |
 | Layer identification | Rank based binning (alloy/pure); gap based (oxide, `_identify_layers_by_gaps`) | Rank binning is deterministic, parameter free, robust to buckling — but assumes equal atom counts per layer, which is false for oxides. Gap based binning handles unequal-count oxide planes; it still fails on the metal frozen layers, so it's only used where rank binning cannot apply. |
-| Total layer count | Auto-detected via gap clustering when `n_layers_total=None` | Removes the hardcoded assumption of exactly 12 layers; `subsurface_1`/`subsurface_2` are derived as `N-1`/`N-2` from whatever `N` is detected or passed in. |
+| Total layer count | Derived from slab metadata (`n_atoms_total // n_atoms_surface`) when `n_layers_total=None`; gap clustering only as a fallback | Removes the hardcoded assumption of exactly 12 layers; `subsurface_1`/`subsurface_2` are derived as `N-1`/`N-2` from whatever `N` is derived or passed in. Metadata is used instead of gap clustering because gap detection over-split a relaxed 12-layer slab (counted it as 17). |
 | Coordination cutoff | 2.2 A | Captures both oct (~1.76 A) and tet (~1.52 A) first neighbors with margin, excludes second neighbors. |
 | Site classification | Loose (5,6,7 = oct, 3,4 = tet); `keep_unclassified=True` keeps out-of-range counts as `'interstitial'` for oxides | Reflects the reality of disordered alloys where perfect symmetry is rare. Oxide interstitials routinely fall outside FCC oct/tet coordination counts — discarding them (as `'unknown'`) would leave oxides with almost no subsurface sites. Distortion score quantifies deviation for both paths. |
 | Composition label | Count desc then alpha (Ni3Cr_tet) | Consistent with surface graph format, deterministic. |
