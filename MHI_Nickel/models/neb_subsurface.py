@@ -89,16 +89,92 @@ def _closest_sub2(G, ss1_id: str, site_lookup: dict) -> tuple:
     return (best_id, best_dz if best_id is not None else None)
 
 
-def oct_env_label(site: dict) -> str:
-    """Environment label for a subsurface octahedral site.
+def interstitial_env_label(site: dict) -> str:
+    """Per-environment label for a subsurface interstitial site.
 
-    Uses the site's ``composition_label`` (already a deterministic
-    coordination fingerprint like ``'Ni3MoCrFe_oct'``, produced by
-    ``subsurface_graph._composition_label``) as the per-environment key that
-    Hop A/B rates and the KMC grid are keyed on. Falls back to
-    ``'unknown_env'`` if the label is absent, never a silent empty string.
+    Uses the site's ``composition_label`` (a deterministic coordination
+    fingerprint produced by ``subsurface_graph._composition_label``) as the
+    key that Hop A/B rates and the KMC grid are keyed on. The label itself
+    retains the geometry: it ends in ``_oct`` for octahedral and ``_tet`` for
+    tetrahedral interstitials (e.g. ``'Ni6_oct'``, ``'Al4_tet'``), so oct/tet
+    stays distinguishable under the general "interstitial" category. Falls
+    back to ``'unknown_env'`` if the label is absent, never a silent empty
+    string.
     """
     return str(site.get('composition_label') or 'unknown_env')
+
+
+# Backward-compatible alias (the sites are interstitials — oct OR tet — not
+# necessarily octahedral; kept so older imports keep working).
+oct_env_label = interstitial_env_label
+
+
+def site_type_of(site: dict) -> str:
+    """Geometry class of an interstitial site: ``'oct'``, ``'tet'``, or 'unknown'.
+
+    Reads the ``site_type`` set by ``subsurface_graph.classify_site``; falls
+    back to parsing the ``composition_label`` suffix (``..._oct`` / ``..._tet``)
+    if ``site_type`` is absent.
+    """
+    st = site.get('site_type')
+    if st:
+        return str(st)
+    lbl = str(site.get('composition_label', ''))
+    if lbl.endswith('_oct'):
+        return 'oct'
+    if lbl.endswith('_tet'):
+        return 'tet'
+    return 'unknown'
+
+
+def classify_relaxed_h_env(relaxed_lammps: str, cutoff: float = 2.2) -> dict:
+    """Re-classify the interstitial environment of H from a RELAXED structure.
+
+    Finding B (post-relaxation re-classification): a Hop A/B FS places H at a
+    pre-enumerated interstitial site, but FS minimisation may relax it into an
+    adjacent site of different geometry (e.g. a tet placement settling into an
+    oct). The env used to key the rates should reflect where H *actually* ends
+    up, not where it was placed. This reads the relaxed slab+H structure, finds
+    the H, and re-derives its coordination environment via
+    ``subsurface_graph.classify_site`` on the relaxed metal positions.
+
+    Parameters
+    ----------
+    relaxed_lammps : str
+        Path to a relaxed LAMMPS data file containing the slab + exactly one H.
+    cutoff : float
+        Coordination cutoff (Å) passed to ``classify_site``. Default 2.2.
+
+    Returns
+    -------
+    dict
+        ``{'env': composition_label, 'site_type': 'oct'/'tet'/..., 'coord_count': int}``.
+        Returns ``{'env': 'unknown_env', 'site_type': 'unknown', 'coord_count': 0}``
+        if the file is missing/unreadable or has no single H.
+    """
+    from models.subsurface_graph import classify_site
+
+    _fallback = {'env': 'unknown_env', 'site_type': 'unknown', 'coord_count': 0}
+    if not relaxed_lammps or not os.path.exists(relaxed_lammps):
+        return _fallback
+    try:
+        atoms = ase_read(relaxed_lammps, format='lammps-data', atom_style='atomic')
+    except Exception:                                   # noqa: BLE001
+        return _fallback
+    syms = np.array(atoms.get_chemical_symbols())
+    pos  = atoms.get_positions()
+    h_mask = syms == 'H'
+    if int(h_mask.sum()) != 1:
+        return _fallback
+    h_pos      = pos[h_mask][0]
+    metal_pos  = pos[~h_mask]
+    metal_el   = syms[~h_mask]
+    cell       = atoms.get_cell().diagonal()
+    clf = classify_site(h_pos, metal_pos, metal_el, cell,
+                        cutoff=cutoff, keep_unclassified=True)
+    return {'env': str(clf.get('composition_label') or 'unknown_env'),
+            'site_type': str(clf.get('site_type', 'unknown')),
+            'coord_count': int(clf.get('coord_count', 0))}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -106,8 +182,8 @@ def oct_env_label(site: dict) -> str:
 #
 # These build and persist the physically-anchored path maps that drive Hop A/B:
 # the H that enters the bulk is the H that dissociated on the surface, threaded
-# through the octahedral interstitial sites. See the approved plan for the full
-# rationale.
+# through the subsurface interstitial sites (octahedral or tetrahedral). See the
+# approved plan for the full rationale.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_sub1_sub2_map(
@@ -148,14 +224,17 @@ def build_sub1_sub2_map(
                 'sub2_id': None,
                 'reason': 'no subsurface_2 neighbour in graph '
                           '(sub2 may fall inside the frozen region)',
-                'sub1_env': oct_env_label(site_lookup[ss1_id]),
+                'sub1_env': interstitial_env_label(site_lookup[ss1_id]),
+                'sub1_type': site_type_of(site_lookup[ss1_id]),
             }
             continue
         mapping[ss1_id] = {
             'sub2_id': ss2_id,
             'z_dist': float(dz),
-            'sub1_env': oct_env_label(site_lookup[ss1_id]),
-            'sub2_env': oct_env_label(site_lookup[ss2_id]),
+            'sub1_env': interstitial_env_label(site_lookup[ss1_id]),
+            'sub1_type': site_type_of(site_lookup[ss1_id]),
+            'sub2_env': interstitial_env_label(site_lookup[ss2_id]),
+            'sub2_type': site_type_of(site_lookup[ss2_id]),
         }
         n_matched += 1
 
@@ -270,17 +349,33 @@ def build_surface_sub1_sub2_map(
     sub1_sub2_map: dict,
     subsurface_graph: tuple,
     out_json: str | None = None,
+    entry_mapping: str = 'nearest',
+    surface_sites_data: dict | None = None,
+    cell=None,
+    far_offset_ang: float = 3.0,
 ) -> list:
-    """Join entry H\\* → closest sub1 oct → mapped sub2 oct into the full path map.
+    """Join entry H\\* → sub1 interstitial → mapped sub2 into the full path map.
 
-    For each entry H\\* surface site, picks the closest subsurface-1 oct site
-    (smallest xy-distance, from ``connect_to_surface``) and looks up that sub1's
-    mapped sub2 (from :func:`build_sub1_sub2_map`), attaching both environment
-    labels.
+    Each entry H\\* surface site is mapped to a subsurface-1 interstitial site
+    (oct or tet), then to that sub1's mapped sub2 (from :func:`build_sub1_sub2_map`),
+    attaching both environment labels and geometry (oct/tet).
 
-    Two-H\\*-to-same-sub1 collapse: if several entry H\\* map to the *same* sub1
-    oct site, only the lowest-energy IS is kept as the Hop A pathway (they share
-    the same FS); the dropped alternates are recorded on the survivor.
+    Mapping mode (Finding A)
+    ------------------------
+    ``entry_mapping='nearest'`` (default): every entry H\\* is mapped to a sub1
+    site and **never dropped**. A site directly above a sub1 (present in
+    ``surface_connections`` within its xy tolerance) uses that connection; a
+    site with no such connection falls back to its **nearest** sub1 by periodic
+    xy-distance. The lateral offset (``xy_offset_ang``) and how the mapping was
+    made (``via`` = ``'connected'`` / ``'nearest'``) are recorded, and mappings
+    beyond ``far_offset_ang`` are flagged (``far_mapping=True``) rather than
+    silently dropped — let the NEB barrier judge, not the geometry.
+
+    ``entry_mapping='directly_below'``: the old behaviour — an entry H\\* with no
+    sub1 within the connection tolerance is dropped (no Hop A).
+
+    Two-H\\*-to-same-sub1 collapse: several entry H\\* mapping to the *same* sub1
+    keep only the lowest-energy IS (shared FS); dropped alternates are recorded.
 
     Parameters
     ----------
@@ -291,19 +386,35 @@ def build_surface_sub1_sub2_map(
     sub1_sub2_map : dict
         Output of :func:`build_sub1_sub2_map`.
     subsurface_graph : (G, subsurface_sites)
-        Used only for the sub1 position/env lookup.
+        Used for the sub1 position/env lookup and the nearest-sub1 search.
     out_json : str, optional
         If given, written here as ``surface_sub1_sub2_map.json``.
+    entry_mapping : {'nearest', 'directly_below'}
+        See above. Default ``'nearest'``.
+    surface_sites_data : dict, optional
+        Parsed ``surface_sites.json`` — required for the nearest-sub1 fallback
+        (to look up each surface site's position). If absent, sites lacking a
+        direct connection are dropped even in ``'nearest'`` mode (with a warning).
+    cell : array-like, optional
+        ``[Lx, Ly, Lz]`` for periodic xy-distance in the nearest search. If
+        ``None``, a non-periodic xy-distance is used.
+    far_offset_ang : float
+        Offset above which a nearest mapping is flagged ``far_mapping=True``.
 
     Returns
     -------
     list of dict
-        One entry per surviving Hop A pathway, each with keys:
-        ``surface_sid, is_path, e_is, sub1_id, sub1_env, sub1_xyz,
-        sub2_id, sub2_env, collapsed_from``.
+        One entry per surviving Hop A pathway, with keys:
+        ``surface_sid, is_path, e_is, sub1_id, sub1_env, sub1_type, sub1_xyz,
+        sub2_id, sub2_env, sub2_type, xy_offset_ang, via, far_mapping,
+        collapsed_from``.
     """
+    from models.subsurface_graph import _get_surface_site_position, _periodic_xy_distance
+
     _G, subsurface_sites = subsurface_graph
     site_lookup = {s['site_id']: s for s in subsurface_sites}
+    sub1_ids = [s['site_id'] for s in subsurface_sites
+                if s.get('layer_classification') == 'subsurface_1']
 
     # surface_sid -> (ss1_id, xy_dist), keeping the closest sub1 if several match
     surf_to_ss1: dict = {}
@@ -311,33 +422,76 @@ def build_surface_sub1_sub2_map(
         if surf_id not in surf_to_ss1 or xy_dist < surf_to_ss1[surf_id][1]:
             surf_to_ss1[surf_id] = (ss1_id, float(xy_dist))
 
-    # Build one candidate per entry H* that has a sub1 above it
+    # surface positions (for the nearest-sub1 fallback)
+    surf_pos = {}
+    if surface_sites_data:
+        for s in surface_sites_data.get('sites', []):
+            p = _get_surface_site_position(s)
+            if p is not None:
+                surf_pos[s['site_id']] = p
+
+    def _nearest_sub1(sid):
+        """(ss1_id, xy_offset) of the nearest sub1 to surface site sid, or (None, None)."""
+        p = surf_pos.get(sid)
+        if p is None or not sub1_ids:
+            return (None, None)
+        best_id, best_d = None, float('inf')
+        for ss1_id in sub1_ids:
+            q = site_lookup[ss1_id]['position']
+            if cell is not None:
+                d = _periodic_xy_distance(p, q, cell)
+            else:
+                d = float(np.hypot(p[0] - q[0], p[1] - q[1]))
+            if d < best_d:
+                best_d, best_id = d, ss1_id
+        return (best_id, best_d)
+
+    n_connected = n_nearest = n_dropped = 0
     candidates: list = []
     for sid, is_path, e_is in entry_sources:
-        if sid not in surf_to_ss1:
-            print(f'[surface→sub1→sub2] no sub1 above surface sid={sid} — skipping.')
+        if sid in surf_to_ss1:
+            ss1_id, xy_off = surf_to_ss1[sid]
+            via = 'connected'
+            n_connected += 1
+        elif entry_mapping == 'nearest':
+            ss1_id, xy_off = _nearest_sub1(sid)
+            if ss1_id is None:
+                print(f'[surface→sub1→sub2] no sub1 found for surface sid={sid} '
+                      f'(no position / no sub1 sites) — skipping.')
+                n_dropped += 1
+                continue
+            via = 'nearest'
+            n_nearest += 1
+        else:   # directly_below and not connected
+            print(f'[surface→sub1→sub2] no sub1 directly below surface sid={sid} — skipping.')
+            n_dropped += 1
             continue
-        ss1_id, xy_dist = surf_to_ss1[sid]
+
         s1_entry = sub1_sub2_map.get(ss1_id, {})
         candidates.append({
-            'surface_sid': sid,
-            'is_path':     is_path,
-            'e_is':        e_is,
-            'sub1_id':     ss1_id,
-            'sub1_env':    oct_env_label(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown_env',
-            'sub1_xyz':    site_lookup[ss1_id]['position'] if ss1_id in site_lookup else None,
-            'sub2_id':     s1_entry.get('sub2_id'),
-            'sub2_env':    s1_entry.get('sub2_env'),
-            'xy_dist':     xy_dist,
+            'surface_sid':   sid,
+            'is_path':       is_path,
+            'e_is':          e_is,
+            'sub1_id':       ss1_id,
+            'sub1_env':      interstitial_env_label(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown_env',
+            'sub1_type':     site_type_of(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown',
+            'sub1_xyz':      site_lookup[ss1_id]['position'] if ss1_id in site_lookup else None,
+            'sub2_id':       s1_entry.get('sub2_id'),
+            'sub2_env':      s1_entry.get('sub2_env'),
+            'sub2_type':     s1_entry.get('sub2_type'),
+            'xy_offset_ang': float(xy_off) if xy_off is not None else None,
+            'via':           via,
+            # bool() cast: xy_off is a numpy float from the periodic-distance
+            # helper, so the comparison yields np.bool_ which json.dump rejects.
+            'far_mapping':   bool(xy_off is not None and xy_off > far_offset_ang),
         })
 
-    # Collapse two-H*-to-same-sub1: keep the lowest-e_is IS per sub1 oct
+    # Collapse two-H*-to-same-sub1: keep the lowest-e_is IS per sub1 site
     by_sub1: dict = {}
     for c in candidates:
         key = c['sub1_id']
         if key not in by_sub1 or c['e_is'] < by_sub1[key]['e_is']:
             by_sub1[key] = c
-    # record dropped alternates on the survivor
     dropped: dict = {}
     for c in candidates:
         key = c['sub1_id']
@@ -346,22 +500,17 @@ def build_surface_sub1_sub2_map(
 
     path_map: list = []
     for key, c in by_sub1.items():
-        path_map.append({
-            'surface_sid':   c['surface_sid'],
-            'is_path':       c['is_path'],
-            'e_is':          c['e_is'],
-            'sub1_id':       c['sub1_id'],
-            'sub1_env':      c['sub1_env'],
-            'sub1_xyz':      c['sub1_xyz'],
-            'sub2_id':       c['sub2_id'],
-            'sub2_env':      c['sub2_env'],
-            'collapsed_from': dropped.get(key, []),
-        })
+        c = dict(c)
+        c['collapsed_from'] = dropped.get(key, [])
+        path_map.append(c)
     path_map.sort(key=lambda x: str(x['surface_sid']))
 
     n_collapsed = sum(len(v) for v in dropped.values())
+    n_far = sum(1 for c in path_map if c.get('far_mapping'))
     print(f'[surface→sub1→sub2] {len(path_map)} Hop A pathways '
-          f'({n_collapsed} surface H* collapsed onto a shared sub1)')
+          f'(mapping={entry_mapping}: {n_connected} connected, {n_nearest} nearest, '
+          f'{n_dropped} dropped; {n_collapsed} collapsed onto shared sub1; '
+          f'{n_far} flagged far > {far_offset_ang} Å)')
     if out_json:
         os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
         with open(out_json, 'w') as fh:
@@ -695,10 +844,14 @@ def orchestrate_hopa_neb(
             'e_is'        : float(e_is),
             'ss1_id'      : ss1_id,
             'sub1_xyz'    : sub1_xyz,
-            # Oct-site coordination environment of the sub1 destination — the
-            # per-environment key Part 6 uses to build env-resolved k_entry/
-            # k_exit (instead of the old collapse to one rate per element).
-            'sub1_env'    : oct_env_label(site_lookup[ss1_id]),
+            # Interstitial (oct/tet) coordination environment of the sub1
+            # destination — the per-environment key Part 6 uses to build
+            # env-resolved k_entry/k_exit (instead of the old collapse to one
+            # rate per element). This is the PRE-placement env; the orchestrator
+            # re-derives it from the relaxed FS (classify_relaxed_h_env) before
+            # rate assembly (Finding B).
+            'sub1_env'    : interstitial_env_label(site_lookup[ss1_id]),
+            'sub1_type'   : site_type_of(site_lookup[ss1_id]),
             'fs_raw'      : fs_raw,
             'fs_relaxed'  : fs_relaxed,
             'fsmin_script': min_script,
@@ -1021,11 +1174,14 @@ def orchestrate_hopb_neb(
             'hopb_is'     : str(hopb_is),
             'e_is'        : e_is_hopb,
             'sub2_xyz'    : sub2_xyz,
-            # Oct-site coordination environments of the sub1 origin and sub2
+            # Interstitial (oct/tet) environments of the sub1 origin and sub2
             # destination — sub2_env is the per-environment key Part 6 uses for
             # the deeper (sub1→sub2) entry/exit rates in the two-layer KMC.
-            'sub1_env'    : oct_env_label(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown_env',
-            'sub2_env'    : oct_env_label(site_lookup[ss2_id]),
+            # PRE-placement; re-derived from the relaxed FS before rate assembly.
+            'sub1_env'    : interstitial_env_label(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown_env',
+            'sub1_type'   : site_type_of(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown',
+            'sub2_env'    : interstitial_env_label(site_lookup[ss2_id]),
+            'sub2_type'   : site_type_of(site_lookup[ss2_id]),
             'fs_raw'      : fs_raw,
             'fs_relaxed'  : fs_relaxed,
             'fsmin_script': min_script,

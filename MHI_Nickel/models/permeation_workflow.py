@@ -57,7 +57,7 @@ from models.subsurface_graph import build_subsurface_graph, connect_to_surface
 from models.neb_subsurface import (
     orchestrate_hopa_neb, orchestrate_hopb_neb,
     build_sub1_sub2_map, collect_entry_h_sources, build_surface_sub1_sub2_map,
-    oct_env_label,
+    interstitial_env_label, classify_relaxed_h_env,
 )
 from models.vibrations import (
     collect_is_ts_paths, orchestrate_vibrations, load_vibration_results,
@@ -141,7 +141,7 @@ print(f'  KMC surface composition ({METAL_TYPE}): {_kmc_composition}')
 _sub1_env_cnt, _sub2_env_cnt = {}, {}
 for _s in subsurface_sites:
     _lc  = _s.get('layer_classification')
-    _env = oct_env_label(_s)
+    _env = interstitial_env_label(_s)
     if _lc == 'subsurface_1':
         _sub1_env_cnt[_env] = _sub1_env_cnt.get(_env, 0) + 1
     elif _lc == 'subsurface_2':
@@ -179,6 +179,8 @@ if not _entry_sources:
 _entry_path_map = build_surface_sub1_sub2_map(
     _entry_sources, surface_connections, _sub1_sub2_map, (G, subsurface_sites),
     out_json=os.path.join(SUB_NEB_DIR, 'surface_sub1_sub2_map.json'),
+    entry_mapping='nearest',            # Finding A: map to nearest sub1, never drop
+    surface_sites_data=_surf_data, cell=_cell,
 )
 # Collapsed, dissociation-seeded IS triples fed to Hop A (same (sid, is_path,
 # e_is) shape the old wholesale glob produced; the map-driven orchestrator
@@ -298,6 +300,33 @@ else:
     with open(_hopb_jobs_json) as _f:
         hopb_jobs = json.load(_f)
     print(f'  Hop B already done ({len(hopb_jobs)} jobs) — skipping')
+
+# ── Post-relaxation env re-classification (Finding B) ───────────────────────────
+# A Hop A/B FS placed H at a pre-enumerated interstitial, but FS minimisation may
+# relax it into an adjacent site of different geometry (tet↔oct). Re-derive each
+# hop's env from where H ACTUALLY sits in the relaxed FS, so the rates are keyed
+# by the true host environment. Updates the in-memory job dicts (sub1_env for
+# Hop A, sub2_env for Hop B) before any env-keyed consumption below.
+# NOTE: the KMC grid env populations (_sub1_env_comp/_sub2_env_comp) remain
+# site-based (built from every subsurface site, not just the relaxed pathways);
+# any label gap between a grid cell's site env and a re-classified rate env is
+# bridged by env_rate_dict's per-element-mean fallback in the two-layer engine.
+print('\n── Re-classifying hop environments from relaxed FS (Finding B) ─────────')
+_n_reclass_a = _n_reclass_b = 0
+for _j in hopa_jobs:
+    _rc = classify_relaxed_h_env(_j.get('fs_relaxed', ''))
+    if _rc['site_type'] != 'unknown':
+        if _rc['env'] != _j.get('sub1_env'):
+            _n_reclass_a += 1
+        _j['sub1_env'], _j['sub1_type'] = _rc['env'], _rc['site_type']
+for _j in hopb_jobs:
+    _rc = classify_relaxed_h_env(_j.get('fs_relaxed', ''))
+    if _rc['site_type'] != 'unknown':
+        if _rc['env'] != _j.get('sub2_env'):
+            _n_reclass_b += 1
+        _j['sub2_env'], _j['sub2_type'] = _rc['env'], _rc['site_type']
+print(f'  Hop A: {_n_reclass_a}/{len(hopa_jobs)} env labels changed after relaxation')
+print(f'  Hop B: {_n_reclass_b}/{len(hopb_jobs)} env labels changed after relaxation')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Phase 3 — Vibrational frequencies (IS + TS, both hops)

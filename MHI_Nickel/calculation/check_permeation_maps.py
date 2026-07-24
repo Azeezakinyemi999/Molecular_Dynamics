@@ -112,23 +112,30 @@ def check_one(stem):
 
     sub1_sub2 = build_sub1_sub2_map((G, subsurface_sites))
     entry = collect_entry_h_sources(p['neb_dir'], p['phase2_h'])
-    path_map = build_surface_sub1_sub2_map(entry, surface_connections, sub1_sub2,
-                                           (G, subsurface_sites))
+    # Finding A: map every entry H* to its nearest sub1 (never drop). This is the
+    # PRE-relaxation (site-geometry) env; the orchestrator later re-derives it
+    # from the relaxed FS (Finding B), which this fast check does not run.
+    path_map = build_surface_sub1_sub2_map(
+        entry, surface_connections, sub1_sub2, (G, subsurface_sites),
+        entry_mapping='nearest', surface_sites_data=surf_data, cell=cell)
 
     n_matched = sum(1 for v in sub1_sub2.values() if v.get('sub2_id'))
     n_adsorption_sites = len(glob.glob(os.path.join(p['phase2_h'], 'h_atom_*_relaxed.lammps')))
     sub1_envs = sorted({e['sub1_env'] for e in path_map})
     sub2_envs = sorted({e.get('sub2_env') for e in path_map if e.get('sub2_env')})
+    n_far = sum(1 for e in path_map if e.get('far_mapping'))
+    n_nearest = sum(1 for e in path_map if e.get('via') == 'nearest')
 
     print(f'\n  RESULTS')
-    print(f'    sub1 oct sites            : {n_sub1}')
-    print(f'    sub2 oct sites            : {n_sub2}')
-    print(f'    sub1→sub2 mapped          : {n_matched}/{n_sub1}')
-    print(f'    dissociation-product H*   : {len(entry)}')
-    print(f'    Hop A pathways (collapsed): {len(path_map)}')
+    print(f'    sub1 interstitial sites    : {n_sub1}')
+    print(f'    sub2 interstitial sites    : {n_sub2}')
+    print(f'    sub1→sub2 mapped           : {n_matched}/{n_sub1}')
+    print(f'    dissociation-product H*    : {len(entry)}')
+    print(f'    Hop A pathways (collapsed) : {len(path_map)}   '
+          f'({n_nearest} via nearest-sub1, {n_far} flagged far)')
     print(f'    (old wholesale glob would have been ~{n_adsorption_sites} adsorption sites)')
-    print(f'    distinct sub1 env classes : {len(sub1_envs)}  {sub1_envs}')
-    print(f'    distinct sub2 env classes : {len(sub2_envs)}  {sub2_envs}')
+    print(f'    distinct sub1 env classes  : {len(sub1_envs)}  {sub1_envs}')
+    print(f'    distinct sub2 env classes  : {len(sub2_envs)}  {sub2_envs}')
 
 
 def main():
