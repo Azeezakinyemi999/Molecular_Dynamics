@@ -810,6 +810,10 @@ def generate_permeation_scripts(
         e2t = E2T_7
     if masses is None:
         masses = MASSES_7
+    # P_VALS_PA may arrive as numpy float64 (e.g. from np.logspace); coerce to
+    # plain floats so the generated header embeds `1e-05`, not `np.float64(1e-05)`
+    # (the header's constant block runs before numpy is imported in the script).
+    p_vals_pa = [float(p) for p in p_vals_pa]
     _parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     _header = f'''#!/usr/bin/env python3
