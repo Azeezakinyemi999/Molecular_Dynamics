@@ -623,3 +623,41 @@ def h2_gas_partition_function(T_K: float, P_Pa: float) -> dict:
     q_vib   = 1.0 / (1.0 - math.exp(-_THETA_VIB_H2_K / T_K))
     return {'trans': q_trans, 'rot': q_rot, 'vib': q_vib,
             'total': q_trans * q_rot * q_vib}
+
+
+def env_rate_dict(hop_vib: dict, T_K: float) -> tuple:
+    """Group per-hop ZPE rates by oct-site environment for the two-layer KMC.
+
+    Reduces the per-pathway ZPE-rate artifact (``write_hop_vib_rates`` output)
+    to environment-keyed forward/reverse rate dicts at temperature ``T_K``,
+    replacing the old collapse-to-one-rate-per-element. Within each environment
+    the Arrhenius rates are combined by **arithmetic mean** (the reduction rule
+    recommended in the plan: preserves the group's expected aggregate event
+    rate for the independent, parallel KMC channels).
+
+    Parameters
+    ----------
+    hop_vib : dict
+        ``{label: {env, nu, Ea_zpe, Ed_zpe, ...}}`` — Hop A tags env by sub1
+        env, Hop B by sub2 env (see ``write_hop_vib_rates``).
+    T_K : float
+        Temperature [K].
+
+    Returns
+    -------
+    (dict, dict)
+        ``(k_forward_by_env, k_reverse_by_env)`` — forward is entry
+        (surf→sub1 / sub1→sub2), reverse is exit.
+    """
+    fwd: dict = {}
+    rev: dict = {}
+    for r in hop_vib.values():
+        env = r.get('env')
+        nu, ea, ed = r.get('nu'), r.get('Ea_zpe'), r.get('Ed_zpe')
+        if env is None or nu is None or ea is None or ed is None:
+            continue
+        fwd.setdefault(env, []).append(arrhenius_rate(nu, ea, T_K))
+        rev.setdefault(env, []).append(arrhenius_rate(nu, ed, T_K))
+    k_fwd = {e: sum(v) / len(v) for e, v in fwd.items()}
+    k_rev = {e: sum(v) / len(v) for e, v in rev.items()}
+    return k_fwd, k_rev

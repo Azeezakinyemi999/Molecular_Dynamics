@@ -386,11 +386,22 @@ class TestPermeationSuccessTracking:
             'sweep_pressure': lambda **kw: {'converged': [True] * len(kw['P_vals_Pa'])},
             'fit_solubility_from_kmc': lambda sw: {'S_mean': 1e-3, 'S_std': 1e-4, 'n_converged': 3},
             'lattice_site_S0': lambda a0: 1e28,
-            'solubility_from_rates': lambda *a, **kw: 1e-3,
-            'sieverts_solubility': lambda *a, **kw: 1e-3,
             'permeability': lambda D, S: D * S,
             'richardson_flux': lambda Phi, Ph, Pl, L: Phi * Ph / L,
             'parse_barrier_file': lambda p: {},
+            # Part 6: env-keyed rate assembly + per-env solubility (all defined
+            # before the _P_HIGH tail marker in the real body, so injected here)
+            '_hopa_vib': {}, '_hopb_vib': {}, '_fs_freq_sets': [],
+            '_dh_sol_by_env': {'Ni6_oct': {'dH_sol_eV': 0.25, 'w_env': 1.0, 'n_sites': 1}},
+            '_sub1_env_comp': None, '_sub2_env_comp': None,
+            'env_rate_dict': lambda hv, T: ({}, {}),
+            'solubility_by_environment': lambda d, S0, T: 1e-3,
+            'vibrational_S0': lambda a0, T, freqs: 1e23,
+            'build_dh_sol_by_env': lambda *a, **kw: {},
+            'fit_arrhenius': lambda T, y: {'prefactor': 1e28, 'Ea_eV': 0.25,
+                                           'r2': 0.99, 'n_points': len(list(T))},
+            'permeability_arrhenius': lambda D0, ED, S0, dH: {'Phi0': D0 * S0,
+                                                              'E_phi_eV': ED + dH},
         }
 
         # Full success: must run to completion with no SystemExit.
