@@ -10,6 +10,7 @@ the Vineyard / Arrhenius formulas.
 
 import json
 import math
+import os
 import sys
 import pathlib
 import warnings
@@ -475,3 +476,63 @@ class TestRatesToJson:
         rates_to_json(sample_rate_dict, p)
         loaded = json.loads(pathlib.Path(p).read_text())
         assert loaded['hopa_Ni3Mo']['k_forward'] == pytest.approx(1.23e10, rel=1e-6)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. write_hop_ranked / write_hop_vib_rates  (per-hop artifacts w/ oct env)
+# ═══════════════════════════════════════════════════════════════════════════
+
+from models.tst_rates import write_hop_ranked, write_hop_vib_rates
+
+
+class TestWriteHopRanked:
+
+    def test_ranks_by_barrier_and_carries_env(self, tmp_path):
+        bf_hi = str(tmp_path / 'hi.txt'); _write_barrier(bf_hi, E_abs=0.60)
+        bf_lo = str(tmp_path / 'lo.txt'); _write_barrier(bf_lo, E_abs=0.30)
+        jobs = [
+            {'sid': 's_hi', 'barrier_file': bf_hi, 'sub1_env': 'Ni6_oct'},
+            {'sid': 's_lo', 'barrier_file': bf_lo, 'sub1_env': 'Ni5Mo_oct'},
+        ]
+        out = str(tmp_path / 'hopa_ranked.json')
+        rows = write_hop_ranked(jobs, 'hopa', out, env_key='sub1_env')
+        # lower barrier first
+        assert [r['sid'] for r in rows] == ['s_lo', 's_hi']
+        assert rows[0]['env'] == 'Ni5Mo_oct'
+        assert rows[0]['label'] == 'hopa_s_lo'
+        assert os.path.exists(out)
+
+    def test_missing_barrier_listed_not_dropped(self, tmp_path):
+        jobs = [{'sid': 's_x', 'barrier_file': str(tmp_path / 'nope.txt'),
+                 'sub1_env': 'Ni6_oct'}]
+        rows = write_hop_ranked(jobs, 'hopa', str(tmp_path / 'r.json'))
+        assert len(rows) == 1
+        assert rows[0]['converged'] is None
+        assert rows[0].get('Ea') is None
+
+
+class TestWriteHopVibRates:
+
+    def test_filters_by_hop_and_tags_env(self, tmp_path):
+        rate_dict = {
+            'hopa_s_0': {'Ea_zpe': 0.31, 'Ed_zpe': 0.12, 'Ea_raw': 0.33,
+                         'Ed_raw': 0.14, 'nu': 1.2e13},
+            'hopb_s_0': {'Ea_zpe': 0.55, 'Ed_zpe': 0.40, 'Ea_raw': 0.57,
+                         'Ed_raw': 0.42, 'nu': 9.0e12},
+        }
+        jobs_a = [{'sid': 's_0', 'sub1_env': 'Ni6_oct'}]
+        out = str(tmp_path / 'hopa_vib_rates.json')
+        res = write_hop_vib_rates(rate_dict, jobs_a, 'hopa', out, env_key='sub1_env')
+        assert set(res.keys()) == {'hopa_s_0'}          # hopb filtered out
+        assert res['hopa_s_0']['env'] == 'Ni6_oct'
+        assert res['hopa_s_0']['Ea_zpe'] == 0.31
+        assert res['hopa_s_0']['nu'] == 1.2e13
+        assert os.path.exists(out)
+
+    def test_hopb_uses_sub2_env(self, tmp_path):
+        rate_dict = {'hopb_s_0': {'Ea_zpe': 0.55, 'Ed_zpe': 0.40, 'Ea_raw': 0.57,
+                                  'Ed_raw': 0.42, 'nu': 9.0e12}}
+        jobs_b = [{'sid': 's_0', 'sub1_env': 'Ni6_oct', 'sub2_env': 'Ni4Mo2_oct'}]
+        res = write_hop_vib_rates(rate_dict, jobs_b, 'hopb', str(tmp_path / 'v.json'),
+                                  env_key='sub2_env')
+        assert res['hopb_s_0']['env'] == 'Ni4Mo2_oct'

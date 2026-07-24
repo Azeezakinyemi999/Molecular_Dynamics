@@ -64,6 +64,8 @@ from models.tst_rates import (
     split_vib_results,
     build_rate_dict,
     rates_to_json,
+    write_hop_ranked,
+    write_hop_vib_rates,
 )
 from models.permeation import (
     sweep_pressure,
@@ -322,6 +324,21 @@ for _T in TEMPERATURES:
     _out_json = rates_to_json(_rd, _rd_out_json)
     mark_done(_rd_done_marker)
     print(f'  T={_T:4.0f} K: {len(_rd)} rates → {_out_json}')
+
+# Per-hop ranked-barrier + ZPE-rate artifacts (T-independent), carrying the
+# oct-site environment: the Hop A/B analogues of the dissociation pipeline's
+# ranked_barriers.json / diss_vib_rates.json. Hop A's destination env is
+# sub1_env; Hop B's is sub2_env.
+_hopa_dir = os.path.join(SUB_NEB_DIR, 'hopa')
+_hopb_dir = os.path.join(SUB_NEB_DIR, 'hopb')
+write_hop_ranked(hopa_jobs, 'hopa', os.path.join(_hopa_dir, 'hopa_ranked.json'), env_key='sub1_env')
+write_hop_ranked(hopb_jobs, 'hopb', os.path.join(_hopb_dir, 'hopb_ranked.json'), env_key='sub2_env')
+# ZPE-rate artifact reuses the already-written reference-T rate dict (Ea_zpe/
+# Ed_zpe/nu are T-independent; the file exists whether freshly built or skipped).
+with open(os.path.join(RESULTS_DIR, f'rate_dict_T{int(TEMPERATURES[0])}K.json')) as _f:
+    _rd_ref = json.load(_f)
+write_hop_vib_rates(_rd_ref, hopa_jobs, 'hopa', os.path.join(_hopa_dir, 'hopa_vib_rates.json'), env_key='sub1_env')
+write_hop_vib_rates(_rd_ref, hopb_jobs, 'hopb', os.path.join(_hopb_dir, 'hopb_vib_rates.json'), env_key='sub2_env')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Phases 5-6 — Per H-concentration: KMC pressure sweeps + permeability
