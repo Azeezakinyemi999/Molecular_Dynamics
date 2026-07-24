@@ -29,6 +29,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from models.subsurface_graph import (
     _identify_layers,
     _identify_layers_by_gaps,
+    _n_layers_from_metadata,
     _find_coordinating_atoms,
     _composition_label,
     classify_site,
@@ -37,6 +38,38 @@ from models.subsurface_graph import (
     connect_to_surface,
     save_subsurface_sites,
 )
+
+
+class TestNLayersFromMetadata:
+    """Construction layer count from surface_sites.json metadata
+    (n_atoms_total // n_atoms_surface) — robust to relaxation/rumpling that
+    fools gap-based z-clustering (a 12-layer slab read as 17)."""
+
+    def _write(self, tmp_path, meta):
+        import json as _j
+        p = str(tmp_path / 'surface_sites.json')
+        _j.dump({'metadata': meta, 'sites': []}, open(p, 'w'))
+        return p
+
+    def test_clean_division(self, tmp_path):
+        p = self._write(tmp_path, {'n_atoms_total': 360, 'n_atoms_surface': 30})
+        assert _n_layers_from_metadata(p) == 12
+
+    def test_non_divisible_returns_none(self, tmp_path):
+        # surface count not one clean plane -> None -> caller falls back
+        p = self._write(tmp_path, {'n_atoms_total': 361, 'n_atoms_surface': 30})
+        assert _n_layers_from_metadata(p) is None
+
+    def test_zero_surface_returns_none(self, tmp_path):
+        p = self._write(tmp_path, {'n_atoms_total': 360, 'n_atoms_surface': 0})
+        assert _n_layers_from_metadata(p) is None
+
+    def test_missing_metadata_returns_none(self, tmp_path):
+        p = self._write(tmp_path, {})
+        assert _n_layers_from_metadata(p) is None
+
+    def test_missing_file_returns_none(self, tmp_path):
+        assert _n_layers_from_metadata(str(tmp_path / 'nope.json')) is None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
