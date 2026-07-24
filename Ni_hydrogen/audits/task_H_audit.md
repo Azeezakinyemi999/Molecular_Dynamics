@@ -425,6 +425,12 @@ mixes atoms between true layers even at 0.098 Å gap. The `_n_layers_est = 12`
 hardcode is correct for the current 12-layer, 360-atom slab; no fix needed while
 the number of layers is unchanged.
 
+**Note (2026-07):** this concerns `surface_graph.py`'s `_n_layers_est` and is still current.
+Do not confuse it with the *subsurface* layer count, which the 2026-07 reframing changed to be
+derived from slab metadata (`n_atoms_total // n_atoms_surface`) rather than gap detection —
+gap-based clustering over-split a relaxed 12-layer slab as 17. See
+`subsurface_graph.py._n_layers_from_metadata` and `Project2_Subsurface_Graph_Explainer.md`.
+
 ---
 
 ### Post-H status

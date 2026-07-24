@@ -20,6 +20,18 @@ it does; treat the "Implementation" section as describing current code, not a TO
 for API/reproducibility compatibility; no longer consumes randomness now that bulk sampling
 has been removed." `Project2_Subsurface_Graph_Explainer.md` Stage 4 documents this removal.
 
+**Superseded in part by the 2026-07 subsurface-entry reframing.** Two specifics below now
+read differently in the shipped code: (a) item 4's *metal* layer path is no longer gap-based —
+the metal total layer count is derived from slab metadata (`n_atoms_total // n_atoms_surface`),
+with gap detection kept only as a fallback (it over-split a relaxed 12-layer slab as 17); the
+oxide path still uses gap-based layers as described. (b) The KMC entry/exit rates in item 8's
+verification are no longer per-species — they are keyed per oct-site environment (`k_entry`/`k_exit`
+per sub1 env, `k_hopB_entry`/`k_hopB_exit` per sub2 env). See
+`Project2_surface_labeling/multiscale_permeation_plan.md` §5/§8 and `PIPELINE_GUIDE.md` §2.4/§9.
+Everything else this document records (auto-thickness oxide slab, `_enumerate_oxide_sites`,
+gap-based oxide layers, `keep_unclassified`/`'interstitial'` sites, `sub1↔sub2` Hop B edges) is
+unchanged.
+
 ## Context
 
 The pipeline computes H transport per material: Part 1 surface NEB (H₂ dissociative
