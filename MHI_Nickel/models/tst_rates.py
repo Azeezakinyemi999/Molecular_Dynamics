@@ -428,3 +428,109 @@ def rates_to_json(rate_dict: dict, out_path: str) -> str:
         json.dump(rate_dict, fh, indent=2)
     print(f'Wrote: {out_path}  ({len(rate_dict)} labels)')
     return out_path
+
+
+# ---------------------------------------------------------------------------
+# Section 8 — Per-hop ranked-barrier and ZPE-rate artifacts
+#
+# The Hop A/B analogues of the dissociation pipeline's ranked_barriers.json
+# and diss_vib_rates.json: per-pathway summaries that carry the oct-site
+# environment label (sub1_env / sub2_env) alongside the barriers/rates.
+# ---------------------------------------------------------------------------
+
+def write_hop_ranked(neb_jobs: list, hop: str, out_json: str,
+                     env_key: str = 'sub1_env') -> list:
+    """Collect + rank Hop A/B barrier results, carrying the oct-site environment.
+
+    Analogue of the dissociation ``ranked_barriers.json`` (neb_workflow.py),
+    for subsurface hops. Reads each job's ``barrier_file`` and records the
+    forward barrier (``E_abs``), reverse barrier (``E_des``), reaction energy
+    (``delta_E``), convergence flag, and the destination oct-site environment
+    (``env_key`` on the job dict — ``sub1_env`` for Hop A, ``sub2_env`` for
+    Hop B). Sorted by forward barrier (converged first, ascending).
+
+    Jobs with a missing/unreadable barrier file are still listed, with
+    ``converged: None`` and null barriers — never silently dropped.
+
+    Returns the ranked list (also written to ``out_json``).
+    """
+    from models.parsers import parse_barrier_file
+
+    rows: list = []
+    for job in neb_jobs:
+        sid = job.get('sid')
+        bf  = job.get('barrier_file', '')
+        row = {
+            'label':    f'{hop}_{sid}',
+            'sid':      sid,
+            'sub1_env': job.get('sub1_env'),
+            'sub2_env': job.get('sub2_env'),
+            'env':      job.get(env_key),
+        }
+        if bf and os.path.exists(bf):
+            try:
+                bd = parse_barrier_file(bf)
+                row.update({
+                    'Ea':         bd.get('E_abs'),
+                    'E_des':      bd.get('E_des'),
+                    'delta_E':    bd.get('delta_E'),
+                    'fmax_final': bd.get('fmax_final'),
+                    'converged':  bd.get('converged'),
+                })
+            except Exception as exc:                       # noqa: BLE001
+                warnings.warn(f'[{hop}_{sid}] parse_barrier_file failed: {exc}')
+                row['converged'] = None
+        else:
+            row['converged'] = None
+        rows.append(row)
+
+    rows.sort(key=lambda r: (r.get('Ea') is None, r.get('Ea') or float('inf')))
+
+    os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
+    with open(out_json, 'w', encoding='utf-8') as fh:
+        json.dump(rows, fh, indent=2)
+    _n_conv = sum(1 for r in rows if r.get('converged'))
+    print(f'[{hop} ranked] {len(rows)} pathways ({_n_conv} converged) → {out_json}')
+    return rows
+
+
+def write_hop_vib_rates(rate_dict: dict, neb_jobs: list, hop: str, out_json: str,
+                        env_key: str = 'sub1_env') -> dict:
+    """Write the per-hop ZPE-rate artifact (analogue of diss_vib_rates.json).
+
+    Filters ``rate_dict`` (from :func:`build_rate_dict`) to this hop's labels
+    and emits the temperature-independent ZPE-corrected barriers + Vineyard
+    prefactor, tagged with the destination oct-site environment so Part 4
+    (solubility) and Part 6 (env-keyed rate assembly) can consume them.
+
+    ``rate_dict`` may be built at any single temperature — only the
+    T-independent fields (``Ea_zpe``, ``Ed_zpe``, ``Ea_raw``, ``Ed_raw``,
+    ``nu``) are carried through here.
+
+    Returns ``{label: {env, sub1_env, sub2_env, Ea_zpe, Ed_zpe, Ea_raw,
+    Ed_raw, nu}}`` (also written to ``out_json``).
+    """
+    job_by_label = {f'{hop}_{j.get("sid")}': j for j in neb_jobs}
+
+    out: dict = {}
+    for label, r in rate_dict.items():
+        if not label.startswith(f'{hop}_'):
+            continue
+        job = job_by_label.get(label, {})
+        out[label] = {
+            'label':    label,
+            'env':      job.get(env_key),
+            'sub1_env': job.get('sub1_env'),
+            'sub2_env': job.get('sub2_env'),
+            'Ea_zpe':   r.get('Ea_zpe'),
+            'Ed_zpe':   r.get('Ed_zpe'),
+            'Ea_raw':   r.get('Ea_raw'),
+            'Ed_raw':   r.get('Ed_raw'),
+            'nu':       r.get('nu'),
+        }
+
+    os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
+    with open(out_json, 'w', encoding='utf-8') as fh:
+        json.dump(out, fh, indent=2)
+    print(f'[{hop} vib rates] {len(out)} labels → {out_json}')
+    return out
