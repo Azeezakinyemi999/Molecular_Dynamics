@@ -615,9 +615,9 @@ def orchestrate_hopa_neb(
     elem_str: str | None = None,
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
-    n_images: int = 18,
+    n_images: int = 9,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 0.1,
     dry_run: bool = True,
     z_freeze_cutoff: float | None = None,
 ) -> dict:
@@ -935,9 +935,9 @@ def orchestrate_hopb_neb(
     elem_str: str | None = None,
     slurm_opts: dict | None = None,
     neb_slurm_opts: dict | None = None,
-    n_images: int = 18,
+    n_images: int = 9,
     spring_const: float = 1.0,
-    neb_ftol: float = 0.05,
+    neb_ftol: float = 0.1,
     dry_run: bool = True,
     z_freeze_cutoff: float | None = None,
 ) -> dict:
