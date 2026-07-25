@@ -236,6 +236,21 @@ class TestWriteVibrationScript:
         assert '0.05' in content
         assert "'cuda'" in content
 
+    def test_default_displaces_h_plus_six(self, script_result):
+        # default n_metal_neighbours=6 -> H + 6-atom cage (ZPE behaviour intact)
+        _, _, content = script_result
+        assert 'N_METAL_NBR = 6' in content
+
+    def test_h_only_run_displaces_single_atom(self, tmp_path):
+        # n_metal_neighbours=0 -> displace ONLY the H (exactly its 3 DOF): the
+        # dissolved-H modes the vibrational-S0 solubility route needs, without
+        # the metal-cage modes that would inflate S0 by ~1e10.
+        out = str(tmp_path / 'vib_honly.py')
+        write_vibration_script(_STRUCT, _MACE, out, _OUTDIR, n_metal_neighbours=0)
+        src = pathlib.Path(out).read_text()
+        assert 'N_METAL_NBR = 0' in src
+        assert 'indices   = [h_idx] + nearest_m' in src
+
     def test_default_dtype_is_float32(self, script_result):
         _, _, content = script_result
         assert "DTYPE      = 'float32'" in content
