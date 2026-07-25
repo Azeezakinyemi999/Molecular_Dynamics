@@ -2847,6 +2847,26 @@ else:
     _neb_for_rd_e = {}
     _label_pair_e = {}
 
+    # Map each surface site_id -> its dominant metal element, so k_diss/k_des are
+    # keyed by REAL elements (e.g. ('Ni','Ni')) matching the KMC grid -- not the
+    # 's' site-label token. (The old parse assumed 'Ni_fcc+Mo_hcp'-style labels;
+    # the real labels are site-IDs like 's_28__s_0+s_72', so split('_')[0] gave
+    # 's' for every site and every pair collapsed to ('s','s'), which the KMC's
+    # element_pair lookup never matched -> zero sticking -> dead adsorption.)
+    import collections as _coll_e
+    _sites_json_e = os.path.join(SLAB_DIR, 'phase3_sites', 'surface_sites.json')
+    _site_elem_e  = {}
+    try:
+        with open(_sites_json_e) as _sf_e:
+            for _s_e in _json_e.load(_sf_e).get('sites', []):
+                _els_e = [_a_e.get('element')
+                          for _a_e in _s_e.get('level1', {}).get('constituent_atoms', [])
+                          if _a_e.get('element')]
+                if _els_e:
+                    _site_elem_e[_s_e['site_id']] = _coll_e.Counter(_els_e).most_common(1)[0][0]
+    except Exception as _ex_e:
+        print(f'  [Phase E] site->element map unavailable ({_sites_json_e}): {_ex_e}')
+
     for _job_e in _ranked_e:
         if not _job_e.get('converged', False):
             continue
@@ -2894,11 +2914,18 @@ else:
             'delta_E':   _job_e.get('delta_E', 0.0),
             'converged': True,
         }
+        # FS site IDs from the label 's_<is>__s_<fs1>+s_<fs2>' -> real elements
+        # (via the site->element map above), so k_diss/k_des key on ('Ni','Ni')
+        # etc. matching the KMC grid lookup instead of the 's' token.
         try:
-            _fs_e = _lbl_e.split('__')[-1]          # e.g. 'Ni_fcc+Mo_hcp'
-            _e1_e = _fs_e.split('+')[0].split('_')[0]
-            _e2_e = _fs_e.split('+')[1].split('_')[0]
-            _label_pair_e[_lbl_e] = tuple(sorted([_e1_e, _e2_e]))
+            _fs_e = _lbl_e.split('__')[-1]           # e.g. 's_0+s_72'
+            _s1_e, _s2_e = _fs_e.split('+')[0], _fs_e.split('+')[1]
+            _e1_e = _site_elem_e.get(_s1_e)
+            _e2_e = _site_elem_e.get(_s2_e)
+            if _e1_e and _e2_e:
+                _label_pair_e[_lbl_e] = tuple(sorted([_e1_e, _e2_e]))
+            else:
+                _label_pair_e[_lbl_e] = ('?', '?')
         except Exception:
             _label_pair_e[_lbl_e] = ('?', '?')
 
