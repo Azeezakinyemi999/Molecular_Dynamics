@@ -351,10 +351,16 @@ def build_event_list(
 
     # Fallback means precomputed once (outside the i/j loops — build_event_list
     # runs every KMC step, so recomputing per cell would dominate cost).
+    # Surface-pair rates (k_diss/k_des/k_surf_diff) get the same treatment as
+    # the inter-layer rates so a key/schema mismatch (e.g. a mislabelled
+    # dissociation pair) can never silently zero adsorption on a known element.
     _m_ent   = _mean_of(k_ent)
     _m_ext   = _mean_of(k_ext)
     _m_hbent = _mean_of(k_hbent)
     _m_hbext = _mean_of(k_hbext)
+    _m_diss  = _mean_of(k_diss)
+    _m_des   = _mean_of(k_des)
+    _m_diff  = _mean_of(k_diff)
 
     for i in range(nx):
         for j in range(ny):
@@ -402,7 +408,7 @@ def build_event_list(
                 # Adsorption / desorption — symmetric, enumerate once per pair
                 if (i2, j2) > (i, j):
                     if not occ_s and not occ_s2:
-                        sticking = k_diss.get(pair, 0.0)
+                        sticking = _rate_lookup(k_diss, pair, _m_diss)
                         r = R_str * sticking
                         if r > 0.0:
                             events.append({
@@ -411,7 +417,7 @@ def build_event_list(
                                 'rate': r,
                             })
                     elif occ_s and occ_s2:
-                        r = k_des.get(pair, 0.0)
+                        r = _rate_lookup(k_des, pair, _m_des)
                         if r > 0.0:
                             events.append({
                                 'kind': 'desorb',
@@ -421,7 +427,7 @@ def build_event_list(
 
                 # Surface diffusion — directional: src=(i,j) must be occupied
                 if occ_s and not occ_s2:
-                    r = k_diff.get(pair, 0.0)
+                    r = _rate_lookup(k_diff, pair, _m_diff)
                     if r > 0.0:
                         events.append({
                             'kind': 'surf_diff',
