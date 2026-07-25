@@ -380,9 +380,11 @@ def _lines_after_lammps_read(src_text):
     Write calls use `write(`, `_ase_write(`, or `ase_write(` and must be
     excluded — they do not need .wrap() and do not unwrap image flags.
 
-    Window is 10 lines (not 2) to accommodate ase_neb.py's FS read, which is
-    followed by a multi-line explanatory comment before its find_mic(...)
-    realignment call (see TestWrapRegressionGuards docstring).
+    Window is 13 lines (not 2) to accommodate ase_neb.py's FS read (followed by
+    a multi-line explanatory comment before its find_mic(...) realignment call)
+    and neb_subsurface.py's classification read, whose classify_site(...)
+    consumer applies its own minimum-image PBC a few lines down (see
+    TestWrapRegressionGuards docstring).
     """
     lines = src_text.splitlines()
     result = []
@@ -396,7 +398,7 @@ def _lines_after_lammps_read(src_text):
         # Generic write: if the function call token right before '(' is 'write'
         if 'write(' in line and 'read(' not in line and 'ase_read(' not in line:
             continue
-        following = lines[i + 1 : i + 11]
+        following = lines[i + 1 : i + 14]
         result.append((i + 1, following))
     return result
 
@@ -425,6 +427,14 @@ class TestWrapRegressionGuards:
     naive displacement vs ~0.01 Å true displacement). find_mic(...)
     guarantees the same "atoms end up in a well-defined, bounded frame"
     property .wrap() does, just relative to IS instead of the origin.
+
+    Third accepted pattern: neb_subsurface.py's classify_relaxed_h_env reads a
+    relaxed FS purely to CLASSIFY where H sits (no NEB interpolation, no IS to
+    anchor to). Its consumer classify_site(...) -> _find_coordinating_atoms
+    applies its own xy minimum-image PBC (subsurface_graph.py), so the atoms
+    object is deliberately left unwrapped -- consistent with the FS-not-bare-
+    wrapped design. classify_site( is therefore treated like find_mic( (a
+    consumer that handles periodicity) when scanning the post-read window.
     """
 
     def _src(self, filename):
@@ -436,7 +446,8 @@ class TestWrapRegressionGuards:
         assert reads, f"No lammps-data reads found in {filename} — guards may be stale"
         unwrapped = [
             lineno for lineno, following in reads
-            if not any('.wrap()' in ln or 'find_mic(' in ln for ln in following)
+            if not any('.wrap()' in ln or 'find_mic(' in ln or 'classify_site(' in ln
+                       for ln in following)
         ]
         assert not unwrapped, (
             f"{filename}: lammps-data read(s) at line(s) {unwrapped} are NOT "
