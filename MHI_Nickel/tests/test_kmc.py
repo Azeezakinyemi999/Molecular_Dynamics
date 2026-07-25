@@ -282,6 +282,27 @@ class TestBuildEventList:
         for k in ('enter', 'exit', 'hopB_enter', 'hopB_exit', 'drain'):
             assert len(self._of_kind(ev, k)) == 0
 
+    def test_kdiss_mislabelled_pair_still_adsorbs_via_fallback(self):
+        # A k_diss/k_des keyed by a pair that does NOT match the grid element
+        # (the ('s','s') mislabelling that silently zeroed adsorption and left
+        # the whole KMC inert) must still fire adsorb events via the per-class
+        # mean-fallback -- never a silent empty grid on a known element.
+        g = _all_ni_grid(4, 4)
+        rd = dict(_RATES)
+        rd['k_diss'] = {('s', 's'): 0.5}
+        rd['k_des']  = {('s', 's'): 1e6}
+        ev = build_event_list(g, rd, _P, _T, _D, _A0)
+        assert len(self._of_kind(ev, 'adsorb')) > 0
+
+    def test_empty_kdiss_stays_inert(self):
+        # The fallback never fabricates a rate: a genuinely-empty k_diss yields
+        # no adsorb events (mean of {} is 0.0).
+        g = _all_ni_grid(4, 4)
+        rd = dict(_RATES)
+        rd['k_diss'] = {}
+        ev = build_event_list(g, rd, _P, _T, _D, _A0)
+        assert len(self._of_kind(ev, 'adsorb')) == 0
+
     def test_surface_occupied_generates_enter(self):
         g = _all_ni_grid(4, 4)
         g['surface_occ'][0, 0] = 1
