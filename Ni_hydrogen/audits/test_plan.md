@@ -20,6 +20,19 @@ coverage. The class
 listings under §7–§9 below reflect the reframed suite; the full suite is 1634 tests as of
 that branch.
 
+**2026-07 note (KMC-dead / vibrational-S0 bug fixes):** a sanity-check of the first real Ni
+run found two data bugs. (a) The dissociation `pair` was mislabelled `('s','s')` (parsed from
+the `s_<id>` site-label token), so `k_diss`/`k_des` never matched the KMC grid's element pair
+→ zero adsorption → θ=0 everywhere. Fixed at source (`neb_workflow.py` Phase E now maps site→
+element via `surface_sites.json`) **and** hardened in `kmc.py::build_event_list`, where the
+surface-pair rates now use the same per-class mean-fallback as the inter-layer rates.
+§8 `TestBuildEventList` gains `test_kdiss_mislabelled_pair_still_adsorbs_via_fallback` and
+`test_empty_kdiss_stays_inert`. (b) `vibrational_S0` was fed all 21 FS modes (H + 6-atom cage),
+inflating S₀ ~1e10× above the geometric ceiling; the workflow now runs a separate **H-only** FS
+vibration (`vibrations.py` `n_metal_neighbours=0` → 3 modes). §9 `TestVibrationalS0` gains
+`test_below_geometric_ceiling_with_H_modes`; `tests/test_vibrations.py` gains
+`test_h_only_run_displaces_single_atom` / `test_default_displaces_h_plus_six`.
+
 ---
 
 ## Ground Rules
@@ -830,6 +843,8 @@ Tests `surface_coverage()`, `sub1_population()`, `sub2_population()`, `subsurfac
 | `test_adjacent_occupied_pair_desorbs` | Adjacent occupied surface pair → `desorb` |
 | `test_occupied_site_adjacent_empty_diffuses` | → `surf_diff` |
 | `test_no_adsorb_when_k_diss_absent` | Missing `k_diss` → no adsorb, no crash |
+| `test_kdiss_mislabelled_pair_still_adsorbs_via_fallback` | `k_diss` keyed by a non-grid pair (`('s','s')`) → adsorb still fires via the per-class mean-fallback (never a silent empty grid) |
+| `test_empty_kdiss_stays_inert` | Genuinely-empty `k_diss` → no adsorb (fallback never fabricates a rate) |
 | `test_all_event_rates_positive` | All enumerated rates > 0 |
 | `test_entry_rate_resolves_per_env` | `enter` rate looked up by the cell's sub1 env |
 | `test_unknown_env_falls_back_to_mean_not_zero` | Unknown env → per-class mean, not 0.0 |
@@ -987,6 +1002,7 @@ Tests `vibrational_S0()` — the partition-function S₀ route.
 | `test_positive` | `S0 > 0` for physical inputs |
 | `test_scales_with_site_density` | Scales with the oct-site density |
 | `test_stiffer_dissolved_modes_raise_S0` | Stiffer dissolved-H modes → higher S0 |
+| `test_below_geometric_ceiling_with_H_modes` | H-only (~1500 cm⁻¹) modes → S0 below the geometric ceiling `4/a₀³`; adding soft cage modes pushes it above (the ~1e10 inflation the H-only FS vibration avoids) |
 
 #### `TestBuildDhSolByEnv`
 Tests `build_dh_sol_by_env()` — per-environment ΔH_sol assembly.

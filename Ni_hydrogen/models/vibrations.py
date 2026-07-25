@@ -119,6 +119,7 @@ def write_vibration_script(
     delta: float = 0.01,
     device: str = 'cpu',
     dtype: str = 'float32',
+    n_metal_neighbours: int = 6,
 ) -> str:
     """Write a standalone Python script that computes partial-Hessian frequencies.
 
@@ -126,8 +127,9 @@ def write_vibration_script(
 
     1. Loads the structure from a LAMMPS data file via ASE.
     2. Attaches ``MACECalculator``.
-    3. Identifies the single H atom and its 6 nearest metal neighbours.
-    4. Runs ``ASE Vibrations`` on those 7 atoms (42 single-point calculations).
+    3. Identifies the single H atom and its ``n_metal_neighbours`` nearest metal
+       neighbours (``0`` = H only → exactly the 3 H local modes).
+    4. Runs ``ASE Vibrations`` on those ``1 + n_metal_neighbours`` atoms.
     5. Saves ``{outdir}/vib_frequencies.json``.
 
     Parameters
@@ -147,6 +149,11 @@ def write_vibration_script(
         Vibration runs on CPU because 42 single-points do not saturate a GPU.
     dtype : str
         MACE ``default_dtype`` — ``'float32'`` (default) or ``'float64'``.
+    n_metal_neighbours : int
+        How many nearest metal atoms to displace alongside the H. Default 6
+        (H + 6-atom cage, for the ZPE barriers). Set to ``0`` for an H-only run
+        (exactly the 3 H DOF) — the dissolved-H modes the vibrational-S0
+        solubility route needs, which must NOT include the metal-cage modes.
 
     Returns
     -------
@@ -186,7 +193,9 @@ def write_vibration_script(
         )
         atoms.calc = calc
 
-        # ── Identify H and 6 nearest metal neighbours ─────────────────────────
+        # ── Identify H and its N_METAL_NBR nearest metal neighbours ───────────
+        # N_METAL_NBR = 0 -> displace only the H (exactly its 3 DOF).
+        N_METAL_NBR = {n_metal_neighbours}
         syms      = np.array(atoms.get_chemical_symbols())
         pos       = atoms.get_positions()
         h_indices = np.where(syms == "H")[0]
@@ -197,9 +206,9 @@ def write_vibration_script(
         h_idx     = int(h_indices[0])
         metal_idx = np.where(syms != "H")[0]
         dists     = np.linalg.norm(pos[metal_idx] - pos[h_idx], axis=1)
-        nearest6  = metal_idx[np.argsort(dists)[:6]].tolist()
-        indices   = [h_idx] + nearest6
-        print("Displacing", len(indices), "atoms: H @", h_idx, "metals @", nearest6)
+        nearest_m = metal_idx[np.argsort(dists)[:N_METAL_NBR]].tolist()
+        indices   = [h_idx] + nearest_m
+        print("Displacing", len(indices), "atoms: H @", h_idx, "metals @", nearest_m)
 
         # ── Finite-difference vibrations ──────────────────────────────────────
         vib_name = os.path.join(OUTDIR, "vib")
@@ -225,7 +234,7 @@ def write_vibration_script(
             "structure":            STRUCTURE,
             "n_atoms_displaced":    len(indices),
             "h_index":              h_idx,
-            "metal_indices":        nearest6,
+            "metal_indices":        nearest_m,
             "delta_ang":            DELTA,
             "frequencies_real_cm1": freqs_real_cm1,
             "frequencies_imag_cm1": freqs_imag_cm1,
@@ -531,6 +540,7 @@ def orchestrate_vibrations(
     delta: float = 0.01,
     device: str = 'cpu',
     dry_run: bool = True,
+    n_metal_neighbours: int = 6,
 ) -> dict:
     """Write and optionally submit one ``vib_run.py`` + SLURM job per structure.
 
@@ -584,12 +594,13 @@ def orchestrate_vibrations(
             continue
 
         write_vibration_script(
-            structure_path  = lammps_path,
-            mace_model_path = mace_model_path,
-            out_path        = script_path,
-            outdir          = job_outdir,
-            delta           = delta,
-            device          = device,
+            structure_path     = lammps_path,
+            mace_model_path    = mace_model_path,
+            out_path           = script_path,
+            outdir             = job_outdir,
+            delta              = delta,
+            device             = device,
+            n_metal_neighbours = n_metal_neighbours,
         )
 
         slurm_path = None

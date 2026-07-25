@@ -532,6 +532,18 @@ class TestVibrationalS0:
         s_stiff = vibrational_S0(_A0, _T, [2000.0, 2000.0, 2000.0])
         assert s_soft > s_stiff
 
+    def test_below_geometric_ceiling_with_H_modes(self):
+        # The dissolved-H partition function must use only the H's ~3 local
+        # modes (~1500 cm^-1). With those, S0_vib stays below the geometric
+        # site-density ceiling 4/a0^3. Feeding the soft metal-cage modes
+        # (~100-250 cm^-1) blows past the ceiling (physically impossible) --
+        # the ~1e10 inflation the H-only FS vibration avoids.
+        ceiling = lattice_site_S0(_A0)
+        s_H = vibrational_S0(_A0, _T, [1500.0, 1546.0, 1571.0])
+        assert s_H < ceiling
+        s_cage = vibrational_S0(_A0, _T, [1500.0, 1546.0, 1571.0] + [120.0] * 18)
+        assert s_cage > ceiling
+
 
 class TestBuildDhSolByEnv:
 
