@@ -152,6 +152,14 @@ oct-site env), then exercises the genuinely-new pure-Python + KMC assembly: `bui
 `permeability_arrhenius`. Asserts, among others, the `E_Φ = E_D + ΔH_sol` and `Φ₀ = D₀·S₀` identities
 and that entry is seeded from the dissociation products.
 
+**2026-07 — two data-bug fixes surfaced by the first real Ni run** (see `audits/test_plan.md`
+dated note): the dissociation `pair` was mislabelled `('s','s')` so KMC adsorption silently zeroed
+(θ=0 everywhere) — fixed at source (`neb_workflow.py` site→element map) and hardened with a
+mean-fallback in `kmc.py::build_event_list`; and `vibrational_S0` was fed the metal-cage modes
+(~1e10× too high) — fixed with a separate H-only FS vibration (`vibrations.py n_metal_neighbours=0`).
+Unit coverage lives in `test_kmc.py` / `test_permeation.py` / `test_vibrations.py`; the end-to-end
+KMC-adsorption path is exercised here and in `test_ft_permeability.py`.
+
 ---
 
 ## Fixtures to copy from the cluster

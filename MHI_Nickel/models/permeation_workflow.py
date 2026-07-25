@@ -358,6 +358,31 @@ print(f'  Submitted {len(_vib_jids)} vibration jobs.')
 wait_for_jobs(_vib_jids)
 print('  Vibrations done.')
 
+# H-only FS vibrations for the vibrational-S0 solubility route: displace ONLY
+# the H atom (n_metal_neighbours=0 -> exactly the 3 dissolved-H DOF), so its
+# partition function excludes the metal-cage modes that would otherwise inflate
+# S0 by orders of magnitude (~1e10). Separate, additional run — the full FS
+# vibration above keeps its 6-atom cage for the ZPE reaction energies.
+_fs_pairs_honly = [(_l, _p) for (_l, _p) in _all_pairs if _l.endswith('_FS')]
+_VIB_HONLY_DIR  = os.path.join(VIB_DIR, 'fs_honly')
+vib_out_honly = orchestrate_vibrations(
+    structure_paths    = _fs_pairs_honly,
+    outdir             = _VIB_HONLY_DIR,
+    mace_model_path    = MACE_MODEL_ASE,
+    slurm_opts         = VIB_SLURM_CFG,
+    delta              = 0.01,
+    device             = 'cpu',
+    dry_run            = True,
+    n_metal_neighbours = 0,
+)
+_vib_jids_h = {}
+for _lbl, _info in vib_out_honly.items():
+    if _info.get('slurm'):
+        _vib_jids_h[_lbl] = submit_with_retry(_info['slurm'])
+print(f'  Submitted {len(_vib_jids_h)} H-only FS vibration jobs.')
+wait_for_jobs(_vib_jids_h)
+print('  H-only FS vibrations done.')
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Phase 4 — TST rate constants at each temperature
 # ══════════════════════════════════════════════════════════════════════════════
@@ -396,11 +421,12 @@ _hopa_vib = write_hop_vib_rates(_rd_ref, hopa_jobs, 'hopa',
 _hopb_vib = write_hop_vib_rates(_rd_ref, hopb_jobs, 'hopb',
                                 os.path.join(_hopb_dir, 'hopb_vib_rates.json'), env_key='sub2_env')
 
-# Representative dissolved-H vibrational frequencies for the vibrational S0
-# route (Part 4): pooled per-mode from the FS (dissolved-H oct-cage) vibration
-# results. vibrational_S0 is evaluated per FS structure and averaged, so we
+# Dissolved-H vibrational frequencies for the vibrational S0 route (Part 4):
+# taken from the H-ONLY FS vibrations (exactly the 3 dissolved-H modes) — NOT
+# the full 6-cage FS vibration, whose metal-cage modes would inflate q_H (hence
+# S0) by ~1e10. vibrational_S0 is evaluated per FS structure and averaged, so we
 # just collect each FS's real-mode list here; empty if no FS vibs were run.
-_fs_vib_paths = split_vib_fs(vib_out)
+_fs_vib_paths = split_vib_fs(vib_out_honly)
 _fs_freq_sets = []
 for _fp in _fs_vib_paths.values():
     try:
