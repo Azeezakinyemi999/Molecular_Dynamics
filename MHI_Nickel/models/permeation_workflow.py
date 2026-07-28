@@ -83,6 +83,9 @@ from models.permeation import (
     vibrational_S0,
     build_dh_sol_by_env,
     solubility_by_environment,
+    solubility_from_rates,
+    check_sieverts_law,
+    classify_sieverts_regime,
     fit_arrhenius,
     permeability_arrhenius,
 )
@@ -516,10 +519,11 @@ if not _PHASE6_READY:
     print('  Fill DH_DISS_EV and DH_ENTRY_EV in permeation.ipynb Cell 2 and regenerate.')
 else:
     _DH_SOL = _DH_DISS_USED / 2.0 + _DH_ENTRY_USED
-    # Per-oct-environment solution enthalpy (carried to sub2), n_H-independent:
-    # ½·ΔH_diss + ΔH_HopA(sub1 env) + mean ΔH_HopB. Written once per stem.
+    # Per-oct-environment solution enthalpy referenced to sub1, n_H-independent:
+    # ½·ΔH_diss + ΔH_HopA(sub1 env). Hop B and deeper transport are bulk
+    # diffusion (carried by D), NOT solubility. Written once per stem.
     _dh_sol_by_env = build_dh_sol_by_env(
-        _hopa_vib, _hopb_vib, _DH_DISS_USED,
+        _hopa_vib, _DH_DISS_USED,
         out_json=os.path.join(RESULTS_DIR, 'dH_sol_by_env.json'),
     )
 _P_HIGH = max(P_VALS_PA)
@@ -643,6 +647,7 @@ for _n_h in N_H_VALUES:
 
     # per-route S(T) accumulators for the multi-T Arrhenius fits after the loop
     _S_geo_arr, _S_vib_arr, _S_kmc_arr, _T_arr6 = [], [], [], []
+    _S_db_arr, _S_kt_arr = [], []   # detailed-balance (analytic θ) + KMC-θ routes
 
     for _T in TEMPERATURES:
         _sweep_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
@@ -660,18 +665,23 @@ for _n_h in N_H_VALUES:
         _a0_T6 = _a0_dict.get(_T, A0_M)
         _kBT6  = _KB_EV * _T
 
-        # Option 1 — geometric S0, per-environment Boltzmann-weighted solubility
-        # (ΔH_sol carried to sub2 via dH_sol_by_env). Replaces the old single
-        # scalar-ΔH_sol lattice route.
+        # per-T rates for the rate-based routes (detailed balance + KMC-θ),
+        # derived exactly as in Phase 5 (env_rate_dict over Hop A; mean diss).
+        _kent_T, _kext_T = env_rate_dict(_hopa_vib, _T)
+        if _diss_vib:
+            _kd_T  = float(np.mean([np.exp(-_v['Ea_zpe'] / _kBT6) for _v in _diss_vib.values()]))
+            _kds_T = float(np.mean([_v['nu'] * np.exp(-_v['Ed_zpe'] / _kBT6) for _v in _diss_vib.values()]))
+        else:
+            _kd_T = _kds_T = None
+
+        # Option 1 — geometric S0, per-env Boltzmann (sub1 ΔH_sol = ½diss + HopA)
         _S0_geo = lattice_site_S0(_a0_T6)
         _S1     = solubility_by_environment(_dh_sol_by_env, _S0_geo, _T)
         _Phi1   = permeability(_D_T, _S1)
         _J1     = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
 
         # Option 2 — vibrational S0 (partition-function prefactor), same per-env
-        # ΔH_sol. S0_vib is averaged over the dissolved-H FS structures (each
-        # gives one q_H). Unavailable if no FS vibrations were run. Replaces the
-        # old TST-detailed-balance route that used a single arbitrary Hop A rate.
+        # ΔH_sol. S0_vib is averaged over the dissolved-H FS structures.
         if _fs_freq_sets:
             _S0_vib = float(np.mean([vibrational_S0(_a0_T6, _T, _fq)
                                      for _fq in _fs_freq_sets]))
@@ -681,15 +691,65 @@ for _n_h in N_H_VALUES:
         else:
             _S0_vib = _S2 = _Phi2 = _J2 = None
 
-        # Option 3 — KMC empirical Sieverts fit
-        _kmc_sol = fit_solubility_from_kmc(_sw)
-        _S3   = _kmc_sol['S_mean']
-        _Phi3 = permeability(_D_T, _S3)
-        _J3   = richardson_flux(_Phi3, _P_HIGH, 0.0, L_M)
+        # Route: detailed balance (analytic θ), sub1 reference. Population-weighted
+        # over sub1 environments: Σ w_env · ρ_oct·(k_entry/k_exit)_env·√(k_diss·A/…).
+        # Noise-free (no occupancy counting).
+        if _kd_T is not None and _kent_T:
+            _Sdb = 0.0
+            for _env, _einfo in _dh_sol_by_env.items():
+                _ke = _kent_T.get(_env); _kx = _kext_T.get(_env)
+                if _ke is None or _kx is None or _kx <= 0.0:
+                    continue
+                _Sdb += _einfo['w_env'] * solubility_from_rates(
+                    _kd_T, _kds_T, _ke, _kx, _a0_T6, _T)
+            _Phidb = permeability(_D_T, _Sdb)
+            _Jdb   = richardson_flux(_Phidb, _P_HIGH, 0.0, L_M)
+        else:
+            _Sdb = _Phidb = _Jdb = None
+
+        # Route: KMC-θ — same detailed balance but with the KMC-SIMULATED θ
+        # isotherm (well sampled) instead of analytic Langmuir θ. Dilute-limit
+        # (most-dilute converged point): S = ρ_oct·(k_entry/k_exit)·θ/√P.
+        _rho_oct = 4.0 / (_a0_T6 ** 3)
+        _P_v    = _sw.get('P_vals') or []
+        _th_v   = _sw.get('theta_vals') or []
+        _cv     = _sw.get('converged') or [True] * len(_P_v)
+        _dilute = [(p, th) for p, th, c in zip(_P_v, _th_v, _cv) if c and p > 0.0]
+        if _dilute and _kent_T:
+            _P_lo, _th_lo = min(_dilute, key=lambda x: x[0])
+            _Skt = 0.0
+            for _env, _einfo in _dh_sol_by_env.items():
+                _ke = _kent_T.get(_env); _kx = _kext_T.get(_env)
+                if _ke is None or _kx is None or _kx <= 0.0:
+                    continue
+                _Skt += _einfo['w_env'] * _rho_oct * (_ke / _kx) * _th_lo / np.sqrt(_P_lo)
+            _Phikt = permeability(_D_T, _Skt)
+            _Jkt   = richardson_flux(_Phikt, _P_HIGH, 0.0, L_M)
+        else:
+            _P_lo = _th_lo = _Skt = _Phikt = _Jkt = None
+
+        # Diagnostic: KMC empirical counting S = C0/√P, for sub1 AND sub2. This
+        # is the noise-limited route (kept for comparison, NOT the headline).
+        _kmc_c2 = fit_solubility_from_kmc(_sw)     # C0_vals == sub2 (back-compat)
+        _sw_s1  = dict(_sw); _sw_s1['C0_vals'] = _sw.get('C0_sub1_vals', _sw.get('C0_vals'))
+        _kmc_c1 = fit_solubility_from_kmc(_sw_s1)
+        _S3     = _kmc_c2['S_mean']
+        _Phi3   = permeability(_D_T, _S3)
+        _J3     = richardson_flux(_Phi3, _P_HIGH, 0.0, L_M)
+        _siev   = (check_sieverts_law(_P_v, _sw.get('J_vals') or [], plot=False)
+                   if _P_v else {'r_squared': None})
+
+        # KMC's headline deliverable: does this surface OBEY Sieverts' law?
+        # Read from the well-sampled coverage isotherm θ(P) (robust, unlike the
+        # noise-limited flux/C0). n≈0.5 -> dissociative equilibrium (Sieverts);
+        # n≈1.0 -> dissociation rate-limited (surface-limited, e.g. oxides).
+        _regime = (classify_sieverts_regime(_P_v, _th_v, converged=_cv)
+                   if _P_v else {'regime': 'insufficient_data', 'theta_exponent': None})
 
         # accumulate per-route S(T) for the multi-T Arrhenius fits below
-        _S_geo_arr.append(_S1); _S_vib_arr.append(_S2)
-        _S_kmc_arr.append(_S3); _T_arr6.append(float(_T))
+        _S_geo_arr.append(_S1);  _S_vib_arr.append(_S2)
+        _S_db_arr.append(_Sdb);  _S_kt_arr.append(_Skt)
+        _S_kmc_arr.append(_S3);  _T_arr6.append(float(_T))
 
         _perm_f = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
         _perm_payload = {
@@ -697,17 +757,30 @@ for _n_h in N_H_VALUES:
             'dH_sol_mean_eV': _DH_SOL, 'a0_m': _a0_T6,
             'dH_diss_eV': _DH_DISS_USED, 'dH_entry_eV': _DH_ENTRY_USED,
             'n_env': len(_dh_sol_by_env),
+            'solubility_reference': 'sub1: 1/2 dH_diss + Hop A (Hop B+ = bulk diffusion, in D)',
+            'solubility_headline': 'geometric + vibrational (energy-based); detailed_balance/kmc_theta/option3 are rate-/count-based diagnostics, NOT the reported solubility',
             'option1': {'S0': _S0_geo, 'S': _S1, 'Phi': _Phi1, 'J': _J1,
-                        'route': 'geometric S0, per-env Boltzmann'},
+                        'route': 'geometric S0, per-env Boltzmann (sub1) [SOLUBILITY HEADLINE]'},
             'option2': ({'S0': _S0_vib, 'S': _S2, 'Phi': _Phi2, 'J': _J2,
-                         'route': 'vibrational S0, per-env Boltzmann'}
+                         'route': 'vibrational S0, per-env Boltzmann (sub1) [SOLUBILITY HEADLINE]'}
                         if _fs_freq_sets else
                         {'S0': None, 'S': None, 'Phi': None, 'J': None,
                          'route': 'vibrational S0 unavailable (no FS vibrations)'}),
+            'detailed_balance': {'S': _Sdb, 'Phi': _Phidb, 'J': _Jdb,
+                        'route': 'detailed balance (rate-based CROSS-CHECK; carries a dissociation-rate-averaging artifact -- NOT the solubility; use geometric/vibrational)'},
+            'kmc_theta': {'S': _Skt, 'Phi': _Phikt, 'J': _Jkt,
+                        'theta_dilute': _th_lo, 'P_dilute_Pa': _P_lo,
+                        'route': 'KMC-theta (rate-based CROSS-CHECK; inherits the dissociation artifact via theta + finite-coverage rolloff -- NOT the solubility)'},
             'option3': {'S': _S3, 'Phi': _Phi3, 'J': _J3,
-                        'S_std':       _kmc_sol['S_std'],
-                        'n_converged': _kmc_sol['n_converged'],
-                        'route': 'KMC empirical Sieverts fit'},
+                        'S_sub1': _kmc_c1['S_mean'], 'S_sub2': _S3,
+                        'S_std': _kmc_c2['S_std'], 'n_converged': _kmc_c2['n_converged'],
+                        'sieverts_r2': _siev.get('r_squared'),
+                        'route': 'KMC empirical counting S=C0/sqrtP [DIAGNOSTIC: noise-limited]'},
+            'kmc_kinetic_flux': {
+                'sub1_at_Phigh': (_sw['J_sub1_vals'][-1] if _sw.get('J_sub1_vals') else None),
+                'sub2_at_Phigh': (_sw['J_vals'][-1] if _sw.get('J_vals') else None),
+                'note': 'D*C0/L from KMC counting (diagnostic); Richardson flux is per-route J above'},
+            'sieverts_regime': _regime,   # KMC deliverable: does this surface obey Sieverts?
             'P_high_Pa': _P_HIGH, 'L_m': L_M,
         }
         if _dilute_note:
@@ -716,20 +789,29 @@ for _n_h in N_H_VALUES:
             json.dump(_perm_payload, _f, indent=2)
         mark_done(_perm_done_marker)
         _PERM_STATUS['permeability_written'].append(f'{_n_h}H_T{int(_T)}K')
-        _s2_str = f'{_S2:.3e}' if _S2 is not None else 'n/a'
-        _phi2_str = f'{_Phi2:.3e}' if _Phi2 is not None else 'n/a'
-        print(f'  T={_T:4.0f} K  Opt1(geom):  S={_S1:.3e}  Phi={_Phi1:.3e}  J={_J1:.3e} atoms/m²/s')
-        print(f'  T={_T:4.0f} K  Opt2(vib):   S={_s2_str}  Phi={_phi2_str}')
-        print(f'  T={_T:4.0f} K  Opt3(KMC):   S={_S3:.3e}  Phi={_Phi3:.3e}  J={_J3:.3e} atoms/m²/s')
+        _fmt = lambda x: (f'{x:.3e}' if x is not None else 'n/a')
+        _rex = _regime.get('theta_exponent')
+        _rex_s = f'{_rex:.2f}' if _rex is not None else 'n/a'
+        print(f'  T={_T:4.0f} K  SOLUBILITY (from energies):  geom S={_fmt(_S1)}  vib S={_fmt(_S2)}')
+        print(f'  T={_T:4.0f} K  rate-based cross-checks:     det-bal S={_fmt(_Sdb)}  kmc-θ S={_fmt(_Skt)}')
+        print(f'  T={_T:4.0f} K  KMC DELIVERABLE — Sieverts regime: {_regime.get("regime")}  '
+              f'(θ~P^{_rex_s}, θ_max={_regime.get("theta_max")})')
+        print(f'  T={_T:4.0f} K  kmc-count (noise diagnostic): S={_fmt(_S3)}  fluxSievertsR²={_siev.get("r_squared")}')
 
     # ── Multi-T Arrhenius fits for this n_H ──────────────────────────────────
-    # Fit each solubility route (geometric, vibrational, KMC-empirical) as
-    # ln S vs 1/T -> (S0, ΔH_sol, R²), then derive permeability Arrhenius
-    # params Φ0 = D0·S0, E_Φ = E_D + ΔH_sol for each. R² is the curvature flag
-    # (per-env S(T) is a sum of Arrhenius terms; R² < 1 is physical, not error).
+    # Fit each solubility route (geometric, vibrational, detailed-balance,
+    # KMC-θ, and the KMC-counting diagnostic) as ln S vs 1/T -> (S0, ΔH_sol, R²),
+    # then derive permeability Arrhenius params Φ0 = D0·S0, E_Φ = E_D + ΔH_sol.
+    # R² is the curvature flag (per-env S(T) is a sum of Arrhenius terms; R² < 1
+    # is physical, not error). SOLUBILITY HEADLINE = geometric + vibrational
+    # (energy-based). detailed_balance/kmc_theta (rate-based, dissociation-
+    # averaging artifact) and 'kmc' (counting, noise-limited) are diagnostics,
+    # NOT the reported solubility.
     _sol_routes = {}
     for _route, _S_list in (('geometric', _S_geo_arr),
                             ('vibrational', _S_vib_arr),
+                            ('detailed_balance', _S_db_arr),
+                            ('kmc_theta', _S_kt_arr),
                             ('kmc', _S_kmc_arr)):
         _pts = [(t, s) for t, s in zip(_T_arr6, _S_list)
                 if s is not None and s == s and s > 0.0]

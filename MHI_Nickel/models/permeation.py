@@ -148,30 +148,42 @@ def sweep_pressure(
     Returns
     -------
     dict
-        ``{'P_vals': list, 'J_vals': list, 'C0_vals': list,
-           'sqrt_P_vals': list, 'converged': list}``
+        ``{'P_vals', 'J_vals' (sub2), 'J_sub1_vals', 'C0_vals' (=sub2),
+           'C0_sub1_vals', 'C0_sub2_vals', 'sqrt_P_vals', 'converged',
+           'theta_vals', 't_total_vals', 'n_steps_vals'}``. ``J_vals``/``C0_vals``
+        alias the sub2 layer for back-compat; sub1 and sub2 are reported
+        separately as diagnostics (the headline solubility is θ-based, not from
+        these rare-event concentrations).
     """
     kw = kmc_kwargs or {}
-    P_out:       list[float] = []
-    J_out:       list[float] = []
-    C0_out:      list[float] = []
-    sqrtP_out:   list[float] = []
-    conv_out:    list[bool]  = []
-    theta_out:   list[float] = []
-    t_total_out: list[float] = []
-    nsteps_out:  list[int]   = []
+    P_out:        list[float] = []
+    J_out:        list[float] = []
+    J_sub1_out:   list[float] = []
+    C0_out:       list[float] = []
+    C0_sub1_out:  list[float] = []
+    C0_sub2_out:  list[float] = []
+    sqrtP_out:    list[float] = []
+    conv_out:     list[bool]  = []
+    theta_out:    list[float] = []
+    t_total_out:  list[float] = []
+    nsteps_out:   list[int]   = []
 
     for P in P_vals_Pa:
         grid = make_grid(nx, ny, composition=composition, seed=seed,
                          sub1_env_composition=sub1_env_composition,
                          sub2_env_composition=sub2_env_composition)
-        ss   = run_kmc_to_steady_state(grid, rate_dict, P, T_K, D_m2s, a0_m, **kw)
-        C0   = ss['C0']
-        J    = fick_flux(D_m2s, C0, L_m)
+        ss    = run_kmc_to_steady_state(grid, rate_dict, P, T_K, D_m2s, a0_m, **kw)
+        C0_s1 = ss['C0_sub1']
+        C0_s2 = ss['C0_sub2']
+        J1    = fick_flux(D_m2s, C0_s1, L_m)
+        J2    = fick_flux(D_m2s, C0_s2, L_m)
 
         P_out.append(float(P))
-        J_out.append(float(J))
-        C0_out.append(float(C0))
+        J_out.append(float(J2))               # back-compat: kinetic flux from sub2
+        J_sub1_out.append(float(J1))
+        C0_out.append(float(C0_s2))           # back-compat: C0 == sub2
+        C0_sub1_out.append(float(C0_s1))
+        C0_sub2_out.append(float(C0_s2))
         sqrtP_out.append(float(np.sqrt(P)))
         conv_out.append(bool(ss['converged']))
         theta_out.append(float(ss['theta_ss']))
@@ -179,17 +191,21 @@ def sweep_pressure(
         nsteps_out.append(int(ss['n_steps']))
 
         print(
-            f'  P={P:.2e} Pa | θ={ss["theta_ss"]:.4f} | C0={C0:.3e} atoms/m³ | '
-            f'J={J:.3e} atoms/m²/s | converged={ss["converged"]}'
+            f'  P={P:.2e} Pa | θ={ss["theta_ss"]:.4f} | '
+            f'C0(sub1)={C0_s1:.3e} C0(sub2)={C0_s2:.3e} atoms/m³ | '
+            f'J={J2:.3e} atoms/m²/s | converged={ss["converged"]}'
         )
 
     return {
-        'P_vals':      P_out,
-        'J_vals':      J_out,
-        'C0_vals':     C0_out,
-        'sqrt_P_vals': sqrtP_out,
-        'converged':   conv_out,
-        'theta_vals':  theta_out,
+        'P_vals':       P_out,
+        'J_vals':       J_out,
+        'J_sub1_vals':  J_sub1_out,
+        'C0_vals':      C0_out,
+        'C0_sub1_vals': C0_sub1_out,
+        'C0_sub2_vals': C0_sub2_out,
+        'sqrt_P_vals':  sqrtP_out,
+        'converged':    conv_out,
+        'theta_vals':   theta_out,
         't_total_vals': t_total_out,
         'n_steps_vals': nsteps_out,
     }
@@ -271,6 +287,92 @@ def check_sieverts_law(
         'r_squared':  r2,
         'is_sieverts': is_sieverts,
     }
+
+
+def classify_sieverts_regime(P_vals_Pa, theta_vals, converged=None,
+                             dilute_theta_max: float = 0.4,
+                             sat_theta: float = 0.85) -> dict:
+    """Classify the Sieverts-law regime from the KMC coverage isotherm θ(P).
+
+    Solubility itself is a thermodynamic quantity (computed from energies); the
+    KMC's distinct job is to say **whether Sieverts' law even applies** to a
+    given surface. Sieverts (C ∝ √P) holds only when the surface keeps its
+    *dissociative-adsorption equilibrium* in the dilute limit. The coverage is
+    the well-sampled KMC observable that reveals this (unlike the rare-event
+    subsurface concentration, which is noise-limited):
+
+    * ``θ ∝ √P`` at low P (log-log slope n ≈ 0.5) → dissociative equilibrium
+      maintained → **sieverts_compatible** (flux ∝ √P, diffusion-limited).
+    * ``θ ∝ P`` (n ≈ 1.0) → adsorption/dissociation rate-limiting (H drains
+      before it can re-desorb) → **surface_limited**; Sieverts fails and the
+      flux goes as P, not √P (e.g. slow-dissociation oxide surfaces).
+    * ``θ`` plateaus near 1 with no dilute points sampled → **saturated_only**:
+      the sweep sits above the dilute Sieverts window.
+
+    Uses only the (well-sampled) surface coverage — never the rare-event
+    subsurface count — so it is robust where the KMC flux is not.
+
+    Parameters
+    ----------
+    P_vals_Pa : list of float
+        Sweep pressures [Pa].
+    theta_vals : list of float
+        Steady-state surface coverage at each pressure (from the KMC).
+    converged : list of bool, optional
+        Per-point convergence flags; unconverged points are dropped.
+    dilute_theta_max : float
+        Upper θ bound defining the "dilute" window used to fit the low-P
+        exponent.  Default 0.4.
+    sat_theta : float
+        θ above which the surface is treated as saturated.  Default 0.85.
+
+    Returns
+    -------
+    dict
+        ``{'regime', 'theta_exponent', 'theta_max', 'saturates_in_sweep',
+           'n_dilute_points', 'note'}``.  ``regime`` ∈
+        {``'sieverts_compatible'``, ``'surface_limited'``, ``'saturated_only'``,
+        ``'insufficient_data'``}.
+    """
+    P  = np.asarray(P_vals_Pa, dtype=float)
+    th = np.asarray(theta_vals, dtype=float)
+    if converged is not None:
+        keep = np.asarray(converged, dtype=bool)
+        P, th = P[keep], th[keep]
+    ok = (P > 0.0) & (th > 0.0)
+    P, th = P[ok], th[ok]
+
+    theta_max = float(th.max()) if th.size else 0.0
+    saturated = theta_max >= sat_theta
+
+    dil = th < dilute_theta_max
+    n_dilute = int(dil.sum())               # genuinely dilute (low-θ) points
+    if n_dilute >= 3:
+        n = float(np.polyfit(np.log(P[dil]), np.log(th[dil]), 1)[0])
+    elif P.size >= 3:
+        # not enough dilute points — fall back to the lowest third of the sweep
+        idx = np.argsort(P)[:max(3, P.size // 3)]
+        n = float(np.polyfit(np.log(P[idx]), np.log(th[idx]), 1)[0])
+    else:
+        return {'regime': 'insufficient_data', 'theta_exponent': None,
+                'theta_max': theta_max, 'saturates_in_sweep': saturated,
+                'n_dilute_points': n_dilute,
+                'note': 'need >=3 positive converged points to classify'}
+
+    # exponent near 0.5 -> dissociative equilibrium (Sieverts); near 1.0 ->
+    # dissociation rate-limited (surface-limited). Boundary midway at 0.75.
+    if saturated and n_dilute < 3:
+        regime = 'saturated_only'
+    elif n < 0.75:
+        regime = 'sieverts_compatible'
+    else:
+        regime = 'surface_limited'
+
+    print(f'[Sieverts regime] θ~P^{n:.2f}  θ_max={theta_max:.2f}  -> {regime}')
+    return {'regime': regime, 'theta_exponent': n, 'theta_max': theta_max,
+            'saturates_in_sweep': saturated, 'n_dilute_points': n_dilute,
+            'note': ('theta~P^n: n≈0.5 sieverts_compatible, n≈1.0 surface_limited; '
+                     'theta_max near 1 = saturated (out of the dilute window)')}
 
 
 # ---------------------------------------------------------------------------
@@ -453,25 +555,23 @@ def vibrational_S0(a0_m: float, T_K: float, freqs_dissolved_cm1,
     return _S0
 
 
-def build_dh_sol_by_env(hopa_vib: dict, hopb_vib: dict, dh_diss_eV: float,
+def build_dh_sol_by_env(hopa_vib: dict, dh_diss_eV: float,
                         out_json: str | None = None) -> dict:
-    """Per-environment solution enthalpy ΔH_sol(env), carried to sub2.
+    """Per-environment solution enthalpy ΔH_sol(env), referenced to sub1.
 
-    ``ΔH_sol(env) = ½·ΔH_diss + ΔH_HopA(env) + ΔH_HopB``, built from the
-    ZPE-corrected reaction energies of the hops (reaction energy = forward
-    barrier − reverse barrier = ``Ea_zpe − Ed_zpe``), grouped by the sub1
-    entry environment. ΔH_HopB enters as the mean over Hop B pathways (Hop B is
-    keyed by sub2 env; each sub1 leads on to some sub2, so its aggregate mean is
-    used — an explicit, documented simplification). Population weight ``w_env``
-    is the fraction of Hop A pathways in each environment.
+    ``ΔH_sol(env) = ½·ΔH_diss + ΔH_HopA(env)``, built from the ZPE-corrected
+    reaction energy of Hop A (reaction energy = forward barrier − reverse
+    barrier = ``Ea_zpe − Ed_zpe``), grouped by the sub1 entry environment.
+    Solubility is referenced to the first subsurface (sub1) dissolved site; the
+    sub1→sub2 hop (Hop B) and deeper transport are treated as bulk diffusion
+    (carried by D), so they are deliberately NOT included here. Population
+    weight ``w_env`` is the fraction of Hop A pathways in each environment.
 
     Parameters
     ----------
     hopa_vib : dict
         ``{label: {env, Ea_zpe, Ed_zpe, ...}}`` from
         ``tst_rates.write_hop_vib_rates`` (env = sub1 env).
-    hopb_vib : dict
-        Same shape for Hop B (env = sub2 env).
     dh_diss_eV : float
         H₂ dissociation reaction energy [eV] (per H₂).
     out_json : str, optional
@@ -480,7 +580,7 @@ def build_dh_sol_by_env(hopa_vib: dict, hopb_vib: dict, dh_diss_eV: float,
     Returns
     -------
     dict
-        ``{env: {dH_sol_eV, w_env, n_sites, dH_hopA_eV, dH_hopB_mean_eV}}``.
+        ``{env: {dH_sol_eV, w_env, n_sites, dH_hopA_eV}}``.
     """
     def _rxn(r):
         a, d = r.get('Ea_zpe'), r.get('Ed_zpe')
@@ -494,19 +594,15 @@ def build_dh_sol_by_env(hopa_vib: dict, hopb_vib: dict, dh_diss_eV: float,
             continue
         a_by_env.setdefault(env, []).append(dr)
 
-    b_deltas = [d for d in (_rxn(r) for r in hopb_vib.values()) if d is not None]
-    dh_hopb_mean = float(np.mean(b_deltas)) if b_deltas else 0.0
-
     total = sum(len(v) for v in a_by_env.values()) or 1
     out: dict = {}
     for env, deltas in a_by_env.items():
         dh_hopa = float(np.mean(deltas))
         out[env] = {
-            'dH_sol_eV':       0.5 * dh_diss_eV + dh_hopa + dh_hopb_mean,
-            'w_env':           len(deltas) / total,
-            'n_sites':         len(deltas),
-            'dH_hopA_eV':      dh_hopa,
-            'dH_hopB_mean_eV': dh_hopb_mean,
+            'dH_sol_eV':  0.5 * dh_diss_eV + dh_hopa,
+            'w_env':      len(deltas) / total,
+            'n_sites':    len(deltas),
+            'dH_hopA_eV': dh_hopa,
         }
 
     if out_json:
