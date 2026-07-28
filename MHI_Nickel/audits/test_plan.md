@@ -827,8 +827,9 @@ Tests `surface_coverage()`, `sub1_population()`, `sub2_population()`, `subsurfac
 |------|----------------|
 | `test_coverage_partial` | Partial occupancy → correct coverage fraction |
 | `test_sub1_and_sub2_population` | sub1 and sub2 populations counted independently |
-| `test_concentration_uses_sub2_only` | C₀ is built from sub2 occupancy, not sub1 |
+| `test_concentration_uses_sub2_only` | Default `subsurface_concentration` uses sub2 occupancy, not sub1 |
 | `test_concentration_exact_formula` | `C = N_sub2 / (nx·ny·a0³/√2)` |
+| `test_concentration_layer_selects_sub1` | `layer='sub1'` reports the first-subsurface occupancy (dissolved reference); default stays sub2 |
 
 #### `TestBuildEventList`
 | Test | What it asserts |
@@ -1009,8 +1010,8 @@ Tests `build_dh_sol_by_env()` — per-environment ΔH_sol assembly.
 
 | Test | What it asserts |
 |------|----------------|
-| `test_groups_by_sub1_env_with_weights` | Groups Hop A/B by sub1 env, with population weights |
-| `test_dh_sol_formula` | `ΔH_sol(env) = ½ΔH_diss + ΔH_HopA(env) + ΔH_HopB` |
+| `test_groups_by_sub1_env_with_weights` | Groups Hop A by sub1 env, with population weights |
+| `test_dh_sol_formula_sub1_no_hopb` | `ΔH_sol(env) = ½ΔH_diss + ΔH_HopA(env)` (sub1 reference; Hop B is NOT included — it is bulk diffusion, carried by D) |
 | `test_writes_json` | Writes `dH_sol_by_env.json` |
 
 #### `TestSolubilityByEnvironment`
