@@ -25,6 +25,7 @@ from models.permeation import (
     _M_H2_KG,
     fick_flux,
     check_sieverts_law,
+    classify_sieverts_regime,
     arrhenius_diffusivity,
     lattice_site_S0,
     solubility_from_rates,
@@ -145,6 +146,37 @@ class TestCheckSievertsFit:
         J_vals = [5.0, 5.0, 5.0, 5.0]
         result = check_sieverts_law(P_vals, J_vals, plot=False)
         assert result['r_squared'] == pytest.approx(1.0)
+
+
+class TestClassifySievertsRegime:
+    # Regime read from the coverage isotherm θ(P): exponent ≈0.5 (dissociative
+    # equilibrium → Sieverts), ≈1.0 (dissociation rate-limited → surface),
+    # θ→1 with no dilute points (saturated).
+    _P = [1e-4, 4e-4, 1.6e-3, 6.4e-3, 2.56e-2]   # factor-4 pressure steps
+
+    def test_sqrt_p_is_sieverts_compatible(self):
+        th = [0.01 * math.sqrt(p) for p in self._P]      # θ ∝ √P  → n ≈ 0.5
+        out = classify_sieverts_regime(self._P, th)
+        assert out['theta_exponent'] == pytest.approx(0.5, abs=0.05)
+        assert out['regime'] == 'sieverts_compatible'
+
+    def test_linear_p_is_surface_limited(self):
+        th = [2.0 * p for p in self._P]                  # θ ∝ P    → n ≈ 1.0
+        out = classify_sieverts_regime(self._P, th)
+        assert out['theta_exponent'] == pytest.approx(1.0, abs=0.05)
+        assert out['regime'] == 'surface_limited'
+
+    def test_saturated_only_when_no_dilute_points(self):
+        out = classify_sieverts_regime([1e3, 1e4, 1e5], [0.95, 0.97, 0.99])
+        assert out['saturates_in_sweep'] is True
+        assert out['n_dilute_points'] == 0
+        assert out['regime'] == 'saturated_only'
+
+    def test_converged_filter_drops_points(self):
+        # only 2 converged points → cannot classify
+        out = classify_sieverts_regime(
+            [1e-4, 2e-4, 3e-4], [0.01, 0.02, 0.03], converged=[True, True, False])
+        assert out['regime'] == 'insufficient_data'
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -555,27 +587,29 @@ class TestBuildDhSolByEnv:
             'hopa_s_2': {'env': 'Ni5Mo_oct', 'Ea_zpe': 0.25, 'Ed_zpe': 0.35},  # ΔH_A=-0.10
         }
 
-    def _hopb(self):
-        return {'hopb_s_0': {'env': 'Ni6_oct', 'Ea_zpe': 0.50, 'Ed_zpe': 0.40}}  # ΔH_B=+0.10
-
     def test_groups_by_sub1_env_with_weights(self):
-        out = build_dh_sol_by_env(self._hopa(), self._hopb(), dh_diss_eV=-1.0)
+        out = build_dh_sol_by_env(self._hopa(), dh_diss_eV=-1.0)
         assert set(out) == {'Ni6_oct', 'Ni5Mo_oct'}
         assert out['Ni6_oct']['n_sites'] == 2
         assert out['Ni5Mo_oct']['n_sites'] == 1
         assert out['Ni6_oct']['w_env'] == pytest.approx(2 / 3)
         assert out['Ni5Mo_oct']['w_env'] == pytest.approx(1 / 3)
 
-    def test_dh_sol_formula(self):
-        out = build_dh_sol_by_env(self._hopa(), self._hopb(), dh_diss_eV=-1.0)
-        # Ni6_oct: 0.5*(-1.0) + mean(0.20,0.20) + 0.10 = -0.5 + 0.20 + 0.10 = -0.20
-        assert out['Ni6_oct']['dH_sol_eV'] == pytest.approx(-0.20)
-        # Ni5Mo_oct: -0.5 + (-0.10) + 0.10 = -0.50
-        assert out['Ni5Mo_oct']['dH_sol_eV'] == pytest.approx(-0.50)
+    def test_dh_sol_formula_sub1_no_hopb(self):
+        # Solubility is referenced to sub1: ΔH_sol = ½·ΔH_diss + ΔH_HopA only.
+        # Hop B is NOT a parameter and must not enter (it is bulk diffusion, in D).
+        out = build_dh_sol_by_env(self._hopa(), dh_diss_eV=-1.0)
+        # Ni6_oct: 0.5*(-1.0) + mean(0.20, 0.20) = -0.5 + 0.20 = -0.30
+        assert out['Ni6_oct']['dH_sol_eV'] == pytest.approx(-0.30)
+        # Ni5Mo_oct: -0.5 + (-0.10) = -0.60
+        assert out['Ni5Mo_oct']['dH_sol_eV'] == pytest.approx(-0.60)
+        # Hop B must not be reported in the solubility dict; Hop A must be
+        assert 'dH_hopB_mean_eV' not in out['Ni6_oct']
+        assert 'dH_hopA_eV' in out['Ni6_oct']
 
     def test_writes_json(self, tmp_path):
         out_json = str(tmp_path / 'dH_sol_by_env.json')
-        build_dh_sol_by_env(self._hopa(), self._hopb(), -1.0, out_json=out_json)
+        build_dh_sol_by_env(self._hopa(), -1.0, out_json=out_json)
         assert pathlib.Path(out_json).exists()
         loaded = json.loads(pathlib.Path(out_json).read_text())
         assert 'Ni6_oct' in loaded

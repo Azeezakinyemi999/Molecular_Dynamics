@@ -265,6 +265,16 @@ class TestGridQueries:
         expected = 2 / (4 * 4 * (_A0 ** 3) / math.sqrt(2.0))
         assert subsurface_concentration(g, _A0) == pytest.approx(expected, rel=1e-8)
 
+    def test_concentration_layer_selects_sub1(self):
+        # layer='sub1' reports the first-subsurface occupancy (the dissolved
+        # reference); the default ('sub2') must not see it.
+        g = _all_ni_grid(4, 4)
+        g['sub1_occ'][0, 0] = 1
+        assert subsurface_concentration(g, _A0) == pytest.approx(0.0)
+        assert subsurface_concentration(g, _A0, layer='sub1') > 0.0
+        expected = 1 / (4 * 4 * (_A0 ** 3) / math.sqrt(2.0))
+        assert subsurface_concentration(g, _A0, layer='sub1') == pytest.approx(expected, rel=1e-8)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 7. build_event_list

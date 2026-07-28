@@ -160,7 +160,7 @@ def validation(tmp_path_factory):
 
     # ── Part 4: per-env solution enthalpy (exercised) ─────────────────────────
     dh_sol_by_env = build_dh_sol_by_env(
-        hopa_vib, hopb_vib, _DH_DISS,
+        hopa_vib, _DH_DISS,
         out_json=os.path.join(results_dir, 'dH_sol_by_env.json'))
 
     # ── Parts 6 + 3: env-keyed rate dict + two-layer KMC sweep, per T ─────────
@@ -239,13 +239,15 @@ class TestDhSolByEnv:
     def test_two_environments(self, validation):
         assert set(validation['dh_sol_by_env']) == {'Ni6_oct', 'Ni5Mo_oct'}
 
-    def test_dh_sol_formula_to_sub2(self, validation):
+    def test_dh_sol_formula_sub1(self, validation):
         d = validation['dh_sol_by_env']
-        # ΔH_B mean over both Hop B pathways = mean(−0.15, −0.05) = −0.10
-        # Ni6_oct:   ½(−0.5) + ΔH_A(−0.20) + (−0.10) = −0.55
-        # Ni5Mo_oct: ½(−0.5) + ΔH_A(−0.10) + (−0.10) = −0.45
-        assert d['Ni6_oct']['dH_sol_eV'] == pytest.approx(-0.55, abs=1e-9)
-        assert d['Ni5Mo_oct']['dH_sol_eV'] == pytest.approx(-0.45, abs=1e-9)
+        # Solubility referenced to sub1: ΔH_sol = ½·ΔH_diss + ΔH_HopA (no Hop B;
+        # Hop B onward is bulk diffusion, carried by D).
+        # Ni6_oct:   ½(−0.5) + ΔH_A(−0.20) = −0.45
+        # Ni5Mo_oct: ½(−0.5) + ΔH_A(−0.10) = −0.35
+        assert d['Ni6_oct']['dH_sol_eV'] == pytest.approx(-0.45, abs=1e-9)
+        assert d['Ni5Mo_oct']['dH_sol_eV'] == pytest.approx(-0.35, abs=1e-9)
+        assert 'dH_hopB_mean_eV' not in d['Ni6_oct']
 
 
 # ═══════════════════════════════════════════════════════════════════════════
