@@ -440,8 +440,11 @@ class TestKMCIntegration:
 
     def test_kmc_returns_required_keys(self, kmc_result):
         result, _ = kmc_result
-        for key in ('t_total', 'theta_ss', 'C0', 'n_steps', 'converged'):
+        for key in ('t_total', 'theta_ss', 'C0', 'C0_sub1', 'C0_sub2',
+                    'n_steps', 'converged'):
             assert key in result
+        # C0 is the back-compat alias for the sub2 (deepest) layer
+        assert result['C0'] == result['C0_sub2']
 
     def test_kmc_t_total_positive(self, kmc_result):
         result, _ = kmc_result
