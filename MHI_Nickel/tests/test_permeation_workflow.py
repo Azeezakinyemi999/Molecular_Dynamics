@@ -396,12 +396,23 @@ class TestPermeationSuccessTracking:
             '_sub1_env_comp': None, '_sub2_env_comp': None,
             'env_rate_dict': lambda hv, T: ({}, {}),
             'solubility_by_environment': lambda d, S0, T: 1e-3,
+            'solubility_env_rel_err': lambda d, T, S0_rel_err=0.0: 0.1,
+            'solubility_from_rates': lambda kd, kds, ke, kx, a0, T: 1e-3,
             'vibrational_S0': lambda a0, T, freqs: 1e23,
             'build_dh_sol_by_env': lambda *a, **kw: {},
-            'fit_arrhenius': lambda T, y: {'prefactor': 1e28, 'Ea_eV': 0.25,
-                                           'r2': 0.99, 'n_points': len(list(T))},
-            'permeability_arrhenius': lambda D0, ED, S0, dH: {'Phi0': D0 * S0,
-                                                              'E_phi_eV': ED + dH},
+            'classify_sieverts_regime': lambda P, th, converged=None, **kw: {
+                'regime': 'sieverts_compatible', 'theta_exponent': 0.5,
+                'theta_max': 0.2},
+            'check_sieverts_law': lambda P, J, plot=False: {'r_squared': 0.99},
+            # error-propagation-current return schemas (signatures accept the
+            # y_err / *_err kwargs the body now passes)
+            'fit_arrhenius': lambda T, y, yerr=None: {
+                'prefactor': 1e28, 'Ea_eV': 0.25, 'r2': 0.99,
+                'n_points': len(list(T)),
+                'prefactor_rel_err': 0.1, 'Ea_err_eV': 0.02},
+            'permeability_arrhenius': lambda D0, ED, S0, dH, **kw: {
+                'Phi0': D0 * S0, 'E_phi_eV': ED + dH,
+                'Phi0_rel_err': 0.1, 'Phi0_factor': 1.1, 'E_phi_err_eV': 0.02},
         }
 
         # Full success: must run to completion with no SystemExit.
