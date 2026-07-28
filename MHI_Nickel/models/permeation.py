@@ -557,6 +557,7 @@ def vibrational_S0(a0_m: float, T_K: float, freqs_dissolved_cm1,
 
 
 def build_dh_sol_by_env(hopa_vib: dict, dh_diss_eV: float,
+                        dh_diss_err_eV: float = 0.0,
                         out_json: str | None = None) -> dict:
     """Per-environment solution enthalpy ΔH_sol(env), referenced to sub1.
 
@@ -575,13 +576,18 @@ def build_dh_sol_by_env(hopa_vib: dict, dh_diss_eV: float,
         ``tst_rates.write_hop_vib_rates`` (env = sub1 env).
     dh_diss_eV : float
         H₂ dissociation reaction energy [eV] (per H₂).
+    dh_diss_err_eV : float
+        Absolute σ on ΔH_diss (e.g. the SEM over the dissociation pathways).
+        Propagated into ``dH_sol_err_eV``; default 0.0.
     out_json : str, optional
         If given, written here as ``dH_sol_by_env.json``.
 
     Returns
     -------
     dict
-        ``{env: {dH_sol_eV, w_env, n_sites, dH_hopA_eV}}``.
+        ``{env: {dH_sol_eV, dH_sol_err_eV, w_env, n_sites, dH_hopA_eV,
+        dH_hopA_err_eV}}``.  Energy errors are absolute σ [eV]; ``dH_sol_err_eV``
+        = √((½·σ_diss)² + σ_HopA²) with σ_HopA the within-env SEM.
     """
     def _rxn(r):
         a, d = r.get('Ea_zpe'), r.get('Ed_zpe')
@@ -599,11 +605,18 @@ def build_dh_sol_by_env(hopa_vib: dict, dh_diss_eV: float,
     out: dict = {}
     for env, deltas in a_by_env.items():
         dh_hopa = float(np.mean(deltas))
+        # SEM of the Hop A reaction energy within this environment
+        sem_hopa = (float(np.std(deltas, ddof=1) / np.sqrt(len(deltas)))
+                    if len(deltas) >= 2 else 0.0)
+        # ΔH_sol = ½·ΔH_diss + ΔH_HopA  ->  σ = √((½·σ_diss)² + σ_HopA²) [absolute, eV]
+        dh_sol_err = float(np.sqrt((0.5 * dh_diss_err_eV) ** 2 + sem_hopa ** 2))
         out[env] = {
-            'dH_sol_eV':  0.5 * dh_diss_eV + dh_hopa,
-            'w_env':      len(deltas) / total,
-            'n_sites':    len(deltas),
-            'dH_hopA_eV': dh_hopa,
+            'dH_sol_eV':      0.5 * dh_diss_eV + dh_hopa,
+            'dH_sol_err_eV':  dh_sol_err,
+            'w_env':          len(deltas) / total,
+            'n_sites':        len(deltas),
+            'dH_hopA_eV':     dh_hopa,
+            'dH_hopA_err_eV': sem_hopa,
         }
 
     if out_json:
@@ -653,6 +666,48 @@ def solubility_by_environment(dh_sol_by_env: dict, S0: float, T_K: float) -> flo
     print(f'[S by env] S(T={T_K:.0f}K)={_S:.3e}  (Σw·e^(−ΔH/kT)={boltz:.3e}, '
           f'{len(dh_sol_by_env)} envs)')
     return _S
+
+
+def solubility_env_rel_err(dh_sol_by_env: dict, T_K: float,
+                           S0_rel_err: float = 0.0) -> float:
+    """Fractional error σ_S/S of the per-environment Boltzmann solubility.
+
+    For ``S = S0·B`` with ``B(T) = Σ_env w_env·exp(−ΔH_env/kT)`` and per-env
+    absolute errors ``dH_sol_err_eV`` (see :func:`build_dh_sol_by_env`):
+
+        f_env = w_env·exp(−ΔH_env/kT) / B          (fractional Boltzmann weight)
+        σ_B/B = (1/k_BT)·√( Σ_env f_env²·σ_(ΔH_env)² )
+        σ_S/S = √( (σ_S0/S0)² + (σ_B/B)² )
+
+    Because Σ f_env² ≤ 1, the Boltzmann average reduces the effective ΔH error
+    relative to a single environment (single-env limit: σ_B/B → σ_ΔH/kT).
+
+    Parameters
+    ----------
+    dh_sol_by_env : dict
+        Output of :func:`build_dh_sol_by_env` (must carry ``dH_sol_err_eV``).
+    T_K : float
+        Temperature [K].
+    S0_rel_err : float
+        Fractional error on the S₀ prefactor. Default 0.0.
+
+    Returns
+    -------
+    float
+        Fractional error σ_S/S (dimensionless).
+    """
+    if T_K <= 0 or not dh_sol_by_env:
+        return float(S0_rel_err)
+    kT = _KB_EV * T_K
+    contribs = {e: d['w_env'] * np.exp(-d['dH_sol_eV'] / kT)
+                for e, d in dh_sol_by_env.items()}
+    B = sum(contribs.values())
+    if B <= 0:
+        return float(S0_rel_err)
+    var = sum((contribs[e] / B * d.get('dH_sol_err_eV', 0.0)) ** 2
+              for e, d in dh_sol_by_env.items())
+    sigma_B_over_B = float(np.sqrt(var) / kT)
+    return float(np.sqrt(S0_rel_err ** 2 + sigma_B_over_B ** 2))
 
 
 def fit_solubility_from_kmc(sweep_result: dict) -> dict:
@@ -766,8 +821,8 @@ def permeability(D_m2s: float, S_m3_pasqrt: float) -> float:
     return _Phi
 
 
-def fit_arrhenius(T_K_arr, y_arr) -> dict:
-    """Fit ``y(T) = A·exp(−Ea / kB T)`` by linear regression of ln y vs 1/T.
+def fit_arrhenius(T_K_arr, y_arr, y_err_arr=None) -> dict:
+    """Fit ``y(T) = A·exp(−Ea / kB T)`` by (optionally weighted) regression of ln y vs 1/T.
 
     Reusable for the solubility (Ea = ΔH_sol) and permeability (Ea = E_Φ)
     Arrhenius outputs. Points with non-positive T or y are dropped. The R² of
@@ -786,31 +841,60 @@ def fit_arrhenius(T_K_arr, y_arr) -> dict:
     Returns
     -------
     dict
-        ``{'prefactor': A, 'Ea_eV': float, 'r2': float, 'n_points': int}``.
-        ``prefactor``/``Ea_eV`` are NaN if fewer than two valid points remain.
+        ``{'prefactor', 'Ea_eV', 'r2', 'n_points', 'Ea_err_eV',
+        'prefactor_rel_err'}``. When per-point absolute errors ``y_err_arr`` are
+        supplied the fit is inverse-variance weighted in log space
+        (wᵢ = (yᵢ/σ_yᵢ)²) and ``Ea_err_eV`` (absolute σ on Ea) and
+        ``prefactor_rel_err`` (σ_ln of the prefactor) are propagated; otherwise
+        those two are NaN. ``prefactor``/``Ea_eV`` are NaN with < 2 valid points.
     """
     T = np.asarray(list(T_K_arr), dtype=float)
     y = np.asarray(list(y_arr),   dtype=float)
+    ye = np.asarray(list(y_err_arr), dtype=float) if y_err_arr is not None else None
     mask = (T > 0) & (y > 0)
+    if ye is not None:
+        mask = mask & np.isfinite(ye)
     T, y = T[mask], y[mask]
+    if ye is not None:
+        ye = ye[mask]
+    _nan = float('nan')
     if len(T) < 2:
-        return {'prefactor': float('nan'), 'Ea_eV': float('nan'),
-                'r2': float('nan'), 'n_points': int(len(T))}
+        return {'prefactor': _nan, 'Ea_eV': _nan, 'r2': _nan,
+                'n_points': int(len(T)), 'Ea_err_eV': _nan, 'prefactor_rel_err': _nan}
     x  = 1.0 / T
     ly = np.log(y)
-    slope, inter = np.polyfit(x, ly, 1)
+    # inverse-variance weights in log space: wᵢ = 1/σ_(ln y)² = (y/σ_y)²
+    if ye is not None and np.all(ye > 0):
+        w = (y / ye) ** 2
+    else:
+        w = np.ones_like(x)
+    sw  = w.sum(); sx = (w * x).sum(); sy = (w * ly).sum()
+    sxx = (w * x * x).sum(); sxy = (w * x * ly).sum()
+    denom = sw * sxx - sx ** 2
+    slope = (sw * sxy - sx * sy) / denom
+    inter = (sy - slope * sx) / sw
+    pred   = slope * x + inter
+    ss_res = float((w * (ly - pred) ** 2).sum())
+    ss_tot = float((w * (ly - sy / sw) ** 2).sum())
+    r2     = 1.0 - ss_res / ss_tot if ss_tot > 0.0 else 1.0
     Ea = -float(slope) * _KB_EV
     A  = float(np.exp(inter))
-    pred   = slope * x + inter
-    ss_res = float(np.sum((ly - pred) ** 2))
-    ss_tot = float(np.sum((ly - ly.mean()) ** 2))
-    r2     = 1.0 - ss_res / ss_tot if ss_tot > 0.0 else 1.0
-    print(f'[Arrhenius fit] A={A:.3e}  Ea={Ea:.4f} eV  R²={r2:.4f}  (n={len(T)})')
-    return {'prefactor': A, 'Ea_eV': Ea, 'r2': float(r2), 'n_points': int(len(T))}
+    # parameter standard errors (need >2 points for a residual-variance estimate)
+    if len(T) > 2:
+        sigma2    = ss_res / (len(T) - 2)
+        Ea_err    = _KB_EV * float(np.sqrt(sigma2 * sw / denom))    # absolute σ on Ea
+        A_rel_err = float(np.sqrt(sigma2 * sxx / denom))            # σ_ln A (fractional)
+    else:
+        Ea_err = A_rel_err = _nan
+    print(f'[Arrhenius fit] A={A:.3e}  Ea={Ea:.4f}±{Ea_err:.4f} eV  R²={r2:.4f}  (n={len(T)})')
+    return {'prefactor': A, 'Ea_eV': Ea, 'r2': float(r2), 'n_points': int(len(T)),
+            'Ea_err_eV': Ea_err, 'prefactor_rel_err': A_rel_err}
 
 
 def permeability_arrhenius(D0_m2s: float, E_D_eV: float,
-                           S0: float, dH_sol_eV: float) -> dict:
+                           S0: float, dH_sol_eV: float,
+                           D0_rel_err: float = 0.0, E_D_err_eV: float = 0.0,
+                           S0_rel_err: float = 0.0, dH_sol_err_eV: float = 0.0) -> dict:
     """Permeability Arrhenius parameters from the diffusivity and solubility fits.
 
     Since Φ = D·S with D = D₀·exp(−E_D/kT) and S = S₀·exp(−ΔH_sol/kT):
@@ -834,12 +918,27 @@ def permeability_arrhenius(D0_m2s: float, E_D_eV: float,
     dH_sol_eV : float
         Solution enthalpy [eV].
 
+    Error propagation (§ audits/error_propagation_plan.md): Φ0 is a product, so
+    fractional errors add in quadrature; E_Φ is a sum, so absolute errors do::
+
+        Φ0_rel_err = √( D0_rel_err² + S0_rel_err² )          (fractional)
+        E_phi_err  = √( E_D_err²    + dH_sol_err² )           (absolute, eV)
+
+    ``Phi0_factor = exp(Φ0_rel_err)`` is the multiplicative (×/÷) 1σ band for the
+    log-normal Φ0 (report Φ0 ∈ [Φ0/factor, Φ0·factor], never a symmetric ±).
+
     Returns
     -------
     dict
-        ``{'Phi0': float, 'E_phi_eV': float}``.
+        ``{'Phi0', 'E_phi_eV', 'Phi0_rel_err', 'Phi0_factor', 'E_phi_err_eV'}``.
     """
-    return {'Phi0': float(D0_m2s * S0), 'E_phi_eV': float(E_D_eV + dH_sol_eV)}
+    Phi0  = float(D0_m2s * S0)
+    E_phi = float(E_D_eV + dH_sol_eV)
+    Phi0_rel_err = float(np.sqrt(D0_rel_err ** 2 + S0_rel_err ** 2))
+    E_phi_err    = float(np.sqrt(E_D_err_eV ** 2 + dH_sol_err_eV ** 2))
+    return {'Phi0': Phi0, 'E_phi_eV': E_phi,
+            'Phi0_rel_err': Phi0_rel_err, 'Phi0_factor': float(np.exp(Phi0_rel_err)),
+            'E_phi_err_eV': E_phi_err}
 
 
 def richardson_flux(
@@ -921,7 +1020,8 @@ def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
     if not os.path.exists(diff_file):
         return dict(
             nh_dir=nh_dir, diff_file=diff_file, ready=False,
-            D0_m2s=None, E_D_eV=None, dilute_note=None,
+            D0_m2s=None, E_D_eV=None, D0_err_m2s=None, E_D_err_eV=None,
+            dilute_note=None,
             message=(f'{diff_file} not found — Part 3 has not produced a '
                      f'diffusivity fit for n_H={n_h}. Skipping this '
                      f'concentration entirely (no permeability computed, '
@@ -934,7 +1034,8 @@ def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
     if D0 is None or Ea is None or D0 != D0 or Ea != Ea:   # NaN-safe
         return dict(
             nh_dir=nh_dir, diff_file=diff_file, ready=False,
-            D0_m2s=None, E_D_eV=None, dilute_note=None,
+            D0_m2s=None, E_D_eV=None, D0_err_m2s=None, E_D_err_eV=None,
+            dilute_note=None,
             message=(f'{diff_file} has no valid D0/Ea (NaN or missing — '
                       f'Part 3 likely could not fit an Arrhenius relation '
                       f'for n_H={n_h}, e.g. fewer than 2 valid '
@@ -956,4 +1057,7 @@ def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
         )
 
     return dict(nh_dir=nh_dir, diff_file=diff_file, ready=True,
-                D0_m2s=D0, E_D_eV=Ea, dilute_note=dilute_note, message=None)
+                D0_m2s=D0, E_D_eV=Ea,
+                D0_err_m2s=diff_fit.get('D0_err_m2s'),
+                E_D_err_eV=diff_fit.get('E_D_err_eV'),
+                dilute_note=dilute_note, message=None)
