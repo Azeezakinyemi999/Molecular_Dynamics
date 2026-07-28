@@ -225,23 +225,27 @@ The permeability Φ = D × S combines:
 S(T) = S₀ × Σ_env  w_env · exp(−ΔH_sol(env) / k_BT)
 ```
 
-where `w_env` is each environment's population weight and the sum runs over the distinct sub-site environments. Two routes supply the prefactor S₀; a third gives S empirically:
+where `w_env` is each environment's population weight and the sum runs over the distinct sub-site environments. Four routes are reported — two supply the prefactor S₀ for the Boltzmann sum, two are rate-based (reusing the well-sampled surface coverage rather than counting rare subsurface atoms) — plus a noise-limited counting diagnostic:
 
-| Option | S₀ route | Physical meaning |
+| Route | How S is obtained | Physical meaning |
 |---|---|---|
-| Option 1 | Geometric: `S₀ = 4/a₀³` | 4 oct sites per FCC cell — the geometric site-density ceiling (`lattice_site_S0`) |
-| Option 2 | Vibrational: partition-function ratio | S₀ from the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`); available only when the dissolved-H FS vibrations were computed |
-| Option 3 | KMC pressure-sweep fit: `S = C₀/√P` | Empirical, fully self-consistent with the KMC model |
+| geometric | `S₀ = 4/a₀³` × per-env Boltzmann | 4 oct sites per FCC cell — the geometric site-density ceiling (`lattice_site_S0`) |
+| vibrational | partition-function S₀ × per-env Boltzmann | S₀ from the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`); available only when the dissolved-H FS vibrations were computed |
+| detailed_balance | `ρ_oct·(k_entry/k_exit)·√(k_diss·A/(k_des·…))`, population-weighted (`solubility_from_rates`) | **rate-based cross-check only** — routes the equilibrium solubility through kinetic rates and picks up a dissociation-rate-averaging artifact; not the reported solubility |
+| kmc_theta | `ρ_oct·(k_entry/k_exit)·θ_KMC/√P` (dilute limit) | **cross-check only** — same idea with the KMC-simulated θ; inherits the same artifact through θ plus a finite-coverage rolloff |
+| option3 (diagnostic) | `S = C₀/√P` from the KMC sweep, sub1 & sub2 | empirical counting — noise-limited (each subsurface layer holds ≪1 atom); kept for comparison, not a headline |
 
-Options 1 and 2 share the same per-environment Boltzmann sum (`solubility_by_environment`) and differ only in S₀; Option 3 reads S straight off the KMC C₀(√P) sweep. The old "detailed balance from a single representative TST rate" route has been retired.
+**geometric and vibrational are the solubility headline** — the equilibrium solubility is a thermodynamic quantity and is computed from energies (per-environment Boltzmann sum via `solubility_by_environment`, differing only in S₀). detailed_balance, kmc_theta and option3 route the same quantity through *kinetic* machinery (rates, coverage, occupancy) and each picks up an artifact, so they are **diagnostics/cross-checks, not the reported solubility**. The old "detailed balance from a single representative TST rate" route has been retired.
 
-**Per-environment solution enthalpy:**
+The KMC's distinct deliverable is instead the **Sieverts-regime classifier** (`classify_sieverts_regime`): from the coverage isotherm's low-pressure exponent `θ ∝ P^n` it reports whether the surface obeys Sieverts' law — `n ≈ 0.5` → `sieverts_compatible` (diffusion-limited), `n ≈ 1.0` → `surface_limited` (dissociation rate-limiting, e.g. oxides), `θ→1` → `saturated_only`. This is the question thermodynamics cannot answer, and it is written to `permeability_T{T}K.json` as `sieverts_regime`.
+
+**Per-environment solution enthalpy (referenced to sub1):**
 
 ```
-ΔH_sol(env) = ½ ΔH_diss + ΔH_HopA(env) + ΔH_HopB
+ΔH_sol(env) = ½ ΔH_diss + ΔH_HopA(env)
 ```
 
-carried all the way to sub2 (the near-bulk layer). `ΔH_diss` is the H₂ dissociation reaction energy (mean `delta_E` from surface NEB); `ΔH_HopA(env)` is the H* → sub1 reaction energy for that sub1 environment; `ΔH_HopB` is the sub1 → sub2 reaction energy. These are assembled per environment into `dH_sol_by_env.json` and auto-extracted from the NEB/vibration JSON files after Parts 1 and 2 run.
+Solubility stops at the first subsurface site (sub1); Hop B and deeper transport are bulk diffusion, carried by D, so `ΔH_HopB` is **not** part of the solubility (it is still computed and saved in `hopb_vib_rates.json`/`rate_dict_T{T}K.json` for other use). `ΔH_diss` is the H₂ dissociation reaction energy (mean `delta_E` from surface NEB); `ΔH_HopA(env)` is the H* → sub1 reaction energy for that sub1 environment. These are assembled per environment into `dH_sol_by_env.json` and auto-extracted from the NEB/vibration JSON files after Parts 1 and 2 run.
 
 **Fick's flux (intermediate).** During the KMC pressure sweep, the pipeline also computes J via Fick's law to validate:
 
