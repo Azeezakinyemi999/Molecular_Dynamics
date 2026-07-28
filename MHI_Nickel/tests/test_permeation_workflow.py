@@ -11,6 +11,7 @@ Covers:
   load_kmc_sweeps              — dict from permeation_sweep JSON files
   load_permeability_results    — dict from permeability JSON files
   plot_bottleneck              — returns None when no data; saves PNG otherwise
+  plot_permeation_summary      — schema-current 3-panel figure; back-compat + errors
 """
 
 import json
@@ -34,6 +35,7 @@ from models.permeation_workflow import (
     load_kmc_sweeps,
     load_permeability_results,
     plot_bottleneck,
+    plot_permeation_summary,
 )
 
 
@@ -653,6 +655,76 @@ class TestPlotBottleneck:
         assert out is not None
         assert pathlib.Path(out).exists()
         assert out.endswith('bottleneck.png')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7b. plot_permeation_summary — schema-current 3-panel figure
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _write_summary_inputs(d, T_list=(600, 800), with_errors=True, with_regime=True):
+    """Write the JSON that plot_permeation_summary consumes into dir ``d``."""
+    def _sol_route(S0, dH):
+        r = {'available': True, 'S0': S0, 'dH_sol_eV': dH,
+             'T_K_arr': list(T_list),
+             'S_arr': [S0 * math.exp(-dH / (8.617333262e-5 * T)) for T in T_list],
+             'r2': 0.99}
+        if with_errors:
+            r['S0_rel_err'] = 0.3
+            r['dH_sol_err_eV'] = 0.05
+        return r
+
+    def _perm_route(Phi0, Eph):
+        r = {'available': True, 'Phi0': Phi0, 'E_phi_eV': Eph, 'r2_S': 0.99}
+        if with_errors:
+            r['Phi0_rel_err'] = 0.4
+            r['Phi0_factor'] = math.exp(0.4)
+            r['E_phi_err_eV'] = 0.1
+            r['J_rel_err_by_T'] = {str(int(T)): 0.5 for T in T_list}
+        return r
+
+    pathlib.Path(d, 'solubility_arrhenius.json').write_text(json.dumps({
+        'routes': {'geometric': _sol_route(1e29, -0.05),
+                   'vibrational': _sol_route(1e24, -0.10),
+                   'detailed_balance': _sol_route(5e28, 0.02)}}))
+    pathlib.Path(d, 'permeability_arrhenius.json').write_text(json.dumps({
+        'routes': {'geometric': _perm_route(1e12, 0.35),
+                   'vibrational': _perm_route(1e8, 0.30),
+                   'detailed_balance': _perm_route(5e11, 0.42)}}))
+    for T in T_list:
+        P = [10.0 ** e for e in range(-4, 5)]
+        th = [min(0.99, 1e-3 * (p ** 0.5)) for p in P]
+        pathlib.Path(d, f'permeation_sweep_T{int(T)}K.json').write_text(json.dumps({
+            'P_vals': P, 'theta_vals': th, 'T_K': T}))
+        pm = {'T_K': T, 'option1': {}, 'option2': {}}
+        if with_regime:
+            pm['sieverts_regime'] = {'regime': 'sieverts_compatible',
+                                     'theta_exponent': 0.5}
+        pathlib.Path(d, f'permeability_T{int(T)}K.json').write_text(json.dumps(pm))
+
+
+class TestPlotPermeationSummary:
+
+    def test_returns_none_when_arrhenius_json_missing(self, tmp_path):
+        # sweeps present but no Arrhenius fits → nothing to summarise
+        _write_sweep_json(str(tmp_path / 'permeation_sweep_T600K.json'), T=600)
+        assert plot_permeation_summary(str(tmp_path), [600]) is None
+
+    def test_saves_png_with_full_schema(self, tmp_path):
+        _write_summary_inputs(str(tmp_path), T_list=(600, 800),
+                              with_errors=True, with_regime=True)
+        out = plot_permeation_summary(str(tmp_path), [600, 800])
+        assert out is not None
+        assert pathlib.Path(out).exists()
+        assert out.endswith('permeation_summary.png')
+
+    def test_back_compat_without_error_or_regime_fields(self, tmp_path):
+        # pre-schema data: no *_err_eV, no Phi0_rel_err, no sieverts_regime.
+        # Must still render (bands collapse to zero width, labels omit ±).
+        _write_summary_inputs(str(tmp_path), T_list=(600, 800),
+                              with_errors=False, with_regime=False)
+        out = plot_permeation_summary(str(tmp_path), [600, 800])
+        assert out is not None
+        assert pathlib.Path(out).exists()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
