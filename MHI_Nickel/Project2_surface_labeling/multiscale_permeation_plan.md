@@ -484,13 +484,17 @@ Assembles the ZPE-corrected TST rates per temperature (see Section 8 for the ful
 
 ### Phase 5 — KMC Pressure Sweep
 
-Runs once per `(stem, n_H, T)`, guarded per-temperature by an existence check on `permeation_sweep_T{T}K.json` (`audits/task_F_audit.md`). Runs the two-layer BKL KMC (surface ⇄ sub1 ⇄ sub2 → bulk drain from sub2; see Section 8 event catalog) at each of the 40 `P_VALS_PA` points, with the sub1/sub2 environment populations drawn from the real relaxed slab. The reported `C₀` is the **time-averaged sub2** concentration at steady state (sub2 being the layer that feeds the bulk), not a single final snapshot.
+Runs once per `(stem, n_H, T)`, guarded per-temperature by an existence check on `permeation_sweep_T{T}K.json` (`audits/task_F_audit.md`). Runs the two-layer BKL KMC (surface ⇄ sub1 ⇄ sub2 → bulk drain from sub2; see Section 8 event catalog) at each of the 40 `P_VALS_PA` points, with the sub1/sub2 environment populations drawn from the real relaxed slab. The sweep records the steady-state surface coverage `θ` and the time-averaged occupancy of **both** subsurface layers (`C0_sub1_vals`, `C0_sub2_vals`; `C0_vals` aliases sub2 for back-compat), plus the kinetic flux `J = D·C₀/L` for each. The subsurface occupancies are noise-limited **diagnostics** (each layer holds ≪1 atom on the grid); the headline solubility is computed thermodynamically (from energies) in Phase 6, not from these occupancies. The coverage `θ` instead feeds the KMC's distinct deliverable — the **Sieverts-regime classifier** (`classify_sieverts_regime`), which reports whether the surface obeys Sieverts' law (see Phase 6).
 
 **Output**: `results/{stem}_{n_h}H/permeation_sweep_T{T}K.json`.
 
 ### Phase 6 — Permeability Calculation
 
-Per-environment Boltzmann-weighted solubility with two S₀ routes — geometric (`4/a₀³`) and vibrational (partition-function `vibrational_S0`) — plus the KMC-empirical Sieverts route, then Richardson-Sieverts flux and Arrhenius fits of both S(T) and Φ(T) (Φ₀ = D₀·S₀, E_Φ = E_D + ΔH_sol per route). The old TST-detailed-balance route (a single arbitrary Hop A rate) has been retired. See Section 8.
+Solubility is referenced to the **first subsurface site (sub1)**: `ΔH_sol(env) = ½·ΔH_diss + ΔH_HopA(env)`. Hop B and deeper transport are treated as bulk diffusion (carried by D), so ΔH_HopB is **not** part of the solubility (it is still computed and saved for other use in `hopb_vib_rates.json`/`rate_dict_T{T}K.json`).
+
+**The solubility headline is energy-based** — solubility is a thermodynamic equilibrium quantity, so it is computed from the reaction energies via two per-environment Boltzmann-sum routes that differ only in the prefactor S₀: **geometric** (S₀ = `4/a₀³`) and **vibrational** (partition-function `vibrational_S0`). Three further routes are reported as **diagnostics/cross-checks only, not the solubility**: **detailed_balance** and **kmc_theta** route the equilibrium quantity through kinetic rates/coverage and pick up a dissociation-rate-averaging artifact; **option3** (`S = C₀/√P`, sub1 & sub2) is the noise-limited counting estimate. Then Richardson-Sieverts flux and Arrhenius fits of both S(T) and Φ(T) (Φ₀ = D₀·S₀, E_Φ = E_D + ΔH_sol per route).
+
+The KMC's own headline deliverable — the thing thermodynamics cannot give — is the **Sieverts-regime classifier** (`classify_sieverts_regime`, `sieverts_regime` in the payload): from the coverage isotherm's low-P exponent `θ ∝ P^n` it labels the surface `sieverts_compatible` (n ≈ 0.5, diffusion-limited), `surface_limited` (n ≈ 1.0, dissociation rate-limiting — e.g. oxides), or `saturated_only`. See Section 8.
 
 **Outputs** (per `n_H`): `results/{stem}_{n_h}H/permeability_T{T}K.json`, `solubility_arrhenius.json`, `permeability_arrhenius.json`, and the backward-compatible `solubility_arrhenius_kmc.json`.
 
@@ -675,7 +679,7 @@ The complete end-to-end dependency map showing every file produced and consumed,
                                               │
                                               Phase 5 — KMC sweep (per n_H, guarded per-T)
                                          ┌───────────────────────┐
-                                         │40×40 two-layer grid (sub1+sub2), BKL KMC, 40 pressures → C₀=avg(sub2)│
+                                         │40×40 two-layer grid (sub1+sub2), BKL KMC, 40 pressures → θ + C₀(sub1,sub2)│
                                          └───────────────────────┘
                                               ▼
                                          results/{stem}_{n_h}H/permeation_sweep_T{T}K.json
@@ -709,9 +713,9 @@ The complete end-to-end dependency map showing every file produced and consumed,
 | `neb_subsurface/{stem}/hopa/hopa_ranked.json` | Part 2, Phase 1 | Part 2 Phase 3/4 (ΔE_entry, ΔE_exit, ΔH_entry) | Hop A NEB barriers + reaction energy, per sub1 env |
 | `neb_subsurface/{stem}/hopb/hopb_ranked.json` | Part 2, Phase 2 | Part 2 Phase 3/4 (ΔE_mig) | Hop B NEB barrier, per sub2 env |
 | `results/{stem}/rate_dict_T{T}K.json` | Part 2, Phase 4 | Part 2 Phase 5 (KMC event rates) | Per-hop `hopa_`/`hopb_` labels (k_forward/k_reverse/Ea_zpe/nu); once per `(stem, T)` |
-| `results/{stem}/dH_sol_by_env.json` | Part 2, Phase 4 | Part 2 Phase 6 (per-env solubility) | ΔH_sol per interstitial environment + population weight |
+| `results/{stem}/dH_sol_by_env.json` | Part 2, Phase 4 | Part 2 Phase 6 (per-env solubility) | sub1 ΔH_sol (½·diss + Hop A) per interstitial environment + population weight |
 | `results/{stem}_{n_h}H/permeation_sweep_T{T}K.json` | Part 2, Phase 5 | Part 2 Phase 6 (Sieverts fit) | C₀(P,T) from KMC at each T and 40 P values, per `n_H` |
-| `results/{stem}_{n_h}H/permeability_T{T}K.json` | Part 2, Phase 6 | Final result | Φ from options 1 (geom), 2 (vib), 3 (KMC), per `n_H` |
+| `results/{stem}_{n_h}H/permeability_T{T}K.json` | Part 2, Phase 6 | Final result | Φ from geometric, vibrational, detailed_balance, kmc_theta routes (+ option3 counting diagnostic), per `n_H` |
 | `results/{stem}_{n_h}H/solubility_arrhenius.json`, `permeability_arrhenius.json` | Part 2, Phase 6 | Final result | Per-route S₀/ΔH_sol and Φ₀/E_Φ, per `n_H` |
 | `results/{stem}/permeation_status.json` | Part 2, end of run | Diagnostics | Which `n_H` succeeded/were skipped, and why |
 | `diffusivity_failures.json` | Part 3, end of run | Diagnostics | Which `(structure, n_H)` combinations failed |
@@ -839,15 +843,24 @@ The inter-layer rates are looked up per oct-site environment (surface⇄sub1 by 
 
 ---
 
-### Richardson-Sieverts permeability: three cross-validated routes
+### Richardson-Sieverts permeability: two headline solubility routes (+ three diagnostics)
 
-All three routes use Φ = D(T) × S(T), where D(T) is taken from Part 3 for the relevant `n_H`. The solubility is a **per-environment Boltzmann sum**, `S(T) = S₀ × Σ_env w_env·exp(−ΔH_sol(env)/k_BT)`, with ΔH_sol(env) = ½ΔH_diss + ΔH_HopA(env) + ΔH_HopB carried to sub2 (assembled in `dH_sol_by_env.json`). The three routes differ only in the S₀ prefactor / how S is obtained:
+All routes use Φ = D(T) × S(T), where D(T) is taken from Part 3 for the relevant `n_H`. Solubility is referenced to the **first subsurface site (sub1)**: `ΔH_sol(env) = ½ΔH_diss + ΔH_HopA(env)` (assembled in `dH_sol_by_env.json`). Hop B and deeper transport are bulk diffusion (carried by D), so ΔH_HopB is **not** in the solubility — it is still computed and saved (`hopb_vib_rates.json`, `rate_dict_T{T}K.json`) for other use. **Solubility is a thermodynamic equilibrium quantity and is therefore taken from the energies**, via two per-environment Boltzmann sums that differ only in the prefactor S₀:
 
-- **Option 1 — geometric S₀**: `S₀ = 4/a₀³` (the geometric oct-site density ceiling), fed into the per-env Boltzmann sum.
-- **Option 2 — vibrational S₀**: `S₀` from the ratio of the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`), fed into the same per-env Boltzmann sum. Available only when the dissolved-H FS vibrations were computed. This replaces the retired TST-detailed-balance route (which used a single arbitrary Hop A rate).
-- **Option 3 — KMC empirical**: `S(T) = C₀(P,T)/√P` from the Phase 5 Sieverts fit — the most physically complete but most expensive.
+- **geometric** *(headline)* — `S₀ = 4/a₀³` (geometric oct-site density ceiling), per-env Boltzmann `S(T) = S₀ × Σ_env w_env·exp(−ΔH_sol(env)/k_BT)`.
+- **vibrational** *(headline)* — `S₀` from the ratio of the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`), same per-env Boltzmann. Available only when the dissolved-H FS vibrations were computed.
 
-Each S(T) and Φ(T) series is fit to Arrhenius form `Φ(T) = Φ₀ exp(−E_Φ/k_BT)`, with `Φ₀ = D₀·S₀` and `E_Φ = E_D + ΔH_sol` combining the bulk diffusion barrier (Part 3, per `n_H`) and the solution enthalpy (Parts 1+2 NEBs, per metal). Because a per-env S(T) is a sum of Arrhenius terms, the fit R² doubles as a curvature flag (R² < 1 is physical, not error). The Richardson-Sieverts flux `J = (Φ(T)/L) × (√P_high − √P_low)` is the quantity measured in experimental permeation studies.
+The remaining three are **diagnostics/cross-checks, not the reported solubility** — each routes the equilibrium quantity through kinetic machinery and picks up an artifact:
+
+- **detailed_balance** *(cross-check)* — `S = ρ_oct·(k_entry/k_exit)·√(k_diss·A/(k_des·√(2π m k_BT)))` (`solubility_from_rates`). Because the many dissociation channels are combined by averaging *rates* rather than *energies*, it carries a dissociation-rate-averaging (Jensen) artifact and reads high.
+- **kmc_theta** *(cross-check)* — the same detailed balance with the **KMC-simulated** θ isotherm, `S = ρ_oct·(k_entry/k_exit)·θ_KMC/√P` at the dilute limit. Inherits the dissociation artifact through θ and adds a finite-coverage rolloff (the sweep does not reach truly dilute θ).
+- **option3** *(diagnostic)* — the old KMC-empirical counting `S(T) = C₀/√P`, reported for both sub1 and sub2 with the Sieverts-fit R². Noise-limited (each subsurface layer holds ≪1 atom).
+
+**The KMC's own headline output is not a solubility at all — it is the Sieverts-regime classifier** (`classify_sieverts_regime`): from the coverage isotherm's low-P exponent `θ ∝ P^n` it labels each (metal/oxide, T) as `sieverts_compatible` (n ≈ 0.5, diffusion-limited), `surface_limited` (n ≈ 1.0, dissociation rate-limiting — the oxide failure mode), or `saturated_only`. This is the question the thermodynamic solubility cannot answer: *does this surface actually obey Sieverts' law?*
+
+Each S(T) and Φ(T) series is fit to Arrhenius form `Φ(T) = Φ₀ exp(−E_Φ/k_BT)`, with `Φ₀ = D₀·S₀` and `E_Φ = E_D + ΔH_sol` combining the bulk diffusion barrier (Part 3, per `n_H`) and the solution enthalpy (½ dissociation + Hop A, per metal). Because a per-env S(T) is a sum of Arrhenius terms, the fit R² doubles as a curvature flag (R² < 1 is physical, not error). The Richardson-Sieverts flux `J = (Φ(T)/L) × (√P_high − √P_low)` is the quantity measured in experimental permeation studies.
+
+> **Reference-state caveat.** Defining S at sub1 makes D own all transport below it; since D is a bulk MSD diffusivity while the first hop out of sub1 (Hop B) has a different barrier, the near-surface region is not identical to bulk. This is the standard Φ = D·S approximation (uniform bulk D + a boundary solubility), stated explicitly.
 
 ---
 
