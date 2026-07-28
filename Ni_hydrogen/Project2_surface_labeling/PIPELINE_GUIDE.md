@@ -201,7 +201,7 @@ Ni: 71%,  Mo: 16%,  Cr: 7%,  Fe: 6%
 
 The sub1 and sub2 layers are populated with **environment labels** drawn from the real relaxed slab's interstitial-site environment distribution (done for every metal type now, not just oxides). A fixed `seed` makes the composition and environment draws reproducible across pressure points.
 
-**Steady state.** `run_kmc_to_steady_state()` runs until the surface coverage θ and the sub2 population both converge (rolling-window check comparing successive windows). The reported `C0` is the **time-averaged sub2** concentration over the final window (atoms/m³) — sub2 being the layer that feeds the bulk — not a single final snapshot; averaging out the single-occupancy shot noise is what keeps the Sieverts C₀(√P) curve monotonic. `C0` feeds Fick's law to give the permeation flux J.
+**Steady state.** `run_kmc_to_steady_state()` runs until the surface coverage θ and the sub2 population both converge (rolling-window check comparing successive windows). The reported `C0` is the **time-averaged sub2** concentration over the final window (mol H/m³) — sub2 being the layer that feeds the bulk — not a single final snapshot; averaging out the single-occupancy shot noise is what keeps the Sieverts C₀(√P) curve monotonic. `C0` feeds Fick's law to give the permeation flux J.
 
 ---
 
@@ -210,12 +210,12 @@ The sub1 and sub2 layers are populated with **environment labels** drawn from th
 **The macroscopic result.** For a membrane of thickness L under a pressure differential P_high − P_low, the steady-state H flux is:
 
 ```
-J = Φ(T) × (√P_high − √P_low) / L      [atoms m⁻² s⁻¹]
+J = Φ(T) × (√P_high − √P_low) / L      [mol H m⁻² s⁻¹]
 ```
 
 The permeability Φ = D × S combines:
 - **D(T)** — bulk diffusivity [m²/s], from Part 3 MD
-- **S(T)** — Sieverts solubility [atoms m⁻³ Pa^(−½)], the H concentration per unit √P
+- **S(T)** — Sieverts solubility [mol H m⁻³ Pa^(−½)], the H concentration per unit √P
 
 **Sieverts' law.** For bulk-diffusion-limited transport, J ∝ √P. This arises because H₂ dissociates (H₂ ↔ 2H*) and the equilibrium H concentration scales as √P by detailed balance. If J–√P is **not** linear, it means the surface kinetics (adsorption/dissociation or subsurface entry) are rate-limiting, not bulk diffusion.
 
@@ -833,7 +833,7 @@ All three permeability options at 700 K (written per H-concentration under `resu
   "L_m": 1e-3
 }
 ```
-`Phi` has units atoms·m⁻¹·s⁻¹·Pa^(−½). For comparison with literature, convert to mol·m⁻¹·s⁻¹·Pa^(−½) by dividing by Avogadro's number (6.022 × 10²³). When the dissolved-H FS vibrations were not run, `option2`'s numeric fields are `null` and its `route` says so.
+`Phi` has units **mol H·m⁻¹·s⁻¹·Pa^(−½)** — the H-atom counts are converted to moles internally (÷ Avogadro, `_N_A`), so S, Φ, and J are all reported per mol H. Two conventions to note when comparing to literature: (1) results are per **√Pa** — literature per √bar/√atm differs by √(10⁵) ≈ 316; (2) per **mol H** (atomic) — for a flux per mol H₂, divide J by 2. When the dissolved-H FS vibrations were not run, `option2`'s numeric fields are `null` and its `route` says so.
 
 ---
 
