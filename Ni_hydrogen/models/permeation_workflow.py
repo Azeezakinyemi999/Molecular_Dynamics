@@ -50,6 +50,8 @@ import json
 import glob
 import itertools
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # headless backend — Phase 6 saves PNGs without a display
 from ase.io import read as _ase_read
 
 from models.config import MACE_MODEL_ASE
@@ -892,6 +894,14 @@ for _n_h in N_H_VALUES:
                    'routes': _perm_routes}, _f, indent=2)
     print(f'  → {_perm_arr_out}')
 
+    # Auto-generate the schema-current summary figure (headless Agg backend set
+    # at import time). Best-effort: a plotting failure must not fail the run.
+    try:
+        from models.permeation_workflow import plot_permeation_summary
+        plot_permeation_summary(_nh_dir, TEMPERATURES)
+    except Exception as _plt_e:
+        print(f'  [plot] permeation_summary skipped: {_plt_e}')
+
     # Backward-compatible KMC-only Arrhenius file (consumed by plot_arrhenius_S0).
     if _sol_routes.get('kmc', {}).get('available'):
         _k = _sol_routes['kmc']
@@ -1406,5 +1416,129 @@ def plot_bottleneck(results_dir, temperatures):
     out_png = os.path.join(results_dir, 'bottleneck.png')
     plt.savefig(out_png, dpi=150)
     plt.show()
+    print(f'Saved: {out_png}')
+    return out_png
+
+
+def plot_permeation_summary(results_dir, temperatures):
+    """Schema-current permeation summary (auto-generated headless in Phase 6).
+
+    Saves ``results_dir/permeation_summary.png`` with three panels (all per mol H):
+
+    A. Solubility Arrhenius  log10 S vs 1000/T — geometric & vibrational
+       (headline, solid) plus detailed_balance / kmc_theta / kmc (diagnostics,
+       dashed). Legend carries ΔH_sol ± σ per route.
+    B. Permeability Arrhenius  log10 Φ vs 1000/T, with a shaded ×/÷ band on the
+       headline routes from the propagated σ_lnΦ(T)=√(Φ0_rel² + (E_Φ_err/kT)²).
+    C. Sieverts-regime check  log10 θ vs log10 P per T, annotated with the
+       θ∝P^n exponent and regime label (n≈0.5 ⇒ Sieverts-compatible).
+
+    Returns the PNG path, or None if the Arrhenius fits are absent. Headless-safe
+    (savefig + close; no plt.show()).
+    """
+    _KB = 8.617333262e-5
+    sol_f  = os.path.join(results_dir, 'solubility_arrhenius.json')
+    perm_f = os.path.join(results_dir, 'permeability_arrhenius.json')
+    if not (os.path.exists(sol_f) and os.path.exists(perm_f)):
+        print(f'[plot_permeation_summary] Arrhenius JSON not found in {results_dir} — skipping.')
+        return None
+    with open(sol_f) as _f:  sol  = json.load(_f)
+    with open(perm_f) as _f: perm = json.load(_f)
+
+    # marker, linestyle, colour, is_headline (headline = energy-based routes)
+    style = {'geometric':       ('o', '-',  'steelblue', True),
+             'vibrational':     ('s', '-',  'coral',     True),
+             'detailed_balance':('^', '--', 'seagreen',  False),
+             'kmc_theta':       ('v', '--', 'purple',    False),
+             'kmc':             ('x', ':',  'gray',      False)}
+    T_lo = min(temperatures) * 0.95
+    T_hi = max(temperatures) * 1.05
+    Tg   = np.linspace(T_lo, T_hi, 120)
+
+    fig, axes = plt.subplots(1, 3, figsize=(19, 5.2))
+
+    # ── Panel A: solubility Arrhenius ────────────────────────────────────────
+    axA = axes[0]
+    for route, (mk, ls, col, head) in style.items():
+        info = sol.get('routes', {}).get(route, {})
+        if not info.get('available'):
+            continue
+        Tp = np.array(info['T_K_arr']); Sp = np.array(info['S_arr'])
+        S0 = info['S0']; dH = info['dH_sol_eV']; dHe = info.get('dH_sol_err_eV')
+        axA.plot(1000.0 / Tg, np.log10(S0 * np.exp(-dH / (_KB * Tg))),
+                 ls, color=col, lw=(2.0 if head else 1.2), alpha=(1.0 if head else 0.7))
+        _has_err = (dHe is not None and dHe == dHe)  # finite (NaN fails self-eq)
+        _lbl = f'{route} (ΔH={dH:+.2f}' + (f'±{dHe:.2f}' if _has_err else '') + ' eV)'
+        axA.scatter(1000.0 / Tp, np.log10(Sp), marker=mk, color=col,
+                    s=(45 if head else 20), zorder=5, label=_lbl)
+    axA.set_xlabel('1000 / T  [K$^{-1}$]')
+    axA.set_ylabel('$\\log_{10} S$  [mol H m$^{-3}$ Pa$^{-1/2}$]')
+    axA.set_title('Solubility Arrhenius (headline = geometric, vibrational)')
+    axA.invert_xaxis()
+    if axA.get_legend_handles_labels()[1]:
+        axA.legend(fontsize=7)
+
+    # ── Panel B: permeability Arrhenius with ×/÷ uncertainty band ────────────
+    axB = axes[1]
+    for route, (mk, ls, col, head) in style.items():
+        info = perm.get('routes', {}).get(route, {})
+        if not info.get('available'):
+            continue
+        Phi0 = info['Phi0']; Eph = info['E_phi_eV']
+        Ephe = info.get('E_phi_err_eV', 0.0) or 0.0
+        p0re = info.get('Phi0_rel_err', 0.0) or 0.0
+        logPhi = np.log10(Phi0 * np.exp(-Eph / (_KB * Tg)))
+        axB.plot(1000.0 / Tg, logPhi, ls, color=col,
+                 lw=(2.0 if head else 1.2), alpha=(1.0 if head else 0.7),
+                 label=f'{route} (E$_\\Phi$={Eph:+.2f}±{Ephe:.2f} eV)')
+        if head:  # shaded propagated band  σ_lnΦ(T)=√(Φ0_rel² + (E_Φ_err/kT)²)
+            sig = np.sqrt(p0re ** 2 + (Ephe / (_KB * Tg)) ** 2) / np.log(10.0)
+            axB.fill_between(1000.0 / Tg, logPhi - sig, logPhi + sig, color=col, alpha=0.15)
+    axB.set_xlabel('1000 / T  [K$^{-1}$]')
+    axB.set_ylabel('$\\log_{10}\\Phi$  [mol H m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
+    axB.set_title('Permeability Arrhenius (band = ×/÷ 1σ, E$_D$-dominated)')
+    axB.invert_xaxis()
+    if axB.get_legend_handles_labels()[1]:
+        axB.legend(fontsize=7)
+
+    # ── Panel C: Sieverts-regime coverage isotherm ───────────────────────────
+    axC = axes[2]
+    _plotted_c = 0
+    for T in temperatures:
+        sw_f = os.path.join(results_dir, f'permeation_sweep_T{int(T)}K.json')
+        pm_f = os.path.join(results_dir, f'permeability_T{int(T)}K.json')
+        if not os.path.exists(sw_f):
+            continue
+        with open(sw_f) as _f: sw = json.load(_f)
+        P = np.array(sw.get('P_vals', []), dtype=float)
+        th = np.array(sw.get('theta_vals', []), dtype=float)
+        ok = (P > 0) & (th > 0)
+        if ok.sum() < 2:
+            continue
+        reg = ''
+        if os.path.exists(pm_f):
+            with open(pm_f) as _f: pm = json.load(_f)
+            r = pm.get('sieverts_regime', {})
+            n = r.get('theta_exponent')
+            reg = f' [{r.get("regime","?")}, n={n:.2f}]' if n is not None else ''
+        axC.plot(np.log10(P[ok]), np.log10(th[ok]), 'o-', ms=3, label=f'{int(T)} K{reg}')
+        _plotted_c += 1
+    # slope-0.5 reference (Sieverts-compatible dissociative Langmuir) — only
+    # meaningful once at least one isotherm has been drawn.
+    if _plotted_c:
+        _xl = axC.get_xlim()
+        _xr = np.linspace(_xl[0], _xl[1], 2)
+        axC.plot(_xr, 0.5 * (_xr - _xr[0]) + axC.get_ylim()[0], 'k--', lw=1, alpha=0.5,
+                 label='slope 0.5 (Sieverts)')
+    axC.set_xlabel('$\\log_{10} P$  [Pa]')
+    axC.set_ylabel('$\\log_{10}\\theta$  (coverage)')
+    axC.set_title('Sieverts regime: θ∝P$^n$ (n≈0.5 ⇒ compatible)')
+    if axC.get_legend_handles_labels()[1]:
+        axC.legend(fontsize=7)
+
+    plt.tight_layout()
+    out_png = os.path.join(results_dir, 'permeation_summary.png')
+    plt.savefig(out_png, dpi=150)
+    plt.close(fig)          # headless: free the figure, no interactive show
     print(f'Saved: {out_png}')
     return out_png
