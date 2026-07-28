@@ -710,7 +710,7 @@ for _n_h in N_H_VALUES:
         # Route: KMC-θ — same detailed balance but with the KMC-SIMULATED θ
         # isotherm (well sampled) instead of analytic Langmuir θ. Dilute-limit
         # (most-dilute converged point): S = ρ_oct·(k_entry/k_exit)·θ/√P.
-        _rho_oct = 4.0 / (_a0_T6 ** 3)
+        _rho_oct = 4.0 / (_a0_T6 ** 3) / 6.02214076e23   # mol H per m^3 (÷ Avogadro)
         _P_v    = _sw.get('P_vals') or []
         _th_v   = _sw.get('theta_vals') or []
         _cv     = _sw.get('converged') or [True] * len(_P_v)
@@ -1207,7 +1207,7 @@ def plot_kmc_sieverts(results_dir, temperatures):
             ax.plot(x_fit, slope * x_fit + intercept, color=color, lw=1.2, alpha=0.7)
 
     ax.set_xlabel('$\\sqrt{P}$  [Pa$^{1/2}$]')
-    ax.set_ylabel('J  [atoms m$^{-2}$ s$^{-1}$]')
+    ax.set_ylabel('J  [mol m$^{-2}$ s$^{-1}$]')
     ax.set_title("Sieverts' law check: J vs $\\sqrt{P}$")
     ax.set_xlim(left=0)
     ax.legend(fontsize=8, ncol=2)
@@ -1242,7 +1242,7 @@ def plot_permeability_vs_T(results_dir, temperatures):
     ax0.plot(T_arr, Phi2, 's-', color='coral',     lw=1.6, label='Option 2 (vibrational S₀)')
     ax0.plot(T_arr, Phi3, '^-', color='seagreen',  lw=1.6, label='Option 3 (KMC fit)')
     ax0.set_xlabel('Temperature  [K]')
-    ax0.set_ylabel('$\\Phi$  [atoms m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
+    ax0.set_ylabel('$\\Phi$  [mol m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
     ax0.set_title('Permeability $\\Phi(T)$')
     ax0.legend(fontsize=8)
 
@@ -1296,7 +1296,7 @@ def plot_arrhenius_S0(results_dir):
     ax0.plot(T_plot, Phi_fit, color='purple', lw=2.0, label='Arrhenius fit')
     ax0.scatter(T_arr, Phi_pts, color='purple', zorder=5, label='KMC data points')
     ax0.set_xlabel('Temperature  [K]')
-    ax0.set_ylabel('$\\Phi = D \\times S$  [atoms m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
+    ax0.set_ylabel('$\\Phi = D \\times S$  [mol m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
     ax0.set_title('Option 3 — $\\Phi(T)$ from KMC Arrhenius $S_0$')
     ax0.legend(fontsize=8)
 

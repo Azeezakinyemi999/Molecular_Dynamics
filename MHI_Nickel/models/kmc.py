@@ -75,6 +75,7 @@ import numpy as np
 # ── Physical constants ─────────────────────────────────────────────────────────
 _M_H2_KG = 2.0 * 1.6735575e-27   # kg, molecular mass of H₂
 _KB_J    = 1.380649e-23           # J/K
+_N_A     = 6.02214076e23          # Avogadro / mol  (H atom counts -> mol H)
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +274,7 @@ def subsurface_population(grid: dict) -> int:
 
 
 def subsurface_concentration(grid: dict, a0_m: float, layer: str = 'sub2') -> float:
-    """H concentration C₀ [atoms/m³] in a subsurface layer ('sub1' or 'sub2').
+    """H concentration C₀ [mol/m³] in a subsurface layer ('sub1' or 'sub2').
 
     Per-layer oct-site volume: V = nx × ny × a₀³ / √2. ``layer='sub1'`` is the
     first subsurface (dissolved-reference) layer; ``layer='sub2'`` (default) is
@@ -284,7 +285,7 @@ def subsurface_concentration(grid: dict, a0_m: float, layer: str = 'sub2') -> fl
     n      = sub1_population(grid) if layer == 'sub1' else sub2_population(grid)
     nx, ny = grid['nx'], grid['ny']
     vol    = nx * ny * (a0_m ** 3) / math.sqrt(2.0)
-    return n / vol if vol > 0.0 else 0.0
+    return n / (vol * _N_A) if vol > 0.0 else 0.0     # mol H per m^3 (÷ Avogadro)
 
 
 # ---------------------------------------------------------------------------
@@ -663,11 +664,11 @@ def run_kmc_to_steady_state(
     _N1 = float(np.mean(_n1)) if _n1 else 0.0
     _N2 = float(np.mean(_n2)) if _n2 else 0.0
     _vol = grid['nx'] * grid['ny'] * (a0_m ** 3) / math.sqrt(2.0)
-    C0_sub1 = _N1 / _vol if _vol > 0.0 else 0.0
-    C0_sub2 = _N2 / _vol if _vol > 0.0 else 0.0
+    C0_sub1 = _N1 / (_vol * _N_A) if _vol > 0.0 else 0.0   # mol H per m^3
+    C0_sub2 = _N2 / (_vol * _N_A) if _vol > 0.0 else 0.0
 
     print(f'[KMC] converged={converged}  steps={step}  t={t:.3e} s  θ={theta_ss:.4f}  '
-          f'C0(sub1)={C0_sub1:.3e}  C0(sub2)={C0_sub2:.3e} atoms/m³')
+          f'C0(sub1)={C0_sub1:.3e}  C0(sub2)={C0_sub2:.3e} mol/m³')
     return {
         't_total':  t,
         'theta_ss': theta_ss,

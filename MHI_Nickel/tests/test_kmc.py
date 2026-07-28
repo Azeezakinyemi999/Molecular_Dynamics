@@ -19,6 +19,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from models.kmc import (
     _M_H2_KG,
     _KB_J,
+    _N_A,
     _rate_lookup,
     _mean_of,
     gas_strike_rate,
@@ -262,7 +263,7 @@ class TestGridQueries:
         g = _all_ni_grid(4, 4)
         g['sub2_occ'][0, 0] = 1
         g['sub2_occ'][1, 2] = 1
-        expected = 2 / (4 * 4 * (_A0 ** 3) / math.sqrt(2.0))
+        expected = 2 / (4 * 4 * (_A0 ** 3) / math.sqrt(2.0)) / _N_A   # mol H per m^3
         assert subsurface_concentration(g, _A0) == pytest.approx(expected, rel=1e-8)
 
     def test_concentration_layer_selects_sub1(self):
@@ -272,7 +273,7 @@ class TestGridQueries:
         g['sub1_occ'][0, 0] = 1
         assert subsurface_concentration(g, _A0) == pytest.approx(0.0)
         assert subsurface_concentration(g, _A0, layer='sub1') > 0.0
-        expected = 1 / (4 * 4 * (_A0 ** 3) / math.sqrt(2.0))
+        expected = 1 / (4 * 4 * (_A0 ** 3) / math.sqrt(2.0)) / _N_A   # mol H per m^3
         assert subsurface_concentration(g, _A0, layer='sub1') == pytest.approx(expected, rel=1e-8)
 
 

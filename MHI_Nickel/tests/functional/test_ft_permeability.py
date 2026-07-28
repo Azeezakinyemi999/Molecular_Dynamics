@@ -26,6 +26,7 @@ from models.tst_rates import (
     apply_zpe_correction,
 )
 from models.permeation import (
+    _N_A,
     fick_flux,
     arrhenius_diffusivity,
     lattice_site_S0,
@@ -237,7 +238,7 @@ class TestFickAndPermeabilityMath:
     # ── Lattice S0 ────────────────────────────────────────────────────────────
 
     def test_lattice_site_S0_formula(self):
-        expected = 4.0 / (_A0 ** 3)
+        expected = 4.0 / (_A0 ** 3) / _N_A          # mol H per m^3 (÷ Avogadro)
         assert math.isclose(lattice_site_S0(_A0), expected, rel_tol=1e-10)
 
     def test_lattice_site_S0_positive(self):
