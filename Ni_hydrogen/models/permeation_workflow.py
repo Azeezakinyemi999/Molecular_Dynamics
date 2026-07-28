@@ -83,6 +83,7 @@ from models.permeation import (
     vibrational_S0,
     build_dh_sol_by_env,
     solubility_by_environment,
+    solubility_env_rel_err,
     solubility_from_rates,
     check_sieverts_law,
     classify_sieverts_regime,
@@ -489,6 +490,7 @@ else:
 # — used only by Phase 6 Option 1 below).
 _DH_DISS_USED  = DH_DISS_EV
 _DH_ENTRY_USED = DH_ENTRY_EV
+_DH_DISS_ERR   = 0.0   # absolute σ on ΔH_diss (SEM over diss pathways; set on auto-extract)
 
 if _DH_ENTRY_USED is None:
     _fst_rd_f = os.path.join(RESULTS_DIR, f'rate_dict_T{int(TEMPERATURES[0])}K.json')
@@ -509,8 +511,10 @@ if _DH_DISS_USED is None:
                      if _r.get('converged', False)]
         if _diss_de6:
             _DH_DISS_USED = float(np.mean(_diss_de6))
-            print(f'  Auto-extracted DH_DISS_EV  = {_DH_DISS_USED:.4f} eV '
-                  f'(mean of {len(_diss_de6)} converged diss barriers)')
+            if len(_diss_de6) >= 2:
+                _DH_DISS_ERR = float(np.std(_diss_de6, ddof=1) / np.sqrt(len(_diss_de6)))
+            print(f'  Auto-extracted DH_DISS_EV  = {_DH_DISS_USED:.4f} ± {_DH_DISS_ERR:.4f} eV '
+                  f'(mean±SEM of {len(_diss_de6)} converged diss barriers)')
 
 _PHASE6_READY = _DH_DISS_USED is not None and _DH_ENTRY_USED is not None
 if not _PHASE6_READY:
@@ -523,7 +527,7 @@ else:
     # ½·ΔH_diss + ΔH_HopA(sub1 env). Hop B and deeper transport are bulk
     # diffusion (carried by D), NOT solubility. Written once per stem.
     _dh_sol_by_env = build_dh_sol_by_env(
-        _hopa_vib, _DH_DISS_USED,
+        _hopa_vib, _DH_DISS_USED, dh_diss_err_eV=_DH_DISS_ERR,
         out_json=os.path.join(RESULTS_DIR, 'dH_sol_by_env.json'),
     )
 _P_HIGH = max(P_VALS_PA)
@@ -551,8 +555,12 @@ for _n_h in N_H_VALUES:
         _PERM_STATUS['n_h_skipped'].append({'n_h': _n_h, 'reason': _res_nh['message']})
         continue
     _D0_nh, _ED_nh = _res_nh['D0_m2s'], _res_nh['E_D_eV']
+    _D0_err_nh = _res_nh.get('D0_err_m2s') or 0.0     # absolute σ (m²/s); 0 if absent
+    _ED_err_nh = _res_nh.get('E_D_err_eV') or 0.0     # absolute σ (eV);  0 if absent
+    _D0_rel_nh = (_D0_err_nh / _D0_nh) if _D0_nh else 0.0   # fractional (product rule)
     _dilute_note = _res_nh['dilute_note']
-    print(f'  Loaded real diffusivity fit: D0={_D0_nh:.3e} m²/s  Ea={_ED_nh:.4f} eV')
+    print(f'  Loaded real diffusivity fit: D0={_D0_nh:.3e} m²/s  Ea={_ED_nh:.4f} eV  '
+          f'(σ_E_D={_ED_err_nh:.4f} eV, σ_D0/D0={_D0_rel_nh:.2f})')
     if _dilute_note:
         print(f'  NOTE: {_dilute_note}')
 
@@ -648,6 +656,7 @@ for _n_h in N_H_VALUES:
     # per-route S(T) accumulators for the multi-T Arrhenius fits after the loop
     _S_geo_arr, _S_vib_arr, _S_kmc_arr, _T_arr6 = [], [], [], []
     _S_db_arr, _S_kt_arr = [], []   # detailed-balance (analytic θ) + KMC-θ routes
+    _S_geo_err_arr, _S_vib_err_arr = [], []   # absolute σ_S per T (for the weighted fit)
 
     for _T in TEMPERATURES:
         _sweep_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
@@ -677,19 +686,25 @@ for _n_h in N_H_VALUES:
         # Option 1 — geometric S0, per-env Boltzmann (sub1 ΔH_sol = ½diss + HopA)
         _S0_geo = lattice_site_S0(_a0_T6)
         _S1     = solubility_by_environment(_dh_sol_by_env, _S0_geo, _T)
+        _S1_rel = solubility_env_rel_err(_dh_sol_by_env, _T, S0_rel_err=0.0)  # a0 fixed -> S0 exact
         _Phi1   = permeability(_D_T, _S1)
         _J1     = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
 
         # Option 2 — vibrational S0 (partition-function prefactor), same per-env
         # ΔH_sol. S0_vib is averaged over the dissolved-H FS structures.
         if _fs_freq_sets:
-            _S0_vib = float(np.mean([vibrational_S0(_a0_T6, _T, _fq)
-                                     for _fq in _fs_freq_sets]))
-            _S2   = solubility_by_environment(_dh_sol_by_env, _S0_vib, _T)
+            _S0vib_vals = [vibrational_S0(_a0_T6, _T, _fq) for _fq in _fs_freq_sets]
+            _S0_vib = float(np.mean(_S0vib_vals))
+            # fractional σ on S0 from the spread over FS structures (SEM/mean)
+            _S0vib_rel = (float(np.std(_S0vib_vals, ddof=1) / np.sqrt(len(_S0vib_vals)) / _S0_vib)
+                          if len(_S0vib_vals) >= 2 and _S0_vib > 0 else 0.0)
+            _S2     = solubility_by_environment(_dh_sol_by_env, _S0_vib, _T)
+            _S2_rel = solubility_env_rel_err(_dh_sol_by_env, _T, S0_rel_err=_S0vib_rel)
             _Phi2 = permeability(_D_T, _S2)
             _J2   = richardson_flux(_Phi2, _P_HIGH, 0.0, L_M)
         else:
             _S0_vib = _S2 = _Phi2 = _J2 = None
+            _S2_rel = None
 
         # Route: detailed balance (analytic θ), sub1 reference. Population-weighted
         # over sub1 environments: Σ w_env · ρ_oct·(k_entry/k_exit)_env·√(k_diss·A/…).
@@ -750,6 +765,9 @@ for _n_h in N_H_VALUES:
         _S_geo_arr.append(_S1);  _S_vib_arr.append(_S2)
         _S_db_arr.append(_Sdb);  _S_kt_arr.append(_Skt)
         _S_kmc_arr.append(_S3);  _T_arr6.append(float(_T))
+        # absolute σ_S = S · (σ_S/S), for the inverse-variance-weighted fit below
+        _S_geo_err_arr.append(_S1 * _S1_rel)
+        _S_vib_err_arr.append(_S2 * _S2_rel if (_S2 is not None and _S2_rel is not None) else None)
 
         _perm_f = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
         _perm_payload = {
@@ -759,12 +777,12 @@ for _n_h in N_H_VALUES:
             'n_env': len(_dh_sol_by_env),
             'solubility_reference': 'sub1: 1/2 dH_diss + Hop A (Hop B+ = bulk diffusion, in D)',
             'solubility_headline': 'geometric + vibrational (energy-based); detailed_balance/kmc_theta/option3 are rate-/count-based diagnostics, NOT the reported solubility',
-            'option1': {'S0': _S0_geo, 'S': _S1, 'Phi': _Phi1, 'J': _J1,
+            'option1': {'S0': _S0_geo, 'S': _S1, 'S_rel_err': _S1_rel, 'Phi': _Phi1, 'J': _J1,
                         'route': 'geometric S0, per-env Boltzmann (sub1) [SOLUBILITY HEADLINE]'},
-            'option2': ({'S0': _S0_vib, 'S': _S2, 'Phi': _Phi2, 'J': _J2,
+            'option2': ({'S0': _S0_vib, 'S': _S2, 'S_rel_err': _S2_rel, 'Phi': _Phi2, 'J': _J2,
                          'route': 'vibrational S0, per-env Boltzmann (sub1) [SOLUBILITY HEADLINE]'}
                         if _fs_freq_sets else
-                        {'S0': None, 'S': None, 'Phi': None, 'J': None,
+                        {'S0': None, 'S': None, 'S_rel_err': None, 'Phi': None, 'J': None,
                          'route': 'vibrational S0 unavailable (no FS vibrations)'}),
             'detailed_balance': {'S': _Sdb, 'Phi': _Phidb, 'J': _Jdb,
                         'route': 'detailed balance (rate-based CROSS-CHECK; carries a dissociation-rate-averaging artifact -- NOT the solubility; use geometric/vibrational)'},
@@ -808,27 +826,33 @@ for _n_h in N_H_VALUES:
     # averaging artifact) and 'kmc' (counting, noise-limited) are diagnostics,
     # NOT the reported solubility.
     _sol_routes = {}
-    for _route, _S_list in (('geometric', _S_geo_arr),
-                            ('vibrational', _S_vib_arr),
-                            ('detailed_balance', _S_db_arr),
-                            ('kmc_theta', _S_kt_arr),
-                            ('kmc', _S_kmc_arr)):
-        _pts = [(t, s) for t, s in zip(_T_arr6, _S_list)
+    for _route, _S_list, _Serr_list in (('geometric', _S_geo_arr, _S_geo_err_arr),
+                                        ('vibrational', _S_vib_arr, _S_vib_err_arr),
+                                        ('detailed_balance', _S_db_arr, None),
+                                        ('kmc_theta', _S_kt_arr, None),
+                                        ('kmc', _S_kmc_arr, None)):
+        _err_list = _Serr_list if _Serr_list is not None else [None] * len(_S_list)
+        _pts = [(t, s, e) for t, s, e in zip(_T_arr6, _S_list, _err_list)
                 if s is not None and s == s and s > 0.0]
         if len(_pts) < 2:
             _sol_routes[_route] = {'available': False, 'n_points': len(_pts)}
             continue
         _tt = [p[0] for p in _pts]
         _ss = [p[1] for p in _pts]
-        _fit = fit_arrhenius(_tt, _ss)
+        _se = [p[2] for p in _pts]
+        # inverse-variance-weighted fit only when every point has a valid σ_S
+        _yerr = _se if all(x is not None and x == x and x > 0.0 for x in _se) else None
+        _fit = fit_arrhenius(_tt, _ss, _yerr)
         _sol_routes[_route] = {
-            'available':  True,
-            'T_K_arr':    _tt,
-            'S_arr':      _ss,
-            'S0':         _fit['prefactor'],
-            'dH_sol_eV':  _fit['Ea_eV'],
-            'r2':         _fit['r2'],
-            'n_points':   _fit['n_points'],
+            'available':     True,
+            'T_K_arr':       _tt,
+            'S_arr':         _ss,
+            'S0':            _fit['prefactor'],
+            'dH_sol_eV':     _fit['Ea_eV'],
+            'S0_rel_err':    _fit['prefactor_rel_err'],   # fractional (log-normal S0)
+            'dH_sol_err_eV': _fit['Ea_err_eV'],           # absolute σ (eV)
+            'r2':            _fit['r2'],
+            'n_points':      _fit['n_points'],
         }
 
     _sol_out = os.path.join(_nh_dir, 'solubility_arrhenius.json')
@@ -843,12 +867,25 @@ for _n_h in N_H_VALUES:
         if not _info.get('available'):
             _perm_routes[_route] = {'available': False}
             continue
-        _pa = permeability_arrhenius(_D0_nh, _ED_nh, _info['S0'], _info['dH_sol_eV'])
+        # NaN/None-safe error inputs
+        _s0re = _info.get('S0_rel_err');    _s0re = _s0re if (_s0re is not None and _s0re == _s0re) else 0.0
+        _dhe  = _info.get('dH_sol_err_eV'); _dhe  = _dhe  if (_dhe  is not None and _dhe  == _dhe)  else 0.0
+        _pa = permeability_arrhenius(_D0_nh, _ED_nh, _info['S0'], _info['dH_sol_eV'],
+                                     D0_rel_err=_D0_rel_nh, E_D_err_eV=_ED_err_nh,
+                                     S0_rel_err=_s0re, dH_sol_err_eV=_dhe)
+        # per-T flux fractional error  σ_J/J = √(Φ0_rel² + (E_Φ_err/kT)²)  (E_Φ/kT-amplified)
+        _jrel = {int(_t): float(np.sqrt(_pa['Phi0_rel_err'] ** 2
+                                        + (_pa['E_phi_err_eV'] / (_KB_EV * _t)) ** 2))
+                 for _t in TEMPERATURES}
         _perm_routes[_route] = {'available': True,
                                 'Phi0': _pa['Phi0'], 'E_phi_eV': _pa['E_phi_eV'],
+                                'Phi0_rel_err': _pa['Phi0_rel_err'],
+                                'Phi0_factor': _pa['Phi0_factor'],   # ×/÷ 1σ band (log-normal)
+                                'E_phi_err_eV': _pa['E_phi_err_eV'],
+                                'J_rel_err_by_T': _jrel,
                                 'r2_S': _info['r2']}
-        print(f'  [{_route}] Φ0={_pa["Phi0"]:.3e}  E_Φ={_pa["E_phi_eV"]:.4f} eV '
-              f'(= E_D {_ED_nh:.4f} + ΔH_sol {_info["dH_sol_eV"]:.4f})')
+        print(f'  [{_route}] Φ0={_pa["Phi0"]:.3e} (×/÷{_pa["Phi0_factor"]:.2f})  '
+              f'E_Φ={_pa["E_phi_eV"]:.4f}±{_pa["E_phi_err_eV"]:.4f} eV')
     _perm_arr_out = os.path.join(_nh_dir, 'permeability_arrhenius.json')
     with open(_perm_arr_out, 'w') as _f:
         json.dump({'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,

@@ -545,6 +545,7 @@ class TestResolveNhDiffusivity:
 
 from models.permeation import (
     vibrational_S0, build_dh_sol_by_env, solubility_by_environment,
+    solubility_env_rel_err,
 )
 
 
@@ -704,3 +705,49 @@ class TestPermeabilityArrhenius:
         fit = fit_arrhenius(T, Phi)
         assert fit['prefactor'] == pytest.approx(params['Phi0'], rel=1e-6)
         assert fit['Ea_eV'] == pytest.approx(params['E_phi_eV'], rel=1e-6)
+
+
+class TestErrorPropagation:
+    # §6 of audits/error_propagation_plan.md: absolute σ for energies (sum ->
+    # quadrature), fractional σ for prefactors (product -> quadrature).
+
+    def test_dh_sol_err_sem_plus_diss_in_quadrature(self):
+        HA = {'a': {'env': 'E', 'Ea_zpe': 0.30, 'Ed_zpe': 0.10},   # ΔH_A = 0.20
+              'b': {'env': 'E', 'Ea_zpe': 0.50, 'Ed_zpe': 0.10}}   # ΔH_A = 0.40
+        out = build_dh_sol_by_env(HA, dh_diss_eV=-1.0, dh_diss_err_eV=0.10)
+        sem = np.std([0.20, 0.40], ddof=1) / np.sqrt(2)
+        assert out['E']['dH_hopA_err_eV'] == pytest.approx(sem)
+        assert out['E']['dH_sol_err_eV'] == pytest.approx(np.hypot(0.5 * 0.10, sem))
+
+    def test_single_env_boltzmann_err_is_sigma_over_kT(self):
+        d = {'E': {'dH_sol_eV': 0.1, 'dH_sol_err_eV': 0.05, 'w_env': 1.0, 'n_sites': 1}}
+        assert solubility_env_rel_err(d, 600.0) == pytest.approx(0.05 / (_KB_EV * 600.0))
+
+    def test_boltzmann_err_combines_S0_in_quadrature(self):
+        d = {'E': {'dH_sol_eV': 0.1, 'dH_sol_err_eV': 0.05, 'w_env': 1.0, 'n_sites': 1}}
+        got = solubility_env_rel_err(d, 600.0, S0_rel_err=0.2)
+        assert got == pytest.approx(np.hypot(0.2, 0.05 / (_KB_EV * 600.0)))
+
+    def test_multi_env_reduces_effective_error(self):
+        # two equal-weight, equal-energy envs -> σ_B/B = single/√2 (Σf² = 0.5)
+        d = {'A': {'dH_sol_eV': 0.10, 'dH_sol_err_eV': 0.05, 'w_env': 0.5, 'n_sites': 1},
+             'B': {'dH_sol_eV': 0.10, 'dH_sol_err_eV': 0.05, 'w_env': 0.5, 'n_sites': 1}}
+        single = 0.05 / (_KB_EV * 600.0)
+        assert solubility_env_rel_err(d, 600.0) == pytest.approx(single / np.sqrt(2))
+
+    def test_permeability_error_quadrature(self):
+        pa = permeability_arrhenius(1e-7, 0.4, 1e5, 0.1,
+                                    D0_rel_err=0.5, E_D_err_eV=0.10,
+                                    S0_rel_err=0.2, dH_sol_err_eV=0.03)
+        assert pa['E_phi_err_eV'] == pytest.approx(np.hypot(0.10, 0.03))    # sum -> absolute
+        assert pa['Phi0_rel_err'] == pytest.approx(np.hypot(0.5, 0.2))      # product -> fractional
+        assert pa['Phi0_factor'] == pytest.approx(np.exp(np.hypot(0.5, 0.2)))
+
+    def test_fit_arrhenius_weighted_returns_finite_errors(self):
+        f = fit_arrhenius([400, 600, 800], [5e23, 2e23, 1e23], [5e22, 2e22, 1e22])
+        assert np.isfinite(f['Ea_err_eV']) and f['Ea_err_eV'] > 0
+        assert np.isfinite(f['prefactor_rel_err']) and f['prefactor_rel_err'] > 0
+
+    def test_fit_arrhenius_two_points_no_error_estimate(self):
+        f = fit_arrhenius([400, 800], [4e23, 1e23])   # 0 dof -> NaN errors
+        assert not np.isfinite(f['Ea_err_eV'])
