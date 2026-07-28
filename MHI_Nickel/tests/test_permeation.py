@@ -23,6 +23,7 @@ from models.permeation import (
     _KB_EV,
     _KB_J,
     _M_H2_KG,
+    _N_A,
     fick_flux,
     check_sieverts_law,
     classify_sieverts_regime,
@@ -215,7 +216,7 @@ class TestLatticeSiteS0:
 
     def test_exact_formula(self):
         a0 = 3.52e-10
-        expected = 4.0 / (a0 ** 3)
+        expected = 4.0 / (a0 ** 3) / _N_A          # mol H per m^3 (÷ Avogadro)
         assert lattice_site_S0(a0) == pytest.approx(expected, rel=1e-10)
 
     def test_returns_positive_float(self):
@@ -277,7 +278,7 @@ class TestSolubilityFromRates:
 
     def test_exact_formula(self):
         k_diss, k_des, k_entry, k_exit = 0.5, 1e6, 1e7, 1e6
-        rho_oct = 4.0 / (_A0 ** 3)
+        rho_oct = 4.0 / (_A0 ** 3) / _N_A          # mol H per m^3 (÷ Avogadro)
         A_site  = (_A0 / math.sqrt(2.0)) ** 2
         denom   = k_des * math.sqrt(2.0 * math.pi * _M_H2_KG * _KB_J * _T)
         expected = rho_oct * (k_entry / k_exit) * math.sqrt(k_diss * A_site / denom)

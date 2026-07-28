@@ -15,7 +15,7 @@ Pipeline
         Option 2  ``solubility_from_rates`` — S(T) from TST rates (detailed balance)
         Option 3  ``fit_solubility_from_kmc`` — empirical S = C0/√P from sweep
    c. ``sieverts_solubility`` — S(T) = S₀ exp(−ΔH_sol / k_B T)
-   d. ``permeability``        — Φ = D × S  [atoms·m⁻¹·s⁻¹·Pa^(−½)]
+   d. ``permeability``        — Φ = D × S  [mol·m⁻¹·s⁻¹·Pa^(−½)]
    e. ``richardson_flux``     — J = Φ (√P_high − √P_low) / L
 
 Sieverts' law
@@ -74,17 +74,17 @@ def fick_flux(
     D_m2s : float
         Bulk diffusivity [m²/s].
     C0_m3 : float
-        H concentration at the high-pressure surface [atoms/m³].
+        H concentration at the high-pressure surface [mol/m³].
     L_m : float
         Membrane thickness [m].
     C_low_m3 : float
-        H concentration at the low-pressure surface [atoms/m³].
+        H concentration at the low-pressure surface [mol/m³].
         Default 0 (permeate side assumed H-free).
 
     Returns
     -------
     float
-        Flux J [atoms/(m²·s)].
+        Flux J [mol/(m²·s)].
     """
     if L_m <= 0:
         raise ValueError(f'Membrane thickness must be positive; got L_m={L_m}.')
@@ -192,8 +192,8 @@ def sweep_pressure(
 
         print(
             f'  P={P:.2e} Pa | θ={ss["theta_ss"]:.4f} | '
-            f'C0(sub1)={C0_s1:.3e} C0(sub2)={C0_s2:.3e} atoms/m³ | '
-            f'J={J2:.3e} atoms/m²/s | converged={ss["converged"]}'
+            f'C0(sub1)={C0_s1:.3e} C0(sub2)={C0_s2:.3e} mol/m³ | '
+            f'J={J2:.3e} mol/m²/s | converged={ss["converged"]}'
         )
 
     return {
@@ -231,7 +231,7 @@ def check_sieverts_law(
     P_vals_Pa : list of float
         Pressures [Pa].
     J_vals : list of float
-        Corresponding fluxes [atoms/(m²·s)].
+        Corresponding fluxes [mol/(m²·s)].
     plot : bool
         If ``True``, display a J vs √P scatter + fit line using matplotlib.
         Silently skipped if matplotlib is unavailable.
@@ -273,7 +273,7 @@ def check_sieverts_law(
             x_fit = np.linspace(sqrt_P.min(), sqrt_P.max(), 200)
             ax.plot(x_fit, slope * x_fit + intercept, 'k--', label=f'fit R²={r2:.3f}')
             ax.set_xlabel('√P  [Pa^(1/2)]')
-            ax.set_ylabel('J  [atoms m⁻² s⁻¹]')
+            ax.set_ylabel('J  [mol m⁻² s⁻¹]')
             ax.set_title('Sieverts\' law check')
             ax.legend()
             plt.tight_layout()
@@ -383,6 +383,7 @@ def classify_sieverts_regime(P_vals_Pa, theta_vals, converged=None,
 _KB_EV   = 8.617333262e-5    # eV / K
 _KB_J    = 1.380649e-23      # J / K
 _M_H2_KG = 2.0 * 1.6735575e-27  # kg  (H₂ molecule)
+_N_A     = 6.02214076e23     # Avogadro / mol  (counts -> mol H)
 
 
 def arrhenius_diffusivity(D0_m2s: float, E_D_eV: float, T_K: float) -> float:
@@ -416,7 +417,7 @@ def lattice_site_S0(a0_m: float) -> float:
 
     .. math::
 
-        S_0 = \\frac{4}{a_0^3}  \\quad [\\text{atoms m}^{-3}\\,\\text{Pa}^{-1/2}]
+        S_0 = \\frac{4}{a_0^3}  \\quad [\\text{mol m}^{-3}\\,\\text{Pa}^{-1/2}]
 
     This is the geometric maximum: if every oct site were filled at P = 1 Pa with
     no thermodynamic penalty (ΔH_sol = 0).  Multiply by exp(−ΔH_sol / k_B T) via
@@ -430,10 +431,10 @@ def lattice_site_S0(a0_m: float) -> float:
     Returns
     -------
     float
-        S₀ in atoms m⁻³ Pa^(−½).
+        S₀ in mol m⁻³ Pa^(−½).
     """
-    _S0 = 4.0 / (a0_m ** 3)
-    print(f'[S0 opt1] S0={_S0:.3e} atoms·m⁻³·Pa⁻⁰·⁵  (a0={a0_m*1e10:.4f} Å)')
+    _S0 = 4.0 / (a0_m ** 3) / _N_A            # mol H per m^3 (÷ Avogadro)
+    print(f'[S0 opt1] S0={_S0:.3e} mol·m⁻³·Pa⁻⁰·⁵  (a0={a0_m*1e10:.4f} Å)')
     return _S0
 
 
@@ -478,7 +479,7 @@ def solubility_from_rates(
     Returns
     -------
     float
-        S(T) in atoms m⁻³ Pa^(−½).
+        S(T) in mol m⁻³ Pa^(−½).
 
     Notes
     -----
@@ -491,14 +492,14 @@ def solubility_from_rates(
     if k_des_s1 <= 0 or k_exit_s1 <= 0:
         raise ValueError('k_des_s1 and k_exit_s1 must be positive.')
 
-    rho_oct  = 4.0 / (a0_m ** 3)           # oct-site density [m⁻³]
+    rho_oct  = 4.0 / (a0_m ** 3) / _N_A     # oct-site density [mol·m⁻³] (÷ Avogadro)
     A_site   = (a0_m / np.sqrt(2.0)) ** 2  # dissociation site area [m²]
 
     # Denominator: k_des × √(2π m_H2 k_B T)  [s⁻¹ × kg·m/s = N]
     denom = k_des_s1 * np.sqrt(2.0 * np.pi * _M_H2_KG * _KB_J * T_K)
 
     S = rho_oct * (k_entry_s1 / k_exit_s1) * np.sqrt(k_diss * A_site / denom)
-    print(f'[S opt2] S(T={T_K:.0f}K)={S:.3e} atoms·m⁻³·Pa⁻⁰·⁵')
+    print(f'[S opt2] S(T={T_K:.0f}K)={S:.3e} mol·m⁻³·Pa⁻⁰·⁵')
     return S
 
 
@@ -526,7 +527,7 @@ def vibrational_S0(a0_m: float, T_K: float, freqs_dissolved_cm1,
 
     The √ on the gas partition function reflects the H₂ → 2H stoichiometry
     (per dissolved H atom). The gas translational term carries a 1/P factor, so
-    with ``P_ref_Pa = 1`` the resulting S₀ has units atoms·m⁻³·Pa^(−½) and
+    with ``P_ref_Pa = 1`` the resulting S₀ has units mol·m⁻³·Pa^(−½) and
     ``C₀ = S₀·exp(−ΔH_sol/kT)·√P`` with P in Pa (see
     :func:`solubility_by_environment` / :func:`sieverts_solubility`).
 
@@ -545,13 +546,13 @@ def vibrational_S0(a0_m: float, T_K: float, freqs_dissolved_cm1,
     Returns
     -------
     float
-        S₀ in atoms·m⁻³·Pa^(−½).
+        S₀ in mol·m⁻³·Pa^(−½).
     """
-    rho_oct = 4.0 / (a0_m ** 3)
+    rho_oct = 4.0 / (a0_m ** 3) / _N_A       # mol H per m^3 (÷ Avogadro)
     q_H  = vib_partition_function(freqs_dissolved_cm1, T_K)
     q_H2 = h2_gas_partition_function(T_K, P_ref_Pa)['total']
     _S0 = rho_oct * q_H / np.sqrt(q_H2)
-    print(f'[S0 vib] S0={_S0:.3e} atoms·m⁻³·Pa⁻⁰·⁵  (q_H={q_H:.3f}, q_H2={q_H2:.3e})')
+    print(f'[S0 vib] S0={_S0:.3e} mol·m⁻³·Pa⁻⁰·⁵  (q_H={q_H:.3f}, q_H2={q_H2:.3e})')
     return _S0
 
 
@@ -632,14 +633,14 @@ def solubility_by_environment(dh_sol_by_env: dict, S0: float, T_K: float) -> flo
     dh_sol_by_env : dict
         Output of :func:`build_dh_sol_by_env`.
     S0 : float
-        Solubility pre-exponential [atoms·m⁻³·Pa^(−½)].
+        Solubility pre-exponential [mol·m⁻³·Pa^(−½)].
     T_K : float
         Temperature [K].
 
     Returns
     -------
     float
-        S(T) in atoms·m⁻³·Pa^(−½).
+        S(T) in mol·m⁻³·Pa^(−½).
     """
     if T_K <= 0:
         raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
@@ -675,7 +676,7 @@ def fit_solubility_from_kmc(sweep_result: dict) -> dict:
     dict
         ``{'S_vals': list, 'P_vals': list, 'S_mean': float, 'S_std': float,
            'n_converged': int}``
-        ``S_vals[i]`` is ``C0[i] / √P[i]``  in atoms m⁻³ Pa^(−½).
+        ``S_vals[i]`` is ``C0[i] / √P[i]``  in mol m⁻³ Pa^(−½).
         Non-converged or zero-pressure points are excluded from statistics
         but appear as ``None`` in ``S_vals``.
     """
@@ -722,7 +723,7 @@ def sieverts_solubility(dH_sol_eV: float, S0: float, T_K: float) -> float:
         Solution enthalpy per H atom [eV].
         ΔH_sol = ΔH_diss / 2 + ΔH_entry  (sign convention: positive = endothermic).
     S0 : float
-        Solubility pre-exponential [atoms m⁻³ Pa^(−½)].
+        Solubility pre-exponential [mol m⁻³ Pa^(−½)].
         Use :func:`lattice_site_S0` for Option 1, or extract from
         :func:`solubility_from_rates` / :func:`fit_solubility_from_kmc`.
     T_K : float
@@ -731,7 +732,7 @@ def sieverts_solubility(dH_sol_eV: float, S0: float, T_K: float) -> float:
     Returns
     -------
     float
-        S(T) in atoms m⁻³ Pa^(−½).
+        S(T) in mol m⁻³ Pa^(−½).
     """
     if T_K <= 0:
         raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
@@ -746,22 +747,22 @@ def permeability(D_m2s: float, S_m3_pasqrt: float) -> float:
     .. math::
 
         \\Phi = D \\cdot S
-        \\quad [\\text{atoms}\\cdot\\text{m}^{-1}\\cdot\\text{s}^{-1}\\cdot\\text{Pa}^{-1/2}]
+        \\quad [\\text{mol}\\cdot\\text{m}^{-1}\\cdot\\text{s}^{-1}\\cdot\\text{Pa}^{-1/2}]
 
     Parameters
     ----------
     D_m2s : float
         Bulk diffusivity [m²/s].
     S_m3_pasqrt : float
-        Sieverts solubility [atoms m⁻³ Pa^(−½)].
+        Sieverts solubility [mol m⁻³ Pa^(−½)].
 
     Returns
     -------
     float
-        Permeability Φ in atoms·m⁻¹·s⁻¹·Pa^(−½).
+        Permeability Φ in mol·m⁻¹·s⁻¹·Pa^(−½).
     """
     _Phi = D_m2s * S_m3_pasqrt
-    print(f'[Phi] Φ={_Phi:.3e} atoms·m⁻¹·s⁻¹·Pa⁻⁰·⁵')
+    print(f'[Phi] Φ={_Phi:.3e} mol·m⁻¹·s⁻¹·Pa⁻⁰·⁵')
     return _Phi
 
 
@@ -829,7 +830,7 @@ def permeability_arrhenius(D0_m2s: float, E_D_eV: float,
     E_D_eV : float
         Diffusion activation energy [eV].
     S0 : float
-        Solubility pre-exponential [atoms·m⁻³·Pa^(−½)] (geometric or vibrational).
+        Solubility pre-exponential [mol·m⁻³·Pa^(−½)] (geometric or vibrational).
     dH_sol_eV : float
         Solution enthalpy [eV].
 
@@ -856,7 +857,7 @@ def richardson_flux(
     Parameters
     ----------
     Phi : float
-        Permeability [atoms·m⁻¹·s⁻¹·Pa^(−½)].  From :func:`permeability`.
+        Permeability [mol·m⁻¹·s⁻¹·Pa^(−½)].  From :func:`permeability`.
     P_high_Pa : float
         Feed-side H₂ pressure [Pa].
     P_low_Pa : float
@@ -867,12 +868,12 @@ def richardson_flux(
     Returns
     -------
     float
-        Flux J in atoms m⁻² s⁻¹.
+        Flux J in mol m⁻² s⁻¹.
     """
     if L_m <= 0:
         raise ValueError(f'Membrane thickness must be positive; got L_m={L_m}.')
     _J = Phi * (np.sqrt(P_high_Pa) - np.sqrt(max(P_low_Pa, 0.0))) / L_m
-    print(f'[Richardson] J={_J:.3e} atoms·m⁻²·s⁻¹  (P_high={P_high_Pa:.2e} Pa  L={L_m:.3e} m)')
+    print(f'[Richardson] J={_J:.3e} mol·m⁻²·s⁻¹  (P_high={P_high_Pa:.2e} Pa  L={L_m:.3e} m)')
     return _J
 
 
@@ -898,7 +899,7 @@ def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
     stem : str
         Material stem, e.g. ``'ni_bulk_test'``.
     n_h : int
-        H concentration — number of H atoms in the Part-3 MD box.
+        H concentration — number of H mol in the Part-3 MD box.
 
     Returns
     -------
