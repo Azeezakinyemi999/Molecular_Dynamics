@@ -272,17 +272,19 @@ def subsurface_population(grid: dict) -> int:
     return sub1_population(grid) + sub2_population(grid)
 
 
-def subsurface_concentration(grid: dict, a0_m: float) -> float:
-    """Near-bulk H concentration C₀ [atoms/m³], from the **sub2** layer.
+def subsurface_concentration(grid: dict, a0_m: float, layer: str = 'sub2') -> float:
+    """H concentration C₀ [atoms/m³] in a subsurface layer ('sub1' or 'sub2').
 
-    sub2 is the deepest explicit layer and the one that hands off to the bulk
-    via the drain, so its occupancy is what drives Fick diffusion. Per-layer
-    oct-site volume: V = nx × ny × a₀³ / √2.
+    Per-layer oct-site volume: V = nx × ny × a₀³ / √2. ``layer='sub1'`` is the
+    first subsurface (dissolved-reference) layer; ``layer='sub2'`` (default) is
+    the deeper layer that hands off to the bulk via the drain. Both are reported
+    as diagnostics; the headline solubility is derived from the surface coverage
+    via detailed balance, not from these rare-event occupancies.
     """
-    N_sub2 = sub2_population(grid)
+    n      = sub1_population(grid) if layer == 'sub1' else sub2_population(grid)
     nx, ny = grid['nx'], grid['ny']
     vol    = nx * ny * (a0_m ** 3) / math.sqrt(2.0)
-    return N_sub2 / vol if vol > 0.0 else 0.0
+    return n / vol if vol > 0.0 else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -613,13 +615,16 @@ def run_kmc_to_steady_state(
     Returns
     -------
     dict
-        ``{'t_total': float, 'theta_ss': float, 'C0': float, 'n_steps': int,
-           'converged': bool}``.  ``C0`` is the sub2 (near-bulk) concentration.
+        ``{'t_total': float, 'theta_ss': float, 'C0': float, 'C0_sub1': float,
+           'C0_sub2': float, 'n_steps': int, 'converged': bool}``. ``C0`` aliases
+           ``C0_sub2`` (back-compat); both subsurface layers are reported as
+           diagnostics.
     """
     t         = 0.0
     step      = 0
     th_hist: list[float] = []
     ns_hist: list[float] = []
+    ns1_hist: list[float] = []
     ns2_hist: list[float] = []
     converged = False
 
@@ -629,6 +634,7 @@ def run_kmc_to_steady_state(
         step   += 1
         th_hist.append(surface_coverage(grid))
         ns_hist.append(float(subsurface_population(grid)))
+        ns1_hist.append(float(sub1_population(grid)))
         ns2_hist.append(float(sub2_population(grid)))
 
         if step >= 2 * window:
@@ -648,20 +654,26 @@ def run_kmc_to_steady_state(
                 break
 
     theta_ss = float(np.mean(th_hist[-window:])) if len(th_hist) >= window else float(np.mean(th_hist))
-    # C0 is the STEADY-STATE (time-averaged) sub2 concentration over the same
-    # window as theta_ss -- not a single final snapshot. sub2 holds relatively
-    # few atoms in the two-layer model, so a snapshot is dominated by shot
-    # noise; averaging over the window gives a stable, Sieverts-clean C0.
-    _n2 = ns2_hist[-window:] if len(ns2_hist) >= window else ns2_hist
-    _N_sub2_avg = float(np.mean(_n2)) if _n2 else 0.0
+    # C0_sub1/C0_sub2 are STEADY-STATE (time-averaged) concentrations over the
+    # same window as theta_ss -- not single snapshots. Both subsurface layers
+    # hold few atoms, so these are noise-limited DIAGNOSTICS; the headline
+    # solubility is derived from theta_ss via detailed balance, not from these.
+    _win = lambda h: (h[-window:] if len(h) >= window else h)
+    _n1 = _win(ns1_hist); _n2 = _win(ns2_hist)
+    _N1 = float(np.mean(_n1)) if _n1 else 0.0
+    _N2 = float(np.mean(_n2)) if _n2 else 0.0
     _vol = grid['nx'] * grid['ny'] * (a0_m ** 3) / math.sqrt(2.0)
-    C0   = _N_sub2_avg / _vol if _vol > 0.0 else 0.0
+    C0_sub1 = _N1 / _vol if _vol > 0.0 else 0.0
+    C0_sub2 = _N2 / _vol if _vol > 0.0 else 0.0
 
-    print(f'[KMC] converged={converged}  steps={step}  t={t:.3e} s  θ={theta_ss:.4f}  C0={C0:.3e} atoms/m³')
+    print(f'[KMC] converged={converged}  steps={step}  t={t:.3e} s  θ={theta_ss:.4f}  '
+          f'C0(sub1)={C0_sub1:.3e}  C0(sub2)={C0_sub2:.3e} atoms/m³')
     return {
         't_total':  t,
         'theta_ss': theta_ss,
-        'C0':       C0,
+        'C0':        C0_sub2,   # back-compat alias for sub2 (deepest explicit layer)
+        'C0_sub1':   C0_sub1,
+        'C0_sub2':   C0_sub2,
         'n_steps':  step,
         'converged': converged,
     }
