@@ -153,6 +153,33 @@ helper used by both.
 - Error-bar plots for `S(T)` and `Φ(T)` (mirror the diffusivity plots), with
   Φ shown as a **geometric** band (×/÷ factor), not symmetric.
 
+### Step G — units in every result payload
+**Audit finding:** no output JSON carries a units block; units are conveyed
+*only* by field-name suffixes, applied inconsistently. Fields that carry units:
+`*_eV`, `*_m2s`, `*_Pa`, `_K`, `_m`. Fields with **no** unit annotation:
+`S0`, `S`, `Phi`, `J` (`permeability_T{T}K.json`), `Phi0`
+(`permeability_arrhenius.json`), `S0` (`solubility_arrhenius.json`), and the
+sweep arrays `P_vals`, `sqrt_P_vals`, `J_vals`/`J_sub1_vals`,
+`C0_vals`/`C0_sub1_vals`/`C0_sub2_vals`, plus `S_vals`/`S_mean`/`S_std`
+(`fit_solubility_from_kmc`). (`theta_vals`, `*_rel_err`, `Phi0_factor`, `w_env`,
+`r2` are genuinely dimensionless.)
+
+**Fix (non-breaking):** add a `"units"` metadata block to each result payload
+(`sweep_pressure` output, `permeability_T{T}K.json`, `solubility_arrhenius.json`,
+`permeability_arrhenius.json`) mapping every value field → its unit string,
+**without renaming** existing keys (so plots/consumers keep working)::
+
+    "units": {"S0": "mol H m^-3 Pa^-0.5", "S": "mol H m^-3 Pa^-0.5",
+              "Phi": "mol H m^-1 s^-1 Pa^-0.5", "Phi0": "mol H m^-1 s^-1 Pa^-0.5",
+              "J": "mol H m^-2 s^-1", "P_vals": "Pa", "sqrt_P_vals": "Pa^0.5",
+              "C0_vals": "mol H m^-3", "E_phi_eV": "eV", "dH_sol_eV": "eV",
+              "theta_vals": "dimensionless", "S0_rel_err": "dimensionless (fractional)",
+              "Phi0_factor": "dimensionless (x/÷ 1σ band)"}
+
+Also add units to the Phase-6 summary prints (the S and Φ0 lines currently print
+bare numbers, though the library functions — `lattice_site_S0`, `permeability`,
+`richardson_flux` — already print units).
+
 ---
 
 ## 5. Scope notes
