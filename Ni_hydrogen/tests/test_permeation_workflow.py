@@ -337,6 +337,7 @@ class TestPermeationSuccessTracking:
         import itertools
         import numpy as np
         from models.checkpoint import is_done, mark_done
+        from models.permeation import units_for
 
         out_py = str(tmp_path / 'permeation_run.py')
         _cfg = {**_PERM_CFG, 'n_h_values': [1, 3], 'temperatures': [600]}
@@ -415,6 +416,8 @@ class TestPermeationSuccessTracking:
             'permeability_arrhenius': lambda D0, ED, S0, dH, **kw: {
                 'Phi0': D0 * S0, 'E_phi_eV': ED + dH,
                 'Phi0_rel_err': 0.1, 'Phi0_factor': 1.1, 'E_phi_err_eV': 0.02},
+            # Step G: real units-metadata helper (body attaches units to payloads)
+            'units_for': units_for,
         }
 
         # Full success: must run to completion with no SystemExit.
@@ -431,6 +434,12 @@ class TestPermeationSuccessTracking:
             assert os.path.exists(perm_f)
             payload = json.loads(pathlib.Path(perm_f).read_text())
             assert payload['n_H'] == n_h
+            # Step G: payload carries a units block covering nested value fields
+            assert 'units' in payload
+            assert payload['units']['S'] == 'mol H m^-3 Pa^-0.5'
+            assert payload['units']['Phi'] == 'mol H m^-1 s^-1 Pa^-0.5'
+            assert payload['units']['J'] == 'mol H m^-2 s^-1'
+            assert payload['units']['P_high_Pa'] == 'Pa'
 
 
 # ═══════════════════════════════════════════════════════════════════════════
