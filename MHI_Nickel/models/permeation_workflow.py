@@ -91,6 +91,7 @@ from models.permeation import (
     classify_sieverts_regime,
     fit_arrhenius,
     permeability_arrhenius,
+    units_for,
 )
 from models.parsers import parse_barrier_file
 from models.create_slurm import (
@@ -643,6 +644,7 @@ for _n_h in N_H_VALUES:
         _sweep['n_H']   = _n_h
         if _dilute_note:
             _sweep['dilute_limit_caveat'] = _dilute_note
+        _sweep['units'] = units_for(_sweep)   # Step G: units in every payload
         with open(_out, 'w') as _f:
             json.dump(_sweep, _f, indent=2)
         mark_done(_sweep_done_marker)
@@ -805,6 +807,7 @@ for _n_h in N_H_VALUES:
         }
         if _dilute_note:
             _perm_payload['dilute_limit_caveat'] = _dilute_note
+        _perm_payload['units'] = units_for(_perm_payload)   # Step G: units in every payload
         with open(_perm_f, 'w') as _f:
             json.dump(_perm_payload, _f, indent=2)
         mark_done(_perm_done_marker)
@@ -812,11 +815,11 @@ for _n_h in N_H_VALUES:
         _fmt = lambda x: (f'{x:.3e}' if x is not None else 'n/a')
         _rex = _regime.get('theta_exponent')
         _rex_s = f'{_rex:.2f}' if _rex is not None else 'n/a'
-        print(f'  T={_T:4.0f} K  SOLUBILITY (from energies):  geom S={_fmt(_S1)}  vib S={_fmt(_S2)}')
-        print(f'  T={_T:4.0f} K  rate-based cross-checks:     det-bal S={_fmt(_Sdb)}  kmc-θ S={_fmt(_Skt)}')
+        print(f'  T={_T:4.0f} K  SOLUBILITY (from energies):  geom S={_fmt(_S1)}  vib S={_fmt(_S2)}  [mol·m⁻³·Pa⁻⁰·⁵]')
+        print(f'  T={_T:4.0f} K  rate-based cross-checks:     det-bal S={_fmt(_Sdb)}  kmc-θ S={_fmt(_Skt)}  [mol·m⁻³·Pa⁻⁰·⁵]')
         print(f'  T={_T:4.0f} K  KMC DELIVERABLE — Sieverts regime: {_regime.get("regime")}  '
               f'(θ~P^{_rex_s}, θ_max={_regime.get("theta_max")})')
-        print(f'  T={_T:4.0f} K  kmc-count (noise diagnostic): S={_fmt(_S3)}  fluxSievertsR²={_siev.get("r_squared")}')
+        print(f'  T={_T:4.0f} K  kmc-count (noise diagnostic): S={_fmt(_S3)} [mol·m⁻³·Pa⁻⁰·⁵]  fluxSievertsR²={_siev.get("r_squared")}')
 
     # ── Multi-T Arrhenius fits for this n_H ──────────────────────────────────
     # Fit each solubility route (geometric, vibrational, detailed-balance,
@@ -858,9 +861,11 @@ for _n_h in N_H_VALUES:
         }
 
     _sol_out = os.path.join(_nh_dir, 'solubility_arrhenius.json')
+    _sol_doc = {'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
+                'dH_sol_mean_eV': _DH_SOL, 'routes': _sol_routes}
+    _sol_doc['units'] = units_for(_sol_doc)   # Step G: units in every payload
     with open(_sol_out, 'w') as _f:
-        json.dump({'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
-                   'dH_sol_mean_eV': _DH_SOL, 'routes': _sol_routes}, _f, indent=2)
+        json.dump(_sol_doc, _f, indent=2)
     print(f'  → {_sol_out}')
 
     # Permeability Arrhenius (Φ0, E_Φ) per route, from D and each S fit.
@@ -886,12 +891,14 @@ for _n_h in N_H_VALUES:
                                 'E_phi_err_eV': _pa['E_phi_err_eV'],
                                 'J_rel_err_by_T': _jrel,
                                 'r2_S': _info['r2']}
-        print(f'  [{_route}] Φ0={_pa["Phi0"]:.3e} (×/÷{_pa["Phi0_factor"]:.2f})  '
+        print(f'  [{_route}] Φ0={_pa["Phi0"]:.3e} mol·m⁻¹·s⁻¹·Pa⁻⁰·⁵ (×/÷{_pa["Phi0_factor"]:.2f})  '
               f'E_Φ={_pa["E_phi_eV"]:.4f}±{_pa["E_phi_err_eV"]:.4f} eV')
     _perm_arr_out = os.path.join(_nh_dir, 'permeability_arrhenius.json')
+    _perm_doc = {'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
+                 'routes': _perm_routes}
+    _perm_doc['units'] = units_for(_perm_doc)   # Step G: units in every payload
     with open(_perm_arr_out, 'w') as _f:
-        json.dump({'n_H': _n_h, 'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh,
-                   'routes': _perm_routes}, _f, indent=2)
+        json.dump(_perm_doc, _f, indent=2)
     print(f'  → {_perm_arr_out}')
 
     # Auto-generate the schema-current summary figure (headless Agg backend set
