@@ -751,3 +751,54 @@ class TestErrorPropagation:
     def test_fit_arrhenius_two_points_no_error_estimate(self):
         f = fit_arrhenius([400, 800], [4e23, 1e23])   # 0 dof -> NaN errors
         assert not np.isfinite(f['Ea_err_eV'])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Step G — units metadata (RESULT_UNITS / units_for)
+# ═══════════════════════════════════════════════════════════════════════════
+
+from models.permeation import RESULT_UNITS, units_for
+
+
+class TestResultUnits:
+
+    def test_scalar_fields_mapped(self):
+        u = units_for({'T_K': 600, 'a0_m': 3.5e-10, 'D0_m2s': 1e-9,
+                       'E_D_eV': 0.4, 'P_high_Pa': 1e5})
+        assert u == {'T_K': 'K', 'a0_m': 'm', 'D0_m2s': 'm^2 s^-1',
+                     'E_D_eV': 'eV', 'P_high_Pa': 'Pa'}
+
+    def test_recurses_into_nested_payload(self):
+        # nested option dicts (as in permeability_T{T}K.json) are covered by the
+        # single flat block, and array field names are recognised too.
+        payload = {
+            'T_K': 600,
+            'option1': {'S0': 1e28, 'S': 1e22, 'Phi': 1e12, 'J': 1e15,
+                        'route': 'geometric'},
+            'sieverts_regime': {'regime': 'sieverts_compatible',
+                                'theta_exponent': 0.5},
+            'P_vals': [1.0, 2.0], 'J_vals': [0.0, 1.0], 'theta_vals': [0.1, 0.2],
+        }
+        u = units_for(payload)
+        assert u['S'] == 'mol H m^-3 Pa^-0.5'
+        assert u['Phi'] == 'mol H m^-1 s^-1 Pa^-0.5'
+        assert u['J'] == 'mol H m^-2 s^-1'
+        assert u['J_vals'] == 'mol H m^-2 s^-1'
+        assert u['P_vals'] == 'Pa'
+        assert u['theta_vals'] == 'dimensionless'
+        assert u['theta_exponent'] == 'dimensionless'
+        assert u['T_K'] == 'K'
+
+    def test_unknown_and_string_fields_omitted(self):
+        # non-value fields (strings, unknown keys) get no unit entry
+        u = units_for({'route': 'geometric', 'regime': 'saturated', 'foo': 1.0})
+        assert u == {}
+
+    def test_units_block_is_json_serialisable_and_self_consistent(self):
+        # every value in RESULT_UNITS is a plain string (safe to json.dump)
+        assert all(isinstance(v, str) and v for v in RESULT_UNITS.values())
+        # attaching does not disturb the fields it describes
+        payload = {'S0': 1e28, 'Phi0': 1e12}
+        payload['units'] = units_for(payload)
+        assert json.loads(json.dumps(payload))['units']['Phi0'] == \
+            'mol H m^-1 s^-1 Pa^-0.5'

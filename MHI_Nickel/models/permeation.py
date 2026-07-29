@@ -386,6 +386,70 @@ _M_H2_KG = 2.0 * 1.6735575e-27  # kg  (H₂ molecule)
 _N_A     = 6.02214076e23     # Avogadro / mol  (counts -> mol H)
 
 
+# ── Step G: units metadata for result payloads ──────────────────────────────────
+# Maps result value-field name -> unit string, so written JSON carries units
+# explicitly instead of relying on inconsistent key-name suffixes. All quantities
+# are SI + per mol H, pressures in Pa (implicit P_ref = 1 Pa). Fields absent from
+# a payload are simply skipped; string/bool/genuinely-dimensionless fields are
+# either labelled 'dimensionless' or omitted.
+RESULT_UNITS = {
+    # energies
+    'E_D_eV': 'eV', 'Ea_eV': 'eV', 'E_phi_eV': 'eV', 'E_phi_err_eV': 'eV',
+    'dH_sol_eV': 'eV', 'dH_sol_err_eV': 'eV', 'dH_sol_mean_eV': 'eV',
+    'dH_diss_eV': 'eV', 'dH_entry_eV': 'eV',
+    # diffusivity, length, temperature, time
+    'D_m2s': 'm^2 s^-1', 'D0_m2s': 'm^2 s^-1',
+    'a0_m': 'm', 'L_m': 'm', 'T_K': 'K', 'T_K_arr': 'K', 't_total_vals': 's',
+    # pressure
+    'P_vals': 'Pa', 'P_high_Pa': 'Pa', 'P_dilute_Pa': 'Pa', 'sqrt_P_vals': 'Pa^0.5',
+    # solubility  [mol H m^-3 Pa^-0.5]
+    'S0': 'mol H m^-3 Pa^-0.5', 'S': 'mol H m^-3 Pa^-0.5', 'S_arr': 'mol H m^-3 Pa^-0.5',
+    'S_mean': 'mol H m^-3 Pa^-0.5', 'S_std': 'mol H m^-3 Pa^-0.5',
+    'S_vals': 'mol H m^-3 Pa^-0.5', 'S_sub1': 'mol H m^-3 Pa^-0.5',
+    'S_sub2': 'mol H m^-3 Pa^-0.5',
+    # permeability, flux, concentration
+    'Phi': 'mol H m^-1 s^-1 Pa^-0.5', 'Phi0': 'mol H m^-1 s^-1 Pa^-0.5',
+    'J': 'mol H m^-2 s^-1', 'J_vals': 'mol H m^-2 s^-1', 'J_sub1_vals': 'mol H m^-2 s^-1',
+    'sub1_at_Phigh': 'mol H m^-2 s^-1', 'sub2_at_Phigh': 'mol H m^-2 s^-1',
+    'C0_vals': 'mol H m^-3', 'C0_sub1_vals': 'mol H m^-3', 'C0_sub2_vals': 'mol H m^-3',
+    # counts
+    'n_H': 'count', 'n_env': 'count', 'n_converged': 'count', 'n_points': 'count',
+    'n_dilute_points': 'count', 'n_steps_vals': 'count',
+    # dimensionless (labelled explicitly so their absence is not ambiguous)
+    'theta_vals': 'dimensionless', 'theta_dilute': 'dimensionless',
+    'theta_max': 'dimensionless', 'theta_exponent': 'dimensionless',
+    'S0_rel_err': 'dimensionless (fractional)', 'S_rel_err': 'dimensionless (fractional)',
+    'Phi0_rel_err': 'dimensionless (fractional)', 'J_rel_err_by_T': 'dimensionless (fractional)',
+    'Phi0_factor': 'dimensionless (x/div 1-sigma band)', 'w_env': 'dimensionless',
+    'r2': 'dimensionless', 'r2_S': 'dimensionless', 'sieverts_r2': 'dimensionless',
+}
+
+
+def units_for(payload) -> dict:
+    """Collect ``{field_name: unit_string}`` for every known value field appearing
+    anywhere in a (possibly nested) result payload.
+
+    Walks nested dicts/lists so nested value fields (e.g. ``option1['Phi']``) are
+    covered by a single flat block. Fields not in :data:`RESULT_UNITS` are skipped
+    (strings, bools, and genuinely-dimensionless-by-omission fields). Intended to
+    be attached as ``payload['units'] = units_for(payload)`` just before writing.
+    """
+    found = {}
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k in RESULT_UNITS and k not in found:
+                    found[k] = RESULT_UNITS[k]
+                _walk(v)
+        elif isinstance(obj, (list, tuple)):
+            for item in obj:
+                _walk(item)
+
+    _walk(payload)
+    return found
+
+
 def arrhenius_diffusivity(D0_m2s: float, E_D_eV: float, T_K: float) -> float:
     """Temperature-dependent bulk diffusivity from an Arrhenius fit.
 
