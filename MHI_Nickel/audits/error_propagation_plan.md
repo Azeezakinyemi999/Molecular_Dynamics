@@ -154,6 +154,11 @@ helper used by both.
   Φ shown as a **geometric** band (×/÷ factor), not symmetric.
 
 ### Step G — units in every result payload
+**Status: implemented.** `RESULT_UNITS` + `units_for(payload)` in `models/permeation.py`
+attach a `"units"` block (recursing into nested option dicts) to the four payloads
+below at their write sites in `models/permeation_workflow.py`; the Phase-6 S and Φ0
+summary prints now carry units too. No existing keys were renamed.
+
 **Audit finding:** no output JSON carries a units block; units are conveyed
 *only* by field-name suffixes, applied inconsistently. Fields that carry units:
 `*_eV`, `*_m2s`, `*_Pa`, `_K`, `_m`. Fields with **no** unit annotation:
