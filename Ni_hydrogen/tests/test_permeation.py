@@ -25,6 +25,8 @@ from models.permeation import (
     _M_H2_KG,
     _N_A,
     fick_flux,
+    sweep_pressure,
+    pop_weighted_rate_ratio,
     check_sieverts_law,
     classify_sieverts_regime,
     arrhenius_diffusivity,
@@ -802,3 +804,78 @@ class TestResultUnits:
         payload['units'] = units_for(payload)
         assert json.loads(json.dumps(payload))['units']['Phi0'] == \
             'mol H m^-1 s^-1 Pa^-0.5'
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Rate-ratio (count-free) subsurface occupancy — replaces integer counting
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestPopWeightedRateRatio:
+
+    def test_single_environment_is_plain_ratio(self):
+        assert pop_weighted_rate_ratio({'E': 1e10}, {'E': 1e11}, None) == pytest.approx(0.1)
+
+    def test_population_weighted_over_grid_sites(self):
+        env = np.array([['A', 'A'], ['B', 'B']], dtype=object)   # 2×A, 2×B
+        # ratios: A=2/1=2, B=4/1=4  →  site mean of [2,2,4,4] = 3.0
+        r = pop_weighted_rate_ratio({'A': 2.0, 'B': 4.0}, {'A': 1.0, 'B': 1.0}, env)
+        assert r == pytest.approx(3.0)
+
+    def test_missing_env_falls_back_to_dict_mean(self):
+        env = np.array(['A', 'Z'], dtype=object)   # 'Z' absent from the rate dicts
+        # A → 2/1 = 2; Z → mean_fwd/mean_rev = 2/1 = 2  →  mean = 2.0
+        r = pop_weighted_rate_ratio({'A': 2.0}, {'A': 1.0}, env)
+        assert r == pytest.approx(2.0)
+
+    def test_empty_rate_dict_returns_zero(self):
+        # empty entry-rate dict = no surface→sub1 channel
+        assert pop_weighted_rate_ratio({}, {'E': 1.0}) == 0.0
+        assert pop_weighted_rate_ratio({'E': 1.0}, {}) == 0.0
+
+
+class TestSweepRateRatioOccupancy:
+    """sweep_pressure C0/J are the rate-ratio occupancy, not integer counts."""
+
+    def _run(self):
+        import math
+        T, a0, nu = 600.0, 3.5e-10, 1e13
+        kBT = _KB_EV * T
+        rate_dict = {
+            'k_diss': {('Ni', 'Ni'): math.exp(-0.10 / kBT)},
+            'k_des':  {('Ni', 'Ni'): nu * math.exp(-0.30 / kBT)},
+            'k_entry': {'E': 1e10}, 'k_exit': {'E': 1e11},          # ratio 0.1
+            'k_hopB_entry': {'E': 1e10}, 'k_hopB_exit': {'E': 1e11},
+        }
+        np.random.seed(0)
+        return a0, sweep_pressure(
+            [1e3, 1e4, 1e5], rate_dict, 1e-9, 1e-3, T, a0,
+            nx=4, ny=4, composition={'Ni': 1.0},
+            sub1_env_composition={'E': 1.0}, sub2_env_composition={'E': 1.0},
+            kmc_kwargs={'window': 100, 'rtol': 0.1, 'max_steps': 5000},
+        )
+
+    def test_new_schema_fields_present(self):
+        _, sw = self._run()
+        for k in ('C0_sub1_vals', 'C0_sub2_vals', 'C0_vals', 'J_vals', 'J_sub1_vals',
+                  'C0_sub1_count_vals', 'C0_sub2_count_vals', 'J_count_vals',
+                  'J_sub1_count_vals', 'theta_vals', 'method'):
+            assert k in sw, f'missing {k}'
+        assert 'rate-ratio' in sw['method']
+
+    def test_C0_sub1_equals_rho_oct_ratio_theta(self):
+        a0, sw = self._run()
+        rho_oct = 4.0 / (a0 ** 3) / _N_A
+        R1 = 0.1   # single-env k_entry/k_exit
+        for c1, th in zip(sw['C0_sub1_vals'], sw['theta_vals']):
+            assert c1 == pytest.approx(rho_oct * R1 * th, rel=1e-9)
+
+    def test_J_is_fick_of_rate_ratio_C0_not_count(self):
+        _, sw = self._run()
+        for j, c2 in zip(sw['J_vals'], sw['C0_sub2_vals']):
+            assert j == pytest.approx(1e-9 * c2 / 1e-3, rel=1e-9)   # D·C0/L
+
+    def test_count_diagnostic_is_separate_series(self):
+        _, sw = self._run()
+        # counts are a distinct, integer-derived series (not equal to rate-ratio)
+        assert len(sw['C0_sub1_count_vals']) == len(sw['C0_sub1_vals'])
+        assert sw['C0_sub1_count_vals'] != sw['C0_sub1_vals']
