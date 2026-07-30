@@ -95,6 +95,49 @@ def fick_flux(
 # Section 2 — Pressure sweep
 # ---------------------------------------------------------------------------
 
+def pop_weighted_rate_ratio(fwd_by_env: dict, rev_by_env: dict, env_array=None) -> float:
+    """Population-weighted mean of ``k_forward(env)/k_reverse(env)`` over grid sites.
+
+    This is the dimensionless factor in the rate-ratio (dilute detailed-balance)
+    subsurface occupancy ``C = ρ_oct·⟨k_fwd/k_rev⟩·θ`` — the continuous,
+    count-free estimator that replaces integer occupancy counting for the
+    subsurface layers. Counting floors at ~1 atom whenever the true equilibrium
+    occupancy is ≪ 1 atom per grid (e.g. endothermic entry), losing all P/T
+    dependence; the rate ratio does not.
+
+    The ratio is averaged over the environments actually present on the grid
+    (``env_array`` from ``make_grid``); an env absent from a rate dict falls back
+    to that dict's mean, and a non-positive reverse rate contributes nothing.
+    Returns 0.0 if no valid ratio exists — e.g. an empty entry-rate dict, i.e.
+    no surface→sub1 channel at all.
+
+    Parameters
+    ----------
+    fwd_by_env, rev_by_env : dict
+        Environment-keyed forward (entry) and reverse (exit) rates [s⁻¹].
+    env_array : ndarray or None
+        Per-site environment labels for the layer. If ``None``, a uniform mean
+        over the rate dict's environments is used.
+
+    Returns
+    -------
+    float
+        Population-weighted ⟨k_fwd/k_rev⟩ (dimensionless), or 0.0.
+    """
+    if not fwd_by_env or not rev_by_env:
+        return 0.0
+    _fm = sum(fwd_by_env.values()) / len(fwd_by_env)
+    _rm = sum(rev_by_env.values()) / len(rev_by_env)
+    envs = (list(np.asarray(env_array, dtype=object).ravel())
+            if env_array is not None else list(fwd_by_env))
+    ratios = []
+    for e in envs:
+        kr = rev_by_env.get(e, _rm)
+        if kr and kr > 0.0:
+            ratios.append(fwd_by_env.get(e, _fm) / kr)
+    return float(np.mean(ratios)) if ratios else 0.0
+
+
 def sweep_pressure(
     P_vals_Pa: list,
     rate_dict: dict,
@@ -148,66 +191,102 @@ def sweep_pressure(
     Returns
     -------
     dict
-        ``{'P_vals', 'J_vals' (sub2), 'J_sub1_vals', 'C0_vals' (=sub2),
-           'C0_sub1_vals', 'C0_sub2_vals', 'sqrt_P_vals', 'converged',
-           'theta_vals', 't_total_vals', 'n_steps_vals'}``. ``J_vals``/``C0_vals``
-        alias the sub2 layer for back-compat; sub1 and sub2 are reported
-        separately as diagnostics (the headline solubility is θ-based, not from
-        these rare-event concentrations).
+        Primary ``C0``/``J`` fields are the **rate-ratio** (dilute
+        detailed-balance) occupancy ``ρ_oct·⟨k_entry/k_exit⟩·θ`` and its Fick
+        flux — continuous and count-free, so they recover Sieverts √P scaling:
+        ``{'C0_sub1_vals', 'C0_sub2_vals', 'C0_vals' (=sub2), 'J_sub1_vals',
+        'J_vals' (=sub2)}``. Raw integer-count occupancy (the noise/quantization-
+        limited diagnostic) is preserved under ``{'C0_sub1_count_vals',
+        'C0_sub2_count_vals', 'J_sub1_count_vals', 'J_count_vals'}``. Plus
+        ``{'P_vals', 'sqrt_P_vals', 'converged', 'theta_vals', 't_total_vals',
+        'n_steps_vals', 'method'}``. ``C0_vals``/``J_vals`` alias sub2 for
+        back-compat.
     """
     kw = kmc_kwargs or {}
+    rho_oct = 4.0 / (a0_m ** 3) / _N_A            # oct-site density [mol/m³]
+    k_entry = rate_dict.get('k_entry',      {})
+    k_exit  = rate_dict.get('k_exit',       {})
+    k_hbent = rate_dict.get('k_hopB_entry', {})
+    k_hbext = rate_dict.get('k_hopB_exit',  {})
+
     P_out:        list[float] = []
-    J_out:        list[float] = []
-    J_sub1_out:   list[float] = []
-    C0_out:       list[float] = []
-    C0_sub1_out:  list[float] = []
-    C0_sub2_out:  list[float] = []
     sqrtP_out:    list[float] = []
     conv_out:     list[bool]  = []
     theta_out:    list[float] = []
     t_total_out:  list[float] = []
     nsteps_out:   list[int]   = []
+    # PRIMARY: rate-ratio (dilute detailed-balance) occupancy & Fick flux
+    C0_sub1_out:  list[float] = []
+    C0_sub2_out:  list[float] = []
+    J_sub1_out:   list[float] = []
+    J_out:        list[float] = []
+    # DIAGNOSTIC: raw integer-count occupancy & its Fick flux
+    C0_sub1_ct:   list[float] = []
+    C0_sub2_ct:   list[float] = []
+    J_sub1_ct:    list[float] = []
+    J_ct:         list[float] = []
 
     for P in P_vals_Pa:
         grid = make_grid(nx, ny, composition=composition, seed=seed,
                          sub1_env_composition=sub1_env_composition,
                          sub2_env_composition=sub2_env_composition)
         ss    = run_kmc_to_steady_state(grid, rate_dict, P, T_K, D_m2s, a0_m, **kw)
-        C0_s1 = ss['C0_sub1']
-        C0_s2 = ss['C0_sub2']
-        J1    = fick_flux(D_m2s, C0_s1, L_m)
-        J2    = fick_flux(D_m2s, C0_s2, L_m)
+        theta = float(ss['theta_ss'])
+
+        # Rate-ratio occupancy: C = ρ_oct·⟨k_entry/k_exit⟩·θ (sub1), ×⟨k_hopB⟩
+        # for sub2. Count-free and continuous — avoids the ~1-atom quantization
+        # floor of integer counting when the true occupancy is ≪ 1 per grid.
+        # θ ∝ √P in the dilute limit, so these recover Sieverts scaling.
+        R1 = pop_weighted_rate_ratio(k_entry, k_exit, grid['sub1_env'])
+        R2 = pop_weighted_rate_ratio(k_hbent, k_hbext, grid['sub2_env'])
+        C1 = rho_oct * R1 * theta
+        C2 = rho_oct * R1 * R2 * theta
+        J1 = fick_flux(D_m2s, C1, L_m)
+        J2 = fick_flux(D_m2s, C2, L_m)
+
+        # Raw integer-count occupancy (diagnostic; noise/quantization-limited)
+        C1c = float(ss['C0_sub1']); C2c = float(ss['C0_sub2'])
+        J1c = fick_flux(D_m2s, C1c, L_m); J2c = fick_flux(D_m2s, C2c, L_m)
 
         P_out.append(float(P))
-        J_out.append(float(J2))               # back-compat: kinetic flux from sub2
-        J_sub1_out.append(float(J1))
-        C0_out.append(float(C0_s2))           # back-compat: C0 == sub2
-        C0_sub1_out.append(float(C0_s1))
-        C0_sub2_out.append(float(C0_s2))
         sqrtP_out.append(float(np.sqrt(P)))
         conv_out.append(bool(ss['converged']))
-        theta_out.append(float(ss['theta_ss']))
+        theta_out.append(theta)
         t_total_out.append(float(ss['t_total']))
         nsteps_out.append(int(ss['n_steps']))
+        C0_sub1_out.append(float(C1)); C0_sub2_out.append(float(C2))
+        J_sub1_out.append(float(J1));  J_out.append(float(J2))
+        C0_sub1_ct.append(C1c); C0_sub2_ct.append(C2c)
+        J_sub1_ct.append(float(J1c)); J_ct.append(float(J2c))
 
         print(
-            f'  P={P:.2e} Pa | θ={ss["theta_ss"]:.4f} | '
-            f'C0(sub1)={C0_s1:.3e} C0(sub2)={C0_s2:.3e} mol/m³ | '
-            f'J={J2:.3e} mol/m²/s | converged={ss["converged"]}'
+            f'  P={P:.2e} Pa | θ={theta:.4f} | '
+            f'C0(sub1)={C1:.3e} C0(sub2)={C2:.3e} mol/m³ (rate-ratio; '
+            f'count {C1c:.2e}/{C2c:.2e}) | J={J2:.3e} mol/m²/s | '
+            f'converged={ss["converged"]}'
         )
 
     return {
         'P_vals':       P_out,
-        'J_vals':       J_out,
-        'J_sub1_vals':  J_sub1_out,
-        'C0_vals':      C0_out,
-        'C0_sub1_vals': C0_sub1_out,
-        'C0_sub2_vals': C0_sub2_out,
         'sqrt_P_vals':  sqrtP_out,
         'converged':    conv_out,
         'theta_vals':   theta_out,
         't_total_vals': t_total_out,
         'n_steps_vals': nsteps_out,
+        # PRIMARY — rate-ratio occupancy & Fick flux (√P-scaling, count-free)
+        'C0_sub1_vals': C0_sub1_out,
+        'C0_sub2_vals': C0_sub2_out,
+        'C0_vals':      C0_sub2_out,          # back-compat alias = sub2
+        'J_sub1_vals':  J_sub1_out,
+        'J_vals':       J_out,                # back-compat alias = sub2
+        # DIAGNOSTIC — raw integer-count occupancy & flux (noise-limited)
+        'C0_sub1_count_vals': C0_sub1_ct,
+        'C0_sub2_count_vals': C0_sub2_ct,
+        'J_sub1_count_vals':  J_sub1_ct,
+        'J_count_vals':       J_ct,
+        'method': ('C0/J = rate-ratio occupancy rho_oct*<k_entry/k_exit>*theta '
+                   '(dilute detailed balance); *_count_vals are raw integer '
+                   'counts, a noise-limited diagnostic'),
     }
 
 
@@ -410,8 +489,10 @@ RESULT_UNITS = {
     # permeability, flux, concentration
     'Phi': 'mol H m^-1 s^-1 Pa^-0.5', 'Phi0': 'mol H m^-1 s^-1 Pa^-0.5',
     'J': 'mol H m^-2 s^-1', 'J_vals': 'mol H m^-2 s^-1', 'J_sub1_vals': 'mol H m^-2 s^-1',
+    'J_count_vals': 'mol H m^-2 s^-1', 'J_sub1_count_vals': 'mol H m^-2 s^-1',
     'sub1_at_Phigh': 'mol H m^-2 s^-1', 'sub2_at_Phigh': 'mol H m^-2 s^-1',
     'C0_vals': 'mol H m^-3', 'C0_sub1_vals': 'mol H m^-3', 'C0_sub2_vals': 'mol H m^-3',
+    'C0_sub1_count_vals': 'mol H m^-3', 'C0_sub2_count_vals': 'mol H m^-3',
     # counts
     'n_H': 'count', 'n_env': 'count', 'n_converged': 'count', 'n_points': 'count',
     'n_dilute_points': 'count', 'n_steps_vals': 'count',

@@ -747,11 +747,14 @@ for _n_h in N_H_VALUES:
         else:
             _P_lo = _th_lo = _Skt = _Phikt = _Jkt = None
 
-        # Diagnostic: KMC empirical counting S = C0/√P, for sub1 AND sub2. This
-        # is the noise-limited route (kept for comparison, NOT the headline).
-        _kmc_c2 = fit_solubility_from_kmc(_sw)     # C0_vals == sub2 (back-compat)
-        _sw_s1  = dict(_sw); _sw_s1['C0_vals'] = _sw.get('C0_sub1_vals', _sw.get('C0_vals'))
-        _kmc_c1 = fit_solubility_from_kmc(_sw_s1)
+        # Diagnostic: KMC empirical counting S = C0/√P, for sub1 AND sub2. Uses
+        # the RAW integer-count occupancy (*_count_vals), the noise/quantization-
+        # limited route kept only for comparison — NOT the headline (the primary
+        # C0_*_vals are now the count-free rate-ratio occupancy).
+        _sw_c2  = dict(_sw); _sw_c2['C0_vals'] = _sw.get('C0_sub2_count_vals') or _sw.get('C0_vals')
+        _kmc_c2 = fit_solubility_from_kmc(_sw_c2)
+        _sw_c1  = dict(_sw); _sw_c1['C0_vals'] = _sw.get('C0_sub1_count_vals') or _sw.get('C0_sub1_vals')
+        _kmc_c1 = fit_solubility_from_kmc(_sw_c1)
         _S3     = _kmc_c2['S_mean']
         _Phi3   = permeability(_D_T, _S3)
         _J3     = richardson_flux(_Phi3, _P_HIGH, 0.0, L_M)
@@ -799,9 +802,9 @@ for _n_h in N_H_VALUES:
                         'sieverts_r2': _siev.get('r_squared'),
                         'route': 'KMC empirical counting S=C0/sqrtP [DIAGNOSTIC: noise-limited]'},
             'kmc_kinetic_flux': {
-                'sub1_at_Phigh': (_sw['J_sub1_vals'][-1] if _sw.get('J_sub1_vals') else None),
-                'sub2_at_Phigh': (_sw['J_vals'][-1] if _sw.get('J_vals') else None),
-                'note': 'D*C0/L from KMC counting (diagnostic); Richardson flux is per-route J above'},
+                'sub1_at_Phigh': (_sw['J_sub1_count_vals'][-1] if _sw.get('J_sub1_count_vals') else None),
+                'sub2_at_Phigh': (_sw['J_count_vals'][-1] if _sw.get('J_count_vals') else None),
+                'note': 'D*C0/L from KMC integer counting (diagnostic; noise-limited); the primary sweep J_vals are the rate-ratio flux, and Richardson flux is per-route J above'},
             'sieverts_regime': _regime,   # KMC deliverable: does this surface obey Sieverts?
             'P_high_Pa': _P_HIGH, 'L_m': L_M,
         }
