@@ -229,13 +229,22 @@ where `w_env` is each environment's population weight and the sum runs over the 
 
 | Route | How S is obtained | Physical meaning |
 |---|---|---|
-| geometric | `S₀ = 4/a₀³` × per-env Boltzmann | 4 oct sites per FCC cell — the geometric site-density ceiling (`lattice_site_S0`) |
+| geometric | `S₀ = 4/a₀³/N_A` × per-env Boltzmann | 4 oct sites per FCC cell, **per mol** — the geometric site-density ceiling (`lattice_site_S0`). The `/N_A` reports S in mol H rather than atoms; results generated before commit `ed5bb11` (2026-07-28) omit it and are a factor of Avogadro too large |
 | vibrational | partition-function S₀ × per-env Boltzmann | S₀ from the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`); available only when the dissolved-H FS vibrations were computed |
 | detailed_balance | `ρ_oct·(k_entry/k_exit)·√(k_diss·A/(k_des·…))`, population-weighted (`solubility_from_rates`) | **rate-based cross-check only** — routes the equilibrium solubility through kinetic rates and picks up a dissociation-rate-averaging artifact; not the reported solubility |
 | kmc_theta | `ρ_oct·(k_entry/k_exit)·θ_KMC/√P` (dilute limit) | **cross-check only** — same idea with the KMC-simulated θ; inherits the same artifact through θ plus a finite-coverage rolloff |
 | option3 (diagnostic) | `S = C₀/√P` from the KMC sweep, sub1 & sub2 | empirical counting — noise-limited (each subsurface layer holds ≪1 atom); kept for comparison, not a headline |
 
 **geometric and vibrational are the solubility headline** — the equilibrium solubility is a thermodynamic quantity and is computed from energies (per-environment Boltzmann sum via `solubility_by_environment`, differing only in S₀). detailed_balance, kmc_theta and option3 route the same quantity through *kinetic* machinery (rates, coverage, occupancy) and each picks up an artifact, so they are **diagnostics/cross-checks, not the reported solubility**. The old "detailed balance from a single representative TST rate" route has been retired.
+
+**The Boltzmann sum is the dilute limit, and it has no upper bound.** `exp(−ΔH_sol/k_BT)` assumes θ ≪ 1, so an exothermic environment can drive S past one H per site — physically impossible, and observed: Hastelloy N 7's geometric route reaches `1.3e11` against a site density of `1.5e5`, driven by three tetrahedral environments holding ~10 % of the sites. The occupancy-limited counterpart `solubility_by_environment_saturating` replaces the bare Boltzmann factor with a Langmuir occupancy,
+
+```
+θ_env = K√(P/P_ref) / (1 + K√(P/P_ref)),   K = (S₀/ρ_site)·exp(−ΔH_sol(env)/k_BT)
+S     = ρ_site · Σ_env w_env·θ_env / √(P/P_ref)
+```
+
+which reduces exactly to the Boltzmann form as θ → 0, so the dilute regime is unchanged. It is reported alongside (`saturating` in each route's payload: `S`, `S_dilute`, `theta_max`, `regime`) rather than replacing the dilute value, which remains the correct Sieverts constant where it applies. `regime` reuses the `classify_sieverts_regime` thresholds (`θ_max ≥ 0.85` → `saturated_only`, `≥ 0.4` → `partially_saturated`). Any route whose S exceeds `4/a₀³/N_A` should be read as "the dilute assumption has failed here", not as a solubility.
 
 The KMC's distinct deliverable is instead the **Sieverts-regime classifier** (`classify_sieverts_regime`): from the coverage isotherm's low-pressure exponent `θ ∝ P^n` it reports whether the surface obeys Sieverts' law — `n ≈ 0.5` → `sieverts_compatible` (diffusion-limited), `n ≈ 1.0` → `surface_limited` (dissociation rate-limiting, e.g. oxides), `θ→1` → `saturated_only`. This is the question thermodynamics cannot answer, and it is written to `permeability_T{T}K.json` as `sieverts_regime`.
 
