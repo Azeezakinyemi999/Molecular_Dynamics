@@ -399,6 +399,11 @@ class TestPermeationSuccessTracking:
             '_sub1_env_comp': None, '_sub2_env_comp': None,
             'env_rate_dict': lambda hv, T: ({}, {}),
             'solubility_by_environment': lambda d, S0, T: 1e-3,
+            'solubility_by_environment_saturating':
+                lambda d, S0, rho, T, **kw: {
+                    'S': 1e-3, 'S_dilute': 1e-3, 'C': 1e-3,
+                    'theta_mean': 0.01, 'theta_max': 0.02,
+                    'regime': 'sieverts_compatible', 'saturation_ratio': 1.0},
             'solubility_env_rel_err': lambda d, T, S0_rel_err=0.0: 0.1,
             'solubility_from_rates': lambda kd, kds, ke, kx, a0, T: 1e-3,
             'vibrational_S0': lambda a0, T, freqs: 1e23,

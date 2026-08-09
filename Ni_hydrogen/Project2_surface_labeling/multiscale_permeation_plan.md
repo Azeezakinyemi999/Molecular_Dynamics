@@ -847,7 +847,7 @@ The inter-layer rates are looked up per oct-site environment (surface⇄sub1 by 
 
 All routes use Φ = D(T) × S(T), where D(T) is taken from Part 3 for the relevant `n_H`. Solubility is referenced to the **first subsurface site (sub1)**: `ΔH_sol(env) = ½ΔH_diss + ΔH_HopA(env)` (assembled in `dH_sol_by_env.json`). Hop B and deeper transport are bulk diffusion (carried by D), so ΔH_HopB is **not** in the solubility — it is still computed and saved (`hopb_vib_rates.json`, `rate_dict_T{T}K.json`) for other use. **Solubility is a thermodynamic equilibrium quantity and is therefore taken from the energies**, via two per-environment Boltzmann sums that differ only in the prefactor S₀:
 
-- **geometric** *(headline)* — `S₀ = 4/a₀³` (geometric oct-site density ceiling), per-env Boltzmann `S(T) = S₀ × Σ_env w_env·exp(−ΔH_sol(env)/k_BT)`.
+- **geometric** *(headline)* — `S₀ = 4/a₀³/N_A` (geometric oct-site density ceiling, per mol H), per-env Boltzmann `S(T) = S₀ × Σ_env w_env·exp(−ΔH_sol(env)/k_BT)`. The `/N_A` was added in commit `ed5bb11` (2026-07-28); payloads written before it are a factor of Avogadro too large and must be regenerated, not rescaled by hand.
 - **vibrational** *(headline)* — `S₀` from the ratio of the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`), same per-env Boltzmann. Available only when the dissolved-H FS vibrations were computed.
 
 The remaining three are **diagnostics/cross-checks, not the reported solubility** — each routes the equilibrium quantity through kinetic machinery and picks up an artifact:
@@ -855,6 +855,17 @@ The remaining three are **diagnostics/cross-checks, not the reported solubility*
 - **detailed_balance** *(cross-check)* — `S = ρ_oct·(k_entry/k_exit)·√(k_diss·A/(k_des·√(2π m k_BT)))` (`solubility_from_rates`). Because the many dissociation channels are combined by averaging *rates* rather than *energies*, it carries a dissociation-rate-averaging (Jensen) artifact and reads high.
 - **kmc_theta** *(cross-check)* — the same detailed balance with the **KMC-simulated** θ isotherm, `S = ρ_oct·(k_entry/k_exit)·θ_KMC/√P` at the dilute limit. Inherits the dissociation artifact through θ and adds a finite-coverage rolloff (the sweep does not reach truly dilute θ).
 - **option3** *(diagnostic)* — the old KMC-empirical counting `S(T) = C₀/√P`, reported for both sub1 and sub2 with the Sieverts-fit R². Noise-limited (each subsurface layer holds ≪1 atom).
+
+**The per-env Boltzmann sum is the dilute limit and is unbounded above.** `exp(−ΔH_sol/k_BT)` presumes θ ≪ 1, so a single exothermic environment can push S past one H per site regardless of how few sites it represents. This is not hypothetical: for Hastelloy N 7 three tetrahedral environments (`Ni2Fe_tet` ΔH −0.597, `Ni3_tet` −0.522, `Ni2Mo_tet` −0.497 eV) hold ~10 % of the sites and contribute essentially 100 % of S, giving `S(400 K) = 1.3e11` against a site density of `1.5e5`. For pure Ni the single `Ni6_oct` environment (w = 0.20) supplies 99.2 % of S.
+
+`solubility_by_environment_saturating` is the occupancy-limited counterpart. The route's own prefactor becomes the entropic constant `K₀ = S₀/ρ_site`, and the bare Boltzmann factor is replaced by a Langmuir occupancy under dissociative equilibrium:
+
+```
+θ_env = K√(P/P_ref) / (1 + K√(P/P_ref)),   K = K₀·exp(−ΔH_sol(env)/k_BT)
+S     = ρ_site · Σ_env w_env·θ_env / √(P/P_ref)
+```
+
+As θ → 0 this collapses exactly onto the Boltzmann form, so the dilute regime is untouched (Al reproduces its dilute S to four significant figures, θ_max = 0.000). It is recorded **alongside** the dilute value as `saturating` in each route's payload (`S`, `S_dilute`, `C`, `theta_mean`, `theta_max`, `regime`, `saturation_ratio`) rather than replacing it — the dilute value is still the correct Sieverts constant wherever Sieverts applies. `regime` reuses the `classify_sieverts_regime` thresholds. Treat any S above `4/a₀³/N_A` as a failed dilute assumption rather than a solubility; note this is independent of the Avogadro issue above, since even a correctly normalised Ni sits ~1.14× over its ceiling.
 
 **The KMC's own headline output is not a solubility at all — it is the Sieverts-regime classifier** (`classify_sieverts_regime`): from the coverage isotherm's low-P exponent `θ ∝ P^n` it labels each (metal/oxide, T) as `sieverts_compatible` (n ≈ 0.5, diffusion-limited), `surface_limited` (n ≈ 1.0, dissociation rate-limiting — the oxide failure mode), or `saturated_only`. This is the question the thermodynamic solubility cannot answer: *does this surface actually obey Sieverts' law?*
 

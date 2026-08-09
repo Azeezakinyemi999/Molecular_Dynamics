@@ -85,6 +85,7 @@ from models.permeation import (
     vibrational_S0,
     build_dh_sol_by_env,
     solubility_by_environment,
+    solubility_by_environment_saturating,
     solubility_env_rel_err,
     solubility_from_rates,
     check_sieverts_law,
@@ -690,6 +691,13 @@ for _n_h in N_H_VALUES:
         # Option 1 — geometric S0, per-env Boltzmann (sub1 ΔH_sol = ½diss + HopA)
         _S0_geo = lattice_site_S0(_a0_T6)
         _S1     = solubility_by_environment(_dh_sol_by_env, _S0_geo, _T)
+
+        # Occupancy-limited counterparts. The Boltzmann routes above assume
+        # θ ≪ 1; where that fails they exceed one H per site, which is not a
+        # solubility. Recorded alongside rather than replacing them, so the
+        # dilute values (correct in their own regime) stay comparable.
+        _sat_geo = solubility_by_environment_saturating(
+            _dh_sol_by_env, _S0_geo, _S0_geo, _T)
         _S1_rel = solubility_env_rel_err(_dh_sol_by_env, _T, S0_rel_err=0.0)  # a0 fixed -> S0 exact
         _Phi1   = permeability(_D_T, _S1)
         _J1     = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
@@ -704,10 +712,15 @@ for _n_h in N_H_VALUES:
                           if len(_S0vib_vals) >= 2 and _S0_vib > 0 else 0.0)
             _S2     = solubility_by_environment(_dh_sol_by_env, _S0_vib, _T)
             _S2_rel = solubility_env_rel_err(_dh_sol_by_env, _T, S0_rel_err=_S0vib_rel)
+            # ρ_site is the geometric site density either way: the vibrational
+            # prefactor's extra partition-function factor belongs in K0, not in
+            # the count of sites available to hold H.
+            _sat_vib = solubility_by_environment_saturating(
+                _dh_sol_by_env, _S0_vib, _S0_geo, _T)
             _Phi2 = permeability(_D_T, _S2)
             _J2   = richardson_flux(_Phi2, _P_HIGH, 0.0, L_M)
         else:
-            _S0_vib = _S2 = _Phi2 = _J2 = None
+            _S0_vib = _S2 = _Phi2 = _J2 = _sat_vib = None
             _S2_rel = None
 
         # Route: detailed balance (analytic θ), sub1 reference. Population-weighted
@@ -785,11 +798,14 @@ for _n_h in N_H_VALUES:
             'solubility_reference': 'sub1: 1/2 dH_diss + Hop A (Hop B+ = bulk diffusion, in D)',
             'solubility_headline': 'geometric + vibrational (energy-based); detailed_balance/kmc_theta/option3 are rate-/count-based diagnostics, NOT the reported solubility',
             'option1': {'S0': _S0_geo, 'S': _S1, 'S_rel_err': _S1_rel, 'Phi': _Phi1, 'J': _J1,
+                        'saturating': _sat_geo,
                         'route': 'geometric S0, per-env Boltzmann (sub1) [SOLUBILITY HEADLINE]'},
             'option2': ({'S0': _S0_vib, 'S': _S2, 'S_rel_err': _S2_rel, 'Phi': _Phi2, 'J': _J2,
+                         'saturating': _sat_vib,
                          'route': 'vibrational S0, per-env Boltzmann (sub1) [SOLUBILITY HEADLINE]'}
                         if _fs_freq_sets else
                         {'S0': None, 'S': None, 'S_rel_err': None, 'Phi': None, 'J': None,
+                         'saturating': None,
                          'route': 'vibrational S0 unavailable (no FS vibrations)'}),
             'detailed_balance': {'S': _Sdb, 'Phi': _Phidb, 'J': _Jdb,
                         'route': 'detailed balance (rate-based CROSS-CHECK; carries a dissociation-rate-averaging artifact -- NOT the solubility; use geometric/vibrational)'},
