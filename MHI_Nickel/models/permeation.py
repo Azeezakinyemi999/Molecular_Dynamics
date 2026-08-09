@@ -813,6 +813,100 @@ def solubility_by_environment(dh_sol_by_env: dict, S0: float, T_K: float) -> flo
     return _S
 
 
+def langmuir_theta(dH_sol_eV: float, T_K: float, K0: float = 1.0,
+                   P_Pa: float = 1.0, P_ref_Pa: float = 1.0) -> float:
+    """Equilibrium site occupancy under dissociative (Sieverts) adsorption.
+
+    .. math::
+
+        \\theta = \\frac{K\\sqrt{P/P_{ref}}}{1 + K\\sqrt{P/P_{ref}}},
+        \\qquad K = K_0\\,e^{-\\Delta H_{sol}/k_BT}
+
+    Bounded on [0, 1] by construction, unlike the bare Boltzmann factor. In the
+    dilute limit (θ ≪ 1) this reduces to ``θ ≈ K√(P/P_ref)``, which is what
+    :func:`solubility_by_environment` assumes.
+    """
+    if T_K <= 0:
+        raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
+    x = K0 * np.exp(-dH_sol_eV / (_KB_EV * T_K)) * np.sqrt(P_Pa / P_ref_Pa)
+    return float(x / (1.0 + x))
+
+
+def solubility_by_environment_saturating(
+    dh_sol_by_env: dict, S0: float, rho_site: float, T_K: float,
+    P_Pa: float = 1.0, P_ref_Pa: float = 1.0,
+) -> dict:
+    """Occupancy-limited counterpart of :func:`solubility_by_environment`.
+
+    ``solubility_by_environment`` uses an unbounded ``exp(−ΔH/kT)``, so a single
+    exothermic environment can drive S past the point where every site is
+    already full — physically impossible, and observed here: Hastelloy N 7's
+    geometric route reaches 1.3e11 against a site density of 1.5e5.
+
+    The fix is not to change the enthalpies but to stop assuming θ ≪ 1. The
+    route's own prefactor supplies the entropic constant, ``K0 = S0/ρ_site``, so
+    the two forms agree exactly wherever the dilute limit is valid and diverge
+    only where it is not.
+
+    Parameters
+    ----------
+    dh_sol_by_env : dict
+        Output of :func:`build_dh_sol_by_env`.
+    S0 : float
+        The route's dilute pre-exponential [mol·m⁻³·Pa^(−½)] — geometric,
+        vibrational, or any other.
+    rho_site : float
+        Total site density available to H [mol·m⁻³], i.e.
+        :func:`lattice_site_S0`. This is the ceiling on the dissolved
+        concentration.
+    T_K, P_Pa, P_ref_Pa : float
+        Temperature [K] and pressures [Pa].
+
+    Returns
+    -------
+    dict
+        ``{'S', 'S_dilute', 'C', 'theta_mean', 'theta_max', 'regime',
+        'saturation_ratio'}``. ``regime`` uses the same vocabulary and
+        thresholds as :func:`classify_sieverts_regime`.
+    """
+    if T_K <= 0:
+        raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
+    if rho_site <= 0:
+        raise ValueError(f'rho_site must be positive; got {rho_site}.')
+    if not dh_sol_by_env:
+        return {'S': 0.0, 'S_dilute': 0.0, 'C': 0.0, 'theta_mean': 0.0,
+                'theta_max': 0.0, 'regime': 'insufficient_data',
+                'saturation_ratio': 0.0}
+
+    K0     = S0 / rho_site
+    sqrtP  = np.sqrt(P_Pa / P_ref_Pa)
+    thetas = {k: langmuir_theta(d['dH_sol_eV'], T_K, K0, P_Pa, P_ref_Pa)
+              for k, d in dh_sol_by_env.items()}
+
+    C = rho_site * sum(dh_sol_by_env[k]['w_env'] * t for k, t in thetas.items())
+    S = C / sqrtP
+
+    S_dilute   = solubility_by_environment(dh_sol_by_env, S0, T_K)
+    theta_max  = max(thetas.values())
+    theta_mean = sum(dh_sol_by_env[k]['w_env'] * t for k, t in thetas.items())
+
+    if theta_max >= 0.85:                       # sat_theta
+        regime = 'saturated_only'
+    elif theta_max >= 0.4:                      # dilute_theta_max
+        regime = 'partially_saturated'
+    else:
+        regime = 'sieverts_compatible'
+
+    print(f'[S sat] S(T={T_K:.0f}K)={S:.3e} vs dilute {S_dilute:.3e}  '
+          f'(θ_max={theta_max:.3f}, {regime})')
+    return {
+        'S': float(S), 'S_dilute': float(S_dilute), 'C': float(C),
+        'theta_mean': float(theta_mean), 'theta_max': float(theta_max),
+        'regime': regime,
+        'saturation_ratio': float(S_dilute / S) if S > 0 else float('inf'),
+    }
+
+
 def solubility_env_rel_err(dh_sol_by_env: dict, T_K: float,
                            S0_rel_err: float = 0.0) -> float:
     """Fractional error σ_S/S of the per-environment Boltzmann solubility.
