@@ -117,11 +117,39 @@ def pretty_material(stem: str) -> str:
     return stem.replace('_supercell', '').replace('_', ' ') or stem
 
 
-def discover_runs(results_dir: str, pattern: str) -> list[Run]:
+def is_validation_grade(run_dir: str) -> str | None:
+    """Reason this run is validation-grade, or None if it is production data.
+
+    Backfilled runs carry their own disclaimer — ``Ni_supercell_01H`` sets
+    ``validation_grade: true`` and notes "not a production diffusivity". Such a
+    run must never reach a figure, and because its ``_01H`` suffix parses to the
+    same (stem, n_H) as the real ``_1H`` run it would otherwise collide with it.
+    """
+    for name in ('diffusivity_arrhenius.json', 'solubility_arrhenius.json'):
+        path = os.path.join(run_dir, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path) as fh:
+                raw = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(raw, dict):
+            continue
+        if raw.get('validation_grade'):
+            note = str(raw.get('note') or '').strip()
+            return note or 'validation_grade: true'
+    return None
+
+
+def discover_runs(results_dir: str, pattern: str,
+                  include_validation: bool = False) -> list[Run]:
     """Glob `pattern` under `results_dir` and parse material + H count.
 
     Directories with no ``_<N>H`` suffix hold the pristine host and are
-    dropped — there is no hydrogen in them to diffuse.
+    dropped — there is no hydrogen in them to diffuse. Validation-grade runs are
+    dropped too unless `include_validation` is set, and any remaining
+    (stem, n_H) collision is reported rather than silently double-counted.
     """
     runs: list[Run] = []
     for path in sorted(glob.glob(os.path.join(results_dir, pattern))):
@@ -130,7 +158,22 @@ def discover_runs(results_dir: str, pattern: str) -> list[Run]:
         m = _RUN_RE.match(os.path.basename(path))
         if not m or m.group('nh') is None:
             continue
+        if not include_validation and (why := is_validation_grade(path)):
+            print(f'  · {os.path.basename(path)}: skipped, validation-grade '
+                  f'({why[:70]}{"…" if len(why) > 70 else ""})')
+            continue
         runs.append(Run(path=path, stem=m.group('stem'), n_H=int(m.group('nh'))))
+
+    seen: dict[tuple[str, int], str] = {}
+    for run in runs:
+        key = (run.stem, run.n_H)
+        if key in seen:
+            print(f'  ! {run.name} and {seen[key]} both parse to '
+                  f'{run.stem} @ {run.n_H} H — they will overplot; '
+                  f'narrow --pattern to pick one')
+        else:
+            seen[key] = run.name
+
     return sorted(runs, key=lambda r: (r.stem, r.n_H))
 
 
