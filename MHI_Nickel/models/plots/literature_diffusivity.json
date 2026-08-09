@@ -1,0 +1,135 @@
+{
+  "_README": [
+    "Literature H-diffusivity Arrhenius laws, consumed by diffusivity_plot.py.",
+    "",
+    "Top-level keys are materials and must match the run-folder stem: a folder",
+    "'Al_supercell_10H' looks for the key 'Al' (matching ignores case, spaces",
+    "and underscores, so 'Al', 'al' and 'Al_supercell' all work).",
+    "",
+    "Any key starting with '_' is documentation and is ignored by the loader.",
+    "",
+    "Each entry is drawn ONLY across its own T_C window - a study measured over",
+    "300-600 C is never extrapolated to meet the MD points.",
+    "",
+    "A malformed entry is reported on stderr and dropped; the rest still plot."
+  ],
+
+  "_SCHEMA": {
+    "label":     "REQUIRED. Citation as it should appear in the legend, e.g. 'Zhang et al. 2026'.",
+    "D0":        "REQUIRED. Pre-exponential factor, as printed in the source.",
+    "D0_units":  "Units of D0: 'm2/s' (default) | 'cm2/s' | 'mm2/s'.",
+    "Ea":        "REQUIRED. Activation energy, as printed in the source.",
+    "Ea_units":  "Units of Ea: 'eV' (default) | 'meV' | 'kJ/mol' | 'J/mol' | 'kcal/mol'.",
+    "T_C":       "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius.",
+    "T_K":       "Alternative to T_C: validity range [low, high] in Kelvin.",
+    "note":      "OPTIONAL. Free-text provenance - method, purity, DOI. Not plotted."
+  },
+
+  "Al": [
+
+    {
+      "label": "Young & Scully, 1998[61]",
+      "D0": 1.2e1,
+      "D0_units": "m^2/s",
+      "Ea": 140,
+      "Ea_units": "kJ/mol",
+      "T_C": [400, 530],
+      "note": "Diffusivity at 20 degree celcius is measured to be 1.3e-24 m^2/s (Al, desorption)"
+    },
+    {
+      "label": "Young & Scully, 1998[1]",
+      "D0": 1.1e-5,
+      "D0_units": "m^2/s",
+      "Ea": 40.98,
+      "Ea_units": "kJ/mol",
+      "T_C": [360, 600],
+      "note": "Diffusivity at 20 degree celcius is measured to be 5.6e-13 m^2/s (Al, desorption)"
+    },
+    {
+      "label": "Young & Scully, 1998[2]",
+      "D0": 2.0e-6,
+      "D0_units": "m^2/s",
+      "Ea": 50.2,
+      "Ea_units": "kJ/mol",
+      "T_C": [570, 630],
+      "note": "Diffusivity at 20 degree celcius is measured to be 2.2e-15 m^2/s (Al, desorption)"
+    },
+    {
+      "label": "Young & Scully, 1998[3]",
+      "D0": 4.58e-6,
+      "D0_units": "m^2/s",
+      "Ea": 37.03,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 640],
+      "note": "Diffusivity at 20 degree celcius is measured to be 1.2e-12 m^2/s (99.99% Al, desorption)"
+    },
+    {
+      "label": "Young & Scully, 1998[4]-a",
+      "D0": 1.9e-5,
+      "D0_units": "m^2/s",
+      "Ea": 40,
+      "Ea_units": "kJ/mol",
+      "T_C": [450, 590],
+      "note": "Diffusivity at 20 degree celcius is measured to be 1.4e-12 m^2/s (99.999% Al, desorption); table lists a second Q/diffusivity pair under the same D0 (see [4]-b)"
+    },
+    {
+      "label": "Young & Scully, 1998[35]",
+      "D0": 1.3e-3,
+      "D0_units": "m^2/s",
+      "Ea": 67,
+      "Ea_units": "kJ/mol",
+      "T_C": [375, 450],
+      "note": "Diffusivity at 20 degree celcius is measured to be 1.5e-5 m^2/s (99.999% Al, desorption)"
+    },
+    {
+      "label": "Young & Scully, 1998[5]",
+      "D0": 1.01e-5,
+      "D0_units": "m^2/s",
+      "Ea": 47.7,
+      "Ea_units": "kJ/mol",
+      "T_C": [450, 625],
+      "note": "Diffusivity at 20 degree celcius is measured to be 3.2e-14 m^2/s (99.995% Al, desorption)"
+    },
+    {
+      "label": "Young & Scully, 1998[6]-a",
+      "D0": 2.6e-5,
+      "D0_units": "m^2/s",
+      "Ea": 58.7,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 400],
+      "note": "Diffusivity at 20 degree celcius is measured to be 9.3e-16 m^2/s (99.999% Al, permeation)"
+    },
+    {
+      "label": "Young & Scully, 1998[8]",
+      "D0": 6.1e-5,
+      "D0_units": "m^2/s",
+      "Ea": 54.8,
+      "Ea_units": "kJ/mol",
+      "T_C": [173, 408],
+      "note": "Diffusivity at 20 degree celcius is measured to be 1.0e-14 m^2/s (99.999% Al, permeation)"
+    },
+    {
+      "label": "Young & Scully, 1998[9]",
+      "D0": null,
+      "D0_units": "m^2/s",
+      "Ea": null,
+      "Ea_units": "kJ/mol",
+      "T_C": [20],
+      "note": "Diffusivity at 20 degree celcius is measured to be 2.2e-11 m^2/s (Al, permeation); single-point value, no D0/Q reported"
+    },
+    {
+      "label": "Young & Scully, 1998",
+      "D0": 1.75e-8,
+      "D0_units": "m^2/s",
+      "Ea": 16.2,
+      "Ea_units": "kJ/mol",
+      "T_C": [30, 600],
+      "note": "Diffusivity at 20 degree celcius is measured to be 2.3e-11 m^2/s (99.999% Al, desorption)"
+    }
+
+  ],
+
+  "Ni": [],
+
+  "Hastelloy N 7": []
+}
