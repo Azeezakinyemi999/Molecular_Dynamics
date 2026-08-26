@@ -8,9 +8,7 @@ Covers:
   generate_permeation_sh       — SBATCH directives, optional mem/time flags
   load_barrier_summary         — DataFrame from jobs JSON + barrier files
   load_rate_summary            — DataFrame from rate_dict JSON files
-  load_kmc_sweeps              — dict from permeation_sweep JSON files
   load_permeability_results    — dict from permeability JSON files
-  plot_bottleneck              — returns None when no data; saves PNG otherwise
   plot_permeation_summary      — schema-current 3-panel figure; back-compat + errors
 """
 
@@ -32,9 +30,7 @@ from models.permeation_workflow import (
     generate_permeation_sh,
     load_barrier_summary,
     load_rate_summary,
-    load_kmc_sweeps,
     load_permeability_results,
-    plot_bottleneck,
     plot_permeation_summary,
 )
 
@@ -52,15 +48,12 @@ _PERM_CFG = dict(
     results_dir='/work/results/permeation',
     temperatures=[600, 800, 1000],
     n_h_values=[1, 3, 5, 10],
-    p_vals_pa=[100.0, 1000.0, 10000.0],
+    operating_p_high_pa=1.0e6,
+    operating_p_low_pa=0.0,
     a0_m=3.52e-10,
     l_m=1e-3,
     dh_diss_ev=0.2,
     dh_entry_ev=0.15,
-    nx=10,
-    ny=10,
-    seed=42,
-    kmc_max_steps=100_000,
     gpu_slurm_cfg={'partition': 'gpu', 'time': '24:00:00'},
     neb_slurm_cfg={'partition': 'gpu', 'time': '12:00:00'},
     vib_slurm_cfg={'partition': 'cpu', 'time': '06:00:00'},
@@ -118,24 +111,6 @@ def _write_rate_dict_json(path, T=600):
     pathlib.Path(path).write_text(json.dumps(data, indent=2))
 
 
-def _write_sweep_json(path, T=600):
-    pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
-    P_vals = [1000.0, 4000.0, 9000.0, 16000.0]
-    J_vals = [2.5 * math.sqrt(p) for p in P_vals]
-    data = {
-        'P_vals': P_vals,
-        'J_vals': J_vals,
-        'C0_vals': [1e22, 2e22, 3e22, 4e22],
-        'sqrt_P_vals': [math.sqrt(p) for p in P_vals],
-        'converged': [True, True, True, True],
-        'theta_vals': [0.1, 0.12, 0.14, 0.16],
-        't_total_vals': [1e-6] * 4,
-        'n_steps_vals': [1000] * 4,
-        'T_K': float(T), 'D_m2s': 1e-10, 'a0_m': 3.52e-10,
-    }
-    pathlib.Path(path).write_text(json.dumps(data, indent=2))
-
-
 def _write_permeability_json(path, T=600):
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     data = {
@@ -181,10 +156,11 @@ class TestGeneratePermeationScripts:
         assert 'TEMPERATURES' in content
         assert '600' in content and '1000' in content
 
-    def test_pressure_vals_embedded(self, gen_result):
+    def test_operating_pressure_embedded(self, gen_result):
         _, _, content = gen_result
-        assert 'P_VALS_PA' in content
-        assert '10000.0' in content
+        assert 'OPERATING_P_HIGH_PA' in content
+        assert 'OPERATING_P_LOW_PA' in content
+        assert '1000000.0' in content
 
     def test_n_h_values_embedded(self, gen_result):
         _, _, content = gen_result
@@ -197,11 +173,6 @@ class TestGeneratePermeationScripts:
         _, _, content = gen_result
         assert 'D0_M2S' not in content
         assert 'E_D_EV' not in content
-
-    def test_kmc_grid_params_embedded(self, gen_result):
-        _, _, content = gen_result
-        assert 'NX' in content and 'NY' in content
-        assert 'SEED' in content and 'KMC_MAX_STEPS' in content
 
     def test_neb_params_embedded(self, gen_result):
         _, _, content = gen_result
@@ -286,7 +257,7 @@ class TestPermeationSuccessTracking:
     See [[project_pipeline_test_bugs]]."""
 
     def _tail_slice(self, content):
-        marker = '_P_HIGH = max(P_VALS_PA)'
+        marker = 'OPERATING_P_HIGH_PA = 1.0e6'
         idx = content.index(marker)
         return content[idx:]
 
@@ -315,7 +286,8 @@ class TestPermeationSuccessTracking:
             'WORK_DIR': str(tmp_path / 'work'),
             'RESULTS_DIR': results_dir,
             'resolve_nh_diffusivity': _fake_resolve,
-            'P_VALS_PA': _PERM_CFG['p_vals_pa'],
+            'OPERATING_P_HIGH_PA': _PERM_CFG['operating_p_high_pa'],
+            'OPERATING_P_LOW_PA': _PERM_CFG['operating_p_low_pa'],
             '_PHASE6_READY': True,
         }
         with pytest.raises(SystemExit) as exc_info:
@@ -380,14 +352,11 @@ class TestPermeationSuccessTracking:
             '_DH_DISS_USED': 0.2,
             '_DH_ENTRY_USED': 0.15,
             '_KB_EV': 8.617333262e-5,
-            'P_VALS_PA': _cfg['p_vals_pa'],
+            'OPERATING_P_HIGH_PA': _cfg['operating_p_high_pa'],
+            'OPERATING_P_LOW_PA': _cfg['operating_p_low_pa'],
             'A0_M': _cfg['a0_m'],
             'L_M': _cfg['l_m'],
-            'NX': _cfg['nx'], 'NY': _cfg['ny'], 'SEED': _cfg['seed'],
-            'KMC_MAX_STEPS': _cfg['kmc_max_steps'],
             'arrhenius_diffusivity': lambda D0, Ea, T: 1e-10,
-            'sweep_pressure': lambda **kw: {'converged': [True] * len(kw['P_vals_Pa'])},
-            'fit_solubility_from_kmc': lambda sw: {'S_mean': 1e-3, 'S_std': 1e-4, 'n_converged': 3},
             'lattice_site_S0': lambda a0: 1e28,
             'permeability': lambda D, S: D * S,
             'richardson_flux': lambda Phi, Ph, Pl, L: Phi * Ph / L,
@@ -408,10 +377,6 @@ class TestPermeationSuccessTracking:
             'solubility_from_rates': lambda kd, kds, ke, kx, a0, T: 1e-3,
             'vibrational_S0': lambda a0, T, freqs: 1e23,
             'build_dh_sol_by_env': lambda *a, **kw: {},
-            'classify_sieverts_regime': lambda P, th, converged=None, **kw: {
-                'regime': 'sieverts_compatible', 'theta_exponent': 0.5,
-                'theta_max': 0.2},
-            'check_sieverts_law': lambda P, J, plot=False: {'r_squared': 0.99},
             # error-propagation-current return schemas (signatures accept the
             # y_err / *_err kwargs the body now passes)
             'fit_arrhenius': lambda T, y, yerr=None: {
@@ -587,34 +552,6 @@ class TestLoadRateSummary:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 5. load_kmc_sweeps
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestLoadKmcSweeps:
-
-    def test_returns_empty_dict_when_no_files(self, tmp_path):
-        result = load_kmc_sweeps(str(tmp_path), [600, 800])
-        assert result == {}
-
-    def test_returns_dict_with_temperature_key(self, tmp_path):
-        _write_sweep_json(str(tmp_path / 'permeation_sweep_T600K.json'), T=600)
-        result = load_kmc_sweeps(str(tmp_path), [600])
-        assert 600 in result
-
-    def test_loaded_content_has_p_vals(self, tmp_path):
-        _write_sweep_json(str(tmp_path / 'permeation_sweep_T600K.json'), T=600)
-        result = load_kmc_sweeps(str(tmp_path), [600])
-        assert 'P_vals' in result[600]
-        assert len(result[600]['P_vals']) == 4
-
-    def test_missing_temperature_excluded(self, tmp_path):
-        _write_sweep_json(str(tmp_path / 'permeation_sweep_T600K.json'), T=600)
-        result = load_kmc_sweeps(str(tmp_path), [600, 800])
-        assert 600 in result
-        assert 800 not in result
-
-
-# ═══════════════════════════════════════════════════════════════════════════
 # 6. load_permeability_results
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -642,40 +579,10 @@ class TestLoadPermeabilityResults:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 7. plot_bottleneck
+# 7. plot_permeation_summary
 # ═══════════════════════════════════════════════════════════════════════════
 
-class TestPlotBottleneck:
-
-    def test_returns_none_when_no_sweep_files(self, tmp_path):
-        result = plot_bottleneck(str(tmp_path), [600, 800])
-        assert result is None
-
-    def test_returns_none_when_sweeps_have_fewer_than_two_converged_points(self, tmp_path):
-        # only 1 converged point → can't fit Sieverts → skips
-        data = {
-            'P_vals': [1000.0, 4000.0],
-            'J_vals': [79.1, 158.1],
-            'converged': [True, False],   # only 1 converged
-        }
-        pathlib.Path(tmp_path / 'permeation_sweep_T600K.json').write_text(
-            json.dumps(data))
-        result = plot_bottleneck(str(tmp_path), [600])
-        assert result is None
-
-    def test_saves_png_when_valid_sweep_data_present(self, tmp_path):
-        _write_sweep_json(str(tmp_path / 'permeation_sweep_T600K.json'), T=600)
-        out = plot_bottleneck(str(tmp_path), [600])
-        assert out is not None
-        assert pathlib.Path(out).exists()
-        assert out.endswith('bottleneck.png')
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 7b. plot_permeation_summary — schema-current 3-panel figure
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _write_summary_inputs(d, T_list=(600, 800), with_errors=True, with_regime=True):
+def _write_summary_inputs(d, T_list=(600, 800), with_errors=True):
     """Write the JSON that plot_permeation_summary consumes into dir ``d``."""
     def _sol_route(S0, dH):
         r = {'available': True, 'S0': S0, 'dH_sol_eV': dH,
@@ -705,37 +612,29 @@ def _write_summary_inputs(d, T_list=(600, 800), with_errors=True, with_regime=Tr
                    'vibrational': _perm_route(1e8, 0.30),
                    'detailed_balance': _perm_route(5e11, 0.42)}}))
     for T in T_list:
-        P = [10.0 ** e for e in range(-4, 5)]
-        th = [min(0.99, 1e-3 * (p ** 0.5)) for p in P]
-        pathlib.Path(d, f'permeation_sweep_T{int(T)}K.json').write_text(json.dumps({
-            'P_vals': P, 'theta_vals': th, 'T_K': T}))
-        pm = {'T_K': T, 'option1': {}, 'option2': {}}
-        if with_regime:
-            pm['sieverts_regime'] = {'regime': 'sieverts_compatible',
-                                     'theta_exponent': 0.5}
-        pathlib.Path(d, f'permeability_T{int(T)}K.json').write_text(json.dumps(pm))
+        pathlib.Path(d, f'permeability_T{int(T)}K.json').write_text(
+            json.dumps({'T_K': T, 'option1': {}, 'option2': {}}))
 
 
 class TestPlotPermeationSummary:
 
     def test_returns_none_when_arrhenius_json_missing(self, tmp_path):
-        # sweeps present but no Arrhenius fits → nothing to summarise
-        _write_sweep_json(str(tmp_path / 'permeation_sweep_T600K.json'), T=600)
+        # empty results dir -> no Arrhenius fits -> nothing to summarise
         assert plot_permeation_summary(str(tmp_path), [600]) is None
 
     def test_saves_png_with_full_schema(self, tmp_path):
         _write_summary_inputs(str(tmp_path), T_list=(600, 800),
-                              with_errors=True, with_regime=True)
+                              with_errors=True)
         out = plot_permeation_summary(str(tmp_path), [600, 800])
         assert out is not None
         assert pathlib.Path(out).exists()
         assert out.endswith('permeation_summary.png')
 
-    def test_back_compat_without_error_or_regime_fields(self, tmp_path):
-        # pre-schema data: no *_err_eV, no Phi0_rel_err, no sieverts_regime.
+    def test_back_compat_without_error_fields(self, tmp_path):
+        # pre-schema data: no *_err_eV, no Phi0_rel_err.
         # Must still render (bands collapse to zero width, labels omit ±).
         _write_summary_inputs(str(tmp_path), T_list=(600, 800),
-                              with_errors=False, with_regime=False)
+                              with_errors=False)
         out = plot_permeation_summary(str(tmp_path), [600, 800])
         assert out is not None
         assert pathlib.Path(out).exists()

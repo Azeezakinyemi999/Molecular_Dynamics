@@ -13,10 +13,9 @@ Section A — Script generation
     generate_permeation_sh(...)       →  permeation_run.sh
 
 Section B — Local analysis (Phase 4 cells in permeation.ipynb)
-    load_barrier_summary, load_rate_summary, load_kmc_sweeps,
-    load_permeability_results,
-    plot_barrier_overview, plot_mep_overlay, plot_kmc_sieverts,
-    plot_permeability_vs_T, plot_arrhenius_S0, plot_bottleneck
+    load_barrier_summary, load_rate_summary, load_permeability_results,
+    plot_barrier_overview, plot_mep_overlay,
+    plot_permeability_vs_T, plot_arrhenius_S0
 """
 
 import os
@@ -58,8 +57,7 @@ from models.config import MACE_MODEL_ASE
 from models.subsurface_graph import build_subsurface_graph, connect_to_surface
 from models.neb_subsurface import (
     orchestrate_hopa_neb, orchestrate_hopb_neb,
-    build_sub1_sub2_map, collect_entry_h_sources, build_surface_sub1_sub2_map,
-    interstitial_env_label, classify_relaxed_h_env,
+    build_sub1_sub2_map, collect_entry_h_sources, build_surface_sub1_sub2_map, classify_relaxed_h_env,
 )
 from models.vibrations import (
     collect_is_ts_paths, orchestrate_vibrations, load_vibration_results,
@@ -75,9 +73,7 @@ from models.tst_rates import (
     env_rate_dict,
 )
 from models.permeation import (
-    sweep_pressure,
     arrhenius_diffusivity,
-    fit_solubility_from_kmc,
     lattice_site_S0,
     permeability,
     richardson_flux,
@@ -88,8 +84,6 @@ from models.permeation import (
     solubility_by_environment_saturating,
     solubility_env_rel_err,
     solubility_from_rates,
-    check_sieverts_law,
-    classify_sieverts_regime,
     fit_arrhenius,
     permeability_arrhenius,
     units_for,
@@ -122,43 +116,6 @@ surface_connections = connect_to_surface(subsurface_sites, _surf_data, _cell)
 _sub1_n = sum(1 for s in subsurface_sites if s.get('layer_classification') == 'subsurface_1')
 print(f'  subsurface-1 sites : {_sub1_n}')
 print(f'  surface connections: {len(surface_connections)}')
-
-# Species present in this slab (length-descending so 2-letter symbols match
-# before 'O' in strings like 'CrO_bridge'); used for rate-label matching.
-_slab_species = sorted(
-    {s for s in _slab_atoms.get_chemical_symbols() if s != 'H'},
-    key=len, reverse=True,
-)
-
-# KMC grid composition drawn from the REAL slab for EVERY metal type. Formerly
-# only oxide slabs used the actual surface-atom fractions; metals silently fell
-# back to make_grid's hardcoded Hastelloy default (a separate pre-existing gap,
-# fixed here alongside the env work).
-_cnt = {}
-for _a in _surf_data.get('surface_atoms', []):
-    _cnt[_a['element']] = _cnt.get(_a['element'], 0) + 1
-_tot = sum(_cnt.values())
-_kmc_composition = {k: v / _tot for k, v in _cnt.items()} if _tot else None
-print(f'  KMC surface composition ({METAL_TYPE}): {_kmc_composition}')
-
-# Oct-site environment populations for the sub1/sub2 KMC layers, from the real
-# subsurface sites (composition_label per site). These drive make_grid's
-# per-cell env draw so the grid reflects the real environment mix, and the
-# entry/exit/hopB rates resolve per environment rather than collapsing to one
-# rate per element.
-_sub1_env_cnt, _sub2_env_cnt = {}, {}
-for _s in subsurface_sites:
-    _lc  = _s.get('layer_classification')
-    _env = interstitial_env_label(_s)
-    if _lc == 'subsurface_1':
-        _sub1_env_cnt[_env] = _sub1_env_cnt.get(_env, 0) + 1
-    elif _lc == 'subsurface_2':
-        _sub2_env_cnt[_env] = _sub2_env_cnt.get(_env, 0) + 1
-_s1tot = sum(_sub1_env_cnt.values())
-_s2tot = sum(_sub2_env_cnt.values())
-_sub1_env_comp = {k: v / _s1tot for k, v in _sub1_env_cnt.items()} if _s1tot else None
-_sub2_env_comp = {k: v / _s2tot for k, v in _sub2_env_cnt.items()} if _s2tot else None
-print(f'  sub1 env classes: {len(_sub1_env_cnt)}   sub2 env classes: {len(_sub2_env_cnt)}')
 
 # ── Subsurface-entry maps (dissociation-seeded, oct-anchored) ───────────────────
 # The H that enters the subsurface is the H that dissociated: seed Hop A from the
@@ -315,10 +272,6 @@ else:
 # hop's env from where H ACTUALLY sits in the relaxed FS, so the rates are keyed
 # by the true host environment. Updates the in-memory job dicts (sub1_env for
 # Hop A, sub2_env for Hop B) before any env-keyed consumption below.
-# NOTE: the KMC grid env populations (_sub1_env_comp/_sub2_env_comp) remain
-# site-based (built from every subsurface site, not just the relaxed pathways);
-# any label gap between a grid cell's site env and a re-classified rate env is
-# bridged by env_rate_dict's per-element-mean fallback in the two-layer engine.
 print('\n── Re-classifying hop environments from relaxed FS (Finding B) ─────────')
 _n_reclass_a = _n_reclass_b = 0
 for _j in hopa_jobs:
@@ -534,7 +487,15 @@ else:
         _hopa_vib, _DH_DISS_USED, dh_diss_err_eV=_DH_DISS_ERR,
         out_json=os.path.join(RESULTS_DIR, 'dH_sol_by_env.json'),
     )
-_P_HIGH = max(P_VALS_PA)
+# Feed-side H₂ pressure the Richardson flux is quoted at. Previously this was
+# max(P_VALS_PA) — the top of the KMC sweep grid, chosen to span regimes for
+# classification rather than to represent an operating condition. Now stated
+# outright so the flux does not depend on a retired sweep's design.
+#
+# NOT to be confused with the P_ref = 1 Pa inside lattice_site_S0 /
+# vibrational_S0: that is an SI normalisation, not a pressure you may choose.
+OPERATING_P_HIGH_PA = 1.0e6   # feed side  [Pa]
+OPERATING_P_LOW_PA  = 0.0     # permeate side, fully swept  [Pa]
 
 # Tracks what actually got produced across all n_H, since every skip below is
 # a `continue` (never a raise) by design — the fail-loud signal for the
@@ -570,111 +531,22 @@ for _n_h in N_H_VALUES:
 
     os.makedirs(_nh_dir, exist_ok=True)
 
-    # ── Phase 5: KMC pressure sweeps for this n_H ────────────────────────────
-    print(f'\n── Phase 5 (n_H={_n_h}): KMC pressure sweeps ──────────────────────')
-    for _T in TEMPERATURES:
-        _out = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
-        _sweep_done_marker = os.path.join(_nh_dir, f'sweep_T{int(_T)}K.done')
-        if os.path.exists(_out):
-            mark_done(_sweep_done_marker)
-            print(f'  T={_T:4.0f} K  KMC sweep already done — skipping')
-            continue
-
-        _kBT = _KB_EV * _T
-        _a0_T = _a0_dict.get(_T, A0_M)
-        _k_diss, _k_des = {}, {}
-
-        # Env-keyed inter-layer rates (Part 6): surface⇄sub1 (k_entry/k_exit)
-        # resolved per sub1 oct-environment, sub1⇄sub2 (k_hopB_entry/k_hopB_exit)
-        # per sub2 oct-environment — arithmetic mean of the Arrhenius rates
-        # within each environment (env_rate_dict). Replaces the old
-        # sort-order-dependent collapse to one rate per element.
-        _k_entry, _k_exit           = env_rate_dict(_hopa_vib, _T)
-        _k_hopB_entry, _k_hopB_exit = env_rate_dict(_hopb_vib, _T)
-
-        if _diss_vib:
-            for _pkey5, _dv5 in _diss_vib.items():
-                _k_diss[_pkey5] = np.exp(-_dv5['Ea_zpe'] / _kBT)
-                _k_des[_pkey5]  = _dv5['nu'] * np.exp(-_dv5['Ed_zpe'] / _kBT)
-        elif os.path.exists(_DISS_JSON):
-            with open(_DISS_JSON) as _f:
-                _diss = json.load(_f)
-            for _job in _diss:
-                _bf = _job.get('barrier_file', '')
-                if not os.path.exists(_bf):
-                    continue
-                _bd   = parse_barrier_file(_bf)
-                _pair = tuple(sorted(_job['sid'].replace('-', '').split('_')[:2]))
-                _k_diss[_pair] = np.exp(-_bd['E_abs'] / _kBT)
-                _k_des[_pair]  = _NU_DISS * np.exp(-_bd['E_des'] / _kBT)
-        else:
-            print(f'  WARNING: no diss rate source found — using placeholders at T={_T} K')
-            # element_pair keys are sorted tuples; cover every species pair
-            # actually present in this slab (metal or oxide).
-            for _pair in itertools.combinations_with_replacement(
-                    sorted(_slab_species), 2):
-                _k_diss[_pair] = np.exp(-0.5  / _kBT)
-                _k_des[_pair]  = _NU_DISS * np.exp(-1.2 / _kBT)
-
-        for _env, _ke in _k_entry.items():
-            print(f'  [{_T:.0f}K] k_entry({_env})={_ke:.3e} s⁻¹  '
-                  f'k_exit={_k_exit.get(_env, float("nan")):.3e} s⁻¹')
-        _rate_dict = {'k_diss': _k_diss, 'k_des': _k_des,
-                      'k_entry': _k_entry, 'k_exit': _k_exit,
-                      'k_hopB_entry': _k_hopB_entry, 'k_hopB_exit': _k_hopB_exit}
-        _D_T = arrhenius_diffusivity(_D0_nh, _ED_nh, _T)
-        np.random.seed(SEED)
-        _sweep = sweep_pressure(
-            P_vals_Pa  = P_VALS_PA,
-            rate_dict  = _rate_dict,
-            D_m2s      = _D_T,
-            L_m        = L_M,
-            T_K        = _T,
-            a0_m       = _a0_T,
-            nx         = NX,
-            ny         = NY,
-            seed       = SEED,
-            composition = _kmc_composition,
-            sub1_env_composition = _sub1_env_comp,
-            sub2_env_composition = _sub2_env_comp,
-            kmc_kwargs = {'window': 2000, 'rtol': 0.02, 'max_steps': KMC_MAX_STEPS},
-        )
-        _sweep['T_K']   = _T
-        _sweep['D_m2s'] = _D_T
-        _sweep['a0_m']  = _a0_T
-        _sweep['n_H']   = _n_h
-        if _dilute_note:
-            _sweep['dilute_limit_caveat'] = _dilute_note
-        _sweep['units'] = units_for(_sweep)   # Step G: units in every payload
-        with open(_out, 'w') as _f:
-            json.dump(_sweep, _f, indent=2)
-        mark_done(_sweep_done_marker)
-        _conv = sum(1 for c in _sweep.get('converged', []) if c)
-        print(f'  T={_T:4.0f} K  a0={_a0_T:.4e} m  D={_D_T:.2e} m²/s  '
-              f'{_conv}/{len(P_VALS_PA)} converged → {_out}')
-
     # ── Phase 6: Richardson-Sieverts permeability for this n_H ───────────────
     if not _PHASE6_READY:
         continue
     print(f'\n── Phase 6 (n_H={_n_h}): Richardson-Sieverts permeability ─────────')
 
     # per-route S(T) accumulators for the multi-T Arrhenius fits after the loop
-    _S_geo_arr, _S_vib_arr, _S_kmc_arr, _T_arr6 = [], [], [], []
-    _S_db_arr, _S_kt_arr = [], []   # detailed-balance (analytic θ) + KMC-θ routes
+    _S_geo_arr, _S_vib_arr, _T_arr6 = [], [], []
+    _S_db_arr = []                            # detailed-balance (analytic θ)
     _S_geo_err_arr, _S_vib_err_arr = [], []   # absolute σ_S per T (for the weighted fit)
 
     for _T in TEMPERATURES:
-        _sweep_f = os.path.join(_nh_dir, f'permeation_sweep_T{int(_T)}K.json')
-        if not os.path.exists(_sweep_f):
-            print(f'  T={_T:4.0f} K  no sweep file — skipping permeability')
-            continue
         _perm_done_marker = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.done')
         _perm_f_check = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
         if is_done(_perm_done_marker) and os.path.exists(_perm_f_check):
             print(f'  T={_T:4.0f} K  permeability already done — skipping')
             continue
-        with open(_sweep_f) as _f:
-            _sw = json.load(_f)
         _D_T  = arrhenius_diffusivity(_D0_nh, _ED_nh, _T)
         _a0_T6 = _a0_dict.get(_T, A0_M)
         _kBT6  = _KB_EV * _T
@@ -700,7 +572,7 @@ for _n_h in N_H_VALUES:
             _dh_sol_by_env, _S0_geo, _S0_geo, _T)
         _S1_rel = solubility_env_rel_err(_dh_sol_by_env, _T, S0_rel_err=0.0)  # a0 fixed -> S0 exact
         _Phi1   = permeability(_D_T, _S1)
-        _J1     = richardson_flux(_Phi1, _P_HIGH, 0.0, L_M)
+        _J1     = richardson_flux(_Phi1, OPERATING_P_HIGH_PA, OPERATING_P_LOW_PA, L_M)
 
         # Option 2 — vibrational S0 (partition-function prefactor), same per-env
         # ΔH_sol. S0_vib is averaged over the dissolved-H FS structures.
@@ -718,7 +590,7 @@ for _n_h in N_H_VALUES:
             _sat_vib = solubility_by_environment_saturating(
                 _dh_sol_by_env, _S0_vib, _S0_geo, _T)
             _Phi2 = permeability(_D_T, _S2)
-            _J2   = richardson_flux(_Phi2, _P_HIGH, 0.0, L_M)
+            _J2   = richardson_flux(_Phi2, OPERATING_P_HIGH_PA, OPERATING_P_LOW_PA, L_M)
         else:
             _S0_vib = _S2 = _Phi2 = _J2 = _sat_vib = None
             _S2_rel = None
@@ -735,56 +607,13 @@ for _n_h in N_H_VALUES:
                 _Sdb += _einfo['w_env'] * solubility_from_rates(
                     _kd_T, _kds_T, _ke, _kx, _a0_T6, _T)
             _Phidb = permeability(_D_T, _Sdb)
-            _Jdb   = richardson_flux(_Phidb, _P_HIGH, 0.0, L_M)
+            _Jdb   = richardson_flux(_Phidb, OPERATING_P_HIGH_PA, OPERATING_P_LOW_PA, L_M)
         else:
             _Sdb = _Phidb = _Jdb = None
 
-        # Route: KMC-θ — same detailed balance but with the KMC-SIMULATED θ
-        # isotherm (well sampled) instead of analytic Langmuir θ. Dilute-limit
-        # (most-dilute converged point): S = ρ_oct·(k_entry/k_exit)·θ/√P.
-        _rho_oct = 4.0 / (_a0_T6 ** 3) / 6.02214076e23   # mol H per m^3 (÷ Avogadro)
-        _P_v    = _sw.get('P_vals') or []
-        _th_v   = _sw.get('theta_vals') or []
-        _cv     = _sw.get('converged') or [True] * len(_P_v)
-        _dilute = [(p, th) for p, th, c in zip(_P_v, _th_v, _cv) if c and p > 0.0]
-        if _dilute and _kent_T:
-            _P_lo, _th_lo = min(_dilute, key=lambda x: x[0])
-            _Skt = 0.0
-            for _env, _einfo in _dh_sol_by_env.items():
-                _ke = _kent_T.get(_env); _kx = _kext_T.get(_env)
-                if _ke is None or _kx is None or _kx <= 0.0:
-                    continue
-                _Skt += _einfo['w_env'] * _rho_oct * (_ke / _kx) * _th_lo / np.sqrt(_P_lo)
-            _Phikt = permeability(_D_T, _Skt)
-            _Jkt   = richardson_flux(_Phikt, _P_HIGH, 0.0, L_M)
-        else:
-            _P_lo = _th_lo = _Skt = _Phikt = _Jkt = None
-
-        # Diagnostic: KMC empirical counting S = C0/√P, for sub1 AND sub2. Uses
-        # the RAW integer-count occupancy (*_count_vals), the noise/quantization-
-        # limited route kept only for comparison — NOT the headline (the primary
-        # C0_*_vals are now the count-free rate-ratio occupancy).
-        _sw_c2  = dict(_sw); _sw_c2['C0_vals'] = _sw.get('C0_sub2_count_vals') or _sw.get('C0_vals')
-        _kmc_c2 = fit_solubility_from_kmc(_sw_c2)
-        _sw_c1  = dict(_sw); _sw_c1['C0_vals'] = _sw.get('C0_sub1_count_vals') or _sw.get('C0_sub1_vals')
-        _kmc_c1 = fit_solubility_from_kmc(_sw_c1)
-        _S3     = _kmc_c2['S_mean']
-        _Phi3   = permeability(_D_T, _S3)
-        _J3     = richardson_flux(_Phi3, _P_HIGH, 0.0, L_M)
-        _siev   = (check_sieverts_law(_P_v, _sw.get('J_vals') or [], plot=False)
-                   if _P_v else {'r_squared': None})
-
-        # KMC's headline deliverable: does this surface OBEY Sieverts' law?
-        # Read from the well-sampled coverage isotherm θ(P) (robust, unlike the
-        # noise-limited flux/C0). n≈0.5 -> dissociative equilibrium (Sieverts);
-        # n≈1.0 -> dissociation rate-limited (surface-limited, e.g. oxides).
-        _regime = (classify_sieverts_regime(_P_v, _th_v, converged=_cv)
-                   if _P_v else {'regime': 'insufficient_data', 'theta_exponent': None})
-
         # accumulate per-route S(T) for the multi-T Arrhenius fits below
         _S_geo_arr.append(_S1);  _S_vib_arr.append(_S2)
-        _S_db_arr.append(_Sdb);  _S_kt_arr.append(_Skt)
-        _S_kmc_arr.append(_S3);  _T_arr6.append(float(_T))
+        _S_db_arr.append(_Sdb);  _T_arr6.append(float(_T))
         # absolute σ_S = S · (σ_S/S), for the inverse-variance-weighted fit below
         _S_geo_err_arr.append(_S1 * _S1_rel)
         _S_vib_err_arr.append(_S2 * _S2_rel if (_S2 is not None and _S2_rel is not None) else None)
@@ -809,20 +638,10 @@ for _n_h in N_H_VALUES:
                          'route': 'vibrational S0 unavailable (no FS vibrations)'}),
             'detailed_balance': {'S': _Sdb, 'Phi': _Phidb, 'J': _Jdb,
                         'route': 'detailed balance (rate-based CROSS-CHECK; carries a dissociation-rate-averaging artifact -- NOT the solubility; use geometric/vibrational)'},
-            'kmc_theta': {'S': _Skt, 'Phi': _Phikt, 'J': _Jkt,
-                        'theta_dilute': _th_lo, 'P_dilute_Pa': _P_lo,
-                        'route': 'KMC-theta (rate-based CROSS-CHECK; inherits the dissociation artifact via theta + finite-coverage rolloff -- NOT the solubility)'},
-            'option3': {'S': _S3, 'Phi': _Phi3, 'J': _J3,
-                        'S_sub1': _kmc_c1['S_mean'], 'S_sub2': _S3,
-                        'S_std': _kmc_c2['S_std'], 'n_converged': _kmc_c2['n_converged'],
-                        'sieverts_r2': _siev.get('r_squared'),
-                        'route': 'KMC empirical counting S=C0/sqrtP [DIAGNOSTIC: noise-limited]'},
-            'kmc_kinetic_flux': {
-                'sub1_at_Phigh': (_sw['J_sub1_count_vals'][-1] if _sw.get('J_sub1_count_vals') else None),
-                'sub2_at_Phigh': (_sw['J_count_vals'][-1] if _sw.get('J_count_vals') else None),
-                'note': 'D*C0/L from KMC integer counting (diagnostic; noise-limited); the primary sweep J_vals are the rate-ratio flux, and Richardson flux is per-route J above'},
-            'sieverts_regime': _regime,   # KMC deliverable: does this surface obey Sieverts?
-            'P_high_Pa': _P_HIGH, 'L_m': L_M,
+            'P_high_Pa': OPERATING_P_HIGH_PA, 'P_low_Pa': OPERATING_P_LOW_PA,
+            'P_ref_Pa': 1.0,   # SI normalisation for S0; NOT the feed pressure
+            'L_m': L_M,
+            'sieverts_regime': None,   # needs a coverage isotherm; KMC out of scope
         }
         if _dilute_note:
             _perm_payload['dilute_limit_caveat'] = _dilute_note
@@ -832,29 +651,24 @@ for _n_h in N_H_VALUES:
         mark_done(_perm_done_marker)
         _PERM_STATUS['permeability_written'].append(f'{_n_h}H_T{int(_T)}K')
         _fmt = lambda x: (f'{x:.3e}' if x is not None else 'n/a')
-        _rex = _regime.get('theta_exponent')
-        _rex_s = f'{_rex:.2f}' if _rex is not None else 'n/a'
         print(f'  T={_T:4.0f} K  SOLUBILITY (from energies):  geom S={_fmt(_S1)}  vib S={_fmt(_S2)}  [mol·m⁻³·Pa⁻⁰·⁵]')
-        print(f'  T={_T:4.0f} K  rate-based cross-checks:     det-bal S={_fmt(_Sdb)}  kmc-θ S={_fmt(_Skt)}  [mol·m⁻³·Pa⁻⁰·⁵]')
-        print(f'  T={_T:4.0f} K  KMC DELIVERABLE — Sieverts regime: {_regime.get("regime")}  '
-              f'(θ~P^{_rex_s}, θ_max={_regime.get("theta_max")})')
-        print(f'  T={_T:4.0f} K  kmc-count (noise diagnostic): S={_fmt(_S3)} [mol·m⁻³·Pa⁻⁰·⁵]  fluxSievertsR²={_siev.get("r_squared")}')
+        print(f'  T={_T:4.0f} K  rate-based cross-check:      det-bal S={_fmt(_Sdb)}  [mol·m⁻³·Pa⁻⁰·⁵]')
+        print(f'  T={_T:4.0f} K  occupancy-limited (geom):    S={_fmt(_sat_geo.get("S"))}  '
+              f'θ_max={_sat_geo.get("theta_max"):.3f}  {_sat_geo.get("regime")}')
 
     # ── Multi-T Arrhenius fits for this n_H ──────────────────────────────────
-    # Fit each solubility route (geometric, vibrational, detailed-balance,
-    # KMC-θ, and the KMC-counting diagnostic) as ln S vs 1/T -> (S0, ΔH_sol, R²),
-    # then derive permeability Arrhenius params Φ0 = D0·S0, E_Φ = E_D + ΔH_sol.
-    # R² is the curvature flag (per-env S(T) is a sum of Arrhenius terms; R² < 1
-    # is physical, not error). SOLUBILITY HEADLINE = geometric + vibrational
-    # (energy-based). detailed_balance/kmc_theta (rate-based, dissociation-
-    # averaging artifact) and 'kmc' (counting, noise-limited) are diagnostics,
-    # NOT the reported solubility.
+    # Fit each solubility route (geometric, vibrational, detailed-balance) as
+    # ln S vs 1/T -> (S0, ΔH_sol, R²), then derive permeability Arrhenius params
+    # Φ0 = D0·S0, E_Φ = E_D + ΔH_sol. R² is the curvature flag (per-env S(T) is a
+    # sum of Arrhenius terms; R² < 1 is physical, not error). SOLUBILITY HEADLINE
+    # = geometric + vibrational (energy-based); detailed_balance is a rate-based
+    # cross-check carrying a dissociation-rate-averaging artifact, NOT the
+    # reported solubility. The KMC-θ and KMC-counting routes were removed with
+    # the KMC engine (2026-08).
     _sol_routes = {}
     for _route, _S_list, _Serr_list in (('geometric', _S_geo_arr, _S_geo_err_arr),
                                         ('vibrational', _S_vib_arr, _S_vib_err_arr),
-                                        ('detailed_balance', _S_db_arr, None),
-                                        ('kmc_theta', _S_kt_arr, None),
-                                        ('kmc', _S_kmc_arr, None)):
+                                        ('detailed_balance', _S_db_arr, None)):
         _err_list = _Serr_list if _Serr_list is not None else [None] * len(_S_list)
         _pts = [(t, s, e) for t, s, e in zip(_T_arr6, _S_list, _err_list)
                 if s is not None and s == s and s > 0.0]
@@ -962,15 +776,10 @@ def generate_permeation_scripts(
     results_dir,
     temperatures,
     n_h_values,
-    p_vals_pa,
     a0_m,
     l_m,
     dh_diss_ev,
     dh_entry_ev,
-    nx,
-    ny,
-    seed,
-    kmc_max_steps,
     gpu_slurm_cfg,
     neb_slurm_cfg,
     vib_slurm_cfg,
@@ -982,6 +791,8 @@ def generate_permeation_scripts(
     e2t=None,
     masses=None,
     metal_type='alloy',
+    operating_p_high_pa=1.0e6,
+    operating_p_low_pa=0.0,
 ):
     """Write permeation_run.py with embedded config. Returns the output path."""
     from models.config import MASSES_7, E2T_7, ELEM_STR_7
@@ -991,10 +802,11 @@ def generate_permeation_scripts(
         e2t = E2T_7
     if masses is None:
         masses = MASSES_7
-    # P_VALS_PA may arrive as numpy float64 (e.g. from np.logspace); coerce to
-    # plain floats so the generated header embeds `1e-05`, not `np.float64(1e-05)`
-    # (the header's constant block runs before numpy is imported in the script).
-    p_vals_pa = [float(p) for p in p_vals_pa]
+    # Coerce to plain floats so the generated header embeds `1000000.0`, not
+    # `np.float64(1000000.0)` — the header's constant block runs before numpy is
+    # imported in the script.
+    operating_p_high_pa = float(operating_p_high_pa)
+    operating_p_low_pa  = float(operating_p_low_pa)
     _parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     _header = f'''#!/usr/bin/env python3
@@ -1037,17 +849,14 @@ RESULTS_DIR        = {results_dir!r}
 
 TEMPERATURES   = {temperatures!r}
 N_H_VALUES     = {n_h_values!r}
-P_VALS_PA      = {p_vals_pa!r}
+OPERATING_P_HIGH_PA = {operating_p_high_pa!r}   # feed-side H2 [Pa]
+OPERATING_P_LOW_PA  = {operating_p_low_pa!r}   # permeate side [Pa]
 A0_M           = {a0_m!r}
 L_M            = {l_m!r}
 
 DH_DISS_EV     = {dh_diss_ev!r}   # eV  — dissociation NEB delta_E (fill after NEB)
 DH_ENTRY_EV    = {dh_entry_ev!r}  # eV  — Hop A delta_E (fill after NEB)
 
-NX             = {nx!r}
-NY             = {ny!r}
-SEED           = {seed!r}
-KMC_MAX_STEPS  = {kmc_max_steps!r}
 
 N_IMAGES       = {n_images!r}
 SPRING_K       = {spring_const!r}
@@ -1167,17 +976,6 @@ def load_rate_summary(results_dir, temperatures):
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 
-def load_kmc_sweeps(results_dir, temperatures):
-    """Return dict {T_K: sweep_dict} for converged sweep JSONs."""
-    out = {}
-    for T in temperatures:
-        p = os.path.join(results_dir, f'permeation_sweep_T{int(T)}K.json')
-        if os.path.exists(p):
-            with open(p) as f:
-                out[T] = json.load(f)
-    return out
-
-
 def load_permeability_results(results_dir, temperatures):
     """Return dict {T_K: perm_dict} for permeability JSONs."""
     out = {}
@@ -1249,43 +1047,6 @@ def plot_mep_overlay(sub_neb_dir):
 
     plt.tight_layout()
     out_png = os.path.join(sub_neb_dir, 'mep_overlay.png')
-    plt.savefig(out_png, dpi=150)
-    plt.show()
-    print(f'Saved: {out_png}')
-    return out_png
-
-
-def plot_kmc_sieverts(results_dir, temperatures):
-    """J vs √P at each temperature. Saves sieverts_check.png."""
-    sweeps = load_kmc_sweeps(results_dir, temperatures)
-    if not sweeps:
-        print('[plot_kmc_sieverts] No sweep data found — skipping.')
-        return None
-
-    cmap = plt.cm.viridis
-    fig, ax = plt.subplots(figsize=(8, 5))
-    _items = sorted(sweeps.items())
-
-    for i, (T, sw) in enumerate(_items):
-        P_vals = sw.get('P_vals', [])
-        J_vals = sw.get('J_vals', [])
-        conv   = sw.get('converged', [True] * len(P_vals))
-        sqrt_P = [p ** 0.5 for p, ok in zip(P_vals, conv) if ok]
-        J_conv = [j for j, ok in zip(J_vals, conv) if ok]
-        color  = cmap(i / max(len(_items) - 1, 1))
-        ax.scatter(sqrt_P, J_conv, color=color, zorder=5, label=f'T = {T:.0f} K')
-        if len(sqrt_P) >= 2:
-            slope, intercept = np.polyfit(sqrt_P, J_conv, 1)
-            x_fit = np.linspace(0, max(sqrt_P) * 1.05, 100)
-            ax.plot(x_fit, slope * x_fit + intercept, color=color, lw=1.2, alpha=0.7)
-
-    ax.set_xlabel('$\\sqrt{P}$  [Pa$^{1/2}$]')
-    ax.set_ylabel('J  [mol m$^{-2}$ s$^{-1}$]')
-    ax.set_title("Sieverts' law check: J vs $\\sqrt{P}$")
-    ax.set_xlim(left=0)
-    ax.legend(fontsize=8, ncol=2)
-    plt.tight_layout()
-    out_png = os.path.join(results_dir, 'sieverts_check.png')
     plt.savefig(out_png, dpi=150)
     plt.show()
     print(f'Saved: {out_png}')
@@ -1390,62 +1151,6 @@ def plot_arrhenius_S0(results_dir):
     return out_png
 
 
-def plot_bottleneck(results_dir, temperatures):
-    """R² vs T bar chart showing whether transport is bulk- or surface-limited.
-
-    R² ≥ 0.98 in J vs √P → Sieverts' law holds → bulk diffusion is rate-limiting.
-    R² < 0.98 → surface kinetics (dissociation / recombination) are the bottleneck.
-    Saves bottleneck.png.
-    """
-    from models.permeation import check_sieverts_law
-
-    sweeps = load_kmc_sweeps(results_dir, temperatures)
-    if not sweeps:
-        print('[plot_bottleneck] No sweep data found — skipping.')
-        return None
-
-    T_vals, r2_vals, is_sieverts = [], [], []
-    for T in sorted(sweeps.keys()):
-        sw = sweeps[T]
-        P_vals = sw.get('P_vals', [])
-        J_vals = sw.get('J_vals', [])
-        conv   = sw.get('converged', [True] * len(P_vals))
-        P_use  = [p for p, ok in zip(P_vals, conv) if ok]
-        J_use  = [j for j, ok in zip(J_vals, conv) if ok]
-        if len(P_use) < 2:
-            continue
-        res = check_sieverts_law(P_use, J_use, plot=False)
-        T_vals.append(T)
-        r2_vals.append(res['r_squared'])
-        is_sieverts.append(res['is_sieverts'])
-
-    if not T_vals:
-        print('[plot_bottleneck] Not enough converged data — skipping.')
-        return None
-
-    colors = ['steelblue' if ok else 'coral' for ok in is_sieverts]
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar([str(T) for T in T_vals], r2_vals, color=colors, edgecolor='white')
-    ax.axhline(0.98, color='k', ls='--', lw=1.0)
-    ax.set_xlabel('Temperature  [K]')
-    ax.set_ylabel('$R^2$  (J vs $\\sqrt{P}$)')
-    ax.set_title('Transport bottleneck: $R^2 \\geq 0.98$ → bulk-diffusion limited')
-    ax.set_ylim(0, 1.05)
-    from matplotlib.patches import Patch
-    from matplotlib.lines import Line2D
-    ax.legend(handles=[
-        Patch(color='steelblue', label='Bulk-diffusion limited'),
-        Patch(color='coral',     label='Surface kinetics limited'),
-        Line2D([0], [0], color='k', ls='--', lw=1.0, label='$R^2$ = 0.98 threshold'),
-    ], fontsize=8)
-    plt.tight_layout()
-    out_png = os.path.join(results_dir, 'bottleneck.png')
-    plt.savefig(out_png, dpi=150)
-    plt.show()
-    print(f'Saved: {out_png}')
-    return out_png
-
-
 def plot_permeation_summary(results_dir, temperatures):
     """Schema-current permeation summary (auto-generated headless in Phase 6).
 
@@ -1481,7 +1186,7 @@ def plot_permeation_summary(results_dir, temperatures):
     T_hi = max(temperatures) * 1.05
     Tg   = np.linspace(T_lo, T_hi, 120)
 
-    fig, axes = plt.subplots(1, 3, figsize=(19, 5.2))
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5.2))
 
     # ── Panel A: solubility Arrhenius ────────────────────────────────────────
     axA = axes[0]
@@ -1526,41 +1231,6 @@ def plot_permeation_summary(results_dir, temperatures):
     axB.invert_xaxis()
     if axB.get_legend_handles_labels()[1]:
         axB.legend(fontsize=7)
-
-    # ── Panel C: Sieverts-regime coverage isotherm ───────────────────────────
-    axC = axes[2]
-    _plotted_c = 0
-    for T in temperatures:
-        sw_f = os.path.join(results_dir, f'permeation_sweep_T{int(T)}K.json')
-        pm_f = os.path.join(results_dir, f'permeability_T{int(T)}K.json')
-        if not os.path.exists(sw_f):
-            continue
-        with open(sw_f) as _f: sw = json.load(_f)
-        P = np.array(sw.get('P_vals', []), dtype=float)
-        th = np.array(sw.get('theta_vals', []), dtype=float)
-        ok = (P > 0) & (th > 0)
-        if ok.sum() < 2:
-            continue
-        reg = ''
-        if os.path.exists(pm_f):
-            with open(pm_f) as _f: pm = json.load(_f)
-            r = pm.get('sieverts_regime', {})
-            n = r.get('theta_exponent')
-            reg = f' [{r.get("regime","?")}, n={n:.2f}]' if n is not None else ''
-        axC.plot(np.log10(P[ok]), np.log10(th[ok]), 'o-', ms=3, label=f'{int(T)} K{reg}')
-        _plotted_c += 1
-    # slope-0.5 reference (Sieverts-compatible dissociative Langmuir) — only
-    # meaningful once at least one isotherm has been drawn.
-    if _plotted_c:
-        _xl = axC.get_xlim()
-        _xr = np.linspace(_xl[0], _xl[1], 2)
-        axC.plot(_xr, 0.5 * (_xr - _xr[0]) + axC.get_ylim()[0], 'k--', lw=1, alpha=0.5,
-                 label='slope 0.5 (Sieverts)')
-    axC.set_xlabel('$\\log_{10} P$  [Pa]')
-    axC.set_ylabel('$\\log_{10}\\theta$  (coverage)')
-    axC.set_title('Sieverts regime: θ∝P$^n$ (n≈0.5 ⇒ compatible)')
-    if axC.get_legend_handles_labels()[1]:
-        axC.legend(fontsize=7)
 
     plt.tight_layout()
     out_png = os.path.join(results_dir, 'permeation_summary.png')
