@@ -46,7 +46,7 @@ from models.neb_subsurface import (
 )
 from models.tst_rates import env_rate_dict
 from models.permeation import (
-    sweep_pressure, arrhenius_diffusivity, resolve_nh_diffusivity,
+    arrhenius_diffusivity, resolve_nh_diffusivity,
     lattice_site_S0, vibrational_S0, build_dh_sol_by_env,
     solubility_by_environment, fit_arrhenius, permeability_arrhenius,
 )
@@ -166,7 +166,6 @@ def validation(tmp_path_factory):
     # ── Parts 6 + 3: env-keyed rate dict + two-layer KMC sweep, per T ─────────
     P_vals = [1.0e4, 4.0e4, 1.6e5]   # factor-16 span (√P ratio 4:1)
     res_nh = resolve_nh_diffusivity(work, _STEM, 1)
-    sweeps = {}
     S_geo, S_vib, T_ok = [], [], []
     for T in _TEMPS:
         kBT = _KB_EV * T
@@ -180,14 +179,6 @@ def validation(tmp_path_factory):
             'k_hopB_entry': k_hb_en, 'k_hopB_exit': k_hb_ex,
         }
         D_T = arrhenius_diffusivity(res_nh['D0_m2s'], res_nh['E_D_eV'], T)
-        np.random.seed(0)
-        sw = sweep_pressure(
-            P_vals, rate_dict, D_T, 1e-3, T, _A0, nx=5, ny=5,
-            composition={'Ni': 1.0},
-            sub1_env_composition=sub1_env_comp, sub2_env_composition=sub2_env_comp,
-            kmc_kwargs={'window': 200, 'rtol': 0.05, 'max_steps': 20000},
-        )
-        sweeps[T] = sw
         # solubility, both S0 routes (Part 4)
         S_geo.append(solubility_by_environment(dh_sol_by_env, lattice_site_S0(_A0), T))
         S_vib.append(solubility_by_environment(dh_sol_by_env, vibrational_S0(_A0, T, _DISS_FREQS), T))
@@ -202,7 +193,7 @@ def validation(tmp_path_factory):
     return dict(
         work=work, results_dir=results_dir, sub1_sub2=sub1_sub2, entry=entry,
         path_map=path_map, dh_sol_by_env=dh_sol_by_env, hopa_vib=hopa_vib,
-        hopb_vib=hopb_vib, sweeps=sweeps, P_vals=P_vals,
+        hopb_vib=hopb_vib, P_vals=P_vals,
         S_geo=S_geo, S_vib=S_vib, T_ok=T_ok,
         fit_geo=fit_geo, fit_vib=fit_vib, perm_geo=perm_geo, perm_vib=perm_vib,
     )
@@ -267,29 +258,6 @@ class TestEnvKeyedRates:
         assert set(k_hb_en) == {'Ni6_oct', 'Ni5Mo_oct'}
         assert all(v > 0 for v in k_hb_en.values())
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 4. Part 3 — two-layer KMC produces a positive, pressure-scaling C₀
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestKmcSweep:
-
-    def test_sweep_structure(self, validation):
-        for T, sw in validation['sweeps'].items():
-            for k in ('P_vals', 'C0_vals', 'J_vals', 'converged'):
-                assert k in sw
-            assert len(sw['C0_vals']) == len(validation['P_vals'])
-
-    def test_c0_positive_somewhere(self, validation):
-        # H reaches sub2 through the two-layer chain -> C0 > 0 at the highest P
-        got_positive = any(max(sw['C0_vals']) > 0.0 for sw in validation['sweeps'].values())
-        assert got_positive, 'C0 never positive — H did not reach sub2 in any sweep'
-
-    def test_c0_increases_with_pressure(self, validation):
-        # at the highest temperature, C0 should trend up with pressure (Sieverts)
-        sw = validation['sweeps'][max(validation['T_ok'])]
-        c0 = sw['C0_vals']
-        assert c0[-1] >= c0[0]
 
 
 # ═══════════════════════════════════════════════════════════════════════════

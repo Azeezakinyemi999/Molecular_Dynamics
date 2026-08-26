@@ -1,19 +1,18 @@
 """
 models/permeation.py
 ====================
-Macroscopic H permeation flux from KMC steady-state concentrations.
+Macroscopic H permeation from energy- and TST-based thermodynamics.
 
 Pipeline
 --------
 1. ``fick_flux``            — J = D (C0 − C_low) / L
-2. ``sweep_pressure``       — run KMC to steady state at each pressure, collect J
-3. ``check_sieverts_law``   — fit J vs √P; diagnose bulk vs surface bottleneck
-4. Richardson-Sieverts permeability:
+2. Richardson-Sieverts permeability:
    a. ``arrhenius_diffusivity``   — D(T) = D₀ exp(−E_D / k_B T)
-   b. Solubility S₀ via three routes:
-        Option 1  ``lattice_site_S0``       — S₀ = 4/a₀³  (geometric maximum)
-        Option 2  ``solubility_from_rates`` — S(T) from TST rates (detailed balance)
-        Option 3  ``fit_solubility_from_kmc`` — empirical S = C0/√P from sweep
+   b. Solubility S₀ via three routes, all consuming the same per-environment
+      ΔH_sol and differing only in the prefactor:
+        ``lattice_site_S0``       — S₀ = 4/a₀³/N_A  (geometric site density)
+        ``vibrational_S0``        — S₀ from partition functions
+        ``solubility_from_rates`` — S(T) from TST rates (detailed balance)
    c. ``sieverts_solubility`` — S(T) = S₀ exp(−ΔH_sol / k_B T)
    d. ``permeability``        — Φ = D × S  [mol·m⁻¹·s⁻¹·Pa^(−½)]
    e. ``richardson_flux``     — J = Φ (√P_high − √P_low) / L
@@ -22,7 +21,14 @@ Sieverts' law
 -------------
 For bulk-diffusion-limited transport, J ∝ √P (Richardson / Sieverts regime):
 H₂ pressure sets the surface H concentration via C ∝ √P, and flux follows.
-Deviation from linearity in J–√P space indicates surface kinetics are limiting.
+
+Sieverts' law is *assumed* here, not verified. Confirming it requires the
+low-pressure exponent of a coverage isotherm, θ ∝ Pⁿ (n ≈ 0.5 diffusion-limited
+vs n ≈ 1.0 dissociation-limited), which needs a kinetic simulation. The KMC
+engine that supplied it is out of scope as of 2026-08. What remains available is
+the *thermodynamic* dilute-limit test in
+:func:`solubility_by_environment_saturating`, which detects saturation
+(θ → 1) but cannot detect a surface-limited surface.
 
 Richardson-Sieverts permeability
 ---------------------------------
@@ -30,7 +36,7 @@ Richardson-Sieverts permeability
 
 ΔH_sol = ΔH_diss / 2 + ΔH_entry  (half H₂-dissociation + Hop A reaction energy)
 
-For Option 2 (detailed balance from TST rates), the derivation equates adsorption
+For the detailed-balance route, the derivation equates adsorption
 and desorption rates for (1/2)H₂ ↔ H*,  then entry/exit for H* ↔ H_sub::
 
     θ_eq ≈ √( k_diss · A_site · P / (k_des · √(2π m_H2 k_B T)) )
@@ -38,7 +44,7 @@ and desorption rates for (1/2)H₂ ↔ H*,  then entry/exit for H* ↔ H_sub::
 
     S(T) = C_sub/√P = ρ_oct · (k_entry/k_exit) · √( k_diss·A_site / (k_des·√(2πm_H2 k_BT)) )
 
-k_diss is dimensionless (Boltzmann sticking, same convention as the KMC engine).
+k_diss is dimensionless (a Boltzmann sticking probability, not a rate).
 k_des, k_entry, k_exit are full TST rates in s⁻¹.
 """
 
@@ -49,7 +55,6 @@ import os
 
 import numpy as np
 
-from models.kmc import make_grid, run_kmc_to_steady_state
 from models.tst_rates import vib_partition_function, h2_gas_partition_function
 
 
@@ -92,7 +97,7 @@ def fick_flux(
 
 
 # ---------------------------------------------------------------------------
-# Section 2 — Pressure sweep
+# Section 2 — Population-weighted rate ratio
 # ---------------------------------------------------------------------------
 
 def pop_weighted_rate_ratio(fwd_by_env: dict, rev_by_env: dict, env_array=None) -> float:
@@ -138,327 +143,11 @@ def pop_weighted_rate_ratio(fwd_by_env: dict, rev_by_env: dict, env_array=None) 
     return float(np.mean(ratios)) if ratios else 0.0
 
 
-def sweep_pressure(
-    P_vals_Pa: list,
-    rate_dict: dict,
-    D_m2s: float,
-    L_m: float,
-    T_K: float,
-    a0_m: float,
-    nx: int,
-    ny: int,
-    composition: dict | None = None,
-    seed: int = 42,
-    kmc_kwargs: dict | None = None,
-    sub1_env_composition: dict | None = None,
-    sub2_env_composition: dict | None = None,
-) -> dict:
-    """Run KMC to steady state at each pressure and compute permeation flux.
-
-    A fresh grid is created for each pressure point so that results are
-    independent.  The same random seed is used for every grid so that
-    composition realisations are identical across pressures.
-
-    Parameters
-    ----------
-    P_vals_Pa : list of float
-        H₂ partial pressures [Pa] to sweep over.
-    rate_dict : dict
-        KMC rate constants (see ``models/kmc.py`` module docstring).
-    D_m2s : float
-        Bulk diffusivity [m²/s].
-    L_m : float
-        Membrane thickness [m].
-    T_K : float
-        Temperature [K].
-    a0_m : float
-        FCC lattice constant [m].
-    nx, ny : int
-        KMC grid dimensions.
-    composition : dict, optional
-        Alloy element fractions.  Defaults to Hastelloy N.
-    seed : int
-        RNG seed for grid element assignment.
-    kmc_kwargs : dict, optional
-        Extra keyword arguments forwarded to ``run_kmc_to_steady_state``
-        (e.g. ``window``, ``rtol``, ``max_steps``).
-    sub1_env_composition, sub2_env_composition : dict, optional
-        Oct-site environment fractions for the sub1/sub2 layers, forwarded to
-        ``make_grid`` so entry/exit/hopB rates resolve per environment. When
-        ``None`` each layer's env defaults to the surface element (see
-        ``make_grid``).
-
-    Returns
-    -------
-    dict
-        Primary ``C0``/``J`` fields are the **rate-ratio** (dilute
-        detailed-balance) occupancy ``ρ_oct·⟨k_entry/k_exit⟩·θ`` and its Fick
-        flux — continuous and count-free, so they recover Sieverts √P scaling:
-        ``{'C0_sub1_vals', 'C0_sub2_vals', 'C0_vals' (=sub2), 'J_sub1_vals',
-        'J_vals' (=sub2)}``. Raw integer-count occupancy (the noise/quantization-
-        limited diagnostic) is preserved under ``{'C0_sub1_count_vals',
-        'C0_sub2_count_vals', 'J_sub1_count_vals', 'J_count_vals'}``. Plus
-        ``{'P_vals', 'sqrt_P_vals', 'converged', 'theta_vals', 't_total_vals',
-        'n_steps_vals', 'method'}``. ``C0_vals``/``J_vals`` alias sub2 for
-        back-compat.
-    """
-    kw = kmc_kwargs or {}
-    rho_oct = 4.0 / (a0_m ** 3) / _N_A            # oct-site density [mol/m³]
-    k_entry = rate_dict.get('k_entry',      {})
-    k_exit  = rate_dict.get('k_exit',       {})
-    k_hbent = rate_dict.get('k_hopB_entry', {})
-    k_hbext = rate_dict.get('k_hopB_exit',  {})
-
-    P_out:        list[float] = []
-    sqrtP_out:    list[float] = []
-    conv_out:     list[bool]  = []
-    theta_out:    list[float] = []
-    t_total_out:  list[float] = []
-    nsteps_out:   list[int]   = []
-    # PRIMARY: rate-ratio (dilute detailed-balance) occupancy & Fick flux
-    C0_sub1_out:  list[float] = []
-    C0_sub2_out:  list[float] = []
-    J_sub1_out:   list[float] = []
-    J_out:        list[float] = []
-    # DIAGNOSTIC: raw integer-count occupancy & its Fick flux
-    C0_sub1_ct:   list[float] = []
-    C0_sub2_ct:   list[float] = []
-    J_sub1_ct:    list[float] = []
-    J_ct:         list[float] = []
-
-    for P in P_vals_Pa:
-        grid = make_grid(nx, ny, composition=composition, seed=seed,
-                         sub1_env_composition=sub1_env_composition,
-                         sub2_env_composition=sub2_env_composition)
-        ss    = run_kmc_to_steady_state(grid, rate_dict, P, T_K, D_m2s, a0_m, **kw)
-        theta = float(ss['theta_ss'])
-
-        # Rate-ratio occupancy: C = ρ_oct·⟨k_entry/k_exit⟩·θ (sub1), ×⟨k_hopB⟩
-        # for sub2. Count-free and continuous — avoids the ~1-atom quantization
-        # floor of integer counting when the true occupancy is ≪ 1 per grid.
-        # θ ∝ √P in the dilute limit, so these recover Sieverts scaling.
-        R1 = pop_weighted_rate_ratio(k_entry, k_exit, grid['sub1_env'])
-        R2 = pop_weighted_rate_ratio(k_hbent, k_hbext, grid['sub2_env'])
-        C1 = rho_oct * R1 * theta
-        C2 = rho_oct * R1 * R2 * theta
-        J1 = fick_flux(D_m2s, C1, L_m)
-        J2 = fick_flux(D_m2s, C2, L_m)
-
-        # Raw integer-count occupancy (diagnostic; noise/quantization-limited)
-        C1c = float(ss['C0_sub1']); C2c = float(ss['C0_sub2'])
-        J1c = fick_flux(D_m2s, C1c, L_m); J2c = fick_flux(D_m2s, C2c, L_m)
-
-        P_out.append(float(P))
-        sqrtP_out.append(float(np.sqrt(P)))
-        conv_out.append(bool(ss['converged']))
-        theta_out.append(theta)
-        t_total_out.append(float(ss['t_total']))
-        nsteps_out.append(int(ss['n_steps']))
-        C0_sub1_out.append(float(C1)); C0_sub2_out.append(float(C2))
-        J_sub1_out.append(float(J1));  J_out.append(float(J2))
-        C0_sub1_ct.append(C1c); C0_sub2_ct.append(C2c)
-        J_sub1_ct.append(float(J1c)); J_ct.append(float(J2c))
-
-        print(
-            f'  P={P:.2e} Pa | θ={theta:.4f} | '
-            f'C0(sub1)={C1:.3e} C0(sub2)={C2:.3e} mol/m³ (rate-ratio; '
-            f'count {C1c:.2e}/{C2c:.2e}) | J={J2:.3e} mol/m²/s | '
-            f'converged={ss["converged"]}'
-        )
-
-    return {
-        'P_vals':       P_out,
-        'sqrt_P_vals':  sqrtP_out,
-        'converged':    conv_out,
-        'theta_vals':   theta_out,
-        't_total_vals': t_total_out,
-        'n_steps_vals': nsteps_out,
-        # PRIMARY — rate-ratio occupancy & Fick flux (√P-scaling, count-free)
-        'C0_sub1_vals': C0_sub1_out,
-        'C0_sub2_vals': C0_sub2_out,
-        'C0_vals':      C0_sub2_out,          # back-compat alias = sub2
-        'J_sub1_vals':  J_sub1_out,
-        'J_vals':       J_out,                # back-compat alias = sub2
-        # DIAGNOSTIC — raw integer-count occupancy & flux (noise-limited)
-        'C0_sub1_count_vals': C0_sub1_ct,
-        'C0_sub2_count_vals': C0_sub2_ct,
-        'J_sub1_count_vals':  J_sub1_ct,
-        'J_count_vals':       J_ct,
-        'method': ('C0/J = rate-ratio occupancy rho_oct*<k_entry/k_exit>*theta '
-                   '(dilute detailed balance); *_count_vals are raw integer '
-                   'counts, a noise-limited diagnostic'),
-    }
-
-
 # ---------------------------------------------------------------------------
-# Section 3 — Sieverts' law check
+# Section 3 — Richardson-Sieverts permeability
 # ---------------------------------------------------------------------------
 
-def check_sieverts_law(
-    P_vals_Pa: list,
-    J_vals: list,
-    plot: bool = True,
-) -> dict:
-    """Fit J vs √P and diagnose the rate-limiting step.
-
-    A linear fit of J against √P with R² ≈ 1 indicates bulk-diffusion-limited
-    transport (Sieverts' law).  Curvature (R² < 0.98) suggests surface
-    adsorption/dissociation or subsurface entry kinetics are limiting.
-
-    Parameters
-    ----------
-    P_vals_Pa : list of float
-        Pressures [Pa].
-    J_vals : list of float
-        Corresponding fluxes [mol/(m²·s)].
-    plot : bool
-        If ``True``, display a J vs √P scatter + fit line using matplotlib.
-        Silently skipped if matplotlib is unavailable.
-
-    Returns
-    -------
-    dict
-        ``{'slope': float, 'intercept': float, 'r_squared': float,
-           'is_sieverts': bool}``
-        ``is_sieverts`` is ``True`` when R² ≥ 0.98.
-    """
-    sqrt_P = np.sqrt(np.asarray(P_vals_Pa, dtype=float))
-    J      = np.asarray(J_vals, dtype=float)
-
-    # Linear fit: J = slope × √P + intercept
-    coeffs   = np.polyfit(sqrt_P, J, 1)
-    slope    = float(coeffs[0])
-    intercept = float(coeffs[1])
-
-    # R² from residuals
-    J_pred   = slope * sqrt_P + intercept
-    ss_res   = float(np.sum((J - J_pred) ** 2))
-    ss_tot   = float(np.sum((J - J.mean()) ** 2))
-    r2       = 1.0 - ss_res / ss_tot if ss_tot > 0 else 1.0
-
-    is_sieverts = r2 >= 0.98
-
-    print(f'Sieverts fit:  slope={slope:.3e}  intercept={intercept:.3e}  R²={r2:.4f}')
-    if is_sieverts:
-        print('  → R² ≥ 0.98: bulk-diffusion-limited (Sieverts law holds).')
-    else:
-        print('  → R² < 0.98: surface kinetics or subsurface entry are limiting.')
-
-    if plot:
-        try:
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(figsize=(5, 4))
-            ax.scatter(sqrt_P, J, color='steelblue', zorder=3, label='KMC')
-            x_fit = np.linspace(sqrt_P.min(), sqrt_P.max(), 200)
-            ax.plot(x_fit, slope * x_fit + intercept, 'k--', label=f'fit R²={r2:.3f}')
-            ax.set_xlabel('√P  [Pa^(1/2)]')
-            ax.set_ylabel('J  [mol m⁻² s⁻¹]')
-            ax.set_title('Sieverts\' law check')
-            ax.legend()
-            plt.tight_layout()
-            plt.show()
-        except ImportError:
-            pass
-
-    return {
-        'slope':      slope,
-        'intercept':  intercept,
-        'r_squared':  r2,
-        'is_sieverts': is_sieverts,
-    }
-
-
-def classify_sieverts_regime(P_vals_Pa, theta_vals, converged=None,
-                             dilute_theta_max: float = 0.4,
-                             sat_theta: float = 0.85) -> dict:
-    """Classify the Sieverts-law regime from the KMC coverage isotherm θ(P).
-
-    Solubility itself is a thermodynamic quantity (computed from energies); the
-    KMC's distinct job is to say **whether Sieverts' law even applies** to a
-    given surface. Sieverts (C ∝ √P) holds only when the surface keeps its
-    *dissociative-adsorption equilibrium* in the dilute limit. The coverage is
-    the well-sampled KMC observable that reveals this (unlike the rare-event
-    subsurface concentration, which is noise-limited):
-
-    * ``θ ∝ √P`` at low P (log-log slope n ≈ 0.5) → dissociative equilibrium
-      maintained → **sieverts_compatible** (flux ∝ √P, diffusion-limited).
-    * ``θ ∝ P`` (n ≈ 1.0) → adsorption/dissociation rate-limiting (H drains
-      before it can re-desorb) → **surface_limited**; Sieverts fails and the
-      flux goes as P, not √P (e.g. slow-dissociation oxide surfaces).
-    * ``θ`` plateaus near 1 with no dilute points sampled → **saturated_only**:
-      the sweep sits above the dilute Sieverts window.
-
-    Uses only the (well-sampled) surface coverage — never the rare-event
-    subsurface count — so it is robust where the KMC flux is not.
-
-    Parameters
-    ----------
-    P_vals_Pa : list of float
-        Sweep pressures [Pa].
-    theta_vals : list of float
-        Steady-state surface coverage at each pressure (from the KMC).
-    converged : list of bool, optional
-        Per-point convergence flags; unconverged points are dropped.
-    dilute_theta_max : float
-        Upper θ bound defining the "dilute" window used to fit the low-P
-        exponent.  Default 0.4.
-    sat_theta : float
-        θ above which the surface is treated as saturated.  Default 0.85.
-
-    Returns
-    -------
-    dict
-        ``{'regime', 'theta_exponent', 'theta_max', 'saturates_in_sweep',
-           'n_dilute_points', 'note'}``.  ``regime`` ∈
-        {``'sieverts_compatible'``, ``'surface_limited'``, ``'saturated_only'``,
-        ``'insufficient_data'``}.
-    """
-    P  = np.asarray(P_vals_Pa, dtype=float)
-    th = np.asarray(theta_vals, dtype=float)
-    if converged is not None:
-        keep = np.asarray(converged, dtype=bool)
-        P, th = P[keep], th[keep]
-    ok = (P > 0.0) & (th > 0.0)
-    P, th = P[ok], th[ok]
-
-    theta_max = float(th.max()) if th.size else 0.0
-    saturated = theta_max >= sat_theta
-
-    dil = th < dilute_theta_max
-    n_dilute = int(dil.sum())               # genuinely dilute (low-θ) points
-    if n_dilute >= 3:
-        n = float(np.polyfit(np.log(P[dil]), np.log(th[dil]), 1)[0])
-    elif P.size >= 3:
-        # not enough dilute points — fall back to the lowest third of the sweep
-        idx = np.argsort(P)[:max(3, P.size // 3)]
-        n = float(np.polyfit(np.log(P[idx]), np.log(th[idx]), 1)[0])
-    else:
-        return {'regime': 'insufficient_data', 'theta_exponent': None,
-                'theta_max': theta_max, 'saturates_in_sweep': saturated,
-                'n_dilute_points': n_dilute,
-                'note': 'need >=3 positive converged points to classify'}
-
-    # exponent near 0.5 -> dissociative equilibrium (Sieverts); near 1.0 ->
-    # dissociation rate-limited (surface-limited). Boundary midway at 0.75.
-    if saturated and n_dilute < 3:
-        regime = 'saturated_only'
-    elif n < 0.75:
-        regime = 'sieverts_compatible'
-    else:
-        regime = 'surface_limited'
-
-    print(f'[Sieverts regime] θ~P^{n:.2f}  θ_max={theta_max:.2f}  -> {regime}')
-    return {'regime': regime, 'theta_exponent': n, 'theta_max': theta_max,
-            'saturates_in_sweep': saturated, 'n_dilute_points': n_dilute,
-            'note': ('theta~P^n: n≈0.5 sieverts_compatible, n≈1.0 surface_limited; '
-                     'theta_max near 1 = saturated (out of the dilute window)')}
-
-
-# ---------------------------------------------------------------------------
-# Section 4 — Richardson-Sieverts permeability
-# ---------------------------------------------------------------------------
-
-# Physical constants used throughout this section
+# Physical constants used throughout the remaining sections
 _KB_EV   = 8.617333262e-5    # eV / K
 _KB_J    = 1.380649e-23      # J / K
 _M_H2_KG = 2.0 * 1.6735575e-27  # kg  (H₂ molecule)
@@ -557,29 +246,63 @@ def arrhenius_diffusivity(D0_m2s: float, E_D_eV: float, T_K: float) -> float:
     return D0_m2s * np.exp(-E_D_eV / (_KB_EV * T_K))
 
 
-def lattice_site_S0(a0_m: float) -> float:
-    """Option 1 — S₀ from the FCC octahedral-site density.
+def lattice_site_S0(a0_m: float, P_ref_Pa: float = 1.0) -> float:
+    """Geometric route — S₀ from the FCC octahedral-site density.
 
     .. math::
 
-        S_0 = \\frac{4}{a_0^3}  \\quad [\\text{mol m}^{-3}\\,\\text{Pa}^{-1/2}]
+        S_0 = \\frac{4}{a_0^3 N_A}  \\quad [\\text{mol m}^{-3}\\,\\text{Pa}^{-1/2}]
 
-    This is the geometric maximum: if every oct site were filled at P = 1 Pa with
-    no thermodynamic penalty (ΔH_sol = 0).  Multiply by exp(−ΔH_sol / k_B T) via
-    :func:`sieverts_solubility` to obtain S(T).
+    This is the geometric maximum: if every oct site were filled at
+    ``P_ref_Pa`` with no thermodynamic penalty (ΔH_sol = 0). Multiply by
+    exp(−ΔH_sol / k_B T) via :func:`sieverts_solubility` to obtain S(T).
+
+    ``P_ref_Pa`` **must be 1.0** — see the warning below. It is accepted only so
+    that this route carries the reference explicitly, matching
+    :func:`vibrational_S0`; otherwise the two routes could silently end up on
+    different references.
+
+    .. warning::
+
+        ``P_ref_Pa`` is an SI normalisation, **not** a configurable operating
+        pressure. The expression has no pressure term, so its ``Pa^(-1/2)``
+        units are implicitly *per √(1 Pa)*: passing anything else changes what
+        the returned number means without changing the number. In
+        :func:`vibrational_S0` the same reference appears explicitly and scales
+        the result as ``√P_ref``, so a non-unit reference would move that route
+        by ``√P_ref`` while leaving this one fixed — 1000× apart at 1e6 Pa.
+        The feed-side pressure for the flux is a separate quantity; pass it to
+        :func:`richardson_flux`.
 
     Parameters
     ----------
     a0_m : float
-        FCC lattice constant [m].
+        FCC lattice constant [m]. This route assumes 4 octahedral sites per
+        cubic cell, so it is **not** valid for non-FCC hosts (rocksalt or
+        corundum oxides need a structure-derived site count).
+    P_ref_Pa : float
+        Reference pressure fixing the units. Must be 1.0.
 
     Returns
     -------
     float
         S₀ in mol m⁻³ Pa^(−½).
+
+    Raises
+    ------
+    ValueError
+        If ``P_ref_Pa`` is not 1.0.
     """
+    if not np.isclose(P_ref_Pa, 1.0):
+        raise ValueError(
+            f'lattice_site_S0: P_ref_Pa must be 1.0 (SI normalisation), got '
+            f'{P_ref_Pa}. This route has no pressure term, so a non-unit '
+            f'reference would silently desynchronise it from vibrational_S0, '
+            f'which scales as sqrt(P_ref). For the feed-side pressure use '
+            f'richardson_flux(P_high_Pa=...).')
     _S0 = 4.0 / (a0_m ** 3) / _N_A            # mol H per m^3 (÷ Avogadro)
-    print(f'[S0 opt1] S0={_S0:.3e} mol·m⁻³·Pa⁻⁰·⁵  (a0={a0_m*1e10:.4f} Å)')
+    print(f'[S0 geometric] S0={_S0:.3e} mol·m⁻³·Pa⁻⁰·⁵  '
+          f'(a0={a0_m*1e10:.4f} Å, P_ref={P_ref_Pa:g} Pa)')
     return _S0
 
 
@@ -607,9 +330,9 @@ def solubility_from_rates(
     Parameters
     ----------
     k_diss : float
-        Dimensionless H₂ sticking coefficient (Boltzmann factor, same as KMC).
-        This is *not* a rate; it is multiplied by the gas-strike rate inside
-        the KMC engine.
+        Dimensionless H₂ sticking coefficient (Boltzmann factor).
+        This is *not* a rate; it is combined with the Hertz-Knudsen gas-strike
+        flux to give a pressure-dependent adsorption rate.
     k_des_s1 : float
         H₂ desorption rate [s⁻¹] (TST full rate from dissociation NEB).
     k_entry_s1 : float
@@ -629,8 +352,7 @@ def solubility_from_rates(
     Notes
     -----
     The site area for H₂ dissociation is A_site = (a₀ / √2)² = a₀² / 2
-    (nearest-neighbour distance squared, consistent with the KMC engine's
-    ``gas_strike_rate``).
+    (nearest-neighbour distance squared).
     """
     if T_K <= 0:
         raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
@@ -649,7 +371,7 @@ def solubility_from_rates(
 
 
 # ---------------------------------------------------------------------------
-# Section 4b — Heterogeneous, per-environment thermodynamic solubility
+# Section 3b — Heterogeneous, per-environment thermodynamic solubility
 #
 # Solubility is an equilibrium property: it depends on the reaction ENERGIES
 # along the connected chain (½ H₂ dissociation + Hop A + Hop B, to sub2), not
@@ -686,18 +408,37 @@ def vibrational_S0(a0_m: float, T_K: float, freqs_dissolved_cm1,
         Real vibrational frequencies [cm⁻¹] of a dissolved H in its oct cage
         (the FS-endpoint modes from Part 2's vibration run).
     P_ref_Pa : float
-        Reference pressure fixing the S₀ units. Default 1.0 Pa.
+        Reference pressure fixing the S₀ units. **Must be 1.0** — see the
+        warning below. Default 1.0 Pa.
+
+    .. warning::
+
+        This is an SI normalisation, not an operating pressure. ``q_H2`` carries
+        a ``1/P_ref`` through ``V = k_B T/P``, so ``S₀ = S_true · √P_ref``: the
+        factor only vanishes at ``P_ref = 1`` in SI. Passing 1e6 Pa multiplies
+        this route by 1000 while leaving :func:`lattice_site_S0` untouched — the
+        two would then disagree by 1000× on top of any real discrepancy, which
+        is easy to mistake for the routes converging. The feed-side pressure for
+        the flux belongs in :func:`richardson_flux`.
 
     Returns
     -------
     float
         S₀ in mol·m⁻³·Pa^(−½).
     """
+    if not np.isclose(P_ref_Pa, 1.0):
+        raise ValueError(
+            f'vibrational_S0: P_ref_Pa must be 1.0 (SI normalisation), got '
+            f'{P_ref_Pa}. S0 scales as sqrt(P_ref), so this would rescale the '
+            f'vibrational route by {np.sqrt(P_ref_Pa):g}x while leaving '
+            f'lattice_site_S0 unchanged. For the feed-side pressure use '
+            f'richardson_flux(P_high_Pa=...).')
     rho_oct = 4.0 / (a0_m ** 3) / _N_A       # mol H per m^3 (÷ Avogadro)
     q_H  = vib_partition_function(freqs_dissolved_cm1, T_K)
     q_H2 = h2_gas_partition_function(T_K, P_ref_Pa)['total']
     _S0 = rho_oct * q_H / np.sqrt(q_H2)
-    print(f'[S0 vib] S0={_S0:.3e} mol·m⁻³·Pa⁻⁰·⁵  (q_H={q_H:.3f}, q_H2={q_H2:.3e})')
+    print(f'[S0 vib] S0={_S0:.3e} mol·m⁻³·Pa⁻⁰·⁵  (q_H={q_H:.3f}, '
+          f'q_H2={q_H2:.3e}, P_ref={P_ref_Pa:g} Pa)')
     return _S0
 
 
@@ -867,7 +608,7 @@ def solubility_by_environment_saturating(
     dict
         ``{'S', 'S_dilute', 'C', 'theta_mean', 'theta_max', 'regime',
         'saturation_ratio'}``. ``regime`` uses the same vocabulary and
-        thresholds as :func:`classify_sieverts_regime`.
+        thresholds the retired KMC regime classifier used (0.4 / 0.85).
     """
     if T_K <= 0:
         raise ValueError(f'Temperature must be positive; got T_K={T_K}.')
@@ -949,61 +690,6 @@ def solubility_env_rel_err(dh_sol_by_env: dict, T_K: float,
     return float(np.sqrt(S0_rel_err ** 2 + sigma_B_over_B ** 2))
 
 
-def fit_solubility_from_kmc(sweep_result: dict) -> dict:
-    """Option 3 — Empirical S(T) from a KMC pressure sweep.
-
-    Applies Sieverts' law  C₀ = S · √P  point-wise to each converged pressure
-    in a ``sweep_pressure`` result.  The mean of S over all converged points is
-    the best empirical estimate at the sweep temperature.
-
-    To extract the Arrhenius pre-exponential S₀ and ΔH_sol, call this function
-    at multiple temperatures and fit ln(S) vs 1/T externally.
-
-    Parameters
-    ----------
-    sweep_result : dict
-        Output of :func:`sweep_pressure`.  Must contain ``'P_vals'``,
-        ``'C0_vals'``, and optionally ``'converged'``.
-
-    Returns
-    -------
-    dict
-        ``{'S_vals': list, 'P_vals': list, 'S_mean': float, 'S_std': float,
-           'n_converged': int}``
-        ``S_vals[i]`` is ``C0[i] / √P[i]``  in mol m⁻³ Pa^(−½).
-        Non-converged or zero-pressure points are excluded from statistics
-        but appear as ``None`` in ``S_vals``.
-    """
-    P_vals       = sweep_result['P_vals']
-    C0_vals      = sweep_result['C0_vals']
-    converged    = sweep_result.get('converged', [True] * len(P_vals))
-    sqrt_P_saved = sweep_result.get('sqrt_P_vals')
-
-    S_vals: list = []
-    valid:  list[float] = []
-
-    for i, (P, C0, conv) in enumerate(zip(P_vals, C0_vals, converged)):
-        if conv and P > 0:
-            sqrtP = sqrt_P_saved[i] if sqrt_P_saved else np.sqrt(float(P))
-            s = float(C0) / sqrtP
-            S_vals.append(s)
-            valid.append(s)
-        else:
-            S_vals.append(None)
-
-    S_mean = float(np.mean(valid))              if valid            else 0.0
-    S_std  = float(np.std(valid, ddof=1))       if len(valid) > 1  else 0.0
-
-    print(f'[S opt3] S_mean={S_mean:.3e}  S_std={S_std:.3e}  n_converged={len(valid)}')
-    return {
-        'S_vals':      S_vals,
-        'P_vals':      list(P_vals),
-        'S_mean':      S_mean,
-        'S_std':       S_std,
-        'n_converged': len(valid),
-    }
-
-
 def sieverts_solubility(dH_sol_eV: float, S0: float, T_K: float) -> float:
     """Arrhenius Sieverts solubility at temperature T.
 
@@ -1019,7 +705,7 @@ def sieverts_solubility(dH_sol_eV: float, S0: float, T_K: float) -> float:
     S0 : float
         Solubility pre-exponential [mol m⁻³ Pa^(−½)].
         Use :func:`lattice_site_S0` for Option 1, or extract from
-        :func:`solubility_from_rates` / :func:`fit_solubility_from_kmc`.
+        :func:`solubility_from_rates`.
     T_K : float
         Temperature [K].
 
@@ -1216,7 +902,7 @@ def richardson_flux(
 
 
 # ---------------------------------------------------------------------------
-# Section 5 — Per-(stem, n_H) diffusivity resolution (Part 2 ↔ Part 3 handoff)
+# Section 4 — Per-(stem, n_H) diffusivity resolution (Part 2 ↔ Part 3 handoff)
 # ---------------------------------------------------------------------------
 
 def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
@@ -1288,11 +974,11 @@ def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
             f"Sieverts' law and Richardson's permeation formula assume dilute "
             f"dissolved H. n_H={n_h} is not the dilute limit (n_H=1), so H-H "
             f"interactions were present in this MD box and may make the "
-            f"derived solubility/permeability below an approximation. For a "
-            f"rigorous non-dilute treatment, use the raw KMC sweep data in "
-            f"permeation_sweep_T<T>K.json under {nh_dir} directly "
-            f"(flux J(P), coverage θ(P), concentration C0(P) vs pressure — "
-            f"no √P scaling assumed)."
+            f"derived solubility/permeability below an approximation. A "
+            f"rigorous non-dilute treatment needs an explicit isotherm rather "
+            f"than a √P scaling; the occupancy-limited route in "
+            f"solubility_by_environment_saturating is the available partial "
+            f"check."
         )
 
     return dict(nh_dir=nh_dir, diff_file=diff_file, ready=True,

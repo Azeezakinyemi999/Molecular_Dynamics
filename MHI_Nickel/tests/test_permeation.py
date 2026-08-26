@@ -1,13 +1,12 @@
 """
 tests/test_permeation.py
 ========================
-Tests for models/permeation.py — offline, no LAMMPS or KMC run required
-for the unit tests (sweep_pressure is not tested here; it wraps run_kmc_to_steady_state).
+Tests for models/permeation.py — offline, no LAMMPS required.
 
 Covers:
-  fick_flux, check_sieverts_law, arrhenius_diffusivity,
-  lattice_site_S0, solubility_from_rates, fit_solubility_from_kmc,
-  sieverts_solubility, permeability, richardson_flux
+  fick_flux, pop_weighted_rate_ratio, arrhenius_diffusivity,
+  lattice_site_S0, solubility_from_rates, sieverts_solubility,
+  permeability, richardson_flux, resolve_nh_diffusivity
 """
 
 import json
@@ -25,14 +24,10 @@ from models.permeation import (
     _M_H2_KG,
     _N_A,
     fick_flux,
-    sweep_pressure,
     pop_weighted_rate_ratio,
-    check_sieverts_law,
-    classify_sieverts_regime,
     arrhenius_diffusivity,
     lattice_site_S0,
     solubility_from_rates,
-    fit_solubility_from_kmc,
     sieverts_solubility,
     permeability,
     richardson_flux,
@@ -44,18 +39,6 @@ from models.permeation import (
 
 _A0  = 3.52e-10   # Ni lattice constant [m]
 _T   = 600.0      # K
-
-
-def _sweep(P_vals, C0_vals, converged=None):
-    """Minimal sweep_result dict for fit_solubility_from_kmc tests."""
-    if converged is None:
-        converged = [True] * len(P_vals)
-    return {
-        'P_vals':      list(P_vals),
-        'C0_vals':     list(C0_vals),
-        'converged':   list(converged),
-        'sqrt_P_vals': [float(np.sqrt(p)) for p in P_vals],
-    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -97,93 +80,7 @@ class TestFickFlux:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 2. check_sieverts_law
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestCheckSievertsFit:
-
-    def _perfect_sieverts(self):
-        P_vals = [1000.0, 4000.0, 9000.0, 16000.0]
-        J_vals = [2.5 * math.sqrt(p) for p in P_vals]   # J ∝ √P exactly
-        return P_vals, J_vals
-
-    def test_returns_required_keys(self):
-        P, J = self._perfect_sieverts()
-        result = check_sieverts_law(P, J, plot=False)
-        for k in ('slope', 'intercept', 'r_squared', 'is_sieverts'):
-            assert k in result
-
-    def test_perfect_linear_gives_r2_one(self):
-        P, J = self._perfect_sieverts()
-        result = check_sieverts_law(P, J, plot=False)
-        assert result['r_squared'] == pytest.approx(1.0, abs=1e-10)
-
-    def test_perfect_linear_is_sieverts_true(self):
-        P, J = self._perfect_sieverts()
-        assert check_sieverts_law(P, J, plot=False)['is_sieverts'] is True
-
-    def test_nonlinear_j_not_sieverts(self):
-        P_vals = [1000.0, 4000.0, 9000.0, 16000.0]
-        # J proportional to P (quadratic in √P) → R² < 0.98
-        J_vals = [p * 0.001 for p in P_vals]
-        result = check_sieverts_law(P_vals, J_vals, plot=False)
-        assert result['is_sieverts'] is False
-        assert result['r_squared'] < 0.98
-
-    def test_slope_matches_coefficient(self):
-        P_vals = [1000.0, 4000.0, 9000.0, 16000.0]
-        slope_true = 2.5
-        J_vals = [slope_true * math.sqrt(p) for p in P_vals]
-        result = check_sieverts_law(P_vals, J_vals, plot=False)
-        assert result['slope'] == pytest.approx(slope_true, rel=1e-6)
-
-    def test_threshold_at_0_98(self):
-        # R² threshold is exactly 0.98
-        P, J = self._perfect_sieverts()
-        result = check_sieverts_law(P, J, plot=False)
-        assert result['r_squared'] >= 0.98
-
-    def test_constant_j_r2_is_one(self):
-        # all J identical → ss_tot = 0; code returns the special-case r2 = 1.0
-        P_vals = [1000.0, 4000.0, 9000.0, 16000.0]
-        J_vals = [5.0, 5.0, 5.0, 5.0]
-        result = check_sieverts_law(P_vals, J_vals, plot=False)
-        assert result['r_squared'] == pytest.approx(1.0)
-
-
-class TestClassifySievertsRegime:
-    # Regime read from the coverage isotherm θ(P): exponent ≈0.5 (dissociative
-    # equilibrium → Sieverts), ≈1.0 (dissociation rate-limited → surface),
-    # θ→1 with no dilute points (saturated).
-    _P = [1e-4, 4e-4, 1.6e-3, 6.4e-3, 2.56e-2]   # factor-4 pressure steps
-
-    def test_sqrt_p_is_sieverts_compatible(self):
-        th = [0.01 * math.sqrt(p) for p in self._P]      # θ ∝ √P  → n ≈ 0.5
-        out = classify_sieverts_regime(self._P, th)
-        assert out['theta_exponent'] == pytest.approx(0.5, abs=0.05)
-        assert out['regime'] == 'sieverts_compatible'
-
-    def test_linear_p_is_surface_limited(self):
-        th = [2.0 * p for p in self._P]                  # θ ∝ P    → n ≈ 1.0
-        out = classify_sieverts_regime(self._P, th)
-        assert out['theta_exponent'] == pytest.approx(1.0, abs=0.05)
-        assert out['regime'] == 'surface_limited'
-
-    def test_saturated_only_when_no_dilute_points(self):
-        out = classify_sieverts_regime([1e3, 1e4, 1e5], [0.95, 0.97, 0.99])
-        assert out['saturates_in_sweep'] is True
-        assert out['n_dilute_points'] == 0
-        assert out['regime'] == 'saturated_only'
-
-    def test_converged_filter_drops_points(self):
-        # only 2 converged points → cannot classify
-        out = classify_sieverts_regime(
-            [1e-4, 2e-4, 3e-4], [0.01, 0.02, 0.03], converged=[True, True, False])
-        assert out['regime'] == 'insufficient_data'
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 3. arrhenius_diffusivity
+# 2. arrhenius_diffusivity
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestArrheniusDiffusivity:
@@ -211,7 +108,7 @@ class TestArrheniusDiffusivity:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 4. lattice_site_S0
+# 3. lattice_site_S0
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestLatticeSiteS0:
@@ -234,7 +131,7 @@ class TestLatticeSiteS0:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 5. solubility_from_rates
+# 4. solubility_from_rates
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestSolubilityFromRates:
@@ -289,68 +186,7 @@ class TestSolubilityFromRates:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 6. fit_solubility_from_kmc
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestFitSolubilityFromKmc:
-
-    def test_returns_required_keys(self):
-        result = fit_solubility_from_kmc(_sweep([1000.0], [1e22]))
-        for k in ('S_vals', 'P_vals', 'S_mean', 'S_std', 'n_converged'):
-            assert k in result
-
-    def test_s_vals_equal_c0_over_sqrt_p(self):
-        P = [1000.0, 4000.0]
-        C0 = [2e22, 4e22]
-        result = fit_solubility_from_kmc(_sweep(P, C0))
-        for i, (p, c) in enumerate(zip(P, C0)):
-            assert result['S_vals'][i] == pytest.approx(c / math.sqrt(p), rel=1e-8)
-
-    def test_s_mean_correct(self):
-        P = [1000.0, 4000.0]
-        C0 = [1e22, 2e22]
-        S0 = 1e22 / math.sqrt(1000.0)
-        S1 = 2e22 / math.sqrt(4000.0)
-        result = fit_solubility_from_kmc(_sweep(P, C0))
-        assert result['S_mean'] == pytest.approx((S0 + S1) / 2.0, rel=1e-8)
-
-    def test_non_converged_excluded_from_mean(self):
-        P = [1000.0, 4000.0]
-        C0 = [1e22, 9e22]         # second point is wild — should be excluded
-        conv = [True, False]
-        result = fit_solubility_from_kmc(_sweep(P, C0, converged=conv))
-        expected_S = 1e22 / math.sqrt(1000.0)
-        assert result['S_mean'] == pytest.approx(expected_S, rel=1e-8)
-        assert result['n_converged'] == 1
-
-    def test_non_converged_appears_as_none_in_s_vals(self):
-        P = [1000.0, 4000.0]
-        C0 = [1e22, 9e22]
-        conv = [True, False]
-        result = fit_solubility_from_kmc(_sweep(P, C0, converged=conv))
-        assert result['S_vals'][0] is not None
-        assert result['S_vals'][1] is None
-
-    def test_all_non_converged_gives_zero_mean(self):
-        P = [1000.0]
-        C0 = [1e22]
-        result = fit_solubility_from_kmc(_sweep(P, C0, converged=[False]))
-        assert result['S_mean'] == pytest.approx(0.0)
-        assert result['n_converged'] == 0
-
-    def test_single_converged_gives_zero_std(self):
-        result = fit_solubility_from_kmc(_sweep([1000.0], [1e22]))
-        assert result['S_std'] == pytest.approx(0.0)
-
-    def test_zero_pressure_point_excluded_even_if_converged(self):
-        # P=0 is skipped by `if conv and P > 0` even when converged=True
-        result = fit_solubility_from_kmc(_sweep([0.0, 1000.0], [1e22, 1e22]))
-        assert result['n_converged'] == 1
-        assert result['S_vals'][0] is None
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 7. sieverts_solubility
+# 5. sieverts_solubility
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestSievertsSolubility:
@@ -383,7 +219,7 @@ class TestSievertsSolubility:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 8. permeability
+# 6. permeability
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestPermeability:
@@ -405,7 +241,7 @@ class TestPermeability:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 9. richardson_flux
+# 7. richardson_flux
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestRichardsonFlux:
@@ -449,7 +285,7 @@ class TestRichardsonFlux:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 10. resolve_nh_diffusivity — Part 2 <-> Part 3 handoff, no-placeholder logic
+# 8. resolve_nh_diffusivity — Part 2 <-> Part 3 handoff, no-placeholder logic
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestResolveNhDiffusivity:
@@ -831,51 +667,3 @@ class TestPopWeightedRateRatio:
         # empty entry-rate dict = no surface→sub1 channel
         assert pop_weighted_rate_ratio({}, {'E': 1.0}) == 0.0
         assert pop_weighted_rate_ratio({'E': 1.0}, {}) == 0.0
-
-
-class TestSweepRateRatioOccupancy:
-    """sweep_pressure C0/J are the rate-ratio occupancy, not integer counts."""
-
-    def _run(self):
-        import math
-        T, a0, nu = 600.0, 3.5e-10, 1e13
-        kBT = _KB_EV * T
-        rate_dict = {
-            'k_diss': {('Ni', 'Ni'): math.exp(-0.10 / kBT)},
-            'k_des':  {('Ni', 'Ni'): nu * math.exp(-0.30 / kBT)},
-            'k_entry': {'E': 1e10}, 'k_exit': {'E': 1e11},          # ratio 0.1
-            'k_hopB_entry': {'E': 1e10}, 'k_hopB_exit': {'E': 1e11},
-        }
-        np.random.seed(0)
-        return a0, sweep_pressure(
-            [1e3, 1e4, 1e5], rate_dict, 1e-9, 1e-3, T, a0,
-            nx=4, ny=4, composition={'Ni': 1.0},
-            sub1_env_composition={'E': 1.0}, sub2_env_composition={'E': 1.0},
-            kmc_kwargs={'window': 100, 'rtol': 0.1, 'max_steps': 5000},
-        )
-
-    def test_new_schema_fields_present(self):
-        _, sw = self._run()
-        for k in ('C0_sub1_vals', 'C0_sub2_vals', 'C0_vals', 'J_vals', 'J_sub1_vals',
-                  'C0_sub1_count_vals', 'C0_sub2_count_vals', 'J_count_vals',
-                  'J_sub1_count_vals', 'theta_vals', 'method'):
-            assert k in sw, f'missing {k}'
-        assert 'rate-ratio' in sw['method']
-
-    def test_C0_sub1_equals_rho_oct_ratio_theta(self):
-        a0, sw = self._run()
-        rho_oct = 4.0 / (a0 ** 3) / _N_A
-        R1 = 0.1   # single-env k_entry/k_exit
-        for c1, th in zip(sw['C0_sub1_vals'], sw['theta_vals']):
-            assert c1 == pytest.approx(rho_oct * R1 * th, rel=1e-9)
-
-    def test_J_is_fick_of_rate_ratio_C0_not_count(self):
-        _, sw = self._run()
-        for j, c2 in zip(sw['J_vals'], sw['C0_sub2_vals']):
-            assert j == pytest.approx(1e-9 * c2 / 1e-3, rel=1e-9)   # D·C0/L
-
-    def test_count_diagnostic_is_separate_series(self):
-        _, sw = self._run()
-        # counts are a distinct, integer-derived series (not equal to rate-ratio)
-        assert len(sw['C0_sub1_count_vals']) == len(sw['C0_sub1_vals'])
-        assert sw['C0_sub1_count_vals'] != sw['C0_sub1_vals']

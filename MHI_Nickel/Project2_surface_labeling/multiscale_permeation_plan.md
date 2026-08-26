@@ -8,11 +8,11 @@ The pipeline is built around three physically distinct problems. Each must be so
 
 - **Part 1 (NEB)**: What is the energy landscape for H on each material's surface? Specifically: what is the barrier for an H₂ molecule to dissociate into two H* atoms, how strongly do those H* atoms adsorb to the surface, and how much energy does it cost for an H* atom to hop between neighboring surface sites?
 - **Part 3 (Diffusivity MD)**: Once H is inside the bulk metal lattice, how fast does it diffuse? What is D(T) — the H diffusivity as a function of temperature — and what Arrhenius parameters D₀ and E_D describe it?
-- **Part 2 (Permeation KMC)**: Given the surface energetics from Part 1 and the bulk diffusivity from Part 3, what is the steady-state H permeability Φ(T) of the membrane at each temperature?
+- **Part 2 (Permeation)**: Given the surface energetics from Part 1 and the bulk diffusivity from Part 3, what is the steady-state H permeability Φ(T) of the membrane at each temperature?
 
 **Why Parts 1 and 3 run in parallel:** They share no inputs with each other. Part 1 only needs each material's bulk supercell to build a surface slab. Part 3 only needs the bulk structures to run bulk MD. Neither reads anything the other produces. `pipeline_run.py` therefore launches every metal's `neb_run_{stem}.py` and the shared `diffusivity_run.py` simultaneously.
 
-**Why Part 2 must wait for both:** Part 2 needs the surface dissociation barriers and rate constants from Part 1 (to set up the KMC surface reaction events) and the bulk diffusivity Arrhenius parameters from Part 3 (to set the bulk H transport rate). If either is missing, Part 2 cannot run. `pipeline_run.py` enforces this by blocking on every launched process before submitting any Part 2 script.
+**Why Part 2 must wait for both:** Part 2 needs the surface dissociation barriers and rate constants from Part 1 (for the detailed-balance solubility route and the ΔH_sol reference) and the bulk diffusivity Arrhenius parameters from Part 3 (to set the bulk H transport rate). If either is missing, Part 2 cannot run. `pipeline_run.py` enforces this by blocking on every launched process before submitting any Part 2 script.
 
 **Why Part 2 runs sequentially across metals (not in parallel like Parts 1/3):** Each `permeation_run_{stem}.py` submits its own SLURM arrays for Hop A/Hop B NEB and can saturate the `short`/`sharing` partitions on its own. Part 2 is also far cheaper per metal than Parts 1/3, so running metals one at a time costs little wall-clock time while avoiding partition oversubscription.
 
@@ -41,8 +41,8 @@ The pipeline is built around three physically distinct problems. Each must be so
             └───────────────────┬─────────────────────────┘
                                  ▼  (wait for every launched process)
                     permeation_run_{stem}.py  (× N metals, one at a time)
-                    (Part 2 — KMC)
-                    TST rates → KMC → Φ(T)  per metal, per n_H
+                    (Part 2 — Permeation)
+                    TST rates → S(T) → Φ(T)  per metal, per n_H
                                  │
                                  ▼
                 Final permeability Φ(T) = Φ₀ exp(−E_Φ / k_B T)  per metal
@@ -484,7 +484,9 @@ Assembles the ZPE-corrected TST rates per temperature (see Section 8 for the ful
 
 ### Phase 5 — KMC Pressure Sweep
 
-Runs once per `(stem, n_H, T)`, guarded per-temperature by an existence check on `permeation_sweep_T{T}K.json` (`audits/task_F_audit.md`). Runs the two-layer BKL KMC (surface ⇄ sub1 ⇄ sub2 → bulk drain from sub2; see Section 8 event catalog) at each of the 40 `P_VALS_PA` points, with the sub1/sub2 environment populations drawn from the real relaxed slab. The sweep records the steady-state surface coverage `θ` and the time-averaged occupancy of **both** subsurface layers (`C0_sub1_vals`, `C0_sub2_vals`; `C0_vals` aliases sub2 for back-compat), plus the kinetic flux `J = D·C₀/L` for each. The subsurface occupancies are noise-limited **diagnostics** (each layer holds ≪1 atom on the grid); the headline solubility is computed thermodynamically (from energies) in Phase 6, not from these occupancies. The coverage `θ` instead feeds the KMC's distinct deliverable — the **Sieverts-regime classifier** (`classify_sieverts_regime`), which reports whether the surface obeys Sieverts' law (see Phase 6).
+**REMOVED (2026-08).** This phase ran the KMC pressure sweep. It is gone along with `models/kmc.py`; Phase 6 no longer reads a sweep file. Retained below for historical context.
+
+Ran once per `(stem, n_H, T)`, guarded per-temperature by an existence check on `permeation_sweep_T{T}K.json` (`audits/task_F_audit.md`). Runs the two-layer BKL KMC (surface ⇄ sub1 ⇄ sub2 → bulk drain from sub2; see Section 8 event catalog) at each of the 40 `P_VALS_PA` points, with the sub1/sub2 environment populations drawn from the real relaxed slab. The sweep records the steady-state surface coverage `θ` and the time-averaged occupancy of **both** subsurface layers (`C0_sub1_vals`, `C0_sub2_vals`; `C0_vals` aliases sub2 for back-compat), plus the kinetic flux `J = D·C₀/L` for each. The subsurface occupancies are noise-limited **diagnostics** (each layer holds ≪1 atom on the grid); the headline solubility is computed thermodynamically (from energies) in Phase 6, not from these occupancies. The coverage `θ` instead feeds the KMC's distinct deliverable — the **Sieverts-regime classifier** (`classify_sieverts_regime`), which reports whether the surface obeys Sieverts' law (see Phase 6).
 
 **Output**: `results/{stem}_{n_h}H/permeation_sweep_T{T}K.json`.
 
@@ -492,11 +494,11 @@ Runs once per `(stem, n_H, T)`, guarded per-temperature by an existence check on
 
 Solubility is referenced to the **first subsurface site (sub1)**: `ΔH_sol(env) = ½·ΔH_diss + ΔH_HopA(env)`. Hop B and deeper transport are treated as bulk diffusion (carried by D), so ΔH_HopB is **not** part of the solubility (it is still computed and saved for other use in `hopb_vib_rates.json`/`rate_dict_T{T}K.json`).
 
-**The solubility headline is energy-based** — solubility is a thermodynamic equilibrium quantity, so it is computed from the reaction energies via two per-environment Boltzmann-sum routes that differ only in the prefactor S₀: **geometric** (S₀ = `4/a₀³`) and **vibrational** (partition-function `vibrational_S0`). Three further routes are reported as **diagnostics/cross-checks only, not the solubility**: **detailed_balance** and **kmc_theta** route the equilibrium quantity through kinetic rates/coverage and pick up a dissociation-rate-averaging artifact; **option3** (`S = C₀/√P`, sub1 & sub2) is the noise-limited counting estimate. Then Richardson-Sieverts flux and Arrhenius fits of both S(T) and Φ(T) (Φ₀ = D₀·S₀, E_Φ = E_D + ΔH_sol per route).
+**The solubility headline is energy-based** — solubility is a thermodynamic equilibrium quantity, so it is computed from the reaction energies via two per-environment Boltzmann-sum routes that differ only in the prefactor S₀: **geometric** (S₀ = `4/a₀³/N_A`) and **vibrational** (partition-function `vibrational_S0`). One further route, **detailed_balance**, is reported as a **cross-check only, not the solubility**: it routes the equilibrium quantity through TST rates and picks up a dissociation-rate-averaging artifact. The `kmc_theta` and `option3` routes were removed with the KMC engine (2026-08). Then Richardson-Sieverts flux — evaluated at the explicit `OPERATING_P_HIGH_PA` (1e6 Pa), no longer the top of a sweep grid — and Arrhenius fits of both S(T) and Φ(T) (Φ₀ = D₀·S₀, E_Φ = E_D + ΔH_sol per route).
 
-The KMC's own headline deliverable — the thing thermodynamics cannot give — is the **Sieverts-regime classifier** (`classify_sieverts_regime`, `sieverts_regime` in the payload): from the coverage isotherm's low-P exponent `θ ∝ P^n` it labels the surface `sieverts_compatible` (n ≈ 0.5, diffusion-limited), `surface_limited` (n ≈ 1.0, dissociation rate-limiting — e.g. oxides), or `saturated_only`. See Section 8.
+**The Sieverts-regime classifier is gone (2026-08).** It was the KMC's own deliverable — the thing thermodynamics cannot give — labelling each surface `sieverts_compatible` (n ≈ 0.5), `surface_limited` (n ≈ 1.0, e.g. oxides) or `saturated_only` from the coverage isotherm's low-P exponent. `sieverts_regime` is now written as `null` and **Sieverts' law is assumed rather than verified**. The partial replacement is `solubility_by_environment_saturating`, which detects saturation (θ → 1) from the enthalpies alone but cannot detect a surface-limited surface. Oxides are now treated as membranes rather than adsorbing surfaces, so that regime is out of scope.
 
-**Outputs** (per `n_H`): `results/{stem}_{n_h}H/permeability_T{T}K.json`, `solubility_arrhenius.json`, `permeability_arrhenius.json`, and the backward-compatible `solubility_arrhenius_kmc.json`.
+**Outputs** (per `n_H`): `results/{stem}_{n_h}H/permeability_T{T}K.json`, `solubility_arrhenius.json`, `permeability_arrhenius.json`. `solubility_arrhenius_kmc.json` is no longer written; existing copies are stale.
 
 ### Success tracking across `n_H` values
 

@@ -2,7 +2,9 @@
 
 **Material:** Hastelloy N (Ni₇₁Mo₁₆Cr₇Fe₆ alloy)  
 **Question:** How fast does hydrogen permeate through a structural membrane?  
-**Method:** MACE ML potential + LAMMPS → NEB → TST → KMC → Richardson-Sieverts permeability
+**Method:** MACE ML potential + LAMMPS → NEB → TST → Richardson-Sieverts permeability
+
+> **Scope note (2026-08).** The kinetic Monte Carlo stage has been removed. `models/kmc.py` is deleted and the four KMC-fed functions (`sweep_pressure`, `check_sieverts_law`, `classify_sieverts_regime`, `fit_solubility_from_kmc`) are gone from `models/permeation.py`. Solubility and permeability are unaffected — they were always computed from energies and TST rates, never from the KMC. What is lost is the **Sieverts-regime classifier**, the only test of whether `c ∝ √P` actually holds; Sieverts' law is now *assumed*. Oxides are treated as membranes rather than as adsorbing surfaces, so the `surface_limited` regime it detected is out of scope. Sections below describing the KMC engine are retained for historical context and marked accordingly.
 
 ---
 
@@ -45,9 +47,7 @@ A direct molecular dynamics (MD) simulation of H permeation would require millis
 
 3. **TST + ZPE** — Converts barriers into rate constants k(T), corrected for quantum vibrational zero-point energy.
 
-4. **KMC** — Simulates the stochastic kinetics on the surface/subsurface layer using TST rates as input.
-
-5. **Richardson-Sieverts** — Combines the KMC-derived surface concentration with the MD-derived bulk diffusivity to give the macroscopic permeability Φ(T).
+4. **Richardson-Sieverts** — Combines the energy-based solubility S(T) with the MD-derived bulk diffusivity D(T) to give the macroscopic permeability Φ(T) = D·S, and the flux at a stated feed pressure.
 
 All heavy simulations run on a SLURM cluster. The notebooks generate run scripts and submit them automatically.
 
@@ -232,10 +232,8 @@ where `w_env` is each environment's population weight and the sum runs over the 
 | geometric | `S₀ = 4/a₀³/N_A` × per-env Boltzmann | 4 oct sites per FCC cell, **per mol** — the geometric site-density ceiling (`lattice_site_S0`). The `/N_A` reports S in mol H rather than atoms; results generated before commit `ed5bb11` (2026-07-28) omit it and are a factor of Avogadro too large |
 | vibrational | partition-function S₀ × per-env Boltzmann | S₀ from the gas-phase-H₂ and dissolved-H vibrational partition functions (`vibrational_S0`); available only when the dissolved-H FS vibrations were computed |
 | detailed_balance | `ρ_oct·(k_entry/k_exit)·√(k_diss·A/(k_des·…))`, population-weighted (`solubility_from_rates`) | **rate-based cross-check only** — routes the equilibrium solubility through kinetic rates and picks up a dissociation-rate-averaging artifact; not the reported solubility |
-| kmc_theta | `ρ_oct·(k_entry/k_exit)·θ_KMC/√P` (dilute limit) | **cross-check only** — same idea with the KMC-simulated θ; inherits the same artifact through θ plus a finite-coverage rolloff |
-| option3 (diagnostic) | `S = C₀/√P` from the KMC sweep, sub1 & sub2 | empirical counting — noise-limited (each subsurface layer holds ≪1 atom); kept for comparison, not a headline |
 
-**geometric and vibrational are the solubility headline** — the equilibrium solubility is a thermodynamic quantity and is computed from energies (per-environment Boltzmann sum via `solubility_by_environment`, differing only in S₀). detailed_balance, kmc_theta and option3 route the same quantity through *kinetic* machinery (rates, coverage, occupancy) and each picks up an artifact, so they are **diagnostics/cross-checks, not the reported solubility**. The old "detailed balance from a single representative TST rate" route has been retired.
+**geometric and vibrational are the solubility headline** — the equilibrium solubility is a thermodynamic quantity and is computed from energies (per-environment Boltzmann sum via `solubility_by_environment`, differing only in S₀). detailed_balance routes the same quantity through *kinetic* machinery (TST rates) and picks up a dissociation-rate-averaging artifact, so it is a **cross-check, not the reported solubility**. The `kmc_theta` and `option3` routes were removed with the KMC engine (2026-08), as was the older "detailed balance from a single representative TST rate" route.
 
 **The Boltzmann sum is the dilute limit, and it has no upper bound.** `exp(−ΔH_sol/k_BT)` assumes θ ≪ 1, so an exothermic environment can drive S past one H per site — physically impossible, and observed: Hastelloy N 7's geometric route reaches `1.3e11` against a site density of `1.5e5`, driven by three tetrahedral environments holding ~10 % of the sites. The occupancy-limited counterpart `solubility_by_environment_saturating` replaces the bare Boltzmann factor with a Langmuir occupancy,
 
@@ -246,7 +244,7 @@ S     = ρ_site · Σ_env w_env·θ_env / √(P/P_ref)
 
 which reduces exactly to the Boltzmann form as θ → 0, so the dilute regime is unchanged. It is reported alongside (`saturating` in each route's payload: `S`, `S_dilute`, `theta_max`, `regime`) rather than replacing the dilute value, which remains the correct Sieverts constant where it applies. `regime` reuses the `classify_sieverts_regime` thresholds (`θ_max ≥ 0.85` → `saturated_only`, `≥ 0.4` → `partially_saturated`). Any route whose S exceeds `4/a₀³/N_A` should be read as "the dilute assumption has failed here", not as a solubility.
 
-The KMC's distinct deliverable is instead the **Sieverts-regime classifier** (`classify_sieverts_regime`): from the coverage isotherm's low-pressure exponent `θ ∝ P^n` it reports whether the surface obeys Sieverts' law — `n ≈ 0.5` → `sieverts_compatible` (diffusion-limited), `n ≈ 1.0` → `surface_limited` (dissociation rate-limiting, e.g. oxides), `θ→1` → `saturated_only`. This is the question thermodynamics cannot answer, and it is written to `permeability_T{T}K.json` as `sieverts_regime`.
+**Removed (2026-08).** The KMC's distinct deliverable was the **Sieverts-regime classifier** (`classify_sieverts_regime`): from the coverage isotherm's low-pressure exponent `θ ∝ P^n` it reported `sieverts_compatible` (n ≈ 0.5), `surface_limited` (n ≈ 1.0, e.g. oxides) or `saturated_only`. No thermodynamic route can answer that question, so it is simply gone; `sieverts_regime` is now written as `null`. The partial replacement is `solubility_by_environment_saturating`, whose `regime` field detects saturation (θ → 1) from the enthalpies alone but **cannot** detect a surface-limited surface.
 
 **Per-environment solution enthalpy (referenced to sub1):**
 
@@ -546,10 +544,9 @@ H moves from the first subsurface interstitial site to the second one directly b
 | 2 | Hop B NEB | Use Hop A relaxed sub1 structures as IS; generate sub2 FS structures via the `sub1↔sub2` map; run CINEB for sub1→sub2 | `sharing` (FS-min) + `short` (CI-NEB array) |
 | 3 | Vibrations | Hessian + normal modes at IS, TS, and FS (dissolved-H) for all Hop A and Hop B NEB jobs; ZPE-corrected barriers; FS modes also feed the vibrational-S₀ route | `short`, 6 h (CPU array) |
 | 4 | TST rates | Vineyard prefactor; Arrhenius rates at each temperature; per-environment rate assembly (`env_rate_dict`); write `rate_dict_T{T}K.json` + the env-carrying `hopa_ranked.json`/`hopb_ranked.json` and `hopa_vib_rates.json`/`hopb_vib_rates.json` | Local Python |
-| 5 | KMC sweep | Load the env-keyed rate dict + D(T) + a₀(T); run two-layer BKL KMC at each pressure; record steady-state C₀ (time-averaged sub2) and J; Sieverts check | Local Python |
-| 6 | Permeability | Per-environment Boltzmann solubility with both S₀ routes (geometric + vibrational) plus the KMC-empirical route; Φ(T) = D×S at each T; Arrhenius fits of S(T) and Φ(T) (Φ₀ = D₀·S₀, E_Φ = E_D + ΔH_sol) | Local Python |
+| 5 | Permeability | Per-environment Boltzmann solubility, geometric + vibrational S₀ routes plus the detailed-balance cross-check; Φ(T) = D×S at each T; Arrhenius fits of S(T) and Φ(T) (Φ₀ = D₀·S₀, E_Φ = E_D + ΔH_sol); Richardson flux at `OPERATING_P_HIGH_PA` | Local Python |
 
-Each phase (Hop A/B submission, KMC sweep per T) is guarded by an existence check on its own output file, so a restarted `permeation_run_{stem}.py` skips whatever already completed rather than resubmitting — see `audits/task_F_audit.md`.
+Each phase (Hop A/B submission, permeability per T) is guarded by an existence check on its own output file, so a restarted `permeation_run_{stem}.py` skips whatever already completed rather than resubmitting — see `audits/task_F_audit.md`.
 
 ### Auto-extracted values
 

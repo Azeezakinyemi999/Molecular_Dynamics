@@ -32,7 +32,6 @@ import os
 import re as _re
 import sys
 
-import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -48,7 +47,8 @@ WORK_DIR = os.path.join(BASE_DIR, 'calculation')
 # ── numeric config (mirrors the deployed permeation_run_*.py headers) ────────
 TEMPERATURES  = [400, 600, 800]
 N_H_VALUES    = [1, 3, 5, 10]
-P_VALS_PA     = list(np.logspace(-5.0, 6.0, 40))   # 1e-5 … 1e6 Pa, 40 points
+OPERATING_P_HIGH_PA = 1.0e6   # feed-side H2 [Pa]; was max of the KMC sweep grid
+OPERATING_P_LOW_PA  = 0.0     # permeate side, fully swept [Pa]
 A0_M          = 3.52e-10
 L_M           = 1e-3
 NX            = 40
@@ -120,7 +120,8 @@ for _struct_path in INPUT_STRUCTURES:
         results_dir       = os.path.join(WORK_DIR, f'results/{stem}'),
         temperatures      = TEMPERATURES,
         n_h_values        = N_H_VALUES,
-        p_vals_pa         = P_VALS_PA,
+        operating_p_high_pa = OPERATING_P_HIGH_PA,
+        operating_p_low_pa  = OPERATING_P_LOW_PA,
         a0_m              = A0_M,
         l_m               = L_M,
         dh_diss_ev        = None,     # auto-extracted at run time
