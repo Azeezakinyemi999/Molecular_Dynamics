@@ -41,9 +41,8 @@ def _generate(tmp_path, name, **kwargs):
         surface_sites_json='/x/surface_sites.json',
         phase2_h_dir=str(tmp_path), sub_neb_dir=str(tmp_path),
         vib_dir=str(tmp_path), results_dir=str(tmp_path),
-        temperatures=[700], n_h_values=[1], p_vals_pa=[1e5],
+        temperatures=[700], n_h_values=[1],
         a0_m=3.52e-10, l_m=1e-3, dh_diss_ev=None, dh_entry_ev=None,
-        nx=10, ny=10, seed=42, kmc_max_steps=1000,
         gpu_slurm_cfg=_SLURM, neb_slurm_cfg=_SLURM, vib_slurm_cfg=_SLURM,
         n_images=6, spring_const=1.0, neb_ftol=0.1, out_py=out,
         **kwargs,
@@ -72,22 +71,8 @@ def test_permeation_species_are_slab_derived(tmp_path):
     environment (drawn from the real subsurface sites), not by element."""
     src = _generate(tmp_path, 'perm_species.py', metal_type='oxide')
     assert "('Ni', 'Mo', 'Cr', 'Fe')" not in src
-    assert '_slab_species' in src
-    assert 'combinations_with_replacement' in src
-    # env populations for the KMC grid are built from the real subsurface sites
-    assert '_sub1_env_comp' in src
+    # entry/exit rates resolve per oct-site environment, not per element
     assert 'env_rate_dict(' in src
-
-
-def test_permeation_oxide_kmc_composition(tmp_path):
-    src = _generate(tmp_path, 'perm_kmc.py', metal_type='oxide')
-    assert '_kmc_composition' in src
-    assert 'composition = _kmc_composition' in src
-    # Grid composition is now drawn from the real slab for EVERY metal type;
-    # the old oxide-only gate is gone (metals no longer fall back to make_grid's
-    # hardcoded Hastelloy default).
-    assert "if METAL_TYPE == 'oxide':" not in src
-    assert "_surf_data.get('surface_atoms'" in src
 
 
 # ─── metal_type threading through Part 1 site enumeration ────────────────────
