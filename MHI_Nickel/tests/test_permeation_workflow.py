@@ -647,3 +647,40 @@ class TestPlotPermeationSummary:
 # seeded from dissociation products, not a wholesale h_atom_* glob. Its
 # replacement, collect_entry_h_sources (models/neb_subsurface.py), is covered
 # by TestCollectEntryHSources in tests/test_neb_subsurface.py.
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. regenerate_permeation_scripts.py <-> generator signature agreement
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestRegenerateScriptCallerMatchesSignature:
+    """calculation/regenerate_permeation_scripts.py is the only real caller of
+    generate_permeation_scripts, and it is a standalone script with no other
+    coverage. When nx/ny/seed/kmc_max_steps were dropped from the generator
+    with the KMC engine, _PERM_CFG here was updated but that script was not --
+    so the whole suite stayed green while the only production caller raised
+    TypeError on the cluster. This parses the call and compares it to the live
+    signature so that cannot happen again."""
+
+    def _caller_kwargs(self):
+        import ast
+        path = pathlib.Path(__file__).parent.parent / 'calculation' / \
+            'regenerate_permeation_scripts.py'
+        tree = ast.parse(path.read_text())
+        calls = [n for n in ast.walk(tree)
+                 if isinstance(n, ast.Call)
+                 and getattr(n.func, 'id', '') == 'generate_permeation_scripts']
+        assert calls, 'no generate_permeation_scripts(...) call found'
+        return {k.arg for k in calls[0].keywords if k.arg}
+
+    def test_caller_passes_no_unaccepted_kwargs(self):
+        import inspect
+        accepted = set(inspect.signature(generate_permeation_scripts).parameters)
+        assert not (self._caller_kwargs() - accepted)
+
+    def test_caller_supplies_every_required_param(self):
+        import inspect
+        required = {p for p, v in
+                    inspect.signature(generate_permeation_scripts).parameters.items()
+                    if v.default is inspect.Parameter.empty}
+        assert not (required - self._caller_kwargs() - {'out_py'})
