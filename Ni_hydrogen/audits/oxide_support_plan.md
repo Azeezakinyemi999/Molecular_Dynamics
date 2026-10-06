@@ -24,7 +24,7 @@ has been removed." `Project2_Subsurface_Graph_Explainer.md` Stage 4 documents th
 read differently in the shipped code: (a) item 4's *metal* layer path is no longer gap-based —
 the metal total layer count is derived from slab metadata (`n_atoms_total // n_atoms_surface`),
 with gap detection kept only as a fallback (it over-split a relaxed 12-layer slab as 17); the
-oxide path still uses gap-based layers as described. (b) The KMC entry/exit rates in item 8's
+oxide path still uses gap-based layers as described. (b) The entry/exit rates in item 8's
 verification are no longer per-species — they are keyed per oct-site environment (`k_entry`/`k_exit`
 per sub1 env, `k_hopB_entry`/`k_hopB_exit` per sub2 env). See
 `Project2_surface_labeling/multiscale_permeation_plan.md` §5/§8 and `PIPELINE_GUIDE.md` §2.4/§9.
@@ -36,7 +36,7 @@ unchanged.
 
 The pipeline computes H transport per material: Part 1 surface NEB (H₂ dissociative
 adsorption via ACAT site enumeration + MACE minimizations + NEB), Part 2 permeation
-(subsurface entry Hops A/B, vibrations, TST, KMC), Part 3 bulk diffusivity. Parts 1–2
+(subsurface entry Hops A/B, vibrations, TST, permeability), Part 3 bulk diffusivity. Parts 1–2
 are metal-only today: ACAT can't describe oxide surfaces, `surface_graph.py` hardcodes
 12 equal-count layers, and `subsurface_graph.py` uses FCC-tuned classification. The user
 needs Cr₂O₃/NiO treated like metals: **dissociative-entry barriers + bulk D(T) + solubility**.
@@ -119,9 +119,7 @@ log that incoming `layers` is ignored for oxides + chosen n_units + final thickn
     fallback: resolve bare `s_NN` sids via `surface_sites.json` level1 composition
     (hardens the metal path too — bare sids currently yield empty k_entry).
   - Placeholder diss pairs (~311–313): `itertools.combinations_with_replacement(sorted(_slab_species), 2)`
-    (confirm `kmc.element_pair` uses sorted-tuple keys).
-  - KMC grid: when `METAL_TYPE=='oxide'`, pass `composition=` from normalized
-    `surface_atoms` element counts to `sweep_pressure`; metals keep default (unchanged).
+    (confirm the element-pair lookup uses sorted-tuple keys).
 
 ### 6. `calculation/pipeline.ipynb` (JSON-edit cells; regenerate `calculation/*.py` after)
 - Cell 12 (permeation loop): add `metal_type = cfg['type'],` AND fix the path mismatch:
