@@ -67,7 +67,11 @@ def _paths(stem):
         'ranked':     os.path.join(WORK_DIR, f'neb/{stem}/ranked_barriers.json'),
         'phase2_h':   os.path.join(WORK_DIR, f'adsorption/{stem}/phase2_h/results'),
         'diff':       os.path.join(WORK_DIR, f'results/{stem}_1H/diffusivity_arrhenius.json'),
-        'lattice':    os.path.join(WORK_DIR, 'results/lattice_params_vs_T.json'),
+        # Per-stem, matching permeation_workflow's RESULTS_DIR = results/{stem}.
+        # Was results/lattice_params_vs_T.json (results root), which never
+        # exists -- so Part 3 reported not-ready for every metal while the
+        # workflow itself found the file and ran fine.
+        'lattice':    os.path.join(WORK_DIR, f'results/{stem}/lattice_params_vs_T.json'),
     }
 
 
