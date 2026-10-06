@@ -94,7 +94,7 @@ def interstitial_env_label(site: dict) -> str:
 
     Uses the site's ``composition_label`` (a deterministic coordination
     fingerprint produced by ``subsurface_graph._composition_label``) as the
-    key that Hop A/B rates and the KMC grid are keyed on. The label itself
+    key that the Hop A/B rate tables are keyed on. The label itself
     retains the geometry: it ends in ``_oct`` for octahedral and ``_tet`` for
     tetrahedral interstitials (e.g. ``'Ni6_oct'``, ``'Al4_tet'``), so oct/tet
     stays distinguishable under the general "interstitial" category. Falls
@@ -1176,7 +1176,7 @@ def orchestrate_hopb_neb(
             'sub2_xyz'    : sub2_xyz,
             # Interstitial (oct/tet) environments of the sub1 origin and sub2
             # destination — sub2_env is the per-environment key Part 6 uses for
-            # the deeper (sub1→sub2) entry/exit rates in the two-layer KMC.
+            # the deeper (sub1→sub2) entry/exit rates.
             # PRE-placement; re-derived from the relaxed FS before rate assembly.
             'sub1_env'    : interstitial_env_label(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown_env',
             'sub1_type'   : site_type_of(site_lookup[ss1_id]) if ss1_id in site_lookup else 'unknown',

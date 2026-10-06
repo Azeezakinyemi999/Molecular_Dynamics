@@ -210,11 +210,14 @@ class TestGeneratePermeationScripts:
         assert "e['e_is']" in content
         assert "h_atom_'), p, 0.0)" not in content
 
-    def test_all_six_phase_labels_in_body(self, gen_result):
+    def test_all_phase_labels_in_body(self, gen_result):
+        """Phases 1-4 and 6. Phase 5 (the retired pressure-sweep phase) must
+        stay absent: its numbering is deliberately left empty so Phase 6 keeps
+        its name across results files and docs."""
         _, _, content = gen_result
-        for phase in ('Phase 1', 'Phase 2', 'Phase 3',
-                      'Phase 4', 'Phase 5', 'Phase 6'):
+        for phase in ('Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 6'):
             assert phase in content, f'{phase!r} not found in generated file'
+        assert 'Phase 5' not in content, 'retired Phase 5 reappeared'
 
     def test_hop_a_and_hop_b_neb_in_body(self, gen_result):
         _, _, content = gen_result
@@ -346,7 +349,6 @@ class TestPermeationSuccessTracking:
             '_a0_dict': {600: 3.5e-10},
             '_slab_species': ['Ni'],
             '_sid2comp': {},
-            '_kmc_composition': None,
             '_diss_vib': {},
             '_DISS_JSON': str(tmp_path / 'nonexistent_diss.json'),
             '_NU_DISS': 1e13,
@@ -659,8 +661,8 @@ class TestPlotPermeationSummary:
 class TestRegenerateScriptCallerMatchesSignature:
     """calculation/regenerate_permeation_scripts.py is the only real caller of
     generate_permeation_scripts, and it is a standalone script with no other
-    coverage. When nx/ny/seed/kmc_max_steps were dropped from the generator
-    with the KMC engine, _PERM_CFG here was updated but that script was not --
+    coverage. When nx/ny/seed/kmc_max_steps were dropped from the generator,
+    _PERM_CFG here was updated but that script was not --
     so the whole suite stayed green while the only production caller raised
     TypeError on the cluster. This parses the call and compares it to the live
     signature so that cannot happen again."""

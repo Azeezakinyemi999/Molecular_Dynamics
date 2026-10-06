@@ -367,7 +367,7 @@ def report(stem: str, env: dict | None, rates: list[SiteRate], T_K: float):
         print(f'  ! {len(suspect)} site(s) with an unusable barrier:')
         for s in suspect:
             print(f'      {s}')
-        print('    These enter the KMC rate table and the per-environment '
+        print('    These enter the TST rate table and the per-environment '
               'averages as-is.')
 
 

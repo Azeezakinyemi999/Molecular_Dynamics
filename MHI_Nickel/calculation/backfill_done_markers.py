@@ -183,21 +183,17 @@ def main(dry_run):
         'minh.done', dry_run,
     )
 
-    print('\n=== Permeation workflow (Phase 4/5/6, solubility -- co-located) ===')
+    print('\n=== Permeation workflow (Phase 4/6, solubility -- co-located) ===')
     total += _backfill_by_suffix(
         os.path.join(WORK_DIR, 'results/*/rate_dict_T*K.json'),
         'rate_dict_T', 'rate_T', dry_run,
-    )
-    total += _backfill_by_suffix(
-        os.path.join(WORK_DIR, 'results/*H/permeation_sweep_T*K.json'),
-        'permeation_sweep_T', 'sweep_T', dry_run,
     )
     total += _backfill_by_suffix(
         os.path.join(WORK_DIR, 'results/*H/permeability_T*K.json'),
         'permeability_T', 'permeability_T', dry_run,
     )
     total += _backfill(
-        os.path.join(WORK_DIR, 'results/*H/solubility_arrhenius_kmc.json'),
+        os.path.join(WORK_DIR, 'results/*H/solubility_arrhenius.json'),
         'solubility.done', dry_run,
     )
 

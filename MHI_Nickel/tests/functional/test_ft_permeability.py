@@ -4,7 +4,7 @@ tests/functional/test_ft_permeability.py
 Category D functional tests — pure-Python math for the permeability pipeline.
 
 Covers TST rate algebra, Fick/Richardson-Sieverts permeability formulas, and
-a minimal KMC integration smoke-test that runs on a tiny grid.
+a minimal integration smoke-test.
 
 No GPU, no SLURM, no MACE, no cluster required.
 """
@@ -177,7 +177,7 @@ class TestFickAndPermeabilityMath:
     Verify the permeation formulas against closed-form answers.
 
     All functions in permeation.py (Sections 1 and 4) are pure math:
-    no KMC, no LAMMPS.
+    no LAMMPS.
     """
 
     _D   = 1e-9    # m²/s   bulk diffusivity

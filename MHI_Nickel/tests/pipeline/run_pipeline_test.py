@@ -21,7 +21,7 @@ the cluster before committing to the full-scale production run:
             each n_H must land in its own results/{stem}_{n_H}H/ file.
   Stage 7 — Permeation (Part 2, real): calls generate_permeation_scripts()
             and executes the generated script for real — Hop A NEB, Hop B
-            NEB, vibrational frequencies, TST rates, KMC pressure sweeps,
+            NEB, vibrational frequencies, TST rates,
             and Richardson-Sieverts permeability, once per n_H (~1-2 h).
             Regression-tests the per-n_H bulk-diffusivity fix: each n_H's
             permeability must embed its OWN D0/Ea, never a shared value.
@@ -86,7 +86,7 @@ DIFF_RESTART_EVERY = 1000
 # expected (see diff_arrhenius_graceful_nan_*H below) — Part 3's real code
 # already handles that correctly by design (skip gracefully, never fake a
 # result). But Stage 7 (Part 2's real code) needs a VALID per-n_H fit to
-# get past Phase 4 into the KMC/permeability phases, which are the actual
+# get past Phase 4 into the permeability phase, which is the actual
 # point of testing Stage 7 for real. When the real fit is NaN, stage6
 # injects one of these clearly-labelled synthetic values so those phases
 # still get exercised — this lives ONLY in the test harness; production
@@ -101,14 +101,12 @@ DIFF_SYNTHETIC_FALLBACK = {
 }
 
 # ─── permeation stage parameters ─────────────────────────────────────────────
-PERM_P_VALS_PA    = [1e4, 1e5, 1e6]   # 0.1, 1, 10 bar
 PERM_A0_M         = 3.52e-10          # Ni lattice constant (m)
 PERM_L_M          = 1.0e-6            # 1 µm membrane thickness
 PERM_DH_DISS_EV   = 0.30              # explicit — auto-source (ranked_barriers.json)
                                        # is GitHub #7's known gap, not under test here
-PERM_NX, PERM_NY  = 4, 4
-PERM_SEED         = 42
-PERM_KMC_MAX_STEPS = 10_000
+PERM_P_HIGH_PA    = 1.0e6             # feed-side H2 partial pressure (Pa)
+PERM_P_LOW_PA     = 0.0               # permeate side (Pa)
 
 WORK_DIR = str(PROJECT_ROOT / 'tests' / 'pipeline' / 'work')
 
@@ -749,7 +747,7 @@ def stage6_diffusivity(work_dir: str) -> dict:
                         f'Real Arrhenius fit was NaN ({n_valid} valid D '
                         f'point(s) at smoke scale) — synthetic D0/Ea '
                         f'injected by the TEST HARNESS ONLY so Stage 7 '
-                        f'(real Hop A/B NEB + KMC + permeability) can '
+                        f'(real Hop A/B NEB + permeability) can '
                         f'still be exercised end-to-end. Production code '
                         f'(resolve_nh_diffusivity) never does this — see '
                         f'{_real_backup.name} for the real (NaN) result.'
@@ -794,13 +792,13 @@ def stage6_diffusivity(work_dir: str) -> dict:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Stage 7 — Permeation (Part 2, real): Hop A/B NEB + vibrations + KMC + Φ
+# Stage 7 — Permeation (Part 2, real): Hop A/B NEB + vibrations + Φ
 # ═════════════════════════════════════════════════════════════════════════════
 
 def stage7_permeation(s0: dict, s2: dict, s4: dict, s6: dict,
                       work_dir: str) -> dict:
     _header('Stage 7: Permeation — real generate_permeation_scripts() '
-            '(Hop A/B NEB, vibrations, KMC, permeability)')
+            '(Hop A/B NEB, vibrations, permeability)')
 
     if not all(k in s6 for k in ('diff_dir', 'struct_stem', 'arr_jsons')):
         print('  [SKIP] Stage 6 did not complete — Part 3 diffusivity fits '
@@ -829,7 +827,6 @@ def stage7_permeation(s0: dict, s2: dict, s4: dict, s6: dict,
         results_dir=results_dir,
         temperatures=DIFF_TEMPERATURES,
         n_h_values=DIFF_N_H_VALUES,
-        p_vals_pa=PERM_P_VALS_PA,
         a0_m=PERM_A0_M,
         l_m=PERM_L_M,
         # dh_diss_ev explicit: its auto-source (ranked_barriers.json) is a
@@ -838,9 +835,8 @@ def stage7_permeation(s0: dict, s2: dict, s4: dict, s6: dict,
         # from this run's own Hop A NEB results.
         dh_diss_ev=PERM_DH_DISS_EV,
         dh_entry_ev=None,
-        nx=PERM_NX, ny=PERM_NY,
-        seed=PERM_SEED,
-        kmc_max_steps=PERM_KMC_MAX_STEPS,
+        operating_p_high_pa=PERM_P_HIGH_PA,
+        operating_p_low_pa=PERM_P_LOW_PA,
         gpu_slurm_cfg={**SLURM_DEFAULTS, **GPU_SLURM},
         neb_slurm_cfg={**SLURM_DEFAULTS, **NEB_SLURM},
         vib_slurm_cfg={**SLURM_DEFAULTS, **NEB_SLURM},   # vibrations: CPU too
@@ -856,10 +852,10 @@ def stage7_permeation(s0: dict, s2: dict, s4: dict, s6: dict,
     _check('permeation_run_py_written', _exists(out_py), out_py)
 
     # ── Run the orchestrator as a subprocess — submits real Hop A/B NEB and
-    # vibration SLURM jobs and blocks until they (and the KMC sweeps) finish.
+    # vibration SLURM jobs and blocks until they finish.
     env = os.environ.copy()
     env['PYTHONPATH'] = str(PROJECT_ROOT) + os.pathsep + env.get('PYTHONPATH', '')
-    print('\n  Running permeation_run.py  (Hop A/B NEB + vibrations + KMC — '
+    print('\n  Running permeation_run.py  (Hop A/B NEB + vibrations — '
           'submits real SLURM jobs and waits) …')
     ret = subprocess.run([sys.executable, out_py], env=env)
     _check('permeation_run_exit_0', ret.returncode == 0,
@@ -886,10 +882,7 @@ def stage7_permeation(s0: dict, s2: dict, s4: dict, s6: dict,
             continue
         nh_dir = pathlib.Path(perm_work_dir) / 'results' / f'{stem}_{n_h}H'
         for T in DIFF_TEMPERATURES:
-            sweep_f = nh_dir / f'permeation_sweep_T{int(T)}K.json'
             perm_f  = nh_dir / f'permeability_T{int(T)}K.json'
-            _check(f'permeation_sweep_written_{n_h}H_{int(T)}K',
-                   _exists(str(sweep_f)), str(sweep_f))
             _check(f'permeability_written_{n_h}H_{int(T)}K',
                    _exists(str(perm_f)), str(perm_f))
             if perm_f.exists():

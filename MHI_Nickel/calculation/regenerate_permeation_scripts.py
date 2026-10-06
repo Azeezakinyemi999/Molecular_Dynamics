@@ -4,8 +4,8 @@ regenerate_permeation_scripts.py
 ================================
 Standalone regeneration of permeation_run_{stem}.py for every metal, so the
 generated orchestrators pick up the reframed permeation pipeline (dissociation-
-seeded subsurface entry, two-layer KMC, per-environment solubility, Arrhenius
-outputs). Mirrors regenerate_neb_scripts.py's per-metal pattern and the config
+seeded subsurface entry, two-layer subsurface entry rates, per-environment
+solubility, Arrhenius outputs). Mirrors regenerate_neb_scripts.py's per-metal pattern and the config
 embedded in the currently-deployed permeation_run_*.py headers (read off
 Hastelloy_N_1234's header), written as a standalone script instead of going
 through pipeline.ipynb so it can't accidentally trigger the notebook's later
@@ -16,9 +16,8 @@ not submit anything and does not touch neb_run/diffusivity_run/pipeline_run.
 Safe to re-run: generate_permeation_scripts always overwrites its own output
 deterministically from the same inputs.
 
-Config faithfully mirrors production (40x40 KMC grid, 500k steps, 40-point log
-pressure sweep). Edit the numeric block below if you want a lighter validation
-run before committing to the full production grid.
+Config faithfully mirrors production. Edit the numeric block below if you want
+a lighter validation run before committing to the full production settings.
 
 Usage
 -----
@@ -47,8 +46,8 @@ WORK_DIR = os.path.join(BASE_DIR, 'calculation')
 # ── numeric config (mirrors the deployed permeation_run_*.py headers) ────────
 TEMPERATURES  = [400, 600, 800]
 N_H_VALUES    = [1, 3, 5, 10]
-OPERATING_P_HIGH_PA = 1.0e6   # feed-side H2 [Pa]; was max of the KMC sweep grid
-OPERATING_P_LOW_PA  = 0.0     # permeate side, fully swept [Pa]
+OPERATING_P_HIGH_PA = 1.0e6   # feed-side H2 [Pa]
+OPERATING_P_LOW_PA  = 0.0     # permeate side [Pa]
 A0_M          = 3.52e-10
 L_M           = 1e-3
 N_IMAGES      = N_REPLICAS

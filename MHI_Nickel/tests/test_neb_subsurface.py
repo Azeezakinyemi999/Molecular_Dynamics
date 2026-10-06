@@ -241,7 +241,7 @@ class TestOrchestrateHopbNebSkip:
     def test_job_dict_carries_sub1_and_sub2_env(self, tmp_path, monkeypatch):
         # Part 2: Hop B job dicts must carry both oct-site environments; sub2_env
         # is the per-environment key Part 6 uses for the deeper (sub1→sub2)
-        # entry/exit rates in the two-layer KMC.
+        # entry/exit rates for the deeper hop.
         result, _, _, _ = self._run(tmp_path, monkeypatch)
         assert 'sub1_env' in result['jobs'][0]
         assert 'sub2_env' in result['jobs'][0]

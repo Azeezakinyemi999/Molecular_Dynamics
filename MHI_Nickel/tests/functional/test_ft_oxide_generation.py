@@ -65,7 +65,7 @@ def test_permeation_metal_type_defaults_to_alloy(tmp_path):
 
 
 def test_permeation_species_are_slab_derived(tmp_path):
-    """The k_diss placeholder pairs and the KMC env populations must come from
+    """The k_diss placeholder pairs and the env populations must come from
     the slab, not a hardcoded metal tuple — oxides have O; other alloys differ.
     Post-reframing the surface→sub1 entry rates are keyed by oct-site
     environment (drawn from the real subsurface sites), not by element."""

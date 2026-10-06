@@ -11,7 +11,7 @@ Pipeline
 4. ``vineyard_prefactor``   — Vineyard (1957) attempt frequency from mode products
 5. ``arrhenius_rate``       — k = ν × exp(−ΔE / kB T)
 6. ``build_rate_dict``      — assemble all rates keyed by NEB label
-7. ``rates_to_json``        — serialise to JSON for the KMC engine
+7. ``rates_to_json``        — serialise the rate table to JSON
 
 Label convention
 ----------------
@@ -409,7 +409,7 @@ def build_rate_dict(
 # ---------------------------------------------------------------------------
 
 def rates_to_json(rate_dict: dict, out_path: str) -> str:
-    """Write ``rate_dict`` to a JSON file for consumption by the KMC engine.
+    """Write ``rate_dict`` to a JSON file for downstream consumers.
 
     Parameters
     ----------
@@ -626,14 +626,14 @@ def h2_gas_partition_function(T_K: float, P_Pa: float) -> dict:
 
 
 def env_rate_dict(hop_vib: dict, T_K: float) -> tuple:
-    """Group per-hop ZPE rates by oct-site environment for the two-layer KMC.
+    """Group per-hop ZPE rates by oct-site environment.
 
     Reduces the per-pathway ZPE-rate artifact (``write_hop_vib_rates`` output)
     to environment-keyed forward/reverse rate dicts at temperature ``T_K``,
     replacing the old collapse-to-one-rate-per-element. Within each environment
-    the Arrhenius rates are combined by **arithmetic mean** (the reduction rule
-    recommended in the plan: preserves the group's expected aggregate event
-    rate for the independent, parallel KMC channels).
+    the Arrhenius rates are combined by **arithmetic mean**, which preserves the
+    group's expected aggregate event rate over its independent, parallel
+    channels.
 
     Parameters
     ----------
