@@ -352,7 +352,17 @@ _neb_res_a = collect_neb_results(hopa_jobs, hop='hopa')
 _neb_res_b = collect_neb_results(hopb_jobs, hop='hopb')
 _neb_results = {**_neb_res_a, **_neb_res_b}
 _vib_is, _vib_ts = split_vib_results(vib_out)
-print(f'  NEB results: {len(_neb_results)} labels  IS: {len(_vib_is)}  TS: {len(_vib_ts)}')
+# Reverse barriers and prefactors come from the FULL-cage FS vibrations of this
+# same run (1 H + 6 metal neighbours, the convention IS and TS use). Deliberately
+# NOT vib_out_honly: that H-only set exists for the vibrational-S0 prefactor and
+# has a different partial-Hessian convention, so mixing them would corrupt both
+# ZPE_FS and the Πν_FS/Πν_TS ratio.
+_vib_fs_rates = split_vib_fs(vib_out)
+print(f'  NEB results: {len(_neb_results)} labels  IS: {len(_vib_is)}  '
+      f'TS: {len(_vib_ts)}  FS: {len(_vib_fs_rates)}')
+if len(_vib_fs_rates) < len(_vib_is):
+    print(f'  NOTE: {len(_vib_is) - len(_vib_fs_rates)} label(s) lack an FS vibration — '
+          f'their reverse direction falls back to IS (zpe_source=IS_fallback)')
 
 for _T in TEMPERATURES:
     _rd_done_marker = os.path.join(RESULTS_DIR, f'rate_T{int(_T)}K.done')
@@ -360,7 +370,8 @@ for _T in TEMPERATURES:
     if is_done(_rd_done_marker) and os.path.exists(_rd_out_json):
         print(f'  T={_T:4.0f} K: rate dict already done — skipping')
         continue
-    _rd = build_rate_dict(_neb_results, _vib_is, _vib_ts, T_K=_T, apply_zpe=True)
+    _rd = build_rate_dict(_neb_results, _vib_is, _vib_ts, T_K=_T, apply_zpe=True,
+                          vib_results_fs=_vib_fs_rates)
     _out_json = rates_to_json(_rd, _rd_out_json)
     mark_done(_rd_done_marker)
     print(f'  T={_T:4.0f} K: {len(_rd)} rates → {_out_json}')

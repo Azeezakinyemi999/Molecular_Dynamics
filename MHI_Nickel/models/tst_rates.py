@@ -19,12 +19,20 @@ NEB labels take the form ``'{hop}_{sid}'``, e.g. ``'hopa_Ni3Mo'``.
 Vibration labels returned by ``orchestrate_vibrations`` use the same base with
 ``_IS`` / ``_TS`` appended.  ``split_vib_results`` strips those suffixes.
 
-ZPE approximation for reverse barrier
---------------------------------------
-The reverse ZPE correction uses ZPE_FS ≈ ZPE_IS (same local host environment).
-This means ΔZPE_rev = ZPE_TS − ZPE_IS = ΔZPE_fwd.  The approximation is
-reasonable for hops between similar octahedral sites; it breaks down for large
-IS/FS asymmetry.  Pass ``apply_zpe=False`` to disable.
+Forward and reverse are built from their own end states
+-------------------------------------------------------
+The forward barrier pairs IS with TS; the reverse barrier pairs **FS** with TS.
+So ``ΔZPE_fwd = ZPE_TS − ZPE_IS`` while ``ΔZPE_rev = ZPE_TS − ZPE_FS``, and the
+attempt frequencies are ``ν*_fwd = c·Πν_IS/Πν_TS`` and
+``ν*_rev = c·Πν_FS/Πν_TS``.  Using the IS quantities for both (as this module
+did before) leaves the reverse rate wrong on both counts and, because the two
+ZPE terms then cancel in ``Ea_zpe − Ed_zpe``, silently strips the ZPE
+correction out of the reaction energy that feeds ΔH_sol.
+
+``build_rate_dict`` therefore takes ``vib_results_fs``.  When a label has no FS
+vibration it falls back to the IS quantities and records
+``zpe_source='IS_fallback'`` so the affected labels stay identifiable.  Pass
+``apply_zpe=False`` to disable the ZPE correction entirely.
 """
 
 from __future__ import annotations
@@ -296,18 +304,21 @@ def build_rate_dict(
     T_K: float,
     apply_zpe: bool = True,
     min_freq_cm1: float = 50.0,
+    vib_results_fs: dict | None = None,
 ) -> dict:
     """Assemble rate constants for all NEB labels.
 
     For each label present in *neb_results*:
 
-    1. Load IS and TS ``vib_frequencies.json`` files.
-    2. Compute the Vineyard prefactor ν.
-    3. Optionally apply ZPE corrections to E_abs (forward) and E_des (reverse).
+    1. Load IS, TS and (when given) FS ``vib_frequencies.json`` files.
+    2. Compute the forward Vineyard prefactor from IS/TS and the reverse one
+       from FS/TS.
+    3. Optionally apply ZPE corrections — E_abs with ZPE_TS − ZPE_IS, E_des
+       with ZPE_TS − ZPE_FS.
     4. Compute k_forward and k_reverse via the Arrhenius expression.
 
-    The reverse ZPE correction uses the approximation ZPE_FS ≈ ZPE_IS (see
-    module docstring for details).
+    Without ``vib_results_fs`` the reverse quantities fall back to the IS ones
+    and ``zpe_source`` is set to ``'IS_fallback'`` (see module docstring).
 
     Parameters
     ----------
@@ -326,16 +337,26 @@ def build_rate_dict(
     min_freq_cm1 : float
         Frequency threshold passed to :func:`vineyard_prefactor` and
         :func:`apply_zpe_correction`.
+    vib_results_fs : dict, optional
+        ``{label: vib_json_path}`` for FS structures, from
+        :func:`split_vib_fs` applied to the **same** vibration run as IS/TS
+        (the ``_FS`` entries, not the H-only set the solubility prefactor
+        uses — those have a different partial-Hessian convention and must not
+        be passed here).
 
     Returns
     -------
     dict
         ``{label: {k_forward, k_reverse, Ea_raw, Ea_zpe, Ed_raw, Ed_zpe,
-                   nu, delta_e, T_K}}``
-        Rates in s⁻¹, barriers in eV.
+                   nu, nu_reverse, zpe_source, delta_e, T_K}}``
+        Rates in s⁻¹, barriers in eV.  ``nu`` is the forward prefactor and
+        ``nu_reverse`` the reverse one; ``zpe_source`` is ``'FS'`` or
+        ``'IS_fallback'``.
     """
     rate_dict: dict = {}
     skipped: list  = []
+    vib_results_fs = vib_results_fs or {}
+    no_fs: list = []
 
     for label, neb in neb_results.items():
         if label not in vib_results_is:
@@ -362,6 +383,26 @@ def build_rate_dict(
         is_freqs = is_vib['frequencies_real_cm1']
         ts_freqs = ts_vib['frequencies_real_cm1']  # imaginary mode already excluded
 
+        # FS drives the reverse direction. Absent (older runs, or a hop whose
+        # FS vibration was never computed) we fall back to IS and say so, rather
+        # than silently reporting an IS-derived number as if it were the reverse.
+        fs_freqs = None
+        if label in vib_results_fs:
+            try:
+                fs_vib = load_vibration_results(vib_results_fs[label])
+                if len(fs_vib.get('frequencies_imag_cm1', [])) != 0:
+                    warnings.warn(
+                        f'[{label}] FS has '
+                        f'{len(fs_vib["frequencies_imag_cm1"])} imaginary mode(s) — expected 0.'
+                    )
+                fs_freqs = fs_vib['frequencies_real_cm1']
+            except (FileNotFoundError, KeyError) as exc:
+                warnings.warn(f'[{label}] FS vibration unreadable ({exc}); '
+                              'falling back to IS for the reverse direction.')
+        if fs_freqs is None:
+            no_fs.append(label)
+        zpe_source = 'FS' if fs_freqs is not None else 'IS_fallback'
+
         Ea_raw = float(neb['E_abs'])
         Ed_raw = float(neb.get('E_des', 0.0))
 
@@ -371,33 +412,59 @@ def build_rate_dict(
             skipped.append(f'{label} (Vineyard failed: {exc})')
             continue
 
+        # ν*_rev = c·Πν_FS/Πν_TS. FS carries one more real mode than TS (the
+        # imaginary mode is excluded there), the same count asymmetry the
+        # forward prefactor relies on, so the factor of c applies identically.
+        nu_rev = nu
+        if fs_freqs is not None:
+            try:
+                nu_rev = vineyard_prefactor(fs_freqs, ts_freqs, min_freq_cm1=min_freq_cm1)
+            except (ValueError, Exception) as exc:
+                warnings.warn(f'[{label}] reverse Vineyard failed ({exc}); '
+                              'falling back to the forward prefactor.')
+                nu_rev = nu
+                zpe_source = 'IS_fallback'
+                fs_freqs = None
+
         kw = dict(min_freq_cm1=min_freq_cm1)
         if apply_zpe:
             Ea_use = apply_zpe_correction(Ea_raw, is_freqs, ts_freqs, **kw)
-            Ed_use = apply_zpe_correction(Ed_raw, is_freqs, ts_freqs, **kw)
+            # Reverse pairs TS with FS: E_des is E_TS - E_FS, so the matching
+            # correction is ZPE_TS - ZPE_FS.
+            _rev_ref = fs_freqs if fs_freqs is not None else is_freqs
+            Ed_use = apply_zpe_correction(Ed_raw, _rev_ref, ts_freqs, **kw)
         else:
             Ea_use = Ea_raw
             Ed_use = Ed_raw
 
         _k_fwd = arrhenius_rate(nu, Ea_use, T_K)
-        _k_rev = arrhenius_rate(nu, Ed_use, T_K)
+        _k_rev = arrhenius_rate(nu_rev, Ed_use, T_K)
         rate_dict[label] = {
-            'k_forward': _k_fwd,
-            'k_reverse': _k_rev,
-            'Ea_raw':    Ea_raw,
-            'Ea_zpe':    Ea_use,
-            'Ed_raw':    Ed_raw,
-            'Ed_zpe':    Ed_use,
-            'nu':        nu,
-            'delta_e':   float(neb.get('delta_E', float('nan'))),
-            'T_K':       T_K,
+            'k_forward':  _k_fwd,
+            'k_reverse':  _k_rev,
+            'Ea_raw':     Ea_raw,
+            'Ea_zpe':     Ea_use,
+            'Ed_raw':     Ed_raw,
+            'Ed_zpe':     Ed_use,
+            'nu':         nu,
+            'nu_reverse': nu_rev,
+            'zpe_source': zpe_source,
+            'delta_e':    float(neb.get('delta_E', float('nan'))),
+            'T_K':        T_K,
         }
-        print(f'  {label:<24s}  k_fwd={_k_fwd:.3e}  k_rev={_k_rev:.3e}  Ea_zpe={Ea_use:.3f} eV  ν={nu:.2e} s⁻¹')
+        print(f'  {label:<24s}  k_fwd={_k_fwd:.3e}  k_rev={_k_rev:.3e}  '
+              f'Ea_zpe={Ea_use:.3f} eV  ν={nu:.2e}/ν_rev={nu_rev:.2e} s⁻¹  [{zpe_source}]')
 
     if skipped:
         warnings.warn(
             f'build_rate_dict: skipped {len(skipped)} label(s):\n  '
             + '\n  '.join(skipped)
+        )
+    if no_fs:
+        warnings.warn(
+            f'build_rate_dict: {len(no_fs)} label(s) had no usable FS vibration; '
+            f'their reverse barrier and prefactor fall back to IS '
+            f'(zpe_source=IS_fallback):\n  ' + '\n  '.join(no_fs)
         )
 
     print(f'[rate_dict] {len(rate_dict)} labels at T={T_K:.0f} K  (skipped={len(skipped)})')
@@ -505,6 +572,7 @@ def write_hop_vib_rates(rate_dict: dict, neb_jobs: list, hop: str, out_json: str
 
     ``rate_dict`` may be built at any single temperature — only the
     T-independent fields (``Ea_zpe``, ``Ed_zpe``, ``Ea_raw``, ``Ed_raw``,
+    ``nu_reverse``, ``zpe_source``,
     ``nu``) are carried through here.
 
     Returns ``{label: {env, sub1_env, sub2_env, Ea_zpe, Ed_zpe, Ea_raw,
@@ -527,6 +595,8 @@ def write_hop_vib_rates(rate_dict: dict, neb_jobs: list, hop: str, out_json: str
             'Ea_raw':   r.get('Ea_raw'),
             'Ed_raw':   r.get('Ed_raw'),
             'nu':       r.get('nu'),
+            'nu_reverse': r.get('nu_reverse'),
+            'zpe_source': r.get('zpe_source'),
         }
 
     os.makedirs(os.path.dirname(os.path.abspath(out_json)), exist_ok=True)
@@ -656,8 +726,11 @@ def env_rate_dict(hop_vib: dict, T_K: float) -> tuple:
         nu, ea, ed = r.get('nu'), r.get('Ea_zpe'), r.get('Ed_zpe')
         if env is None or nu is None or ea is None or ed is None:
             continue
+        # Exit uses the reverse prefactor (FS/TS). Older artifacts predate the
+        # field and only carry the forward ν; fall back to it there.
+        nu_rev = r.get('nu_reverse') or nu
         fwd.setdefault(env, []).append(arrhenius_rate(nu, ea, T_K))
-        rev.setdefault(env, []).append(arrhenius_rate(nu, ed, T_K))
+        rev.setdefault(env, []).append(arrhenius_rate(nu_rev, ed, T_K))
     k_fwd = {e: sum(v) / len(v) for e, v in fwd.items()}
     k_rev = {e: sum(v) / len(v) for e, v in rev.items()}
     return k_fwd, k_rev

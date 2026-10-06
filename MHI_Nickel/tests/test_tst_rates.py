@@ -59,6 +59,9 @@ def _write_barrier(path, E_abs=0.45, E_des=0.15, delta_E=0.30,
 
 _IS_FREQS = [300.0, 500.0, 800.0, 1000.0]   # 4 real IS modes
 _TS_FREQS = [250.0, 450.0, 700.0]            # 3 real TS modes (imaginary excluded)
+# 4 real FS modes, deliberately stiffer than IS so ZPE_FS > ZPE_IS and the
+# forward/reverse asymmetry is detectable in both the ZPE and the prefactor.
+_FS_FREQS = [400.0, 650.0, 900.0, 1200.0]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -430,6 +433,103 @@ class TestBuildRateDict:
             warnings.simplefilter('always')
             rd = build_rate_dict(neb, vis, {}, T_K=300.0)
         assert label not in rd
+
+
+class TestReverseFromFS:
+    """The reverse direction must be built from FS, not IS.
+
+    E_des is E_TS - E_FS, so its ZPE partner is ZPE_TS - ZPE_FS and its attempt
+    frequency is c*prod(nu_FS)/prod(nu_TS). Using the IS quantities for both
+    directions (the old behaviour) is wrong twice over, and the two ZPE terms
+    then cancel in Ea_zpe - Ed_zpe, stripping the ZPE out of the reaction energy
+    that feeds dH_sol.
+    """
+
+    @pytest.fixture()
+    def fs_inputs(self, tmp_path):
+        label = 'hopa_Ni3Mo'
+        is_json, ts_json, fs_json = (str(tmp_path / f'{n}.json') for n in ('IS', 'TS', 'FS'))
+        _write_vib_json(is_json, _IS_FREQS, imag_freqs=[])
+        _write_vib_json(ts_json, _TS_FREQS, imag_freqs=[200.0])
+        _write_vib_json(fs_json, _FS_FREQS, imag_freqs=[])
+        neb = {label: {'E_abs': 0.45, 'E_des': 0.15, 'delta_E': 0.30, 'converged': True}}
+        return neb, {label: is_json}, {label: ts_json}, {label: fs_json}, label
+
+    def test_zpe_source_is_fs_when_supplied(self, fs_inputs):
+        neb, vis, vts, vfs, label = fs_inputs
+        rd = build_rate_dict(neb, vis, vts, T_K=300.0, vib_results_fs=vfs)
+        assert rd[label]['zpe_source'] == 'FS'
+
+    def test_zpe_source_marks_fallback_without_fs(self, fs_inputs):
+        neb, vis, vts, _, label = fs_inputs
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=300.0)
+        assert rd[label]['zpe_source'] == 'IS_fallback'
+
+    def test_ed_zpe_uses_fs_not_is(self, fs_inputs):
+        neb, vis, vts, vfs, label = fs_inputs
+        rd = build_rate_dict(neb, vis, vts, T_K=300.0, vib_results_fs=vfs)
+        expected = apply_zpe_correction(0.15, _FS_FREQS, _TS_FREQS)
+        assert rd[label]['Ed_zpe'] == pytest.approx(expected)
+
+    def test_nu_reverse_is_fs_over_ts(self, fs_inputs):
+        neb, vis, vts, vfs, label = fs_inputs
+        rd = build_rate_dict(neb, vis, vts, T_K=300.0, vib_results_fs=vfs)
+        assert rd[label]['nu_reverse'] == pytest.approx(
+            vineyard_prefactor(_FS_FREQS, _TS_FREQS))
+
+    def test_forward_prefactor_unchanged_by_fs(self, fs_inputs):
+        """Supplying FS must not perturb the forward direction."""
+        neb, vis, vts, vfs, label = fs_inputs
+        rd = build_rate_dict(neb, vis, vts, T_K=300.0, vib_results_fs=vfs)
+        assert rd[label]['nu'] == pytest.approx(
+            vineyard_prefactor(_IS_FREQS, _TS_FREQS))
+        assert rd[label]['Ea_zpe'] == pytest.approx(
+            apply_zpe_correction(0.45, _IS_FREQS, _TS_FREQS))
+
+    def test_nu_reverse_differs_from_forward(self, fs_inputs):
+        neb, vis, vts, vfs, label = fs_inputs
+        rd = build_rate_dict(neb, vis, vts, T_K=300.0, vib_results_fs=vfs)
+        assert rd[label]['nu_reverse'] != pytest.approx(rd[label]['nu'])
+
+    def test_reaction_energy_recovers_zpe_term(self, fs_inputs):
+        """Ea_zpe - Ed_zpe must equal the raw reaction energy plus
+        (ZPE_FS - ZPE_IS). With the IS-for-both behaviour this term cancelled
+        to zero, which is the bug that silently de-ZPE'd dH_sol."""
+        neb, vis, vts, vfs, label = fs_inputs
+        rd = build_rate_dict(neb, vis, vts, T_K=300.0, vib_results_fs=vfs)
+        zpe = lambda fs: 0.5 * sum(f * CM1_TO_EV for f in fs if f >= 50.0)
+        expected = (0.45 - 0.15) + (zpe(_FS_FREQS) - zpe(_IS_FREQS))
+        got = rd[label]['Ea_zpe'] - rd[label]['Ed_zpe']
+        assert got == pytest.approx(expected)
+        # and it is genuinely non-zero, i.e. the test would catch a regression
+        assert abs(got - (0.45 - 0.15)) > 1e-4
+
+    def test_fallback_reaction_energy_loses_zpe(self, fs_inputs):
+        """Pin the old behaviour as the documented fallback: with no FS the
+        ZPE cancels and the reaction energy is raw."""
+        neb, vis, vts, _, label = fs_inputs
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=300.0)
+        assert (rd[label]['Ea_zpe'] - rd[label]['Ed_zpe']) == pytest.approx(0.45 - 0.15)
+
+    def test_k_reverse_uses_reverse_prefactor(self, fs_inputs):
+        neb, vis, vts, vfs, label = fs_inputs
+        rd = build_rate_dict(neb, vis, vts, T_K=300.0, vib_results_fs=vfs)
+        r = rd[label]
+        assert r['k_reverse'] == pytest.approx(
+            arrhenius_rate(r['nu_reverse'], r['Ed_zpe'], 300.0))
+
+    def test_unreadable_fs_falls_back(self, fs_inputs, tmp_path):
+        neb, vis, vts, _, label = fs_inputs
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=300.0,
+                                 vib_results_fs={label: str(tmp_path / 'nope.json')})
+        assert rd[label]['zpe_source'] == 'IS_fallback'
+        assert rd[label]['nu_reverse'] == pytest.approx(rd[label]['nu'])
 
 
 # ═══════════════════════════════════════════════════════════════════════════
