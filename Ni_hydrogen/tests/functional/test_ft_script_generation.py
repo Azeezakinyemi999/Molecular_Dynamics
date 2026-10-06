@@ -271,9 +271,11 @@ class TestPermeationScriptSharingConfig:
     def test_gpu_slurm_cfg_time_embedded(self, content):
         assert "'time': '00:20:00'" in content
 
-    def test_all_six_phase_labels_present(self, content):
-        for label in ('Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 5', 'Phase 6'):
+    def test_all_phase_labels_present(self, content):
+        """Phases 1-4 and 6; the retired Phase 5 must stay absent."""
+        for label in ('Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 6'):
             assert label in content, f"'{label}' missing from permeation script"
+        assert 'Phase 5' not in content, 'retired Phase 5 reappeared'
 
     def test_temperatures_embedded(self, content):
         assert '600' in content and '700' in content and '800' in content
