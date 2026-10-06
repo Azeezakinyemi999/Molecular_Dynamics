@@ -2830,9 +2830,13 @@ import json as _json_e
 import glob as _glob_e
 
 from models.config import MACE_MODEL_ASE as _MACE_ASE_E
-from models.vibrations import orchestrate_diss_vibrations as _orch_vib_e
+from models.vibrations import (
+        orchestrate_diss_vibrations as _orch_vib_e,
+        diss_union_metal_indices    as _diss_union_e,
+    )
 from models.tst_rates import (
     split_vib_results as _split_vib_e,
+    split_vib_fs as _split_vib_fs_e,
     build_rate_dict as _brd_e,
 )
 
@@ -2846,6 +2850,7 @@ else:
     _vib_pairs_e  = []
     _neb_for_rd_e = {}
     _label_pair_e = {}
+    _metal_idx_by_lbl_e = {}   # {state_label: [metal indices]} — shared per pathway
 
     # Map each surface site_id -> its dominant metal element, so k_diss/k_des are
     # keyed by REAL elements (e.g. ('Ni','Ni')) -- not the 's' site-label token.
@@ -2906,8 +2911,34 @@ else:
             print(f'  [{_lbl_e}] IS or TS not found — skipping vib.')
             continue
 
+        # FS = relaxed dissociation product (2 separate H*), the reverse
+        # direction's end state. E_des is E_TS - E_FS, so its ZPE partner and
+        # Vineyard prefactor must come from here, not from the IS.
+        # NB: not named _fs_e — that name is reused further down this loop for
+        # the label's FS-site fragment.
+        _fs_struct_e = os.path.join(_job_dir_e, 'neb_final_relaxed.lammps')
+        _have_fs_e   = os.path.exists(_fs_struct_e)
+
         _vib_pairs_e.append((f'{_lbl_e}_IS', _is_e))
         _vib_pairs_e.append((f'{_lbl_e}_TS', _ts_e))
+        if _have_fs_e:
+            _vib_pairs_e.append((f'{_lbl_e}_FS', _fs_struct_e))
+        else:
+            print(f'  [{_lbl_e}] neb_final_relaxed.lammps missing — no FS vib; '
+                  f'reverse direction will fall back to IS.')
+
+        # One displaced-atom set for every state of this pathway. Without it
+        # each structure picks its own neighbours (intact H2* shares them, a
+        # mid-dissociation TS does not), the mode counts diverge, and the
+        # Vineyard ratio stops being a frequency at all.
+        try:
+            _union_states_e = [_is_e, _ts_e] + ([_fs_struct_e] if _have_fs_e else [])
+            _union_e = _diss_union_e(_union_states_e)
+            for _st_e in ('IS', 'TS') + (('FS',) if _have_fs_e else ()):
+                _metal_idx_by_lbl_e[f'{_lbl_e}_{_st_e}'] = _union_e
+        except Exception as _ux_e:
+            print(f'  [{_lbl_e}] shared atom set unavailable ({_ux_e}); '
+                  f'falling back to per-structure neighbours.')
         _neb_for_rd_e[_lbl_e] = {
             'E_abs':     _job_e.get('Ea',      0.0),
             'E_des':     _job_e.get('E_des',   0.0),
@@ -2929,7 +2960,8 @@ else:
         except Exception:
             _label_pair_e[_lbl_e] = ('?', '?')
 
-    print(f'  Diss vib pairs: {len(_vib_pairs_e)//2} IS/TS sets')
+    print(f'  Diss vib structures: {len(_vib_pairs_e)} '
+          f'({len(_metal_idx_by_lbl_e)} with a shared atom set)')
 
     if _vib_pairs_e:
         _vib_out_e = _orch_vib_e(
@@ -2940,6 +2972,7 @@ else:
             delta           = 0.01,
             device          = 'cpu',
             dry_run         = True,
+            metal_indices_by_label = _metal_idx_by_lbl_e,
         )
         from models.create_slurm import (
             submit_with_retry as _sub_vib_e,
@@ -2952,8 +2985,11 @@ else:
         print('  Diss vibrations complete.')
 
         _vib_is_e, _vib_ts_e = _split_vib_e(_vib_out_e)
+        _vib_fs_e            = _split_vib_fs_e(_vib_out_e)
+        print(f'  Diss vibs: IS={len(_vib_is_e)} TS={len(_vib_ts_e)} FS={len(_vib_fs_e)}')
         _rd_e = _brd_e(_neb_for_rd_e, _vib_is_e, _vib_ts_e,
-                       T_K=700.0, apply_zpe=True)
+                       T_K=700.0, apply_zpe=True,
+                       vib_results_fs=_vib_fs_e)
 
         _diss_rates_e = {}
         for _lbl_rd, _r_e in _rd_e.items():

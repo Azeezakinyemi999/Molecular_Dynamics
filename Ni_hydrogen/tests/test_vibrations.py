@@ -28,6 +28,7 @@ from models.vibrations import (
     load_vibration_results,
     orchestrate_vibrations,
     orchestrate_diss_vibrations,
+    diss_union_metal_indices,
 )
 
 # ── shared constants ──────────────────────────────────────────────────────────
@@ -742,3 +743,150 @@ class TestOrchestrateDissVibrationsCheckpoint:
             slurm_opts=self._SLURM, dry_run=True)
 
         assert result['s_12__s_1+s_65_IS']['slurm'] is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Shared displaced-atom set for the dissociation states
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _write_h2_slab(path, h_positions, n_metal=12, a=3.0):
+    """Minimal LAMMPS data file: a grid of Al atoms plus 2 H at given spots.
+
+    Written by hand rather than via ase.io.write(format='lammps-data'): that
+    writer emits no Masses block, so on read-back the atom types map to Z=1,2
+    (H and He) and the element identity needed here is lost. Real pipeline
+    structures do carry Masses, which is why production is unaffected.
+    """
+    lines = ['LAMMPS data file (test fixture)', '',
+             f'{n_metal + len(h_positions)} atoms', '2 atom types', '',
+             '0.0 30.0 xlo xhi', '0.0 30.0 ylo yhi', '0.0 30.0 zlo zhi', '',
+             'Masses', '', '1 26.9815', '2 1.008', '', 'Atoms # atomic', '']
+    n = 0
+    for i in range(n_metal):
+        x = (i % 4) * a
+        y = ((i // 4) % 4) * a
+        n += 1
+        lines.append(f'{n} 1 {x} {y} 0.0')
+    for (x, y, z) in h_positions:
+        n += 1
+        lines.append(f'{n} 2 {x} {y} {z}')
+    pathlib.Path(path).write_text('\n'.join(lines) + '\n')
+    return str(path)
+
+
+class TestDissUnionMetalIndices:
+    """The displaced subsystem must be identical across the states compared.
+
+    An intact H2* at the IS has its two H sharing neighbours; a
+    mid-dissociation TS has them apart with more distinct neighbours. Letting
+    each structure choose gives different atom sets, which is what made Al's
+    dissociation prefactor come out at 5e-10 s^-1.
+    """
+
+    def test_union_covers_both_states(self, tmp_path):
+        # IS: both H together near the origin corner
+        is_p = _write_h2_slab(tmp_path / 'is.lammps',
+                              [(0.2, 0.2, 1.0), (0.9, 0.2, 1.0)])
+        # TS: H atoms pulled apart toward different metals
+        ts_p = _write_h2_slab(tmp_path / 'ts.lammps',
+                              [(0.2, 0.2, 1.0), (6.2, 3.1, 1.0)])
+        u_is  = diss_union_metal_indices([is_p], n_per_h=2)
+        u_ts  = diss_union_metal_indices([ts_p], n_per_h=2)
+        u_all = diss_union_metal_indices([is_p, ts_p], n_per_h=2)
+        assert set(u_is) <= set(u_all)
+        assert set(u_ts) <= set(u_all)
+
+    def test_returns_sorted_unique_ints(self, tmp_path):
+        p1 = _write_h2_slab(tmp_path / 'a.lammps', [(0.2, 0.2, 1.0), (0.9, 0.2, 1.0)])
+        u = diss_union_metal_indices([p1], n_per_h=3)
+        assert u == sorted(set(u))
+        assert all(isinstance(i, int) for i in u)
+
+    def test_never_includes_an_h_atom(self, tmp_path):
+        p1 = _write_h2_slab(tmp_path / 'a.lammps', [(0.2, 0.2, 1.0), (0.9, 0.2, 1.0)])
+        u = diss_union_metal_indices([p1], n_per_h=6)
+        # H atoms are the last two indices in the written structure
+        assert 12 not in u and 13 not in u   # H atoms are the last two indices
+
+    def test_raises_without_structures(self):
+        with pytest.raises(ValueError, match='no structures'):
+            diss_union_metal_indices([])
+
+    def test_raises_when_not_two_h(self, tmp_path):
+        p1 = _write_h2_slab(tmp_path / 'one_h.lammps', [(0.2, 0.2, 1.0)], n_metal=4)
+        # n_atoms header counts n_metal + len(h_positions), so this file
+        # genuinely holds a single H.
+        with pytest.raises(ValueError, match='expected exactly 2'):
+            diss_union_metal_indices([p1])
+
+    def test_raises_when_h_indices_differ(self, tmp_path):
+        """Different atom orderings make a shared index set meaningless."""
+        a = _write_h2_slab(tmp_path / 'a.lammps',
+                           [(0.2, 0.2, 1.0), (0.9, 0.2, 1.0)], n_metal=12)
+        b = _write_h2_slab(tmp_path / 'b.lammps',
+                           [(0.2, 0.2, 1.0), (0.9, 0.2, 1.0)], n_metal=8)
+        with pytest.raises(ValueError, match='do not'):
+            diss_union_metal_indices([a, b])
+
+
+class TestDissScriptFixedAtomSet:
+
+    def _content(self, tmp_path, metal_indices):
+        out = str(tmp_path / 'vib_run.py')
+        write_diss_vibration_script(
+            structure_path=_STRUCT, mace_model_path=_MACE,
+            out_path=out, outdir=_OUTDIR, metal_indices=metal_indices,
+        )
+        return pathlib.Path(out).read_text()
+
+    def test_metal_indices_embedded(self, tmp_path):
+        c = self._content(tmp_path, [3, 7, 11])
+        assert 'METAL_INDICES = [3, 7, 11]' in c
+
+    def test_none_keeps_per_structure_derivation(self, tmp_path):
+        c = self._content(tmp_path, None)
+        assert 'METAL_INDICES = None' in c
+        assert 'per_structure' in c
+
+    def test_fixed_branch_present(self, tmp_path):
+        c = self._content(tmp_path, [1, 2])
+        assert 'if METAL_INDICES is not None' in c
+        assert 'metal_source = "fixed"' in c
+
+    def test_validates_supplied_indices(self, tmp_path):
+        """A bad index must fail loudly in the generated script, not silently
+        displace the wrong atoms."""
+        c = self._content(tmp_path, [1, 2])
+        assert 'non-metal or' in c
+
+    def test_metal_source_recorded_in_output(self, tmp_path):
+        c = self._content(tmp_path, [1, 2])
+        assert '"metal_source"' in c
+
+
+class TestOrchestrateDissPassesAtomSet:
+
+    def test_per_label_indices_reach_the_script(self, tmp_path):
+        out = orchestrate_diss_vibrations(
+            structure_paths=[('p_IS', _STRUCT), ('p_TS', _STRUCT)],
+            outdir=str(tmp_path / 'vib'),
+            mace_model_path=_MACE,
+            slurm_opts=None,
+            dry_run=True,
+            metal_indices_by_label={'p_IS': [4, 5], 'p_TS': [4, 5]},
+        )
+        for lbl in ('p_IS', 'p_TS'):
+            c = pathlib.Path(out[lbl]['vib_script']).read_text()
+            assert 'METAL_INDICES = [4, 5]' in c
+
+    def test_absent_label_falls_back_to_none(self, tmp_path):
+        out = orchestrate_diss_vibrations(
+            structure_paths=[('p_IS', _STRUCT)],
+            outdir=str(tmp_path / 'vib'),
+            mace_model_path=_MACE,
+            slurm_opts=None,
+            dry_run=True,
+            metal_indices_by_label={},
+        )
+        c = pathlib.Path(out['p_IS']['vib_script']).read_text()
+        assert 'METAL_INDICES = None' in c
