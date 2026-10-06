@@ -449,7 +449,8 @@ if os.path.exists(_DISS_VIB_JSON):
         if _pkey not in _diss_vib or _dv.get('Ea_zpe', 9e9) < _diss_vib[_pkey]['Ea_zpe']:
             _diss_vib[_pkey] = {'Ea_zpe': _dv['Ea_zpe'],
                                  'Ed_zpe': _dv['Ed_zpe'],
-                                 'nu':     _dv['nu']}
+                                 'nu':     _dv.get('nu'),
+                                 'nu_reverse': _dv.get('nu_reverse')}
     print(f'  Loaded diss_vib_rates.json: {len(_diss_vib)} element pairs (ZPE-corrected)')
 else:
     print(f'  WARNING: diss_vib_rates.json not found — using raw barriers for diss/des rates')
@@ -565,8 +566,19 @@ for _n_h in N_H_VALUES:
         # from env_rate_dict over Hop A plus the mean dissociation rate.
         _kent_T, _kext_T = env_rate_dict(_hopa_vib, _T)
         if _diss_vib:
+            # k_diss is a dimensionless sticking probability (multiplied by the
+            # Hertz-Knudsen strike rate inside solubility_from_rates), so it
+            # carries no prefactor. k_des is a surface process leaving from the
+            # FS, so it takes the REVERSE prefactor; 'nu' is the forward one and
+            # is None for dissociation labels.
             _kd_T  = float(np.mean([np.exp(-_v['Ea_zpe'] / _kBT6) for _v in _diss_vib.values()]))
-            _kds_T = float(np.mean([_v['nu'] * np.exp(-_v['Ed_zpe'] / _kBT6) for _v in _diss_vib.values()]))
+            _kds_vals = [(_v.get('nu_reverse') or _v.get('nu')) * np.exp(-_v['Ed_zpe'] / _kBT6)
+                         for _v in _diss_vib.values()
+                         if (_v.get('nu_reverse') or _v.get('nu'))]
+            _kds_T = float(np.mean(_kds_vals)) if _kds_vals else None
+            if _kds_T is None:
+                print('  WARNING: no desorption prefactor available — '
+                      'detailed_balance unavailable at this T.')
         else:
             _kd_T = _kds_T = None
 

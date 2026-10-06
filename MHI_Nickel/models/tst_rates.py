@@ -325,6 +325,7 @@ def build_rate_dict(
     apply_zpe: bool = True,
     min_freq_cm1: float = 50.0,
     vib_results_fs: dict | None = None,
+    require_forward_nu: bool = True,
 ) -> dict:
     """Assemble rate constants for all NEB labels.
 
@@ -357,6 +358,17 @@ def build_rate_dict(
     min_freq_cm1 : float
         Frequency threshold passed to :func:`vineyard_prefactor` and
         :func:`apply_zpe_correction`.
+    require_forward_nu : bool
+        When ``True`` (default) a label whose forward Vineyard prefactor cannot
+        be formed is skipped entirely — correct for the Hop A/Hop B rates, which
+        are ``nu * exp(-Ea/kT)``.
+
+        Set ``False`` for H2 dissociation, where the forward direction is a
+        *dimensionless* sticking probability ``exp(-Ea_zpe/kT)`` multiplied by a
+        Hertz-Knudsen strike rate, so no forward prefactor is wanted. Those
+        labels then keep their barriers and their reverse prefactor with
+        ``nu`` and ``k_forward`` set to ``None``, rather than being dropped for
+        lacking a quantity nothing downstream uses.
     vib_results_fs : dict, optional
         ``{label: vib_json_path}`` for FS structures, from
         :func:`split_vib_fs` applied to the **same** vibration run as IS/TS
@@ -377,6 +389,7 @@ def build_rate_dict(
     skipped: list  = []
     vib_results_fs = vib_results_fs or {}
     no_fs: list = []
+    no_fwd_nu: list = []
 
     for label, neb in neb_results.items():
         if label not in vib_results_is:
@@ -429,8 +442,17 @@ def build_rate_dict(
         try:
             nu = vineyard_prefactor(is_freqs, ts_freqs, min_freq_cm1=min_freq_cm1)
         except (ValueError, Exception) as exc:
-            skipped.append(f'{label} (Vineyard failed: {exc})')
-            continue
+            if require_forward_nu:
+                skipped.append(f'{label} (Vineyard failed: {exc})')
+                continue
+            # Dissociation: the forward rate carries no Vineyard prefactor, so
+            # losing it costs nothing. Keep the label for its barriers and its
+            # reverse prefactor instead of discarding all of it.
+            warnings.warn(f'[{label}] forward Vineyard unavailable ({exc}); '
+                          f'keeping the label with nu=None (forward prefactor '
+                          f'not required).')
+            nu = None
+            no_fwd_nu.append(label)
 
         # ν*_rev = c·Πν_FS/Πν_TS. FS carries one more real mode than TS (the
         # imaginary mode is excluded there), the same count asymmetry the
@@ -445,6 +467,9 @@ def build_rate_dict(
                 nu_rev = nu
                 zpe_source = 'IS_fallback'
                 fs_freqs = None
+        if nu_rev is None:
+            # No forward prefactor to fall back on and no usable FS.
+            warnings.warn(f'[{label}] no reverse prefactor available.')
 
         kw = dict(min_freq_cm1=min_freq_cm1)
         if apply_zpe:
@@ -457,8 +482,8 @@ def build_rate_dict(
             Ea_use = Ea_raw
             Ed_use = Ed_raw
 
-        _k_fwd = arrhenius_rate(nu, Ea_use, T_K)
-        _k_rev = arrhenius_rate(nu_rev, Ed_use, T_K)
+        _k_fwd = arrhenius_rate(nu, Ea_use, T_K) if nu is not None else None
+        _k_rev = arrhenius_rate(nu_rev, Ed_use, T_K) if nu_rev is not None else None
         rate_dict[label] = {
             'k_forward':  _k_fwd,
             'k_reverse':  _k_rev,
@@ -472,13 +497,19 @@ def build_rate_dict(
             'delta_e':    float(neb.get('delta_E', float('nan'))),
             'T_K':        T_K,
         }
-        print(f'  {label:<24s}  k_fwd={_k_fwd:.3e}  k_rev={_k_rev:.3e}  '
-              f'Ea_zpe={Ea_use:.3f} eV  ν={nu:.2e}/ν_rev={nu_rev:.2e} s⁻¹  [{zpe_source}]')
+        _f = lambda v: 'n/a' if v is None else f'{v:.3e}'
+        print(f'  {label:<24s}  k_fwd={_f(_k_fwd)}  k_rev={_f(_k_rev)}  '
+              f'Ea_zpe={Ea_use:.3f} eV  ν={_f(nu)}/ν_rev={_f(nu_rev)} s⁻¹  [{zpe_source}]')
 
     if skipped:
         warnings.warn(
             f'build_rate_dict: skipped {len(skipped)} label(s):\n  '
             + '\n  '.join(skipped)
+        )
+    if no_fwd_nu:
+        warnings.warn(
+            f'build_rate_dict: {len(no_fwd_nu)} label(s) kept without a forward '
+            f'prefactor (nu=None, k_forward=None):\n  ' + '\n  '.join(no_fwd_nu)
         )
     if no_fs:
         warnings.warn(

@@ -717,3 +717,99 @@ class TestH2GasPartitionFunction:
             h2_gas_partition_function(0.0, 1.0)
         with pytest.raises(ValueError):
             h2_gas_partition_function(600.0, 0.0)
+
+
+class TestForwardPrefactorOptional:
+    """H2 dissociation needs only the reverse prefactor.
+
+    Its forward rate is a dimensionless sticking probability exp(-Ea_zpe/kT)
+    multiplied by a Hertz-Knudsen strike rate, so no forward Vineyard prefactor
+    is wanted. Dropping the whole label because that unused quantity could not
+    be formed would throw away the barriers and the reverse prefactor that are
+    actually consumed.
+    """
+
+    @pytest.fixture()
+    def mismatched(self, tmp_path):
+        """IS and TS mode counts that cannot form a forward prefactor, with a
+        valid FS/TS pair for the reverse one."""
+        label = 'diss_s_1'
+        is_json, ts_json, fs_json = (str(tmp_path / f'{n}.json') for n in ('IS', 'TS', 'FS'))
+        # IS has the same count as TS -> forward guard trips.
+        _write_vib_json(is_json, [300.0] * 5, imag_freqs=[])
+        _write_vib_json(ts_json, [250.0] * 5, imag_freqs=[200.0])
+        # FS has one more than TS -> reverse prefactor is well formed.
+        _write_vib_json(fs_json, [400.0] * 6, imag_freqs=[])
+        neb = {label: {'E_abs': 0.60, 'E_des': 0.74, 'delta_E': -0.14, 'converged': True}}
+        return neb, {label: is_json}, {label: ts_json}, {label: fs_json}, label
+
+    def test_label_skipped_when_forward_required(self, mismatched):
+        neb, vis, vts, vfs, label = mismatched
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=700.0, vib_results_fs=vfs)
+        assert label not in rd
+
+    def test_label_kept_when_forward_not_required(self, mismatched):
+        neb, vis, vts, vfs, label = mismatched
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=700.0, vib_results_fs=vfs,
+                                 require_forward_nu=False)
+        assert label in rd
+
+    def test_forward_fields_are_none(self, mismatched):
+        neb, vis, vts, vfs, label = mismatched
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=700.0, vib_results_fs=vfs,
+                                 require_forward_nu=False)
+        assert rd[label]['nu'] is None
+        assert rd[label]['k_forward'] is None
+
+    def test_reverse_still_computed(self, mismatched):
+        neb, vis, vts, vfs, label = mismatched
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=700.0, vib_results_fs=vfs,
+                                 require_forward_nu=False)
+        r = rd[label]
+        assert r['nu_reverse'] == pytest.approx(
+            vineyard_prefactor([400.0] * 6, [250.0] * 5))
+        assert r['k_reverse'] == pytest.approx(
+            arrhenius_rate(r['nu_reverse'], r['Ed_zpe'], 700.0))
+        assert r['zpe_source'] == 'FS'
+
+    def test_barriers_survive(self, mismatched):
+        """The barriers are what the dissociation actually consumes."""
+        neb, vis, vts, vfs, label = mismatched
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            rd = build_rate_dict(neb, vis, vts, T_K=700.0, vib_results_fs=vfs,
+                                 require_forward_nu=False)
+        assert rd[label]['Ea_raw'] == pytest.approx(0.60)
+        assert rd[label]['Ed_raw'] == pytest.approx(0.74)
+        assert rd[label]['Ea_zpe'] is not None
+
+    def test_warns_about_missing_forward_prefactor(self, mismatched):
+        neb, vis, vts, vfs, label = mismatched
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            build_rate_dict(neb, vis, vts, T_K=700.0, vib_results_fs=vfs,
+                            require_forward_nu=False)
+        assert any('without a forward prefactor' in str(x.message) for x in w)
+
+    def test_hop_path_default_still_requires_forward(self, mismatched):
+        """Regression guard: the Hop A/B default must stay strict."""
+        import inspect
+        sig = inspect.signature(build_rate_dict)
+        assert sig.parameters['require_forward_nu'].default is True
+
+    def test_zero_cut_keeps_all_modes(self):
+        """min_freq_cm1=0 is what lets the shared-atom-set dissociation states
+        keep the len(IS) == len(TS) + 1 relation."""
+        soft_is = [6.9, 11.0, 18.7, 29.9, 35.1] + [300.0] * 31
+        ts      = [300.0] * 35
+        with pytest.raises(ValueError):
+            vineyard_prefactor(soft_is, ts, min_freq_cm1=50.0)
+        assert vineyard_prefactor(soft_is, ts, min_freq_cm1=0.0) > 0.0
