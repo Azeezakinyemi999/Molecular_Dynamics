@@ -257,7 +257,10 @@ class TestPermeationSuccessTracking:
     See [[project_pipeline_test_bugs]]."""
 
     def _tail_slice(self, content):
-        marker = 'OPERATING_P_HIGH_PA = 1.0e6'
+        # Anchor on a body-only statement. Do NOT use an injected constant such
+        # as OPERATING_P_HIGH_PA: those appear only in the generated header by
+        # design, so the body has no copy to anchor on.
+        marker = '_PERM_STATUS = {'
         idx = content.index(marker)
         return content[idx:]
 

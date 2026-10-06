@@ -487,15 +487,15 @@ else:
         _hopa_vib, _DH_DISS_USED, dh_diss_err_eV=_DH_DISS_ERR,
         out_json=os.path.join(RESULTS_DIR, 'dH_sol_by_env.json'),
     )
-# Feed-side H₂ pressure the Richardson flux is quoted at. Previously this was
-# max(P_VALS_PA) — the top of the KMC sweep grid, chosen to span regimes for
-# classification rather than to represent an operating condition. Now stated
-# outright so the flux does not depend on a retired sweep's design.
+# OPERATING_P_HIGH_PA / OPERATING_P_LOW_PA are injected by the header above,
+# like TEMPERATURES and L_M — they are deliberately NOT re-assigned here, since
+# a body-level assignment would land after the header and silently override the
+# value the caller passed. The feed-side pressure the Richardson flux is quoted
+# at was formerly max(P_VALS_PA), the top of the KMC sweep grid — a range chosen
+# to span regimes for classification, not to represent an operating condition.
 #
 # NOT to be confused with the P_ref = 1 Pa inside lattice_site_S0 /
 # vibrational_S0: that is an SI normalisation, not a pressure you may choose.
-OPERATING_P_HIGH_PA = 1.0e6   # feed side  [Pa]
-OPERATING_P_LOW_PA  = 0.0     # permeate side, fully swept  [Pa]
 
 # Tracks what actually got produced across all n_H, since every skip below is
 # a `continue` (never a raise) by design — the fail-loud signal for the
