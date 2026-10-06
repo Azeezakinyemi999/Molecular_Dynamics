@@ -3019,6 +3019,10 @@ else:
                 # the FS, so its prefactor is the FS/TS one.
                 'nu_reverse':  _r_e.get('nu_reverse'),
                 'zpe_source':  _r_e.get('zpe_source'),
+                'is_minimum':  _r_e.get('is_minimum'),
+                'ts_saddle':   _r_e.get('ts_saddle'),
+                'n_imag_is':   _r_e.get('n_imag_is'),
+                'n_imag_ts':   _r_e.get('n_imag_ts'),
                 'label':  _lbl_rd,
             }
 

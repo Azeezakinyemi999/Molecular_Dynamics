@@ -380,7 +380,8 @@ def build_rate_dict(
     -------
     dict
         ``{label: {k_forward, k_reverse, Ea_raw, Ea_zpe, Ed_raw, Ed_zpe,
-                   nu, nu_reverse, zpe_source, delta_e, T_K}}``
+                   nu, nu_reverse, zpe_source, n_imag_is, n_imag_ts,
+                   is_minimum, ts_saddle, delta_e, T_K}}``
         Rates in s⁻¹, barriers in eV.  ``nu`` is the forward prefactor and
         ``nu_reverse`` the reverse one; ``zpe_source`` is ``'FS'`` or
         ``'IS_fallback'``.
@@ -494,6 +495,15 @@ def build_rate_dict(
             'nu':         nu,
             'nu_reverse': nu_rev,
             'zpe_source': zpe_source,
+            # State-quality census. A reactant/product state should be a
+            # minimum (0 imaginary) and a TS a first-order saddle (exactly 1).
+            # Recorded rather than only warned about, so a consumer can drop a
+            # label whose Ea_zpe rests on a non-minimum IS while still using its
+            # FS-derived reverse quantities.
+            'n_imag_is':  len(is_imag),
+            'n_imag_ts':  len(ts_imag),
+            'is_minimum': len(is_imag) == 0,
+            'ts_saddle':  len(ts_imag) == 1,
             'delta_e':    float(neb.get('delta_E', float('nan'))),
             'T_K':        T_K,
         }
