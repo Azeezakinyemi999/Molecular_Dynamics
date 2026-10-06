@@ -440,18 +440,36 @@ else:
 # see GitHub issue on collect_neb_results never being called; this is
 # expected to be absent today).
 _DISS_VIB_JSON = os.path.join(_DISS_NEB_DIR, 'diss_vib_rates.json')
-_diss_vib = {}   # {tuple(pair): {Ea_zpe, Ed_zpe, nu}}
+_diss_vib = {}   # {tuple(pair): {Ea_zpe, Ed_zpe, nu, nu_reverse}}
 if os.path.exists(_DISS_VIB_JSON):
     with open(_DISS_VIB_JSON) as _f:
         _dv_raw = json.load(_f)
+    # Ea_zpe = Ea_raw + (ZPE_TS - ZPE_IS) is only meaningful if the IS is a
+    # minimum. Where it is not, an imaginary mode sits outside the real set and
+    # ZPE_IS is short by that mode, so the sticking barrier is not trustworthy.
+    # Such labels are dropped rather than averaged in: a smaller set of sound
+    # pathways beats a larger set of mixed quality. Their FS-derived reverse
+    # quantities are fine, but k_des is averaged over the same labels, so they
+    # go together.
+    _dv_rejected = []
     for _dv_lbl, _dv in _dv_raw.items():
+        if _dv.get('is_minimum') is False or _dv.get('ts_saddle') is False:
+            _dv_rejected.append(
+                f"{_dv_lbl} (IS imag={_dv.get('n_imag_is')}, TS imag={_dv.get('n_imag_ts')})")
+            continue
         _pkey = tuple(_dv['pair'])
         if _pkey not in _diss_vib or _dv.get('Ea_zpe', 9e9) < _diss_vib[_pkey]['Ea_zpe']:
             _diss_vib[_pkey] = {'Ea_zpe': _dv['Ea_zpe'],
                                  'Ed_zpe': _dv['Ed_zpe'],
                                  'nu':     _dv.get('nu'),
                                  'nu_reverse': _dv.get('nu_reverse')}
-    print(f'  Loaded diss_vib_rates.json: {len(_diss_vib)} element pairs (ZPE-corrected)')
+    print(f'  Loaded diss_vib_rates.json: {len(_diss_vib)} element pair(s) from '
+          f'{len(_dv_raw) - len(_dv_rejected)}/{len(_dv_raw)} pathways (ZPE-corrected)')
+    if _dv_rejected:
+        print(f'  Rejected {len(_dv_rejected)} dissociation pathway(s) whose IS is not a '
+              f'minimum or whose TS is not a first-order saddle:')
+        for _r in _dv_rejected:
+            print(f'    - {_r}')
 else:
     print(f'  WARNING: diss_vib_rates.json not found — using raw barriers for diss/des rates')
 
