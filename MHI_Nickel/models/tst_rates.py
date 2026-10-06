@@ -237,7 +237,10 @@ def vineyard_prefactor(
     Raises
     ------
     ValueError
-        If no valid frequencies remain after applying the threshold.
+        If no valid frequencies remain after applying the threshold, or if the
+        surviving mode counts are not ``len(IS) == len(TS) + 1`` — see the
+        inline note: a mismatch means the states displaced different atom sets
+        and the ratio is not a frequency.
     """
     is_valid = [f for f in freqs_is_cm1 if f >= min_freq_cm1]
     ts_valid = [f for f in freqs_ts_cm1 if f >= min_freq_cm1]
@@ -258,6 +261,23 @@ def vineyard_prefactor(
         raise ValueError('No valid IS frequencies above threshold.')
     if not ts_valid:
         raise ValueError('No valid TS frequencies above threshold.')
+
+    # The single factor of c only yields s^-1 if the numerator carries exactly
+    # one more frequency than the denominator — i.e. both states displaced the
+    # same atoms and the TS contributed one imaginary mode. Otherwise the result
+    # is c x (cm^-1)^n for some n != 0: not an attempt frequency at all. This
+    # has happened in practice (an H2 dissociation IS displacing 2H+6 metals
+    # against a TS displacing 2H+8 metals gave 24 vs 29 modes and a "prefactor"
+    # of 5e-10 s^-1, ~22 orders of magnitude low), so refuse rather than return
+    # a number that looks like a rate.
+    if len(is_valid) != len(ts_valid) + 1:
+        raise ValueError(
+            f'Vineyard prefactor needs len(IS) == len(TS) + 1 after the '
+            f'{min_freq_cm1} cm^-1 cut, got IS={len(is_valid)} TS={len(ts_valid)}. '
+            f'The two states must displace the same atom set (the TS supplying '
+            f'the one imaginary mode); a mismatch leaves the ratio dimensionally '
+            f'invalid.'
+        )
 
     log_nu = (
         math.log(SPEED_LIGHT_CM_S)
