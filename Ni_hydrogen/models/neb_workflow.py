@@ -2848,11 +2848,11 @@ else:
     _label_pair_e = {}
 
     # Map each surface site_id -> its dominant metal element, so k_diss/k_des are
-    # keyed by REAL elements (e.g. ('Ni','Ni')) matching the KMC grid -- not the
-    # 's' site-label token. (The old parse assumed 'Ni_fcc+Mo_hcp'-style labels;
-    # the real labels are site-IDs like 's_28__s_0+s_72', so split('_')[0] gave
-    # 's' for every site and every pair collapsed to ('s','s'), which the KMC's
-    # element_pair lookup never matched -> zero sticking -> dead adsorption.)
+    # keyed by REAL elements (e.g. ('Ni','Ni')) -- not the 's' site-label token.
+    # (The old parse assumed 'Ni_fcc+Mo_hcp'-style labels; the real labels are
+    # site-IDs like 's_28__s_0+s_72', so split('_')[0] gave 's' for every site
+    # and every pair collapsed to ('s','s'), which the element_pair lookup never
+    # matched -> zero sticking -> dead adsorption.)
     import collections as _coll_e
     _sites_json_e = os.path.join(SLAB_DIR, 'phase3_sites', 'surface_sites.json')
     _site_elem_e  = {}
@@ -2916,7 +2916,7 @@ else:
         }
         # FS site IDs from the label 's_<is>__s_<fs1>+s_<fs2>' -> real elements
         # (via the site->element map above), so k_diss/k_des key on ('Ni','Ni')
-        # etc. matching the KMC grid lookup instead of the 's' token.
+        # etc. matching the element_pair lookup instead of the 's' token.
         try:
             _fs_e = _lbl_e.split('__')[-1]           # e.g. 's_0+s_72'
             _s1_e, _s2_e = _fs_e.split('+')[0], _fs_e.split('+')[1]

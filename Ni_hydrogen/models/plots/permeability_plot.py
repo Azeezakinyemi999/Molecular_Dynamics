@@ -5,9 +5,8 @@ models/plots/permeability_plot.py
 Richardson–Sieverts permeability Φ(T) in Arrhenius form — the pipeline's
 headline deliverable and the quantity permeation experiments actually measure.
 
-``Φ = D(T) · S(T)``, so ``Φ0 = D0·S0`` and ``E_Φ = E_D + ΔH_sol``. Only the
-three non-KMC routes are plotted (``geometric``, ``vibrational``,
-``detailed_balance``); ``kmc`` and ``kmc_theta`` are excluded, as in
+``Φ = D(T) · S(T)``, so ``Φ0 = D0·S0`` and ``E_Φ = E_D + ΔH_sol``. Three routes
+are plotted (``geometric``, ``vibrational``, ``detailed_balance``), matching
 ``solubility_plot.py``.
 
 Two guards, because Φ inherits everything wrong with its factors
@@ -25,9 +24,9 @@ from the fitted ``Phi0``/``E_phi_eV`` in ``permeability_arrhenius.json``. The
 two files disagree on route naming — ``option1``/``option2`` per temperature
 versus ``geometric``/``vibrational`` in the fit — which is mapped below.
 
-Each per-temperature file also carries ``sieverts_regime`` from the KMC coverage
-isotherm. That is reported but not plotted: it answers whether Sieverts' law
-applies at all, which no thermodynamic route can.
+Each per-temperature file also carries a ``sieverts_regime`` field. It is
+currently always ``None``: deciding whether Sieverts' law applies at all needs a
+coverage isotherm, which no thermodynamic route can supply.
 
 Figures
 -------
@@ -59,7 +58,7 @@ from diffusivity_plot import (            # noqa: E402
 )
 from models.diffusivity_post_processing import KB_EV      # noqa: E402
 from solubility_plot import (             # noqa: E402
-    NON_KMC_ROUTES, ROUTE_STYLE, breaches, load_solubility, site_density,
+    ROUTES, ROUTE_STYLE, breaches, load_solubility, site_density,
 )
 
 
@@ -111,7 +110,7 @@ class PhiFit:
 
 def load_per_temperature(run: Run) -> tuple[dict[str, dict[float, float]], dict]:
     """(route -> {T: Φ}, T -> sieverts_regime) from the per-temperature files."""
-    phi: dict[str, dict[float, float]] = {r: {} for r in NON_KMC_ROUTES}
+    phi: dict[str, dict[float, float]] = {r: {} for r in ROUTES}
     regimes: dict[float, dict] = {}
 
     for path in sorted(glob.glob(os.path.join(run.path, 'permeability_T*K.json'))):
@@ -126,7 +125,7 @@ def load_per_temperature(run: Run) -> tuple[dict[str, dict[float, float]], dict]
         T = float(raw.get('T_K', m.group(1)))
         if raw.get('sieverts_regime'):
             regimes[T] = raw['sieverts_regime']
-        for route in NON_KMC_ROUTES:
+        for route in ROUTES:
             blk = raw.get(PER_T_KEY[route])
             if isinstance(blk, dict) and blk.get('Phi') not in (None, 0):
                 phi[route][T] = float(blk['Phi'])
@@ -147,7 +146,7 @@ def load_permeability(run: Run) -> tuple[dict[str, PhiFit], dict]:
 
     per_T, regimes = load_per_temperature(run)
     out: dict[str, PhiFit] = {}
-    for name in NON_KMC_ROUTES:
+    for name in ROUTES:
         r = (raw.get('routes') or {}).get(name)
         if not r or not r.get('available') or r.get('Phi0') is None:
             continue
@@ -218,7 +217,7 @@ def _label(fit: PhiFit) -> str:
 
 def plot_material(stem: str, fits: dict[str, PhiFit], outfile: str,
                   sol_flags: dict[str, float | None] | None = None):
-    """log₁₀(Φ) vs 1000/T for the non-KMC routes of one material."""
+    """log₁₀(Φ) vs 1000/T for all routes of one material."""
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(7.6, 5.4))
@@ -271,7 +270,7 @@ def plot_all_materials(chosen: dict, outfile: str):
     """One panel per route, every material overlaid."""
     import matplotlib.pyplot as plt
 
-    present = [r for r in NON_KMC_ROUTES
+    present = [r for r in ROUTES
                if any(r in f for _run, f, _g in chosen.values())]
     if not present or len(chosen) < 2:
         return None
@@ -303,7 +302,7 @@ def plot_all_materials(chosen: dict, outfile: str):
         ax.legend(fontsize=7.5, loc='best')
 
     axes[0].set_ylabel(f'log₁₀( Φ / {PHI_UNITS} )')
-    fig.suptitle('H permeability by route and material — non-KMC routes; '
+    fig.suptitle('H permeability by route and material — '
                  '⚠ marks E_Φ < 0 (Φ rises on cooling)', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.93))
     _save(fig, outfile)
@@ -386,14 +385,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f'\nGrouping {len(runs)} run(s) by material …')
     chosen = group_by_material(runs)
     if not chosen:
-        print('No run has a permeability_arrhenius.json with a non-KMC route.')
+        print('No run has a permeability_arrhenius.json with a usable route.')
         return 1
 
     # Φ0 carries S0, so a saturated solubility invalidates Φ0 too.
     sol_flags: dict[str, dict[str, float | None]] = {}
     for stem, (run, _fits, _reg) in chosen.items():
         ceil = site_density(results_dir, stem)
-        sol  = load_solubility(run, NON_KMC_ROUTES)
+        sol  = load_solubility(run, ROUTES)
         sol_flags[stem] = {n: breaches(f, ceil) for n, f in sol.items()}
 
     problems = report(chosen, sol_flags)

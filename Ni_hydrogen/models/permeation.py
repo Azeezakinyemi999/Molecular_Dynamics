@@ -24,9 +24,8 @@ H₂ pressure sets the surface H concentration via C ∝ √P, and flux follows.
 
 Sieverts' law is *assumed* here, not verified. Confirming it requires the
 low-pressure exponent of a coverage isotherm, θ ∝ Pⁿ (n ≈ 0.5 diffusion-limited
-vs n ≈ 1.0 dissociation-limited), which needs a kinetic simulation. The KMC
-engine that supplied it is out of scope as of 2026-08. What remains available is
-the *thermodynamic* dilute-limit test in
+vs n ≈ 1.0 dissociation-limited), which needs a kinetic simulation and is out
+of scope. What remains available is the *thermodynamic* dilute-limit test in
 :func:`solubility_by_environment_saturating`, which detects saturation
 (θ → 1) but cannot detect a surface-limited surface.
 
@@ -607,8 +606,8 @@ def solubility_by_environment_saturating(
     -------
     dict
         ``{'S', 'S_dilute', 'C', 'theta_mean', 'theta_max', 'regime',
-        'saturation_ratio'}``. ``regime`` uses the same vocabulary and
-        thresholds the retired KMC regime classifier used (0.4 / 0.85).
+        'saturation_ratio'}``. ``regime`` uses a fixed occupancy vocabulary
+        with thresholds at θ = 0.4 / 0.85.
     """
     if T_K <= 0:
         raise ValueError(f'Temperature must be positive; got T_K={T_K}.')

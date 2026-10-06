@@ -6,8 +6,8 @@ Wraps each already-regenerated permeation_run_{stem}.py (from
 regenerate_permeation_scripts.py) in its own small, trackable SLURM job on the
 `west` partition -- the same partition/resource shape pipeline_orch uses
 (cpus_per_task=4, 30-day wall time), since permeation_run.py is a long-lived
-orchestrator that submits Hop A/B FS-min + NEB arrays, vibration jobs, and runs
-the KMC sweeps, waiting on each. Mirrors wrap_neb_runs_west.py exactly.
+orchestrator that submits Hop A/B FS-min + NEB arrays and vibration jobs,
+waiting on each. Mirrors wrap_neb_runs_west.py exactly.
 
 Only WRITES the .sh wrapper files -- does not submit anything. Prints the
 sbatch commands to run manually, mirroring the generate-then-you-submit pattern

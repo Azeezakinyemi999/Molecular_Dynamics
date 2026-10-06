@@ -2,8 +2,7 @@
 """
 models/plots/solubility_plot.py
 ===============================
-Sieverts solubility in Arrhenius form, for the three energy/rate routes that do
-not depend on KMC.
+Sieverts solubility in Arrhenius form, for the three energy/rate routes.
 
 Routes plotted
 --------------
@@ -12,9 +11,9 @@ Routes plotted
 ``detailed_balance``  no S₀ — ``k_entry/k_exit`` per environment instead
 
 All three share one enthalpy distribution: ``dH_sol_by_env.json`` is consumed by
-every route, so they differ only in how the prefactor is obtained. The KMC
-routes (``kmc``, ``kmc_theta``) and ``solubility_arrhenius_kmc.json`` are
-deliberately excluded — see ``permeation_workflow.py``'s ``solubility_headline``.
+every route, so they differ only in how the prefactor is obtained. ``geometric``
+and ``vibrational`` are the headline routes; ``detailed_balance`` is a rate-based
+cross-check — see ``permeation_workflow.py``'s ``solubility_headline``.
 
 Site-saturation guard
 ---------------------
@@ -70,7 +69,7 @@ from models.permeation import solubility_by_environment_saturating    # noqa: E4
 N_A       = 6.02214076e23
 S_UNITS   = 'mol H m⁻³ Pa⁻⁰·⁵'
 
-NON_KMC_ROUTES = ('geometric', 'vibrational', 'detailed_balance')
+ROUTES = ('geometric', 'vibrational', 'detailed_balance')
 
 # Same threshold classify_sieverts_regime uses for "still dilute". Below it the
 # Boltzmann and Langmuir forms agree and only one curve is worth drawing.
@@ -114,7 +113,7 @@ class RouteFit:
 
 
 def load_solubility(run: Run, routes: tuple[str, ...]) -> dict[str, RouteFit]:
-    """Read the non-KMC routes out of ``solubility_arrhenius.json``."""
+    """Read the solubility routes out of ``solubility_arrhenius.json``."""
     path = os.path.join(run.path, 'solubility_arrhenius.json')
     if not os.path.isfile(path):
         return {}
@@ -289,7 +288,7 @@ def _legend_label(fit: RouteFit, headline: bool) -> str:
 def plot_material(stem: str, fits: dict[str, RouteFit],
                   ceiling: tuple[np.ndarray, np.ndarray] | None,
                   outfile: str, env: dict | None = None):
-    """log₁₀(S) vs 1000/T for every non-KMC route of one material."""
+    """log₁₀(S) vs 1000/T for every route of one material."""
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(7.6, 5.4))
@@ -401,7 +400,7 @@ def plot_all_materials(chosen: dict[str, tuple[Run, dict[str, RouteFit]]],
 
     axes[0].set_ylabel(f'log₁₀( S / {S_UNITS} )')
     fig.suptitle('H solubility by route and material — '
-                 'non-KMC routes only', fontsize=12)
+                 'all solubility routes', fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     _save(fig, outfile)
     plt.close(fig)
@@ -455,7 +454,7 @@ def report(chosen: dict[str, tuple[Run, dict[str, RouteFit]]],
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        description='Plot Sieverts solubility in Arrhenius form (non-KMC routes).')
+        description='Plot Sieverts solubility in Arrhenius form.')
     ap.add_argument('--results-dir', default=DEFAULT_RESULTS_DIR,
                     help='directory holding the run folders '
                          '(default: calculation/results)')
@@ -463,10 +462,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="glob for run folders, e.g. 'Al*' (default: '*')")
     ap.add_argument('--outdir', default=None,
                     help='where figures go (default: <results-dir>/plots)')
-    ap.add_argument('--routes', nargs='+', default=list(NON_KMC_ROUTES),
-                    choices=list(NON_KMC_ROUTES),
-                    help='which non-KMC routes to plot '
-                         '(default: all three). KMC routes are never plotted.')
+    ap.add_argument('--routes', nargs='+', default=list(ROUTES),
+                    choices=list(ROUTES),
+                    help='which routes to plot (default: all three).')
     args = ap.parse_args(argv)
 
     results_dir = os.path.abspath(args.results_dir)
@@ -485,7 +483,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f'\nGrouping {len(runs)} run(s) by material …')
     chosen = group_by_material(runs, routes)
     if not chosen:
-        print('No run has a solubility_arrhenius.json with a non-KMC route.')
+        print('No run has a solubility_arrhenius.json with a usable route.')
         return 1
 
     ceilings = {stem: site_density(results_dir, stem) for stem in chosen}

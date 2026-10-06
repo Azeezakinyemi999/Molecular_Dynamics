@@ -1,8 +1,8 @@
 """
 tests/functional/test_ft_permeation_validation.py
 ==================================================
-End-to-end validation of the subsurface-entry → two-layer KMC → solubility →
-permeability chain (Parts 1–6 of the reframing), with the upstream data that
+End-to-end validation of the subsurface-entry → solubility → permeability
+chain (Parts 1–6 of the reframing), with the upstream data that
 would normally come from **diffusivity (Part 3)** and **surface / dissociation
 NEB (Part 1 + the Hop A/B NEB of Part 2)** supplied here as fixtures.
 
@@ -11,7 +11,7 @@ Why a fixture-driven test
 The real permeation run submits SLURM jobs (Hop A/B NEB, FS-min, vibrations)
 and reads a Part-3 diffusivity fit — none of which can run inside a unit test.
 So everything that requires MACE/LAMMPS/SLURM is *supplied* as realistic-shaped
-fixtures, and this test exercises the genuinely-new, pure-Python + KMC assembly
+fixtures, and this test exercises the genuinely-new, pure-Python assembly
 that the orchestrator body performs on top of them:
 
   supplied (diffusivity):   D0, E_D, a0(T)
@@ -22,8 +22,7 @@ that the orchestrator body performs on top of them:
 
   exercised (this test):    build_sub1_sub2_map / collect_entry_h_sources /
                             build_surface_sub1_sub2_map (Part 1) →
-                            env_rate_dict (Part 6) → two-layer KMC sweep
-                            (Part 3 engine) → build_dh_sol_by_env +
+                            env_rate_dict (Part 6) → build_dh_sol_by_env +
                             solubility_by_environment, both S0 routes (Part 4) →
                             fit_arrhenius + permeability_arrhenius (Part 5)
 
@@ -58,9 +57,7 @@ _STEM   = 'valmetal'
 _TEMPS  = [400.0, 600.0, 800.0]
 _A0     = 3.52e-10          # m  (from diffusivity NPT; T-independent here)
 # D0 chosen so the drain rate (D/dx²) sits well below the Hop B entry rate:
-# H accumulates in sub2 (C0 > 0) rather than draining out instantly. A fully
-# realistic D0 (~1e-7) puts the KMC in the flux-limited regime where sub2 is
-# near-empty (C0≈0) — valid physics, but not what this smoke test demonstrates.
+# H accumulates in sub2 (C0 > 0) rather than draining out instantly.
 _D0     = 1e-9              # m²/s  (from Part-3 Arrhenius fit)
 _E_D    = 0.40             # eV
 _NU     = 1e13             # s⁻¹  Vineyard prefactor
@@ -136,7 +133,7 @@ def validation(tmp_path_factory):
 
     # ── supplied: Hop A/B ZPE rates + env (write_hop_vib_rates output shape) ───
     # Barriers chosen so both entry steps are exothermic (subsurface-favoured)
-    # and fast vs. drain, so the two-layer KMC visibly populates sub2.
+    # and fast vs. drain, so sub2 is visibly populated.
     # Reaction energy = Ea_zpe − Ed_zpe:  Ni6_oct ΔH_A=−0.20, Ni5Mo_oct ΔH_A=−0.10
     hopa_vib = {
         'hopa_s_0': {'label': 'hopa_s_0', 'env': 'Ni6_oct',   'sub1_env': 'Ni6_oct',
@@ -154,17 +151,12 @@ def validation(tmp_path_factory):
                      'Ea_raw': 0.31, 'Ed_raw': 0.36},
     }
 
-    # env populations for the KMC grid (from the supplied subsurface sites)
-    sub1_env_comp = {'Ni6_oct': 0.5, 'Ni5Mo_oct': 0.5}
-    sub2_env_comp = {'Ni6_oct': 0.5, 'Ni5Mo_oct': 0.5}
-
     # ── Part 4: per-env solution enthalpy (exercised) ─────────────────────────
     dh_sol_by_env = build_dh_sol_by_env(
         hopa_vib, _DH_DISS,
         out_json=os.path.join(results_dir, 'dH_sol_by_env.json'))
 
-    # ── Parts 6 + 3: env-keyed rate dict + two-layer KMC sweep, per T ─────────
-    P_vals = [1.0e4, 4.0e4, 1.6e5]   # factor-16 span (√P ratio 4:1)
+    # ── Part 6: env-keyed rate dict, per T ───────────────────────────────────
     res_nh = resolve_nh_diffusivity(work, _STEM, 1)
     S_geo, S_vib, T_ok = [], [], []
     for T in _TEMPS:
@@ -193,7 +185,7 @@ def validation(tmp_path_factory):
     return dict(
         work=work, results_dir=results_dir, sub1_sub2=sub1_sub2, entry=entry,
         path_map=path_map, dh_sol_by_env=dh_sol_by_env, hopa_vib=hopa_vib,
-        hopb_vib=hopb_vib, P_vals=P_vals,
+        hopb_vib=hopb_vib,
         S_geo=S_geo, S_vib=S_vib, T_ok=T_ok,
         fit_geo=fit_geo, fit_vib=fit_vib, perm_geo=perm_geo, perm_vib=perm_vib,
     )
@@ -242,7 +234,7 @@ class TestDhSolByEnv:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 3. Part 6 — env-keyed rate dict feeding the two-layer KMC
+# 3. Part 6 — env-keyed rate dict
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestEnvKeyedRates:

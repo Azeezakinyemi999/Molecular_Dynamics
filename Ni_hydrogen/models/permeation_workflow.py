@@ -15,7 +15,7 @@ Section A — Script generation
 Section B — Local analysis (Phase 4 cells in permeation.ipynb)
     load_barrier_summary, load_rate_summary, load_permeability_results,
     plot_barrier_overview, plot_mep_overlay,
-    plot_permeability_vs_T, plot_arrhenius_S0
+    plot_permeability_vs_T
 """
 
 import os
@@ -401,12 +401,12 @@ print(f'  dissolved-H FS vibration sets: {len(_fs_freq_sets)} '
       f'(vibrational S0 route {"available" if _fs_freq_sets else "unavailable"})')
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Phases 5-6 — Per H-concentration: KMC pressure sweeps + permeability
+# Phase 6 — Per H-concentration: Richardson-Sieverts permeability
 # ══════════════════════════════════════════════════════════════════════════════
 # Bulk diffusivity genuinely depends on H loading (H-H site blocking), unlike
 # Phases 1-4 above (surface/subsurface entry, dissociation), which are
 # independent of bulk H concentration and were computed once, per stem.
-# So Phases 5-6 run once per N_H_VALUES entry, each using that concentration's
+# So Phase 6 runs once per N_H_VALUES entry, each using that concentration's
 # own MD-fitted Arrhenius diffusivity from Part 3 — never a placeholder. If a
 # concentration's fit is missing or invalid, that concentration is skipped
 # entirely (loud error, no output files for it), not faked.
@@ -491,8 +491,7 @@ else:
 # like TEMPERATURES and L_M — they are deliberately NOT re-assigned here, since
 # a body-level assignment would land after the header and silently override the
 # value the caller passed. The feed-side pressure the Richardson flux is quoted
-# at was formerly max(P_VALS_PA), the top of the KMC sweep grid — a range chosen
-# to span regimes for classification, not to represent an operating condition.
+# at is an operating condition set by the caller.
 #
 # NOT to be confused with the P_ref = 1 Pa inside lattice_site_S0 /
 # vibrational_S0: that is an SI normalisation, not a pressure you may choose.
@@ -551,8 +550,8 @@ for _n_h in N_H_VALUES:
         _a0_T6 = _a0_dict.get(_T, A0_M)
         _kBT6  = _KB_EV * _T
 
-        # per-T rates for the rate-based routes (detailed balance + KMC-θ),
-        # derived exactly as in Phase 5 (env_rate_dict over Hop A; mean diss).
+        # per-T rates for the rate-based route (detailed balance),
+        # from env_rate_dict over Hop A plus the mean dissociation rate.
         _kent_T, _kext_T = env_rate_dict(_hopa_vib, _T)
         if _diss_vib:
             _kd_T  = float(np.mean([np.exp(-_v['Ea_zpe'] / _kBT6) for _v in _diss_vib.values()]))
@@ -625,7 +624,7 @@ for _n_h in N_H_VALUES:
             'dH_diss_eV': _DH_DISS_USED, 'dH_entry_eV': _DH_ENTRY_USED,
             'n_env': len(_dh_sol_by_env),
             'solubility_reference': 'sub1: 1/2 dH_diss + Hop A (Hop B+ = bulk diffusion, in D)',
-            'solubility_headline': 'geometric + vibrational (energy-based); detailed_balance/kmc_theta/option3 are rate-/count-based diagnostics, NOT the reported solubility',
+            'solubility_headline': 'geometric + vibrational (energy-based); detailed_balance is a rate-based diagnostic, NOT the reported solubility',
             'option1': {'S0': _S0_geo, 'S': _S1, 'S_rel_err': _S1_rel, 'Phi': _Phi1, 'J': _J1,
                         'saturating': _sat_geo,
                         'route': 'geometric S0, per-env Boltzmann (sub1) [SOLUBILITY HEADLINE]'},
@@ -641,7 +640,7 @@ for _n_h in N_H_VALUES:
             'P_high_Pa': OPERATING_P_HIGH_PA, 'P_low_Pa': OPERATING_P_LOW_PA,
             'P_ref_Pa': 1.0,   # SI normalisation for S0; NOT the feed pressure
             'L_m': L_M,
-            'sieverts_regime': None,   # needs a coverage isotherm; KMC out of scope
+            'sieverts_regime': None,   # needs a coverage isotherm; out of scope
         }
         if _dilute_note:
             _perm_payload['dilute_limit_caveat'] = _dilute_note
@@ -663,8 +662,7 @@ for _n_h in N_H_VALUES:
     # sum of Arrhenius terms; R² < 1 is physical, not error). SOLUBILITY HEADLINE
     # = geometric + vibrational (energy-based); detailed_balance is a rate-based
     # cross-check carrying a dissociation-rate-averaging artifact, NOT the
-    # reported solubility. The KMC-θ and KMC-counting routes were removed with
-    # the KMC engine (2026-08).
+    # reported solubility.
     _sol_routes = {}
     for _route, _S_list, _Serr_list in (('geometric', _S_geo_arr, _S_geo_err_arr),
                                         ('vibrational', _S_vib_arr, _S_vib_err_arr),
@@ -742,15 +740,6 @@ for _n_h in N_H_VALUES:
     except Exception as _plt_e:
         print(f'  [plot] permeation_summary skipped: {_plt_e}')
 
-    # Backward-compatible KMC-only Arrhenius file (consumed by plot_arrhenius_S0).
-    if _sol_routes.get('kmc', {}).get('available'):
-        _k = _sol_routes['kmc']
-        with open(os.path.join(_nh_dir, 'solubility_arrhenius_kmc.json'), 'w') as _f:
-            json.dump({'T_K_arr': _k['T_K_arr'], 'S_mean_arr': _k['S_arr'],
-                       'S0_kmc': _k['S0'], 'dH_sol_kmc_eV': _k['dH_sol_eV'],
-                       'r2_fit': _k['r2'], 'n_H': _n_h,
-                       'D0_m2s': _D0_nh, 'E_D_eV': _ED_nh}, _f, indent=2)
-
 _status_path = os.path.join(RESULTS_DIR, 'permeation_status.json')
 with open(_status_path, 'w') as _f:
     json.dump(_PERM_STATUS, _f, indent=2)
@@ -821,7 +810,7 @@ Phases:
   2 — Hop B NEB  (subsurface-1 → subsurface-2 oct)
   3 — Vibrational frequencies (IS + TS, both hops)
   4 — TST rate constants at each temperature
-  5 — KMC pressure sweeps at each temperature, once per H-concentration
+  5 — (retired; numbering kept so 6 keeps its name across results and docs)
   6 — Richardson-Sieverts permeability (all three S0 options), once per
       H-concentration, each using that concentration's own Part-3-fitted
       bulk diffusivity (no placeholder — a missing/invalid fit skips that
@@ -1054,7 +1043,7 @@ def plot_mep_overlay(sub_neb_dir):
 
 
 def plot_permeability_vs_T(results_dir, temperatures):
-    """Φ(T) linear + Arrhenius plot for all three S0 options. Saves permeability_vs_T.png."""
+    """Φ(T) linear + Arrhenius plot for all available routes. Saves permeability_vs_T.png."""
     perms = load_permeability_results(results_dir, temperatures)
     if not perms:
         print('[plot_permeability_vs_T] No permeability data found — skipping.')
@@ -1066,7 +1055,9 @@ def plot_permeability_vs_T(results_dir, temperatures):
     # substitute NaN so matplotlib leaves a gap instead of raising.
     Phi2    = [perms[T].get('option2', {}).get('Phi') for T in T_arr]
     Phi2    = [float(v) if v is not None else float('nan') for v in Phi2]
-    Phi3    = [perms[T]['option3']['Phi'] for T in T_arr]
+    # detailed_balance is a diagnostic route and may be absent; NaN leaves a gap.
+    Phi3    = [perms[T].get('detailed_balance', {}).get('Phi') for T in T_arr]
+    Phi3    = [float(v) if v is not None else float('nan') for v in Phi3]
     inv_T   = [1000.0 / T for T in T_arr]
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
@@ -1074,7 +1065,7 @@ def plot_permeability_vs_T(results_dir, temperatures):
     ax0 = axes[0]
     ax0.plot(T_arr, Phi1, 'o-', color='steelblue', lw=1.6, label='Option 1 (geometric S₀)')
     ax0.plot(T_arr, Phi2, 's-', color='coral',     lw=1.6, label='Option 2 (vibrational S₀)')
-    ax0.plot(T_arr, Phi3, '^-', color='seagreen',  lw=1.6, label='Option 3 (KMC fit)')
+    ax0.plot(T_arr, Phi3, '^-', color='seagreen',  lw=1.6, label='Detailed balance (diagnostic)')
     ax0.set_xlabel('Temperature  [K]')
     ax0.set_ylabel('$\\Phi$  [mol m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
     ax0.set_title('Permeability $\\Phi(T)$')
@@ -1083,7 +1074,7 @@ def plot_permeability_vs_T(results_dir, temperatures):
     ax1 = axes[1]
     ax1.plot(inv_T, np.log10(Phi1), 'o-', color='steelblue', lw=1.6, label='Option 1')
     ax1.plot(inv_T, np.log10(Phi2), 's-', color='coral',     lw=1.6, label='Option 2')
-    ax1.plot(inv_T, np.log10(Phi3), '^-', color='seagreen',  lw=1.6, label='Option 3')
+    ax1.plot(inv_T, np.log10(Phi3), '^-', color='seagreen',  lw=1.6, label='Detailed balance')
     ax1.set_xlabel('1000 / T  [K$^{-1}$]')
     ax1.set_ylabel('$\\log_{10}(\\Phi)$')
     ax1.set_title('Arrhenius plot of $\\Phi(T)$')
@@ -1098,71 +1089,16 @@ def plot_permeability_vs_T(results_dir, temperatures):
     return out_png
 
 
-def plot_arrhenius_S0(results_dir):
-    """Multi-T ln(S) vs 1/T Arrhenius fit overlay. Saves solubility_arrhenius.png."""
-    sol_json = os.path.join(results_dir, 'solubility_arrhenius_kmc.json')
-    if not os.path.exists(sol_json):
-        print(f'[plot_arrhenius_S0] {sol_json} not found — skipping.')
-        return None
-
-    with open(sol_json) as f:
-        data = json.load(f)
-
-    T_arr  = np.array(data['T_K_arr'])
-    S_arr  = np.array(data['S_mean_arr'])
-    S0     = data['S0_kmc']
-    dH_sol = data['dH_sol_kmc_eV']
-    r2     = data['r2_fit']
-    D0     = data.get('D0_m2s', 1.0)
-    E_D    = data.get('E_D_eV', 0.0)
-    KB_EV  = 8.617333262e-5
-
-    T_plot  = np.linspace(T_arr.min() * 0.92, T_arr.max() * 1.08, 200)
-    S_fit   = S0 * np.exp(-dH_sol / (KB_EV * T_plot))
-    D_plot  = D0 * np.exp(-E_D / (KB_EV * T_plot))
-    D_pts   = D0 * np.exp(-E_D / (KB_EV * T_arr))
-    Phi_fit = D_plot * S_fit
-    Phi_pts = D_pts * S_arr
-
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
-
-    ax0 = axes[0]
-    ax0.plot(T_plot, Phi_fit, color='purple', lw=2.0, label='Arrhenius fit')
-    ax0.scatter(T_arr, Phi_pts, color='purple', zorder=5, label='KMC data points')
-    ax0.set_xlabel('Temperature  [K]')
-    ax0.set_ylabel('$\\Phi = D \\times S$  [mol m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
-    ax0.set_title('Option 3 — $\\Phi(T)$ from KMC Arrhenius $S_0$')
-    ax0.legend(fontsize=8)
-
-    ax1 = axes[1]
-    ax1.plot(1000.0 / T_plot, np.log10(Phi_fit), color='purple', lw=2.0, label='Arrhenius fit')
-    ax1.scatter(1000.0 / T_arr, np.log10(Phi_pts), color='purple', zorder=5)
-    ax1.set_xlabel('1000 / T  [K$^{-1}$]')
-    ax1.set_ylabel('$\\log_{10}(\\Phi)$')
-    ax1.set_title(f'$\\Delta H_{{sol}}^{{KMC}}$ = {dH_sol:.3f} eV   $R^2$ = {r2:.3f}')
-    ax1.invert_xaxis()
-    ax1.legend(fontsize=8)
-
-    plt.tight_layout()
-    out_png = os.path.join(results_dir, 'solubility_arrhenius.png')
-    plt.savefig(out_png, dpi=150)
-    plt.show()
-    print(f'Saved: {out_png}')
-    return out_png
-
-
 def plot_permeation_summary(results_dir, temperatures):
     """Schema-current permeation summary (auto-generated headless in Phase 6).
 
-    Saves ``results_dir/permeation_summary.png`` with three panels (all per mol H):
+    Saves ``results_dir/permeation_summary.png`` with two panels (all per mol H):
 
     A. Solubility Arrhenius  log10 S vs 1000/T — geometric & vibrational
-       (headline, solid) plus detailed_balance / kmc_theta / kmc (diagnostics,
-       dashed). Legend carries ΔH_sol ± σ per route.
+       (headline, solid) plus detailed_balance (diagnostic, dashed). Legend
+       carries ΔH_sol ± σ per route.
     B. Permeability Arrhenius  log10 Φ vs 1000/T, with a shaded ×/÷ band on the
        headline routes from the propagated σ_lnΦ(T)=√(Φ0_rel² + (E_Φ_err/kT)²).
-    C. Sieverts-regime check  log10 θ vs log10 P per T, annotated with the
-       θ∝P^n exponent and regime label (n≈0.5 ⇒ Sieverts-compatible).
 
     Returns the PNG path, or None if the Arrhenius fits are absent. Headless-safe
     (savefig + close; no plt.show()).
@@ -1179,9 +1115,7 @@ def plot_permeation_summary(results_dir, temperatures):
     # marker, linestyle, colour, is_headline (headline = energy-based routes)
     style = {'geometric':       ('o', '-',  'steelblue', True),
              'vibrational':     ('s', '-',  'coral',     True),
-             'detailed_balance':('^', '--', 'seagreen',  False),
-             'kmc_theta':       ('v', '--', 'purple',    False),
-             'kmc':             ('x', ':',  'gray',      False)}
+             'detailed_balance':('^', '--', 'seagreen',  False)}
     T_lo = min(temperatures) * 0.95
     T_hi = max(temperatures) * 1.05
     Tg   = np.linspace(T_lo, T_hi, 120)
