@@ -254,10 +254,27 @@ class TestVineyardPrefactor:
             vineyard_prefactor([500.0, 300.0], [20.0], min_freq_cm1=50.0)
 
     def test_low_freqs_excluded_with_warning(self):
+        # Counts must still satisfy len(IS) == len(TS) + 1 after the cut, so
+        # this exercises the exclusion warning rather than the dimensional guard.
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
-            vineyard_prefactor([500.0, 30.0], [400.0, 25.0], min_freq_cm1=50.0)
+            vineyard_prefactor([500.0, 600.0, 30.0], [400.0, 25.0], min_freq_cm1=50.0)
         assert any('excluded' in str(wn.message) for wn in w)
+
+    def test_raises_when_mode_counts_mismatch(self):
+        """IS and TS displacing different atom sets leaves c x (cm^-1)^n, not a
+        frequency. Real case: an H2 dissociation IS with 2H+6 metals (24 modes)
+        against a TS with 2H+8 metals (29 real) produced 5e-10 s^-1."""
+        with pytest.raises(ValueError, match='len\\(IS\\) == len\\(TS\\) \\+ 1'):
+            vineyard_prefactor([500.0] * 24, [400.0] * 29)
+
+    def test_raises_when_is_equals_ts_count(self):
+        with pytest.raises(ValueError, match='dimensionally'):
+            vineyard_prefactor([500.0, 600.0], [400.0, 300.0])
+
+    def test_accepts_exact_one_extra_is_mode(self):
+        nu = vineyard_prefactor([500.0, 600.0, 700.0], [400.0, 300.0])
+        assert nu > 0.0
 
     def test_higher_is_product_higher_nu(self):
         # doubling IS freqs doubles nu
