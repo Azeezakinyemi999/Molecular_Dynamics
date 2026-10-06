@@ -273,6 +273,7 @@ def write_diss_vibration_script(
     delta: float = 0.01,
     device: str = 'cpu',
     dtype: str = 'float32',
+    metal_indices: list | None = None,
 ) -> str:
     """Write a standalone Python script computing partial-Hessian frequencies
     for an H2 surface-dissociation IS/TS structure (2 H atoms).
@@ -288,9 +289,9 @@ def write_diss_vibration_script(
 
     1. Loads the structure from a LAMMPS data file via ASE.
     2. Attaches ``MACECalculator``.
-    3. Identifies both H atoms and the *union* of each H atom's 6 nearest
-       metal neighbours (8-14 atoms total depending on overlap between the
-       two H atoms' neighbour sets).
+    3. Identifies both H atoms and the metal atoms to displace with them —
+       either ``metal_indices`` verbatim, or (when it is ``None``) the union of
+       each H atom's 6 nearest metal neighbours *in this structure*.
     4. Runs ``ASE Vibrations`` on those atoms.
     5. Saves ``{outdir}/vib_frequencies.json``.
 
@@ -310,6 +311,16 @@ def write_diss_vibration_script(
         MACE device string — ``'cpu'`` or ``'cuda'``.  Default ``'cpu'``.
     dtype : str
         MACE ``default_dtype`` — ``'float32'`` (default) or ``'float64'``.
+    metal_indices : list of int, optional
+        Exact metal atom indices to displace alongside the two H atoms.
+
+        **Pass this for any set of states you intend to compare.** Letting each
+        structure pick its own neighbours makes the displaced subsystem differ
+        between states — an intact H2* at the IS shares neighbours (6 unique)
+        while a mid-dissociation TS does not (8) — and then
+        ``ZPE_TS - ZPE_IS`` subtracts different subsystems and
+        ``PI(nu_IS)/PI(nu_TS)`` is not dimensionally a frequency at all.
+        :func:`diss_union_metal_indices` builds a set valid across IS, TS and FS.
 
     Returns
     -------
@@ -331,6 +342,7 @@ def write_diss_vibration_script(
         DELTA      = {delta}
         DEVICE     = {device!r}
         DTYPE      = {dtype!r}
+        METAL_INDICES = {metal_indices!r}   # None -> derive per structure
 
         os.makedirs(OUTDIR, exist_ok=True)
 
@@ -353,15 +365,27 @@ def write_diss_vibration_script(
             raise RuntimeError(
                 "Expected exactly 2 H atoms (H2 dissociation IS/TS), found " + str(len(h_indices))
             )
-        metal_idx      = np.where(syms != "H")[0]
-        neighbour_set   = set()
-        for h in h_indices:
-            dists = np.linalg.norm(pos[metal_idx] - pos[h], axis=1)
-            neighbour_set.update(metal_idx[np.argsort(dists)[:6]].tolist())
-        nearest_metals = sorted(neighbour_set)
-        indices        = [int(h) for h in h_indices] + nearest_metals
-        print("Displacing", len(indices), "atoms: H @", [int(h) for h in h_indices],
-              "metals @", nearest_metals)
+        metal_idx = np.where(syms != "H")[0]
+        if METAL_INDICES is not None:
+            # Fixed set shared with the other states of this pathway, so the ZPE
+            # difference and the Vineyard ratio refer to one subsystem.
+            nearest_metals = sorted(int(i) for i in METAL_INDICES)
+            _valid = set(metal_idx.tolist())
+            _bad   = [i for i in nearest_metals if i not in _valid]
+            if _bad:
+                raise RuntimeError("METAL_INDICES contains non-metal or "
+                                   "out-of-range indices: " + str(_bad))
+            metal_source = "fixed"
+        else:
+            neighbour_set = set()
+            for h in h_indices:
+                dists = np.linalg.norm(pos[metal_idx] - pos[h], axis=1)
+                neighbour_set.update(metal_idx[np.argsort(dists)[:6]].tolist())
+            nearest_metals = sorted(neighbour_set)
+            metal_source = "per_structure"
+        indices = [int(h) for h in h_indices] + nearest_metals
+        print("Displacing", len(indices), "atoms (" + metal_source + "): H @",
+              [int(h) for h in h_indices], "metals @", nearest_metals)
 
         # ── Finite-difference vibrations ──────────────────────────────────────
         vib_name = os.path.join(OUTDIR, "vib")
@@ -388,6 +412,7 @@ def write_diss_vibration_script(
             "n_atoms_displaced":    len(indices),
             "h_indices":            [int(h) for h in h_indices],
             "metal_indices":        nearest_metals,
+            "metal_source":         metal_source,
             "delta_ang":            DELTA,
             "frequencies_real_cm1": freqs_real_cm1,
             "frequencies_imag_cm1": freqs_imag_cm1,
@@ -412,6 +437,81 @@ def write_diss_vibration_script(
     os.chmod(out_path, 0o755)
     print(f'Written: {out_path}')
     return out_path
+
+
+def diss_union_metal_indices(structure_paths: list, n_per_h: int = 6) -> list:
+    """Metal indices to displace in *every* state of one dissociation pathway.
+
+    Returns the union, over the given structures, of each H atom's ``n_per_h``
+    nearest metal neighbours. Feed the result to
+    :func:`write_diss_vibration_script` as ``metal_indices`` for the IS, the TS
+    and the FS of that pathway, so all three displace the same subsystem.
+
+    Why a union rather than per-structure neighbours: an intact H2* at the IS
+    has its two H atoms sharing most of their neighbours (6 unique for Al),
+    while a mid-dissociation TS has them apart (8). Different atom sets make
+    ``ZPE_TS - ZPE_IS`` a difference between different subsystems, and leave
+    ``PI(nu_IS)/PI(nu_TS)`` with the wrong number of factors — not a frequency.
+    The union is the smallest set that is valid for all the states at once.
+
+    Requires the structures to share one atom ordering (they do: the NEB
+    endpoints and relaxed FS are all written from the same slab), and checks it
+    by requiring identical H indices.
+
+    Parameters
+    ----------
+    structure_paths : list of str
+        LAMMPS data files for the states to be compared (IS, TS, FS).
+    n_per_h : int
+        Nearest metal neighbours taken per H atom, per structure. Default 6.
+
+    Returns
+    -------
+    list of int
+        Sorted metal indices, 0-based, as ASE reads the structures.
+
+    Raises
+    ------
+    ValueError
+        If no structures are given, if any does not hold exactly 2 H atoms, or
+        if the H indices differ between structures (atom ordering not shared,
+        so indices are not comparable and a union would be meaningless).
+    """
+    import numpy as _np
+    from ase.io import read as _read
+
+    if not structure_paths:
+        raise ValueError('diss_union_metal_indices: no structures given.')
+
+    union: set = set()
+    h_ref = None
+    for path in structure_paths:
+        atoms = _read(path, format='lammps-data', atom_style='atomic')
+        atoms.wrap()
+        syms = _np.array(atoms.get_chemical_symbols())
+        pos  = atoms.get_positions()
+        h_idx = _np.where(syms == 'H')[0]
+        if len(h_idx) != 2:
+            raise ValueError(
+                f'diss_union_metal_indices: {path} has {len(h_idx)} H atom(s), '
+                f'expected exactly 2.'
+            )
+        if h_ref is None:
+            h_ref = tuple(int(i) for i in h_idx)
+        elif tuple(int(i) for i in h_idx) != h_ref:
+            raise ValueError(
+                f'diss_union_metal_indices: H indices differ between structures '
+                f'({h_ref} vs {tuple(int(i) for i in h_idx)}); the states do not '
+                f'share an atom ordering, so a shared index set is meaningless.'
+            )
+        metal_idx = _np.where(syms != 'H')[0]
+        for h in h_idx:
+            d = _np.linalg.norm(pos[metal_idx] - pos[h], axis=1)
+            union.update(metal_idx[_np.argsort(d)[:n_per_h]].tolist())
+
+    out = sorted(int(i) for i in union)
+    print(f'[diss union] {len(out)} metals across {len(structure_paths)} state(s): {out}')
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -641,6 +741,7 @@ def orchestrate_diss_vibrations(
     delta: float = 0.01,
     device: str = 'cpu',
     dry_run: bool = True,
+    metal_indices_by_label: dict | None = None,
 ) -> dict:
     """Write and optionally submit one ``vib_run.py`` + SLURM job per
     dissociation IS/TS structure (2 H atoms).
@@ -670,12 +771,19 @@ def orchestrate_diss_vibrations(
         MACE device string.  Vibration runs are CPU-bound; default ``'cpu'``.
     dry_run : bool
         If ``True``, write scripts without calling ``sbatch``.
+    metal_indices_by_label : dict, optional
+        ``{label: [metal indices]}`` fixing the displaced metals per label.
+        Give every state of a pathway (``_IS``/``_TS``/``_FS``) the **same**
+        list — build it with :func:`diss_union_metal_indices` — so the states
+        are comparable. Labels absent from the dict fall back to per-structure
+        neighbours, which is only safe for a state compared against nothing.
 
     Returns
     -------
     dict
         ``{label: {'vib_script': str, 'vib_json': str, 'slurm': str | None}}``
     """
+    metal_indices_by_label = metal_indices_by_label or {}
     os.makedirs(outdir, exist_ok=True)
     results: dict = {}
 
@@ -702,6 +810,7 @@ def orchestrate_diss_vibrations(
             outdir          = job_outdir,
             delta           = delta,
             device          = device,
+            metal_indices   = metal_indices_by_label.get(label),
         )
 
         slurm_path = None
