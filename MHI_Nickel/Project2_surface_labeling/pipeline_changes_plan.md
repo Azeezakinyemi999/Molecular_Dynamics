@@ -333,7 +333,7 @@ Phase E (diss vibrations) already checks `if not os.path.exists(_ranked_f_e)` �
 
 ### F3: `models/permeation_workflow.py` / `permeation_run.py`
 
-Guard Hop A NEB on existing output; guard Hop B similarly. Guard each KMC sweep on `permeation_sweep_T{T}K.json`:
+Guard Hop A NEB on existing output; guard Hop B similarly. Guard each per-temperature permeability step on `permeability_T{T}K.json`:
 
 ```python
 _hopa_done = os.path.join(SUB_NEB_DIR, 'hopa', 'hopa_results.json')
@@ -345,11 +345,11 @@ else:
 # same pattern for Hop B
 
 for _T in TEMPERATURES:
-    _sweep_f = os.path.join(RESULTS_DIR, f'permeation_sweep_T{int(_T)}K.json')
-    if not os.path.exists(_sweep_f):
-        # run KMC sweep
+    _perm_f = os.path.join(RESULTS_DIR, f'permeability_T{int(_T)}K.json')
+    if not os.path.exists(_perm_f):
+        # compute permeability at this T
     else:
-        print(f'  KMC sweep T={_T}K already done — skipping')
+        print(f'  permeability T={_T}K already done — skipping')
 ```
 
 ---

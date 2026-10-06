@@ -63,7 +63,7 @@ still receives the list.
 Written by `orchestrate_hopb_neb` (line 641-642 of `neb_subsurface.py`).  The `else` branch
 loads `hopb_jobs` from JSON identically.
 
-**KMC sweep per-T** — guard file: `RESULTS_DIR/permeation_sweep_T{T}K.json`
+**Permeability per-T** — guard file: `RESULTS_DIR/permeability_T{T}K.json`
 
 Early-`continue` at the top of the `for _T in TEMPERATURES` loop before the expensive rate-dict
 load.  The `_out` path variable is now defined once at loop entry (guard check) rather than once
@@ -76,7 +76,7 @@ near the end (write).  Duplicate assignment at the bottom of the loop body was r
 | File | Effect |
 | --- | --- |
 | `neb_workflow.py` generated `neb_run.py` | Phases A-D skipped on re-run if `ranked_barriers.json` exists |
-| `permeation_workflow.py` generated `permeation_run.py` | Hop A, Hop B, KMC per-T all idempotent |
+| `permeation_workflow.py` generated `permeation_run.py` | Hop A, Hop B, permeability per-T all idempotent |
 | `diffusivity_workflow.py` generated `diffusivity_run.py` | Already guarded (Task B) |
 | Simulation physics | None — guards are pure orchestration logic |
 
@@ -109,7 +109,7 @@ Guard file path matches `orchestrate_hopa_neb` write path (`str(hopa_dir / 'hopa
 `else: hopb_jobs = json.load(...)` loads the list ✓
 Guard file path matches `orchestrate_hopb_neb` write path ✓
 
-### F-V5 — KMC sweep guard
+### F-V5 — permeability per-T guard
 
 `_out = os.path.join(...)` defined at top of loop body ✓
 `if os.path.exists(_out): continue` present ✓

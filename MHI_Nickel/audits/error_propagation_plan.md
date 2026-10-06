@@ -93,8 +93,6 @@ E_D**, and no amount of solubility precision fixes that — a production-grade D
   the `D0_err`/`E_D_err` that Part 3 computed are **silently dropped**.
 - `S(T)` routes give point values; the NEB pathway-to-pathway spread that feeds
   `ΔH_diss` / `ΔH_HopA` is never turned into `σ_ΔHsol`.
-- KMC `S_std` is a dispersion over pressure points, not a propagated σ (and the
-  KMC-counting route is a demoted diagnostic anyway).
 
 **Name collision:** two functions named `fit_arrhenius` —
 `diffusivity_post_processing.fit_arrhenius(T, D, D_err)` (weighted, returns
@@ -163,14 +161,11 @@ summary prints now carry units too. No existing keys were renamed.
 *only* by field-name suffixes, applied inconsistently. Fields that carry units:
 `*_eV`, `*_m2s`, `*_Pa`, `_K`, `_m`. Fields with **no** unit annotation:
 `S0`, `S`, `Phi`, `J` (`permeability_T{T}K.json`), `Phi0`
-(`permeability_arrhenius.json`), `S0` (`solubility_arrhenius.json`), and the
-sweep arrays `P_vals`, `sqrt_P_vals`, `J_vals`/`J_sub1_vals`,
-`C0_vals`/`C0_sub1_vals`/`C0_sub2_vals`, plus `S_vals`/`S_mean`/`S_std`
-(`fit_solubility_from_kmc`). (`theta_vals`, `*_rel_err`, `Phi0_factor`, `w_env`,
-`r2` are genuinely dimensionless.)
+(`permeability_arrhenius.json`), and `S0` (`solubility_arrhenius.json`).
+(`*_rel_err`, `Phi0_factor`, `w_env`, `r2` are genuinely dimensionless.)
 
 **Fix (non-breaking):** add a `"units"` metadata block to each result payload
-(`sweep_pressure` output, `permeability_T{T}K.json`, `solubility_arrhenius.json`,
+(`permeability_T{T}K.json`, `solubility_arrhenius.json`,
 `permeability_arrhenius.json`) mapping every value field → its unit string,
 **without renaming** existing keys (so plots/consumers keep working)::
 

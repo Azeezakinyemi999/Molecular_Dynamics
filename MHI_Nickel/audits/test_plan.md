@@ -12,22 +12,19 @@ was superseded by `test_npt_uses_its_own_gpu_partition_not_short_gpu` (see the c
 inline below) once NPT was split onto its own `NPT_GPU_PARTITION=gpu` config, distinct from
 bare-min/bulk+H-min's `SHORT_GPU_SLURM_CFG` — see `audits/task_B_audit.md` §8.
 
-**2026-07 note (subsurface-entry reframing):** Sections 8 (`test_kmc.py`) and 9
-(`test_permeation.py`) were rewritten for the two-layer-KMC / per-environment-rate /
-dual-S₀-route reframing on the `fix-subsurface-entry-kmc` branch, and Section 7
+**2026-07 note (subsurface-entry reframing):** Section 9 (`test_permeation.py`) was
+rewritten for the two-layer / per-environment-rate / dual-S₀-route reframing on the
+`fix-subsurface-entry-kmc` branch, and Section 7
 (`test_tst_rates.py`) gained FS-vibration, per-hop-artifact, and partition-function
 coverage. The class
 listings under §7–§9 below reflect the reframed suite; the full suite is 1634 tests as of
 that branch.
 
-**2026-07 note (KMC-dead / vibrational-S0 bug fixes):** a sanity-check of the first real Ni
-run found two data bugs. (a) The dissociation `pair` was mislabelled `('s','s')` (parsed from
-the `s_<id>` site-label token), so `k_diss`/`k_des` never matched the KMC grid's element pair
-→ zero adsorption → θ=0 everywhere. Fixed at source (`neb_workflow.py` Phase E now maps site→
-element via `surface_sites.json`) **and** hardened in `kmc.py::build_event_list`, where the
-surface-pair rates now use the same per-class mean-fallback as the inter-layer rates.
-§8 `TestBuildEventList` gains `test_kdiss_mislabelled_pair_still_adsorbs_via_fallback` and
-`test_empty_kdiss_stays_inert`. (b) `vibrational_S0` was fed all 21 FS modes (H + 6-atom cage),
+**2026-07 note (dead-adsorption / vibrational-S0 bug fixes):** a sanity-check of the first
+real Ni run found two data bugs. (a) The dissociation `pair` was mislabelled `('s','s')`
+(parsed from the `s_<id>` site-label token), so `k_diss`/`k_des` never matched the element-pair
+lookup → zero adsorption → θ=0 everywhere. Fixed at source (`neb_workflow.py` Phase E now maps
+site→element via `surface_sites.json`). (b) `vibrational_S0` was fed all 21 FS modes (H + 6-atom cage),
 inflating S₀ ~1e10× above the geometric ceiling; the workflow now runs a separate **H-only** FS
 vibration (`vibrations.py` `n_metal_neighbours=0` → 3 modes). §9 `TestVibrationalS0` gains
 `test_below_geometric_ceiling_with_H_modes`; `tests/test_vibrations.py` gains
@@ -57,7 +54,6 @@ vibration (`vibrations.py` `n_metal_neighbours=0` → 3 modes). §9 `TestVibrati
 | 5 | `test_diffusivity_post_processing.py` | `models/diffusivity_post_processing.py` | MSD + Arrhenius math |
 | 6 | `test_energetics.py` | `models/energetics.py` | NEB energy analysis helpers |
 | 7 | `test_tst_rates.py` | `models/tst_rates.py` | ZPE, Vineyard, rate dict assembly |
-| 8 | `test_kmc.py` | `models/kmc.py` | KMC grid, events, BKL stepper |
 | 9 | `test_permeation.py` | `models/permeation.py` | Permeation flux, Sieverts law, solubility |
 | 10 | `test_diffusivity_workflow.py` | `models/diffusivity_workflow.py` | Generated `diffusivity_run.py` content |
 | 11 | `test_permeation_workflow.py` | `models/permeation_workflow.py` | Generated `permeation_run.py` content |
@@ -760,131 +756,20 @@ Tests `_weighted_linregress()` (internal helper).
 
 ---
 
-## Section 8 — `test_kmc.py`
+## Section 8 — *retired*
 
-### What it covers
-`models/kmc.py`: the two-layer grid (surface + sub1 + sub2), per-environment rate lookup with a per-class mean fallback, event enumeration (`adsorb`/`desorb`/`surf_diff`/`enter`/`exit`/`hopB_enter`/`hopB_exit`/`drain`), the BKL stepper, and a fixed-length KMC run. Steady-state convergence of `run_kmc_to_steady_state` is exercised end-to-end in `test_functional_kmc_sieverts.py`.
-
-### Test Classes
-
-#### `TestGasStrikeRate`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_positive_float` | `R > 0` for positive inputs |
-| `test_exact_formula` | Hand-computed Hertz-Knudsen matches |
-| `test_linear_in_pressure` | `R ∝ P` |
-| `test_linear_in_area` | `R ∝ A_site` |
-| `test_decreases_with_temperature` | Higher T → lower R |
-| `test_inverse_sqrt_temperature_dependence` | `R ∝ 1/√T` |
-
-#### `TestDrainRate`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_positive_float` | `k_drain > 0` for positive inputs |
-| `test_exact_formula` | `k_drain == D / (a0/√2)²` (single oct–oct hop out of sub2) |
-| `test_linear_in_diffusivity` | `k_drain ∝ D` |
-| `test_inverse_square_in_a0` | `k_drain ∝ 1/a0²` |
-
-#### `TestRateLookup`
-Tests `_rate_lookup()`/`_mean_of()` — per-environment lookup with per-class mean fallback.
-
-| Test | What it asserts |
-|------|----------------|
-| `test_hit_returns_value` | Present env key → its rate |
-| `test_miss_returns_fallback_mean_not_zero` | Unknown env → mean over the class, never a silent 0.0 |
-| `test_empty_group_returns_zero` | Genuinely absent rate class → 0.0 |
-| `test_mean_of` | `_mean_of` returns the arithmetic mean of a rate dict |
-
-#### `TestMakeGrid`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_dict_with_required_keys` | Keys: `surface_elem`, `surface_occ`, `sub1_occ`, `sub2_occ`, `sub1_env`, `sub2_env`, `nx`, `ny` |
-| `test_layer_shapes` | Every layer array is `(nx, ny)` |
-| `test_all_occ_zero_initially` | `surface_occ`/`sub1_occ`/`sub2_occ` all 0 initially |
-| `test_env_defaults_to_surface_element` | With no env composition, env labels default to the surface element |
-| `test_env_composition_draws_labels` | A supplied `sub1_env_composition`/`sub2_env_composition` is sampled |
-| `test_env_labels_not_truncated` | Object-dtype env arrays keep full labels (no fixed-width truncation) |
-| `test_default_composition_hastelloy_n` | Default composition ≈ Hastelloy N fractions |
-| `test_reproducible_with_same_seed` | Same seed → identical grid |
-
-#### `TestGridNeighbors`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_four_neighbors` | Always exactly 4 neighbours |
-| `test_interior_neighbors_correct` | Interior site → correct 4 adjacencies |
-| `test_boundary_wraps` | Edge/corner sites wrap periodically |
-
-#### `TestElementPair`
-| Test | What it asserts |
-|------|----------------|
-| `test_alphabetic_ordering` | Pair key is a sorted (alphabetic) tuple |
-| `test_symmetric_lookup` | (A,B) and (B,A) map to the same key |
-
-#### `TestGridQueries`
-Tests `surface_coverage()`, `sub1_population()`, `sub2_population()`, `subsurface_concentration()`.
-
-| Test | What it asserts |
-|------|----------------|
-| `test_coverage_partial` | Partial occupancy → correct coverage fraction |
-| `test_sub1_and_sub2_population` | sub1 and sub2 populations counted independently |
-| `test_concentration_uses_sub2_only` | Default `subsurface_concentration` uses sub2 occupancy, not sub1 |
-| `test_concentration_exact_formula` | `C = N_sub2 / (nx·ny·a0³/√2)` |
-| `test_concentration_layer_selects_sub1` | `layer='sub1'` reports the first-subsurface occupancy (dissolved reference); default stays sub2 |
-
-#### `TestBuildEventList`
-| Test | What it asserts |
-|------|----------------|
-| `test_empty_grid_only_adsorb` | Fresh grid → only `adsorb` events |
-| `test_surface_occupied_generates_enter` | Surface occupied, sub1 empty → `enter` |
-| `test_sub1_occupied_empty_surface_generates_exit` | → `exit` |
-| `test_sub1_occupied_empty_sub2_generates_hopB_enter` | → `hopB_enter` |
-| `test_sub2_occupied_empty_sub1_generates_hopB_exit` | → `hopB_exit` |
-| `test_sub2_occupied_generates_drain` | sub2 occupied → `drain` |
-| `test_sub1_occupied_does_not_drain` | sub1 never drains (only sub2 does) |
-| `test_adjacent_occupied_pair_desorbs` | Adjacent occupied surface pair → `desorb` |
-| `test_occupied_site_adjacent_empty_diffuses` | → `surf_diff` |
-| `test_no_adsorb_when_k_diss_absent` | Missing `k_diss` → no adsorb, no crash |
-| `test_kdiss_mislabelled_pair_still_adsorbs_via_fallback` | `k_diss` keyed by a non-grid pair (`('s','s')`) → adsorb still fires via the per-class mean-fallback (never a silent empty grid) |
-| `test_empty_kdiss_stays_inert` | Genuinely-empty `k_diss` → no adsorb (fallback never fabricates a rate) |
-| `test_all_event_rates_positive` | All enumerated rates > 0 |
-| `test_entry_rate_resolves_per_env` | `enter` rate looked up by the cell's sub1 env |
-| `test_unknown_env_falls_back_to_mean_not_zero` | Unknown env → per-class mean, not 0.0 |
-
-#### `TestExecuteEvent`
-| Test | What it asserts |
-|------|----------------|
-| `test_adsorb_occupies_both_surface_sites` | `adsorb` fills both surface sites |
-| `test_desorb_clears_both_surface_sites` | `desorb` clears both |
-| `test_surf_diff_moves_h` | `surf_diff` moves H to the empty neighbour |
-| `test_enter_surface_to_sub1` | `enter` moves H surface→sub1 |
-| `test_exit_sub1_to_surface` | `exit` moves H sub1→surface |
-| `test_hopB_enter_sub1_to_sub2` | `hopB_enter` moves H sub1→sub2 |
-| `test_hopB_exit_sub2_to_sub1` | `hopB_exit` moves H sub2→sub1 |
-| `test_drain_clears_sub2` | `drain` removes H from sub2 |
-
-#### `TestKmcStep`
-| Test | What it asserts |
-|------|----------------|
-| `test_empty_event_list_returns_zero` | `events=[]` → `dt = 0.0` |
-| `test_returns_positive_dt_when_events_present` | Positive rates → `dt > 0` |
-| `test_grid_mutated_after_step` | Grid state changes after a step |
-| `test_dt_scales_inversely_with_total_rate` | `dt ∝ 1/R_total` |
-| `test_zero_total_rate_returns_zero` | All-zero rates → `dt = 0.0` |
-
-#### `TestRunKmc`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_dict_with_required_keys` | Returns the time and layer-population arrays |
-| `test_array_length_is_n_steps_plus_one` | Arrays length = `n_steps + 1` |
-| `test_t_arr_monotonically_nondecreasing` | Time array non-decreasing |
-| `test_initial_state_zero` | Index-0 state is the empty initial grid |
+The kinetic Monte Carlo engine and its test file were removed. The section number is
+kept so the §-references elsewhere in this document still line up; nothing is tested
+here. Rate-table assembly that used to feed the engine is covered in §7
+(`test_tst_rates.py`), and the solubility/permeability routes in §9
+(`test_permeation.py`).
 
 ---
 
 ## Section 9 — `test_permeation.py`
 
 ### What it covers
-`models/permeation.py`: flux computations, Sieverts-law fit, the geometric and vibrational S₀ routes, per-environment solubility, Arrhenius S/Φ fits, permeability, and per-`n_H` diffusivity resolution. `sweep_pressure` and end-to-end Sieverts behaviour are exercised in `test_functional_kmc_sieverts.py`.
+`models/permeation.py`: flux computations, Sieverts-law fit, the geometric and vibrational S₀ routes, per-environment solubility, Arrhenius S/Φ fits, permeability, and per-`n_H` diffusivity resolution.
 
 ### Test Classes
 
@@ -939,18 +824,6 @@ Legacy analytic route — retained and tested, but no longer wired into the work
 | `test_higher_k_entry_gives_higher_s` | S monotone in k_entry |
 | `test_higher_k_exit_gives_lower_s` | S monotone (inverse) in k_exit |
 | `test_exact_formula` | Matches the detailed-balance expression |
-
-#### `TestFitSolubilityFromKmc`
-| Test | What it asserts |
-|------|----------------|
-| `test_returns_required_keys` | Returns `S_vals`, `S_mean`, `S_std`, `n_converged` |
-| `test_s_vals_equal_c0_over_sqrt_p` | `S = C₀/√P` per point |
-| `test_s_mean_correct` | Mean over converged points |
-| `test_non_converged_excluded_from_mean` | Non-converged points dropped from the mean |
-| `test_non_converged_appears_as_none_in_s_vals` | Non-converged entries surface as `None` |
-| `test_all_non_converged_gives_zero_mean` | All non-converged → `S_mean=0`, `n_converged=0` |
-| `test_single_converged_gives_zero_std` | 1 converged point → `S_std=0` |
-| `test_zero_pressure_point_excluded_even_if_converged` | `P=0` excluded even when converged |
 
 #### `TestSievertsSolubility`
 | Test | What it asserts |
@@ -1125,7 +998,7 @@ Call `generate_diffusivity_scripts(...)` with a full minimal config, read the ou
 |------|----------------|
 | `test_file_created` | `permeation_run.py` exists |
 | `test_temperatures_embedded` | `TEMPERATURES` list in generated script |
-| `test_p_vals_embedded` | `P_VALS_PA` list in generated script |
+| `test_operating_pressures_embedded` | `OPERATING_P_HIGH_PA` / `OPERATING_P_LOW_PA` in generated script |
 | `test_a0_m_embedded` | `A0_M` value in generated script |
 | `test_d0_m2s_embedded` | `D0_M2S` value |
 | `test_e_d_ev_embedded` | `E_D_EV` value |
@@ -1134,12 +1007,10 @@ Call `generate_diffusivity_scripts(...)` with a full minimal config, read the ou
 | `test_work_dir_embedded` | `WORK_DIR` in script |
 | `test_surface_sites_json_embedded` | `SURFACE_SITES_JSON` in script |
 | `test_relaxed_slab_path_embedded` | `RELAXED_SLAB_PATH` in script |
-| `test_kmc_max_steps_embedded` | `KMC_MAX_STEPS` in script |
-| `test_seed_embedded` | `SEED` in script |
 | `test_phase6_guard_on_dh` | Phase 6 wrapped in `if DH_DISS_EV is not None and DH_ENTRY_EV is not None` |
 | `test_hop_a_guard_present` | Guard checks `hopa_jobs.json` existence |
 | `test_hop_b_guard_present` | Guard checks `hopb_jobs.json` existence |
-| `test_kmc_sweep_guard_per_temperature` | Per-T guard on `permeation_sweep_T{T}K.json` |
+| `test_permeability_guard_per_temperature` | Per-T guard on `permeability_T{T}K.json` |
 
 #### `TestGeneratePermeationSh`
 | Test | What it asserts |
@@ -1302,10 +1173,9 @@ python -m pytest tests/test_nvt_restart.py -v
 | 5 | `test_diffusivity_post_processing.py` | ~50 |
 | 6 | `test_energetics.py` | ~35 |
 | 7 | `test_tst_rates.py` | ~40 |
-| 8 | `test_kmc.py` | ~55 |
 | 9 | `test_permeation.py` | ~40 |
 | 10 | `test_diffusivity_workflow.py` | ~40 |
 | 11 | `test_permeation_workflow.py` | ~30 |
 | 12 | `test_pipeline_workflow.py` | ~15 |
 | 13 | `test_neb_workflow.py` | ~35 |
-| **Total** | **13 files** | **~510 tests** |
+| **Total** | **12 files** | **~455 tests** |

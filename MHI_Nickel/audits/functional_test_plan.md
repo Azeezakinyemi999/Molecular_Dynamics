@@ -19,7 +19,7 @@ Everything runs locally via `dry_run=True` or pure-Python computation.
 | **A — Script generation** | Call orchestrator with `dry_run=True`; assert correct files written with right SLURM config | Fast (ms) |
 | **B — Parser correctness** | Feed real fixture log files into each parser; assert extracted values match known answers | Fast (ms) |
 | **C — Data flow / interface contracts** | Verify output format of stage N is valid input for stage N+1 (schema/key/type checks) | Fast (ms) |
-| **D — Pure-Python computation** | Run KMC, TST rates, Arrhenius fits, permeability math with synthetic inputs; assert numerically correct | Fast (ms–s) |
+| **D — Pure-Python computation** | Run TST rates, Arrhenius fits, permeability math with synthetic inputs; assert numerically correct | Fast (ms–s) |
 
 ---
 
@@ -38,8 +38,8 @@ tests/
     test_ft_surface_neb.py             # Section 2: adsorption + NEB scripts + parsers
     test_ft_subsurface_neb.py          # Section 3: Hop A + Hop B scripts
     test_ft_diffusivity.py             # Section 4: script gen + MSD parse + Arrhenius
-    test_ft_permeability.py            # Section 5: TST + KMC + Sieverts + permeability
-    test_ft_permeation_validation.py   # Section 5b: end-to-end reframed maps→rates→KMC→Arrhenius
+    test_ft_permeability.py            # Section 5: TST + Sieverts + permeability
+    test_ft_permeation_validation.py   # Section 5b: end-to-end reframed maps→rates→Arrhenius
 ```
 
 ---
@@ -122,43 +122,39 @@ tests/
 
 ---
 
-## Section 5 — Permeability (TST + KMC + Sieverts)
+## Section 5 — Permeability (TST + Sieverts)
 
 **File:** `test_ft_permeability.py`
-**Model functions:** `build_rate_dict()`, `env_rate_dict()` (`tst_rates.py`), `sweep_pressure()` (`permeation.py`),
-`permeability()`, `richardson_flux()`, `check_sieverts_law()`, `fit_solubility_from_kmc()`,
+**Model functions:** `build_rate_dict()`, `env_rate_dict()` (`tst_rates.py`),
+`permeability()`, `richardson_flux()`,
 `build_dh_sol_by_env()`, `solubility_by_environment()`, `lattice_site_S0()`/`vibrational_S0()` (both S₀ routes),
 `fit_arrhenius()`, `permeability_arrhenius()`
-**Sub-phases covered:** Phase 4 (TST rates + env-keyed assembly), Phase 5 (two-layer KMC), Phase 6 (per-env solubility, both S₀ routes, Sieverts + Arrhenius permeability)
+**Sub-phases covered:** Phase 4 (TST rates + env-keyed assembly), Phase 6 (per-env solubility, both S₀ routes, Sieverts + Arrhenius permeability)
 
 | Test | Category | What it checks |
 |---|---|---|
 | `test_tst_rate_detailed_balance` | D | Synthetic barrier: `Ea=0.5 eV`, `dE=-0.1 eV`, `T=700K` → `k_fwd/k_rev = exp(dE/kT)` within 0.1% |
-| `test_kmc_flux_positive` | D | `sweep_pressure()` with synthetic env-keyed rates on the two-layer grid → `J > 0` for all P values |
-| `test_kmc_sieverts_linear` | D | `J` vs `√P` is linear (`R² > 0.98`) for bulk-diffusion-limited synthetic rates |
-| `test_kmc_convergence_flag` | D | Very high rate → `sweep_pressure()` returns `converged=True` for all pressures |
 | `test_permeability_is_D_times_S` | D | `permeability(D, S)` returns `D × S` exactly |
 | `test_richardson_flux_scales_with_L` | D | Doubling membrane thickness L halves flux J |
 | `test_permeation_script_written` | A | `generate_permeation_scripts(..., dry_run=True)` writes `permeation_run.py`; `partition=sharing` in GPU_SLURM_CFG |
-| `test_permeation_script_phases_present` | A | Generated script contains Phase 1–6 markers |
-| `test_rate_dict_schema` | C | `rate_dict_T700K.json` has per-hop `k_forward`, `k_reverse`, `Ea_zpe`, `T_K` keys per entry (the env-keyed KMC rate dict is assembled from these by `env_rate_dict()`) |
+| `test_permeation_script_phases_present` | A | Generated script contains the Phase 1–4 and Phase 6 markers (Phase 5 is retired and must stay absent) |
+| `test_rate_dict_schema` | C | `rate_dict_T700K.json` has per-hop `k_forward`, `k_reverse`, `Ea_zpe`, `T_K` keys per entry (the env-keyed rate dict is assembled from these by `env_rate_dict()`) |
 
 **Section 5b — end-to-end reframed chain (`test_ft_permeation_validation.py`):** a fixture-driven
 test that supplies the upstream data that would come from SLURM/MACE (a Part-3 diffusivity fit;
 `ranked_barriers.json` dissociation products + `h_atom` structures; per-pathway Hop A/B ZPE rates +
-oct-site env), then exercises the genuinely-new pure-Python + KMC assembly: `build_sub1_sub2_map` /
-`collect_entry_h_sources` / `build_surface_sub1_sub2_map` → `env_rate_dict` → two-layer KMC sweep →
+oct-site env), then exercises the genuinely-new pure-Python assembly: `build_sub1_sub2_map` /
+`collect_entry_h_sources` / `build_surface_sub1_sub2_map` → `env_rate_dict` →
 `build_dh_sol_by_env` + `solubility_by_environment` (both S₀ routes) → `fit_arrhenius` +
 `permeability_arrhenius`. Asserts, among others, the `E_Φ = E_D + ΔH_sol` and `Φ₀ = D₀·S₀` identities
 and that entry is seeded from the dissociation products.
 
 **2026-07 — two data-bug fixes surfaced by the first real Ni run** (see `audits/test_plan.md`
-dated note): the dissociation `pair` was mislabelled `('s','s')` so KMC adsorption silently zeroed
-(θ=0 everywhere) — fixed at source (`neb_workflow.py` site→element map) and hardened with a
-mean-fallback in `kmc.py::build_event_list`; and `vibrational_S0` was fed the metal-cage modes
-(~1e10× too high) — fixed with a separate H-only FS vibration (`vibrations.py n_metal_neighbours=0`).
-Unit coverage lives in `test_kmc.py` / `test_permeation.py` / `test_vibrations.py`; the end-to-end
-KMC-adsorption path is exercised here and in `test_ft_permeability.py`.
+dated note): the dissociation `pair` was mislabelled `('s','s')` so the element-pair lookup never
+matched and adsorption silently zeroed (θ=0 everywhere) — fixed at source (`neb_workflow.py`
+site→element map); and `vibrational_S0` was fed the metal-cage modes (~1e10× too high) — fixed with
+a separate H-only FS vibration (`vibrations.py n_metal_neighbours=0`). Unit coverage lives in
+`test_permeation.py` / `test_vibrations.py`.
 
 ---
 
@@ -180,7 +176,7 @@ scp cluster:/path/to/diffusivity/msd_prod.dat              tests/functional/fixt
 ## Implementation order (most value first)
 
 1. **Category B parsers** (`test_ft_surface_neb.py` parser tests) — directly catches the `_parse_pe_final` and `lammps-dump-text` class of bugs we just fixed; runs in milliseconds
-2. **Category D pure-Python** (`test_ft_permeability.py`) — no files needed; catches TST/KMC math bugs; runs in milliseconds
+2. **Category D pure-Python** (`test_ft_permeability.py`) — no files needed; catches TST math bugs; runs in milliseconds
 3. **Category A script generation** (all 5 sections, `dry_run=True`) — catches SLURM partition/time regressions like the `multigpu` → `sharing` changes
 4. **Category C data flow** — catches interface mismatches between stages (schema checks)
 5. **Category B subsurface/diffusivity parsers** — needs fixture files from cluster
@@ -487,7 +483,7 @@ Fixture: synthetic `rate_dict` with 2 entries (one `hopa_Ni`, one `hopb_Ni`).
 | `test_all_values_are_float` | every value in each entry is `float` or `nan` (no strings, no ints) |
 | `test_label_prefix_hopa_or_hopb` | all top-level keys start with `hopa_` or `hopb_` |
 | `test_T_K_is_correct_temperature` | `T_K` value matches the temperature in the filename |
-| `test_permeation_reader_accesses_k_forward_k_reverse` | `r['k_forward']` and `r['k_reverse']` accessible (used by Phase 6 body to build KMC rate dict) |
+| `test_permeation_reader_accesses_k_forward_k_reverse` | `r['k_forward']` and `r['k_reverse']` accessible (used by Phase 6 body to build the env-keyed rate dict) |
 
 ---
 
