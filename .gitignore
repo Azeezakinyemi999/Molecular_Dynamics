@@ -59,3 +59,51 @@ adsorption/phase2_h/slurm/
 
 # Old results_1 directory
 results_1/
+
+# Old / archived material — anything in a directory whose name starts with "old"
+# (old_notebooks/, calculation/old/, ...). Matches at any depth.
+old*/
+
+# ── Generated pipeline data (never commit) ───────────────────────────────────
+# These trees are produced by the run scripts and are large: ~6.5 GB / 100k
+# files locally, 2.3 GB on the cluster. They are synced with rsync, not git.
+# Paths are hardcoded in the generated run scripts and in models/config.py, so
+# the directories themselves must stay where they are.
+Ni_hydrogen/calculation/results/
+Ni_hydrogen/calculation/neb/
+Ni_hydrogen/calculation/neb_subsurface/
+Ni_hydrogen/calculation/vibrations/
+Ni_hydrogen/calculation/adsorption/
+Ni_hydrogen/calculation/slabs/
+Ni_hydrogen/calculation/structures/
+Ni_hydrogen/calculation/slurm_scripts/
+Ni_hydrogen/calculation/neb_fix_verification/
+
+# Generated per-metal run scripts (rebuilt by the regenerate_* tools)
+Ni_hydrogen/calculation/neb_run_*.py
+Ni_hydrogen/calculation/diffusivity_run_*.py
+Ni_hydrogen/calculation/permeation_run_*.py
+Ni_hydrogen/calculation/pipeline_run*.py
+Ni_hydrogen/calculation/slurm_*_run_*.sh
+
+# Test-run output
+Ni_hydrogen/tests/pipeline/work/
+
+# Local archives
+_archive_kmc/
+_archive_cleanup/
+
+# Python bytecode (anywhere)
+__pycache__/
+*.pyc
+
+# Single-metal generated run scripts (the per-metal ones are covered above)
+Ni_hydrogen/calculation/diffusivity_run.py
+Ni_hydrogen/calculation/neb_run.py
+Ni_hydrogen/calculation/permeation_run.py
+Ni_hydrogen/calculation/pipeline_run.sh
+
+# Scratch files
+Ni_hydrogen/calculation/az.txt
+Ni_hydrogen/calculation/yes
+Ni_hydrogen/calculation/test.ipynb

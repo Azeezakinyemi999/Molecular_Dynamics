@@ -58,7 +58,12 @@ Usage
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Project root = the directory containing models/. Found by walking up rather
+# than counting parents, so this keeps working wherever the script is moved to.
+_root = os.path.dirname(os.path.abspath(__file__))
+while _root != os.path.dirname(_root) and not os.path.isdir(os.path.join(_root, 'models')):
+    _root = os.path.dirname(_root)
+sys.path.insert(0, _root)
 
 from models.config import (
     BASE_DIR, MACE_MODEL_ASE, E2T_7, MASSES_7,

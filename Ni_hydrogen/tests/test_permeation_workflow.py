@@ -655,11 +655,11 @@ class TestPlotPermeationSummary:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 8. regenerate_permeation_scripts.py <-> generator signature agreement
+# 8. tools/regenerate_permeation_scripts.py <-> generator signature agreement
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestRegenerateScriptCallerMatchesSignature:
-    """calculation/regenerate_permeation_scripts.py is the only real caller of
+    """calculation/tools/regenerate_permeation_scripts.py is the only real caller of
     generate_permeation_scripts, and it is a standalone script with no other
     coverage. When nx/ny/seed/kmc_max_steps were dropped from the generator,
     _PERM_CFG here was updated but that script was not --
@@ -669,8 +669,8 @@ class TestRegenerateScriptCallerMatchesSignature:
 
     def _caller_kwargs(self):
         import ast
-        path = pathlib.Path(__file__).parent.parent / 'calculation' / \
-            'regenerate_permeation_scripts.py'
+        path = (pathlib.Path(__file__).parent.parent / 'calculation' /
+                'tools' / 'regenerate_permeation_scripts.py')
         tree = ast.parse(path.read_text())
         calls = [n for n in ast.walk(tree)
                  if isinstance(n, ast.Call)
