@@ -59,3 +59,51 @@ adsorption/phase2_h/slurm/
 
 # Old results_1 directory
 results_1/
+
+# Old / archived material — anything in a directory whose name starts with "old"
+# (old_notebooks/, calculation/old/, ...). Matches at any depth.
+old*/
+
+# ── Generated pipeline data (never commit) ───────────────────────────────────
+# These trees are produced by the run scripts and are large: ~6.5 GB / 100k
+# files locally, 2.3 GB on the cluster. They are synced with rsync, not git.
+# Paths are hardcoded in the generated run scripts and in models/config.py, so
+# the directories themselves must stay where they are.
+MHI_Nickel/calculation/results/
+MHI_Nickel/calculation/neb/
+MHI_Nickel/calculation/neb_subsurface/
+MHI_Nickel/calculation/vibrations/
+MHI_Nickel/calculation/adsorption/
+MHI_Nickel/calculation/slabs/
+MHI_Nickel/calculation/structures/
+MHI_Nickel/calculation/slurm_scripts/
+MHI_Nickel/calculation/neb_fix_verification/
+
+# Generated per-metal run scripts (rebuilt by the regenerate_* tools)
+MHI_Nickel/calculation/neb_run_*.py
+MHI_Nickel/calculation/diffusivity_run_*.py
+MHI_Nickel/calculation/permeation_run_*.py
+MHI_Nickel/calculation/pipeline_run*.py
+MHI_Nickel/calculation/slurm_*_run_*.sh
+
+# Test-run output
+MHI_Nickel/tests/pipeline/work/
+
+# Local archives
+_archive_kmc/
+_archive_cleanup/
+
+# Python bytecode (anywhere)
+__pycache__/
+*.pyc
+
+# Single-metal generated run scripts (the per-metal ones are covered above)
+MHI_Nickel/calculation/diffusivity_run.py
+MHI_Nickel/calculation/neb_run.py
+MHI_Nickel/calculation/permeation_run.py
+MHI_Nickel/calculation/pipeline_run.sh
+
+# Scratch files
+MHI_Nickel/calculation/az.txt
+MHI_Nickel/calculation/yes
+MHI_Nickel/calculation/test.ipynb
