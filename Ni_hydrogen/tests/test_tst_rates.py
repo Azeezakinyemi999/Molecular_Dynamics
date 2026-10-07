@@ -195,10 +195,19 @@ class TestApplyZpeCorrection:
         delta_zpe = 0.5 * (400.0 - 200.0) * CM1_TO_EV
         assert apply_zpe_correction(E_bar, is_f, ts_f) == pytest.approx(E_bar + delta_zpe)
 
-    def test_min_freq_filter_excludes_low_modes(self):
-        is_f  = [200.0, 10.0]   # 10 below default min=50
-        ts_f  = [400.0, 5.0]    # 5 below default min=50
+    def test_every_mode_counts_by_default(self):
+        """ZPE is a sum, so low modes are harmless and are kept; discarding
+        them asymmetrically is what biases DeltaZPE."""
+        is_f  = [200.0, 10.0]
+        ts_f  = [400.0, 5.0]
         result = apply_zpe_correction(0.3, is_f, ts_f)
+        expected = 0.3 + 0.5 * ((400.0 + 5.0) - (200.0 + 10.0)) * CM1_TO_EV
+        assert result == pytest.approx(expected)
+
+    def test_min_freq_filter_excludes_low_modes_when_asked(self):
+        is_f  = [200.0, 10.0]
+        ts_f  = [400.0, 5.0]
+        result = apply_zpe_correction(0.3, is_f, ts_f, min_freq_cm1=50.0)
         expected = 0.3 + 0.5 * (400.0 - 200.0) * CM1_TO_EV
         assert result == pytest.approx(expected)
 
@@ -245,23 +254,28 @@ class TestVineyardPrefactor:
         nu = vineyard_prefactor([2000.0, 1000.0], [1000.0])
         assert nu == pytest.approx(SPEED_LIGHT_CM_S * 2000.0, rel=1e-8)
 
-    def test_raises_if_no_valid_is_freqs(self):
+    def test_raises_if_no_is_freqs(self):
         with pytest.raises(ValueError, match='IS'):
-            vineyard_prefactor([20.0], [500.0], min_freq_cm1=50.0)
+            vineyard_prefactor([], [500.0])
 
-    def test_raises_if_no_valid_ts_freqs(self):
+    def test_raises_if_no_ts_freqs(self):
         with pytest.raises(ValueError, match='TS'):
-            vineyard_prefactor([500.0, 300.0], [20.0], min_freq_cm1=50.0)
+            vineyard_prefactor([500.0, 300.0], [])
 
-    def test_low_freqs_excluded_with_warning(self):
-        # Counts must still satisfy len(IS) == len(TS) + 1 after the cut, so
-        # this exercises the exclusion warning rather than the dimensional guard.
+    def test_low_modes_no_longer_invalidate_a_state(self):
+        """Under the old discard rule a state of only low modes had nothing
+        left; raising keeps them, so this is now a valid calculation."""
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            assert vineyard_prefactor([20.0, 30.0], [25.0], low_freq_cm1=50.0) > 0.0
+
+    def test_low_freqs_raised_with_warning(self):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
-            vineyard_prefactor([500.0, 600.0, 30.0], [400.0, 25.0], min_freq_cm1=50.0)
-        assert any('excluded' in str(wn.message) for wn in w)
+            vineyard_prefactor([500.0, 600.0, 30.0], [400.0, 25.0], low_freq_cm1=50.0)
+        assert any('raised' in str(wn.message) for wn in w)
 
-    def test_raises_when_mode_counts_mismatch(self):
+    def test_raises_when_mode_counts_mismatch_unused(self):
         """IS and TS displacing different atom sets leaves c x (cm^-1)^n, not a
         frequency. Real case: an H2 dissociation IS with 2H+6 metals (24 modes)
         against a TS with 2H+8 metals (29 real) produced 5e-10 s^-1."""
@@ -805,113 +819,68 @@ class TestForwardPrefactorOptional:
         sig = inspect.signature(build_rate_dict)
         assert sig.parameters['require_forward_nu'].default is True
 
-    def test_zero_cut_keeps_all_modes(self):
-        """min_freq_cm1=0 is what lets the shared-atom-set dissociation states
-        keep the len(IS) == len(TS) + 1 relation."""
+    def test_soft_is_modes_no_longer_break_the_count(self):
+        """Al's dissociation IS carries five modes below 50 where the TS has
+        none. Under the old discard rule that broke len(IS) == len(TS) + 1 and
+        rejected the pathway; raising leaves the counts intact."""
         soft_is = [6.9, 11.0, 18.7, 29.9, 35.1] + [300.0] * 31
         ts      = [300.0] * 35
-        with pytest.raises(ValueError):
-            vineyard_prefactor(soft_is, ts, min_freq_cm1=50.0)
-        assert vineyard_prefactor(soft_is, ts, min_freq_cm1=0.0) > 0.0
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            assert vineyard_prefactor(soft_is, ts, low_freq_cm1=100.0) > 0.0
 
 
-class TestCountMatchedTruncation:
-    """The frequency cut can separate the mode counts even when both states
-    displaced the same atoms.
+class TestQuasiHarmonicFloor:
+    """Modes below the floor are RAISED to it, not discarded (Truhlar).
 
-    Ni's dissociation TS carries modes at 20.7-32 cm^-1 while its FS bottoms
-    out at 89, so a 50 cm^-1 cut removes several from one side and none from
-    the other. Those survivors sit in the denominator and, compounded over ~41
-    modes, drove nu_rev to 6.2e14 s^-1 against a physical ~1e12-1e13.
+    The prefactor is a product, so a near-zero denominator mode inflates it
+    without bound. A frozen-slab partial Hessian produces such modes routinely.
+    Raising damps them symmetrically and, unlike discarding, leaves the mode
+    counts alone so the dimensional check stays meaningful.
     """
 
-    def test_raises_without_opt_in(self):
-        soft_ts = [20.0, 25.0] + [300.0] * 39
-        fs      = [300.0] * 42
-        with pytest.raises(ValueError, match='allow_count_match'):
-            vineyard_prefactor(fs, soft_ts, min_freq_cm1=50.0)
-
-    def test_opt_in_restores_the_relation(self):
-        soft_ts = [20.0, 25.0] + [300.0] * 39
-        fs      = [300.0] * 42
+    def test_low_modes_are_raised_not_dropped(self):
+        """Two modes below the floor must still contribute, at the floor."""
         with warnings.catch_warnings(record=True):
             warnings.simplefilter('always')
-            nu = vineyard_prefactor(fs, soft_ts, min_freq_cm1=50.0,
-                                    allow_count_match=True)
-        assert nu > 0.0
-
-    def test_trimming_drops_the_lowest_not_the_highest(self):
-        """Artifacts are the near-zero modes, so those are what must go."""
-        fs = [60.0, 1000.0, 1000.0]
-        ts = [1000.0]
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter('always')
-            nu = vineyard_prefactor(fs, ts, min_freq_cm1=50.0,
-                                    allow_count_match=True)
-        # dropping the 60.0 leaves 1000*1000/1000 = 1000 cm^-1 * c
+            nu = vineyard_prefactor([10.0, 1000.0], [20.0], low_freq_cm1=100.0)
+        # (100 * 1000) / 100  = 1000 cm^-1
         assert nu == pytest.approx(SPEED_LIGHT_CM_S * 1000.0, rel=1e-9)
 
-    def test_no_op_when_counts_already_balanced(self):
-        """Al's case: nothing below the cut, so the result must not move."""
-        fs = [100.0, 200.0, 300.0]
-        ts = [150.0, 250.0]
-        assert (vineyard_prefactor(fs, ts, min_freq_cm1=50.0, allow_count_match=True)
-                == pytest.approx(vineyard_prefactor(fs, ts, min_freq_cm1=50.0)))
+    def test_floor_zero_uses_raw_frequencies(self):
+        nu = vineyard_prefactor([10.0, 1000.0], [20.0], low_freq_cm1=0.0)
+        assert nu == pytest.approx(SPEED_LIGHT_CM_S * (10.0 * 1000.0 / 20.0), rel=1e-9)
 
-    def test_matching_lowers_an_inflated_prefactor(self):
-        """The regression this fixes: soft denominator modes inflate nu."""
+    def test_raising_tames_an_inflated_prefactor(self):
+        """The Ni regression: soft TS modes against a stiffer FS."""
         soft_ts = [20.0, 22.0, 23.0, 32.0] + [300.0] * 37
         fs      = [300.0] * 42
-        inflated = vineyard_prefactor(fs, soft_ts, min_freq_cm1=0.0)
+        raw = vineyard_prefactor(fs, soft_ts, low_freq_cm1=0.0)
         with warnings.catch_warnings(record=True):
             warnings.simplefilter('always')
-            fixed = vineyard_prefactor(fs, soft_ts, min_freq_cm1=50.0,
-                                       allow_count_match=True)
-        assert inflated > 100.0 * fixed
+            floored = vineyard_prefactor(fs, soft_ts, low_freq_cm1=100.0)
+        assert raw > 100.0 * floored
 
-    def test_genuine_atom_set_mismatch_still_raises(self):
-        """The 24-vs-29 dissociation bug must NOT be papered over by trimming.
-        build_rate_dict only opts in after confirming equal degrees of freedom,
-        so a caller that has not checked still gets the error."""
+    def test_counts_are_preserved_so_the_guard_still_applies(self):
+        """Raising must not rescue a genuine atom-set mismatch (24 vs 29)."""
         with pytest.raises(ValueError, match='len\\(IS\\) == len\\(TS\\) \\+ 1'):
-            vineyard_prefactor([500.0] * 24, [400.0] * 29)
+            vineyard_prefactor([500.0] * 24, [400.0] * 29, low_freq_cm1=100.0)
 
+    def test_warns_when_modes_are_raised(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            vineyard_prefactor([10.0, 1000.0], [20.0], low_freq_cm1=100.0)
+        assert any('raised' in str(x.message) for x in w)
 
-class TestAtomSetGatesTrimming:
-    """build_rate_dict may only enable trimming once the states are known to
-    span the same degrees of freedom (real + imaginary)."""
+    def test_no_warning_when_nothing_is_below_the_floor(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            vineyard_prefactor([200.0, 300.0], [250.0], low_freq_cm1=100.0)
+        assert not any('raised' in str(x.message) for x in w)
 
-    def _inputs(self, tmp_path, is_real, is_imag, ts_real, ts_imag):
-        label = 'hopa_X'
-        ij, tj = str(tmp_path / 'IS.json'), str(tmp_path / 'TS.json')
-        _write_vib_json(ij, is_real, imag_freqs=is_imag)
-        _write_vib_json(tj, ts_real, imag_freqs=ts_imag)
-        neb = {label: {'E_abs': 0.4, 'E_des': 0.1, 'delta_E': 0.3, 'converged': True}}
-        return neb, {label: ij}, {label: tj}, label
-
-    def test_equal_dof_with_two_imaginary_ts_still_works(self):
-        """A TS with 2 imaginary modes spans the same DOF as its IS, so the
-        counts may be rebalanced — this is Al's hopb_s_1 (21 real/0 imag vs
-        19 real/2 imag, both 21 DOF)."""
-        import tempfile, pathlib
-        with tempfile.TemporaryDirectory() as d:
-            tmp = pathlib.Path(d)
-            neb, vis, vts, label = self._inputs(
-                tmp, [300.0] * 21, [], [300.0] * 19, [200.0, 210.0])
-            with warnings.catch_warnings(record=True):
-                warnings.simplefilter('always')
-                rd = build_rate_dict(neb, vis, vts, T_K=600.0)
-            assert label in rd
-
-    def test_unequal_dof_is_skipped(self):
-        """24+0 vs 29+1 DOF — different atom sets, must not produce a rate."""
-        import tempfile, pathlib
-        with tempfile.TemporaryDirectory() as d:
-            tmp = pathlib.Path(d)
-            neb, vis, vts, label = self._inputs(
-                tmp, [300.0] * 24, [], [300.0] * 29, [200.0])
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter('always')
-                rd = build_rate_dict(neb, vis, vts, T_K=600.0)
-            assert label not in rd
-            assert any('different degrees of freedom' in str(x.message) for x in w)
+    def test_second_order_saddle_is_rejected(self):
+        """A TS with two imaginary modes has one fewer real mode, so the count
+        relation breaks — correctly, since Vineyard assumes a first-order
+        saddle. Al's hopb_s_1 (21 real IS vs 19 real TS) is this case."""
+        with pytest.raises(ValueError, match='len\\(IS\\) == len\\(TS\\) \\+ 1'):
+            vineyard_prefactor([300.0] * 21, [300.0] * 19, low_freq_cm1=100.0)

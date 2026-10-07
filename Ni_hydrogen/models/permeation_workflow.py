@@ -455,7 +455,10 @@ if os.path.exists(_DISS_VIB_JSON):
     for _dv_lbl, _dv in _dv_raw.items():
         if _dv.get('is_minimum') is False or _dv.get('ts_saddle') is False:
             _dv_rejected.append(
-                f"{_dv_lbl} (IS imag={_dv.get('n_imag_is')}, TS imag={_dv.get('n_imag_ts')})")
+                f"{_dv_lbl} (IS imag={_dv.get('n_imag_is_sig', _dv.get('n_imag_is'))}, "
+                f"TS imag={_dv.get('n_imag_ts_sig', _dv.get('n_imag_ts'))} "
+                f"above {_dv.get('imag_cut_cm1', '?')} cm^-1; "
+                f"raw {_dv.get('n_imag_is')}/{_dv.get('n_imag_ts')})")
             continue
         _pkey = tuple(_dv['pair'])
         if _pkey not in _diss_vib or _dv.get('Ea_zpe', 9e9) < _diss_vib[_pkey]['Ea_zpe']:

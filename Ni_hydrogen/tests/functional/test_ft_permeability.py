@@ -135,9 +135,18 @@ class TestVineyardAndZPE:
         nu = vineyard_prefactor(freqs_is, freqs_ts)
         assert 1e11 < nu < 1e15
 
-    def test_vineyard_no_valid_freqs_raises(self):
-        with pytest.raises(ValueError, match='No valid IS frequencies'):
-            vineyard_prefactor([10.0], [800.0], min_freq_cm1=50.0)
+    def test_vineyard_empty_freqs_raises(self):
+        with pytest.raises(ValueError, match='No IS frequencies'):
+            vineyard_prefactor([], [800.0])
+
+    def test_vineyard_raises_low_modes_rather_than_rejecting(self):
+        """Low modes are floored to low_freq_cm1 (Truhlar quasi-harmonic), not
+        discarded, so a state carrying them is still a valid calculation."""
+        import warnings as _w
+        with _w.catch_warnings(record=True):
+            _w.simplefilter('always')
+            nu = vineyard_prefactor([10.0, 800.0], [800.0], low_freq_cm1=100.0)
+        assert nu > 0.0
 
     def test_zpe_correction_zero_when_same_freqs(self):
         freqs = [800.0, 600.0, 400.0]

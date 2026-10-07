@@ -3020,6 +3020,9 @@ else:
                 'ts_saddle':   _r_e.get('ts_saddle'),
                 'n_imag_is':   _r_e.get('n_imag_is'),
                 'n_imag_ts':   _r_e.get('n_imag_ts'),
+                'n_imag_is_sig': _r_e.get('n_imag_is_sig'),
+                'n_imag_ts_sig': _r_e.get('n_imag_ts_sig'),
+                'imag_cut_cm1':  _r_e.get('imag_cut_cm1'),
                 'label':  _lbl_rd,
             }
 
