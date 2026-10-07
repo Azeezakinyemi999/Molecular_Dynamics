@@ -160,7 +160,7 @@ def apply_zpe_correction(
     E_barrier_eV: float,
     freqs_is_cm1: list,
     freqs_ts_cm1: list,
-    min_freq_cm1: float = 50.0,
+    min_freq_cm1: float = 0.0,
 ) -> float:
     """Return a ZPE-corrected barrier height.
 
@@ -170,9 +170,19 @@ def apply_zpe_correction(
 
         \\text{ZPE} = \\tfrac{1}{2} \\sum_{i} \\nu_i \\times C_{\\text{cm}^{-1}\\to\\text{eV}}
 
-    Only real modes above ``min_freq_cm1`` contribute.  The imaginary TS mode
-    must already be absent from ``freqs_ts_cm1`` (``vib_frequencies.json``'s
-    ``frequencies_real_cm1`` key excludes it automatically).
+    Every real mode contributes by default (``min_freq_cm1=0``). Unlike the
+    Vineyard prefactor, the ZPE is a *sum*, so a spurious 3 cm⁻¹ mode adds only
+    ~2e-4 eV and is harmless — whereas discarding modes below a threshold is
+    actively harmful, because a frozen-slab partial Hessian produces them
+    asymmetrically. Ni's dissociation TS has four modes below 50 cm⁻¹ where its
+    FS has none, so a 50 cm⁻¹ cut biased ΔZPE(TS−FS) by ~5 meV against barriers
+    of only 20-70 meV. Raising them instead (the quasi-harmonic treatment used
+    for the prefactor) would be worse still: it invents zero-point energy,
+    shifting the same term by ~23 meV.
+
+    The imaginary TS mode must already be absent from ``freqs_ts_cm1``
+    (``vib_frequencies.json``'s ``frequencies_real_cm1`` key excludes it
+    automatically).
 
     Parameters
     ----------
@@ -183,7 +193,8 @@ def apply_zpe_correction(
     freqs_ts_cm1 : list of float
         Real-mode frequencies of the TS structure (cm^-1).
     min_freq_cm1 : float
-        Modes below this value are excluded from ZPE sums.
+        Modes below this value are excluded from the ZPE sums.  Default ``0.0``
+        — include everything; see above for why discarding biases the result.
 
     Returns
     -------
@@ -202,8 +213,7 @@ def apply_zpe_correction(
 def vineyard_prefactor(
     freqs_is_cm1: list,
     freqs_ts_cm1: list,
-    min_freq_cm1: float = 50.0,
-    allow_count_match: bool = False,
+    low_freq_cm1: float = 100.0,
 ) -> float:
     """Compute the Vineyard (1957) attempt frequency in s⁻¹.
 
@@ -215,7 +225,24 @@ def vineyard_prefactor(
     The extra factor of *c* arises because the IS product has one more frequency
     than the TS product (the imaginary mode is excluded from ``freqs_ts_cm1``).
 
-    The product is evaluated in log-space for numerical stability.
+    Low-frequency handling (quasi-harmonic)
+    ---------------------------------------
+    Modes below ``low_freq_cm1`` are **raised to** it rather than discarded —
+    Truhlar's quasi-harmonic treatment, whose usual default is 100 cm⁻¹ and
+    which is standard in thermochemistry tooling (GoodVibes, Shermo).
+
+    This matters because the prefactor is a *product*: a near-zero mode in the
+    denominator inflates it without bound. A frozen-slab partial Hessian throws
+    such modes routinely — its lowest modes mix in pseudo-translation and
+    pseudo-rotation — and they are not physical. Ni's dissociation TS carries
+    modes at 20.7-32 cm⁻¹ against an FS bottoming out at 89, which under the
+    older "discard below 50" rule drove ν* to 6.2e14 s⁻¹, two orders above a
+    physical ~10¹²-10¹³.
+
+    Raising is preferred over discarding on two counts: it leaves the mode
+    counts untouched, so the dimensional check below stays meaningful without
+    any rebalancing; and it damps the artifact symmetrically, since the same
+    floor applies to both states and the spurious factors then largely cancel.
 
     Parameters
     ----------
@@ -225,17 +252,9 @@ def vineyard_prefactor(
     freqs_ts_cm1 : list of float
         Real TS frequencies (cm^-1), imaginary mode excluded.  Pass
         ``frequencies_real_cm1`` from the TS ``vib_frequencies.json``.
-    min_freq_cm1 : float
-        Modes below this threshold are excluded from both products with a
-        warning.  Prevents numerical issues from near-zero modes introduced
-        by the partial Hessian.  Default 50 cm^-1.
-    allow_count_match : bool
-        If the cut leaves the counts unbalanced, drop the lowest surviving
-        modes from the longer side until ``len(IS) == len(TS) + 1`` instead of
-        raising.  **Only pass this once the caller has verified both states
-        displaced the same atoms** (equal total degrees of freedom, real plus
-        imaginary) — otherwise it would paper over a genuine atom-set mismatch,
-        which is exactly the bug the count check exists to catch.
+    low_freq_cm1 : float
+        Quasi-harmonic floor.  Modes below it are raised to it.  Default
+        100 cm^-1 (Truhlar).  Pass ``0.0`` to use the frequencies as computed.
 
     Returns
     -------
@@ -245,54 +264,14 @@ def vineyard_prefactor(
     Raises
     ------
     ValueError
-        If no valid frequencies remain after applying the threshold, or if the
-        surviving mode counts are not ``len(IS) == len(TS) + 1`` — see the
-        inline note: a mismatch means the states displaced different atom sets
-        and the ratio is not a frequency.
+        If either list is empty, or if the mode counts are not
+        ``len(IS) == len(TS) + 1`` — which means the two states did not
+        displace the same atoms, leaving the ratio dimensionally invalid.
     """
-    is_valid = sorted(f for f in freqs_is_cm1 if f >= min_freq_cm1)
-    ts_valid = sorted(f for f in freqs_ts_cm1 if f >= min_freq_cm1)
-
-    # The cut can bite asymmetrically: the shared atom set puts metals near the
-    # product geometry into the reactant too, where they are only weakly coupled
-    # and show up as near-zero modes. Ni's dissociation TS carries modes at
-    # 20.7-32 cm^-1 while its FS bottoms out at 89; cutting at 50 then removes
-    # several from one side and none from the other. Those survivors sit in the
-    # denominator, and across ~41 modes a 1.12 per-mode ratio compounds to ~87x
-    # -- which is how nu_rev reached 6.2e14 s^-1 against a physical ~1e12-1e13.
-    #
-    # Restoring the count by dropping the LOWEST survivors from the long side
-    # removes those artifacts symmetrically. Only safe once the caller has
-    # confirmed both states displaced the same atoms, hence the opt-in.
-    n_trim_is = n_trim_ts = 0
-    if allow_count_match:
-        while len(is_valid) > len(ts_valid) + 1:
-            is_valid = is_valid[1:]; n_trim_is += 1
-        while len(is_valid) < len(ts_valid) + 1 and ts_valid:
-            ts_valid = ts_valid[1:]; n_trim_ts += 1
-        if n_trim_is or n_trim_ts:
-            warnings.warn(
-                f'vineyard_prefactor: trimmed {n_trim_is} lowest IS and '
-                f'{n_trim_ts} lowest TS mode(s) to restore '
-                f'len(IS) == len(TS) + 1 after the {min_freq_cm1} cm^-1 cut.'
-            )
-
-    n_skip_is = len(freqs_is_cm1) - len(is_valid)
-    n_skip_ts = len(freqs_ts_cm1) - len(ts_valid)
-    if n_skip_is:
-        warnings.warn(
-            f'vineyard_prefactor: excluded {n_skip_is} IS mode(s) below '
-            f'{min_freq_cm1} cm^-1.'
-        )
-    if n_skip_ts:
-        warnings.warn(
-            f'vineyard_prefactor: excluded {n_skip_ts} TS mode(s) below '
-            f'{min_freq_cm1} cm^-1.'
-        )
-    if not is_valid:
-        raise ValueError('No valid IS frequencies above threshold.')
-    if not ts_valid:
-        raise ValueError('No valid TS frequencies above threshold.')
+    if not freqs_is_cm1:
+        raise ValueError('No IS frequencies given.')
+    if not freqs_ts_cm1:
+        raise ValueError('No TS frequencies given.')
 
     # The single factor of c only yields s^-1 if the numerator carries exactly
     # one more frequency than the denominator — i.e. both states displaced the
@@ -301,28 +280,34 @@ def vineyard_prefactor(
     # has happened in practice (an H2 dissociation IS displacing 2H+6 metals
     # against a TS displacing 2H+8 metals gave 24 vs 29 modes and a "prefactor"
     # of 5e-10 s^-1, ~22 orders of magnitude low), so refuse rather than return
-    # a number that looks like a rate.
-    if len(is_valid) != len(ts_valid) + 1:
+    # a number that looks like a rate. Raising rather than discarding low modes
+    # keeps this check honest: the counts are whatever the Hessians produced.
+    if len(freqs_is_cm1) != len(freqs_ts_cm1) + 1:
         raise ValueError(
-            f'Vineyard prefactor needs len(IS) == len(TS) + 1 after the '
-            f'{min_freq_cm1} cm^-1 cut, got IS={len(is_valid)} TS={len(ts_valid)}. '
-            f'The two states must displace the same atom set (the TS supplying '
-            f'the one imaginary mode); a mismatch leaves the ratio dimensionally '
-            f'invalid. If the atom sets ARE equal and only the cut separated the '
-            f'counts, the caller should pass allow_count_match=True.'
+            f'Vineyard prefactor needs len(IS) == len(TS) + 1, got '
+            f'IS={len(freqs_is_cm1)} TS={len(freqs_ts_cm1)}. The two states must '
+            f'displace the same atom set (the TS supplying the one imaginary '
+            f'mode); a mismatch leaves the ratio dimensionally invalid.'
+        )
+
+    is_use = [max(f, low_freq_cm1) for f in freqs_is_cm1]
+    ts_use = [max(f, low_freq_cm1) for f in freqs_ts_cm1]
+
+    n_raised = (sum(1 for f in freqs_is_cm1 if f < low_freq_cm1)
+                + sum(1 for f in freqs_ts_cm1 if f < low_freq_cm1))
+    if n_raised:
+        warnings.warn(
+            f'vineyard_prefactor: raised {n_raised} mode(s) below '
+            f'{low_freq_cm1} cm^-1 to that floor (quasi-harmonic).'
         )
 
     log_nu = (
         math.log(SPEED_LIGHT_CM_S)
-        + sum(math.log(f) for f in is_valid)
-        - sum(math.log(f) for f in ts_valid)
+        + sum(math.log(f) for f in is_use)
+        - sum(math.log(f) for f in ts_use)
     )
     return math.exp(log_nu)
 
-
-# ---------------------------------------------------------------------------
-# Section 5 — Arrhenius rate
-# ---------------------------------------------------------------------------
 
 def arrhenius_rate(nu_s1: float, delta_e_eV: float, T_K: float) -> float:
     """Compute k = ν × exp(−ΔE / k_B T).
@@ -359,6 +344,7 @@ def build_rate_dict(
     min_freq_cm1: float = 50.0,
     vib_results_fs: dict | None = None,
     require_forward_nu: bool = True,
+    low_freq_cm1: float = 100.0,
 ) -> dict:
     """Assemble rate constants for all NEB labels.
 
@@ -389,8 +375,16 @@ def build_rate_dict(
     apply_zpe : bool
         Apply ZPE correction to barriers.  Default ``True``.
     min_freq_cm1 : float
-        Frequency threshold passed to :func:`vineyard_prefactor` and
-        :func:`apply_zpe_correction`.
+        Magnitude above which an imaginary mode counts as a genuine
+        instability rather than finite-difference noise, used only for the
+        ``is_minimum`` / ``ts_saddle`` census. Default 50 cm^-1, within the
+        10-50 cm^-1 range commonly tolerated in the literature.
+    low_freq_cm1 : float
+        Quasi-harmonic floor for :func:`vineyard_prefactor` (Truhlar; default
+        100 cm^-1). Three distinct thresholds are deliberately kept apart here,
+        because the quantities have different sensitivities: the prefactor is a
+        product and needs a floor, the ZPE is a sum and takes every mode, and
+        the census is a judgement about imaginary modes.
     require_forward_nu : bool
         When ``True`` (default) a label whose forward Vineyard prefactor cannot
         be formed is skipped entirely — correct for the Hop A/Hop B rates, which
@@ -442,10 +436,14 @@ def build_rate_dict(
 
         is_imag = is_vib.get('frequencies_imag_cm1', [])
         ts_imag = ts_vib.get('frequencies_imag_cm1', [])
-        if len(is_imag) != 0:
-            warnings.warn(f'[{label}] IS has {len(is_imag)} imaginary mode(s) — expected 0.')
-        if len(ts_imag) != 1:
-            warnings.warn(f'[{label}] TS has {len(ts_imag)} imaginary mode(s) — expected 1.')
+        _w_is = [f for f in is_imag if f >= min_freq_cm1]
+        _w_ts = [f for f in ts_imag if f >= min_freq_cm1]
+        if len(_w_is) != 0:
+            warnings.warn(f'[{label}] IS has {len(_w_is)} imaginary mode(s) above '
+                          f'{min_freq_cm1} cm^-1 — expected 0. ({sorted(_w_is)})')
+        if len(_w_ts) != 1:
+            warnings.warn(f'[{label}] TS has {len(_w_ts)} imaginary mode(s) above '
+                          f'{min_freq_cm1} cm^-1 — expected 1. ({sorted(_w_ts)})')
 
         is_freqs = is_vib['frequencies_real_cm1']
         ts_freqs = ts_vib['frequencies_real_cm1']  # imaginary mode already excluded
@@ -455,6 +453,11 @@ def build_rate_dict(
         # prefactor rebalance counts the frequency cut knocked apart; if it does
         # not hold the states are genuinely different subsystems and the count
         # check must still fire.
+        # Imaginary modes that clear the noise floor; below it they are
+        # finite-difference artifacts, not instabilities.
+        _sig_is = [f for f in is_imag if f >= min_freq_cm1]
+        _sig_ts = [f for f in ts_imag if f >= min_freq_cm1]
+
         _dof_is = len(is_freqs) + len(is_imag)
         _dof_ts = len(ts_freqs) + len(ts_imag)
         _same_atoms = (_dof_is == _dof_ts)
@@ -491,8 +494,7 @@ def build_rate_dict(
         Ed_raw = float(neb.get('E_des', 0.0))
 
         try:
-            nu = vineyard_prefactor(is_freqs, ts_freqs, min_freq_cm1=min_freq_cm1,
-                                    allow_count_match=_same_atoms)
+            nu = vineyard_prefactor(is_freqs, ts_freqs, low_freq_cm1=low_freq_cm1)
         except (ValueError, Exception) as exc:
             if require_forward_nu:
                 skipped.append(f'{label} (Vineyard failed: {exc})')
@@ -512,9 +514,7 @@ def build_rate_dict(
         nu_rev = nu
         if fs_freqs is not None:
             try:
-                _dof_fs = len(fs_freqs) + len(fs_imag)
-                nu_rev = vineyard_prefactor(fs_freqs, ts_freqs, min_freq_cm1=min_freq_cm1,
-                                            allow_count_match=(_dof_fs == _dof_ts))
+                nu_rev = vineyard_prefactor(fs_freqs, ts_freqs, low_freq_cm1=low_freq_cm1)
             except (ValueError, Exception) as exc:
                 warnings.warn(f'[{label}] reverse Vineyard failed ({exc}); '
                               'falling back to the forward prefactor.')
@@ -525,7 +525,8 @@ def build_rate_dict(
             # No forward prefactor to fall back on and no usable FS.
             warnings.warn(f'[{label}] no reverse prefactor available.')
 
-        kw = dict(min_freq_cm1=min_freq_cm1)
+        # ZPE takes every real mode — see apply_zpe_correction.
+        kw = dict(min_freq_cm1=0.0)
         if apply_zpe:
             Ea_use = apply_zpe_correction(Ea_raw, is_freqs, ts_freqs, **kw)
             # Reverse pairs TS with FS: E_des is E_TS - E_FS, so the matching
@@ -549,14 +550,21 @@ def build_rate_dict(
             'nu_reverse': nu_rev,
             'zpe_source': zpe_source,
             # State-quality census. A reactant/product state should be a
-            # minimum (0 imaginary) and a TS a first-order saddle (exactly 1).
-            # Recorded rather than only warned about, so a consumer can drop a
-            # label whose Ea_zpe rests on a non-minimum IS while still using its
-            # FS-derived reverse quantities.
-            'n_imag_is':  len(is_imag),
-            'n_imag_ts':  len(ts_imag),
-            'is_minimum': len(is_imag) == 0,
-            'ts_saddle':  len(ts_imag) == 1,
+            # minimum and a TS a first-order saddle, judged against
+            # min_freq_cm1. A partial Hessian with the rest of the slab frozen throws
+            # small imaginary modes routinely — Al's dissociation IS carries one
+            # at 3.3 cm^-1, below even its lowest real mode — and counting those
+            # would discard sound structures over finite-difference noise.
+            #
+            # Raw counts are kept alongside so nothing is hidden: where the
+            # significant and raw counts disagree, the structure had artifacts.
+            'n_imag_is':      len(is_imag),
+            'n_imag_ts':      len(ts_imag),
+            'n_imag_is_sig':  len(_sig_is),
+            'n_imag_ts_sig':  len(_sig_ts),
+            'imag_cut_cm1':   min_freq_cm1,
+            'is_minimum':     len(_sig_is) == 0,
+            'ts_saddle':      len(_sig_ts) == 1,
             'delta_e':    float(neb.get('delta_E', float('nan'))),
             'T_K':        T_K,
         }
