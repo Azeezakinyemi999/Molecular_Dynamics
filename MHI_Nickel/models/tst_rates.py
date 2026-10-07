@@ -203,6 +203,7 @@ def vineyard_prefactor(
     freqs_is_cm1: list,
     freqs_ts_cm1: list,
     min_freq_cm1: float = 50.0,
+    allow_count_match: bool = False,
 ) -> float:
     """Compute the Vineyard (1957) attempt frequency in s⁻¹.
 
@@ -228,6 +229,13 @@ def vineyard_prefactor(
         Modes below this threshold are excluded from both products with a
         warning.  Prevents numerical issues from near-zero modes introduced
         by the partial Hessian.  Default 50 cm^-1.
+    allow_count_match : bool
+        If the cut leaves the counts unbalanced, drop the lowest surviving
+        modes from the longer side until ``len(IS) == len(TS) + 1`` instead of
+        raising.  **Only pass this once the caller has verified both states
+        displaced the same atoms** (equal total degrees of freedom, real plus
+        imaginary) — otherwise it would paper over a genuine atom-set mismatch,
+        which is exactly the bug the count check exists to catch.
 
     Returns
     -------
@@ -242,8 +250,32 @@ def vineyard_prefactor(
         inline note: a mismatch means the states displaced different atom sets
         and the ratio is not a frequency.
     """
-    is_valid = [f for f in freqs_is_cm1 if f >= min_freq_cm1]
-    ts_valid = [f for f in freqs_ts_cm1 if f >= min_freq_cm1]
+    is_valid = sorted(f for f in freqs_is_cm1 if f >= min_freq_cm1)
+    ts_valid = sorted(f for f in freqs_ts_cm1 if f >= min_freq_cm1)
+
+    # The cut can bite asymmetrically: the shared atom set puts metals near the
+    # product geometry into the reactant too, where they are only weakly coupled
+    # and show up as near-zero modes. Ni's dissociation TS carries modes at
+    # 20.7-32 cm^-1 while its FS bottoms out at 89; cutting at 50 then removes
+    # several from one side and none from the other. Those survivors sit in the
+    # denominator, and across ~41 modes a 1.12 per-mode ratio compounds to ~87x
+    # -- which is how nu_rev reached 6.2e14 s^-1 against a physical ~1e12-1e13.
+    #
+    # Restoring the count by dropping the LOWEST survivors from the long side
+    # removes those artifacts symmetrically. Only safe once the caller has
+    # confirmed both states displaced the same atoms, hence the opt-in.
+    n_trim_is = n_trim_ts = 0
+    if allow_count_match:
+        while len(is_valid) > len(ts_valid) + 1:
+            is_valid = is_valid[1:]; n_trim_is += 1
+        while len(is_valid) < len(ts_valid) + 1 and ts_valid:
+            ts_valid = ts_valid[1:]; n_trim_ts += 1
+        if n_trim_is or n_trim_ts:
+            warnings.warn(
+                f'vineyard_prefactor: trimmed {n_trim_is} lowest IS and '
+                f'{n_trim_ts} lowest TS mode(s) to restore '
+                f'len(IS) == len(TS) + 1 after the {min_freq_cm1} cm^-1 cut.'
+            )
 
     n_skip_is = len(freqs_is_cm1) - len(is_valid)
     n_skip_ts = len(freqs_ts_cm1) - len(ts_valid)
@@ -276,7 +308,8 @@ def vineyard_prefactor(
             f'{min_freq_cm1} cm^-1 cut, got IS={len(is_valid)} TS={len(ts_valid)}. '
             f'The two states must displace the same atom set (the TS supplying '
             f'the one imaginary mode); a mismatch leaves the ratio dimensionally '
-            f'invalid.'
+            f'invalid. If the atom sets ARE equal and only the cut separated the '
+            f'counts, the caller should pass allow_count_match=True.'
         )
 
     log_nu = (
@@ -417,17 +450,34 @@ def build_rate_dict(
         is_freqs = is_vib['frequencies_real_cm1']
         ts_freqs = ts_vib['frequencies_real_cm1']  # imaginary mode already excluded
 
+        # Same atoms displaced => same total degrees of freedom, counting the
+        # imaginary modes the real lists leave out. Only when that holds may the
+        # prefactor rebalance counts the frequency cut knocked apart; if it does
+        # not hold the states are genuinely different subsystems and the count
+        # check must still fire.
+        _dof_is = len(is_freqs) + len(is_imag)
+        _dof_ts = len(ts_freqs) + len(ts_imag)
+        _same_atoms = (_dof_is == _dof_ts)
+        if not _same_atoms:
+            warnings.warn(
+                f'[{label}] IS and TS span different degrees of freedom '
+                f'({_dof_is} vs {_dof_ts}) — they did not displace the same '
+                f'atoms, so no prefactor can be formed from them.'
+            )
+
         # FS drives the reverse direction. Absent (older runs, or a hop whose
         # FS vibration was never computed) we fall back to IS and say so, rather
         # than silently reporting an IS-derived number as if it were the reverse.
         fs_freqs = None
+        fs_imag: list = []
         if label in vib_results_fs:
             try:
                 fs_vib = load_vibration_results(vib_results_fs[label])
-                if len(fs_vib.get('frequencies_imag_cm1', [])) != 0:
+                fs_imag = fs_vib.get('frequencies_imag_cm1', [])
+                if len(fs_imag) != 0:
                     warnings.warn(
                         f'[{label}] FS has '
-                        f'{len(fs_vib["frequencies_imag_cm1"])} imaginary mode(s) — expected 0.'
+                        f'{len(fs_imag)} imaginary mode(s) — expected 0.'
                     )
                 fs_freqs = fs_vib['frequencies_real_cm1']
             except (FileNotFoundError, KeyError) as exc:
@@ -441,7 +491,8 @@ def build_rate_dict(
         Ed_raw = float(neb.get('E_des', 0.0))
 
         try:
-            nu = vineyard_prefactor(is_freqs, ts_freqs, min_freq_cm1=min_freq_cm1)
+            nu = vineyard_prefactor(is_freqs, ts_freqs, min_freq_cm1=min_freq_cm1,
+                                    allow_count_match=_same_atoms)
         except (ValueError, Exception) as exc:
             if require_forward_nu:
                 skipped.append(f'{label} (Vineyard failed: {exc})')
@@ -461,7 +512,9 @@ def build_rate_dict(
         nu_rev = nu
         if fs_freqs is not None:
             try:
-                nu_rev = vineyard_prefactor(fs_freqs, ts_freqs, min_freq_cm1=min_freq_cm1)
+                _dof_fs = len(fs_freqs) + len(fs_imag)
+                nu_rev = vineyard_prefactor(fs_freqs, ts_freqs, min_freq_cm1=min_freq_cm1,
+                                            allow_count_match=(_dof_fs == _dof_ts))
             except (ValueError, Exception) as exc:
                 warnings.warn(f'[{label}] reverse Vineyard failed ({exc}); '
                               'falling back to the forward prefactor.')

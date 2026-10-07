@@ -813,3 +813,105 @@ class TestForwardPrefactorOptional:
         with pytest.raises(ValueError):
             vineyard_prefactor(soft_is, ts, min_freq_cm1=50.0)
         assert vineyard_prefactor(soft_is, ts, min_freq_cm1=0.0) > 0.0
+
+
+class TestCountMatchedTruncation:
+    """The frequency cut can separate the mode counts even when both states
+    displaced the same atoms.
+
+    Ni's dissociation TS carries modes at 20.7-32 cm^-1 while its FS bottoms
+    out at 89, so a 50 cm^-1 cut removes several from one side and none from
+    the other. Those survivors sit in the denominator and, compounded over ~41
+    modes, drove nu_rev to 6.2e14 s^-1 against a physical ~1e12-1e13.
+    """
+
+    def test_raises_without_opt_in(self):
+        soft_ts = [20.0, 25.0] + [300.0] * 39
+        fs      = [300.0] * 42
+        with pytest.raises(ValueError, match='allow_count_match'):
+            vineyard_prefactor(fs, soft_ts, min_freq_cm1=50.0)
+
+    def test_opt_in_restores_the_relation(self):
+        soft_ts = [20.0, 25.0] + [300.0] * 39
+        fs      = [300.0] * 42
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            nu = vineyard_prefactor(fs, soft_ts, min_freq_cm1=50.0,
+                                    allow_count_match=True)
+        assert nu > 0.0
+
+    def test_trimming_drops_the_lowest_not_the_highest(self):
+        """Artifacts are the near-zero modes, so those are what must go."""
+        fs = [60.0, 1000.0, 1000.0]
+        ts = [1000.0]
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            nu = vineyard_prefactor(fs, ts, min_freq_cm1=50.0,
+                                    allow_count_match=True)
+        # dropping the 60.0 leaves 1000*1000/1000 = 1000 cm^-1 * c
+        assert nu == pytest.approx(SPEED_LIGHT_CM_S * 1000.0, rel=1e-9)
+
+    def test_no_op_when_counts_already_balanced(self):
+        """Al's case: nothing below the cut, so the result must not move."""
+        fs = [100.0, 200.0, 300.0]
+        ts = [150.0, 250.0]
+        assert (vineyard_prefactor(fs, ts, min_freq_cm1=50.0, allow_count_match=True)
+                == pytest.approx(vineyard_prefactor(fs, ts, min_freq_cm1=50.0)))
+
+    def test_matching_lowers_an_inflated_prefactor(self):
+        """The regression this fixes: soft denominator modes inflate nu."""
+        soft_ts = [20.0, 22.0, 23.0, 32.0] + [300.0] * 37
+        fs      = [300.0] * 42
+        inflated = vineyard_prefactor(fs, soft_ts, min_freq_cm1=0.0)
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            fixed = vineyard_prefactor(fs, soft_ts, min_freq_cm1=50.0,
+                                       allow_count_match=True)
+        assert inflated > 100.0 * fixed
+
+    def test_genuine_atom_set_mismatch_still_raises(self):
+        """The 24-vs-29 dissociation bug must NOT be papered over by trimming.
+        build_rate_dict only opts in after confirming equal degrees of freedom,
+        so a caller that has not checked still gets the error."""
+        with pytest.raises(ValueError, match='len\\(IS\\) == len\\(TS\\) \\+ 1'):
+            vineyard_prefactor([500.0] * 24, [400.0] * 29)
+
+
+class TestAtomSetGatesTrimming:
+    """build_rate_dict may only enable trimming once the states are known to
+    span the same degrees of freedom (real + imaginary)."""
+
+    def _inputs(self, tmp_path, is_real, is_imag, ts_real, ts_imag):
+        label = 'hopa_X'
+        ij, tj = str(tmp_path / 'IS.json'), str(tmp_path / 'TS.json')
+        _write_vib_json(ij, is_real, imag_freqs=is_imag)
+        _write_vib_json(tj, ts_real, imag_freqs=ts_imag)
+        neb = {label: {'E_abs': 0.4, 'E_des': 0.1, 'delta_E': 0.3, 'converged': True}}
+        return neb, {label: ij}, {label: tj}, label
+
+    def test_equal_dof_with_two_imaginary_ts_still_works(self):
+        """A TS with 2 imaginary modes spans the same DOF as its IS, so the
+        counts may be rebalanced — this is Al's hopb_s_1 (21 real/0 imag vs
+        19 real/2 imag, both 21 DOF)."""
+        import tempfile, pathlib
+        with tempfile.TemporaryDirectory() as d:
+            tmp = pathlib.Path(d)
+            neb, vis, vts, label = self._inputs(
+                tmp, [300.0] * 21, [], [300.0] * 19, [200.0, 210.0])
+            with warnings.catch_warnings(record=True):
+                warnings.simplefilter('always')
+                rd = build_rate_dict(neb, vis, vts, T_K=600.0)
+            assert label in rd
+
+    def test_unequal_dof_is_skipped(self):
+        """24+0 vs 29+1 DOF — different atom sets, must not produce a rate."""
+        import tempfile, pathlib
+        with tempfile.TemporaryDirectory() as d:
+            tmp = pathlib.Path(d)
+            neb, vis, vts, label = self._inputs(
+                tmp, [300.0] * 24, [], [300.0] * 29, [200.0])
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                rd = build_rate_dict(neb, vis, vts, T_K=600.0)
+            assert label not in rd
+            assert any('different degrees of freedom' in str(x.message) for x in w)

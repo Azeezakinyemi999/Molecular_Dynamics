@@ -2987,13 +2987,11 @@ else:
         _vib_is_e, _vib_ts_e = _split_vib_e(_vib_out_e)
         _vib_fs_e            = _split_vib_fs_e(_vib_out_e)
         print(f'  Diss vibs: IS={len(_vib_is_e)} TS={len(_vib_ts_e)} FS={len(_vib_fs_e)}')
-        # min_freq_cm1=0: the shared atom set puts metals near the separated-H
-        # positions into the IS too, where a compact H2* leaves them soft
-        # (6.9-35 cm^-1 for Al) while the spread-out TS has none below ~55. The
-        # default 50 cm^-1 cut would strip those from the IS only, breaking the
-        # count relation the prefactor needs. Keeping every real mode is the
-        # lesser evil: they are partial-Hessian artifacts, but dropping them
-        # asymmetrically between the states is worse than keeping them in both.
+        # The frequency cut stays at its default: build_rate_dict confirms the
+        # states span equal degrees of freedom and then lets the prefactor
+        # rebalance the counts by dropping the lowest survivors. Keeping every
+        # mode instead (the earlier min_freq_cm1=0) left near-zero TS artifacts
+        # in the denominator and inflated Ni's nu_rev to 6.2e14 s^-1.
         #
         # require_forward_nu=False: dissociation's forward rate is a
         # dimensionless sticking probability times a Hertz-Knudsen strike rate,
@@ -3002,7 +3000,6 @@ else:
         _rd_e = _brd_e(_neb_for_rd_e, _vib_is_e, _vib_ts_e,
                        T_K=700.0, apply_zpe=True,
                        vib_results_fs=_vib_fs_e,
-                       min_freq_cm1=0.0,
                        require_forward_nu=False)
 
         _diss_rates_e = {}
