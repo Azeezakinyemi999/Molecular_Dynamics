@@ -34,7 +34,7 @@ production diffusivity/permeability number.
 
 Usage
 -----
-    python build_ni_diffusivity_from_old.py
+    python calculation/tools/legacy/build_ni_diffusivity_from_old.py
 """
 import json
 import os
@@ -125,8 +125,8 @@ def main():
         json.dump(payload, f, indent=2)
     print(f'\nWrote: {out_json}')
     print(f'Ni now has Part 3 (n_H=1). Regenerate + run the permeation script:')
-    print(f'  python regenerate_permeation_scripts.py')
-    print(f'  python wrap_permeation_runs_west.py && sbatch slurm_permeation_run_{STEM}.sh')
+    print(f'  python calculation/tools/regenerate_permeation_scripts.py')
+    print(f'  python calculation/tools/wrap_permeation_runs_west.py && sbatch slurm_permeation_run_{STEM}.sh')
 
 
 if __name__ == '__main__':

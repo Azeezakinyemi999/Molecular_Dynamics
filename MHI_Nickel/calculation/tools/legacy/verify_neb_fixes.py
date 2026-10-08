@@ -35,7 +35,7 @@ script exercises the identical code path with the real MACE model.
 
 Usage
 -----
-    python verify_neb_fixes.py
+    python calculation/tools/legacy/verify_neb_fixes.py
 
 Run directly on a login node (the IS/FS relaxation is small -- a 26-atom
 slab, a few dozen ASE optimizer steps -- typically seconds; if your

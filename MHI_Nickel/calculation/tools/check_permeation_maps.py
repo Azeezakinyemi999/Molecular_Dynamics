@@ -21,8 +21,8 @@ metal's real data before committing to a multi-hour permeation run.
 
 Usage
 -----
-    python check_permeation_maps.py                 # all metals
-    python check_permeation_maps.py Hastelloy_N_1234_supercell   # one metal
+    python calculation/tools/check_permeation_maps.py                 # all metals
+    python calculation/tools/check_permeation_maps.py Hastelloy_N_1234_supercell   # one metal
 """
 import glob
 import json

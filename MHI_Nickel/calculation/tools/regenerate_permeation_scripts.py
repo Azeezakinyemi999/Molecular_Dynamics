@@ -21,7 +21,7 @@ a lighter validation run before committing to the full production settings.
 
 Usage
 -----
-    python regenerate_permeation_scripts.py
+    python calculation/tools/regenerate_permeation_scripts.py
 
 After this, wrap + submit with wrap_permeation_runs_west.py (a metal at a time).
 DH_DISS_EV / DH_ENTRY_EV are left None: the orchestrator auto-extracts them from
@@ -144,4 +144,4 @@ for _struct_path in INPUT_STRUCTURES:
 print(f'\n{len(perm_scripts)} permeation script(s) regenerated. Nothing was submitted.')
 print('Next: wrap + submit a metal whose Part 1 (surface NEB) and Part 3 '
       '(diffusivity) are complete:')
-print('  python wrap_permeation_runs_west.py')
+print('  python calculation/tools/wrap_permeation_runs_west.py')

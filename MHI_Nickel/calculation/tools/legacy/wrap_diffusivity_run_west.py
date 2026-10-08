@@ -19,7 +19,7 @@ generate-then-you-submit pattern.
 
 Usage
 -----
-    python wrap_diffusivity_run_west.py
+    python calculation/tools/legacy/wrap_diffusivity_run_west.py
 """
 import os
 import sys

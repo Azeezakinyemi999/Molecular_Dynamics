@@ -32,7 +32,7 @@ always overwrites its own output deterministically from the same inputs.
 
 Usage
 -----
-    python regenerate_diffusivity_script.py
+    python calculation/tools/legacy/regenerate_diffusivity_script.py
 """
 import os
 import sys

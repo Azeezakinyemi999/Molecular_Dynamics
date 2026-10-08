@@ -27,7 +27,7 @@ its own output deterministically from the same inputs.
 
 Usage
 -----
-    python regenerate_diffusivity_scripts.py
+    python calculation/tools/regenerate_diffusivity_scripts.py
 
 After this, wrap each script in its own trackable SLURM job with
 wrap_diffusivity_runs_west.py (mirrors wrap_neb_runs_west.py), rather than
@@ -158,4 +158,4 @@ for _struct_path in INPUT_STRUCTURES:
 
 print(f'\n{len(diffusivity_scripts)} script(s) regenerated. Nothing was submitted.')
 print('Next: wrap each in its own trackable SLURM job:')
-print('  python wrap_diffusivity_runs_west.py')
+print('  python calculation/tools/wrap_diffusivity_runs_west.py')
