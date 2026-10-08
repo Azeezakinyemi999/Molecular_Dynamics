@@ -43,8 +43,8 @@ from models.config import (
     ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
     SLURM_DEFAULTS, BASE_DIR, N_REPLICAS, SPRING_CONST, NEB_FTOL,
 )
+from models.materials import input_structures, classify_metal, skip_surface_reason
 from models.neb_workflow import write_neb_run_script, calculate_ref_adsorbate_energy
-from models.structure import is_pure_bcc_structure
 
 # ── cell 5 (Part 1 + metal classification + E_H2_GAS) ───────────────────────
 WORK_DIR = os.path.join(BASE_DIR, 'calculation')
@@ -71,27 +71,8 @@ NEB_CPU_SLURM = dict(SLURM_DEFAULTS, partition='short',
 NEB_VIB_SLURM = dict(SLURM_DEFAULTS, partition='short',
                      gpu=None, cpus_per_task=8,  time='06:00:00')
 
-INPUT_STRUCTURES = [
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_7_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Cr_oxide_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_42_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_111_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_1234_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_12345_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Al_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Fe_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Ni_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/bestsqs3.lmp'),
-    os.path.join(WORK_DIR, 'input_structure/Ni_oxide_supercell.lammps'),
-]
+INPUT_STRUCTURES = input_structures(WORK_DIR)
 
-def classify_metal(path):
-    stem = os.path.splitext(os.path.basename(path))[0].lower()
-    if 'oxide' in stem:
-        return 'oxide'
-    if any(k in stem for k in ('hastelloy', 'bestsqs', 'sqs', 'alloy')):
-        return 'alloy'
-    return 'pure'
 
 METAL_CONFIGS = []
 for _struct_path in INPUT_STRUCTURES:
@@ -106,13 +87,8 @@ for _struct_path in INPUT_STRUCTURES:
         'masses':      MASSES_10   if _mtype == 'oxide' else MASSES_7,
     })
 
-SKIP_OXIDE_STEMS = {'Ni_oxide_supercell'}
 for _cfg in METAL_CONFIGS:
-    _skip_reason = None
-    if _cfg['stem'] in SKIP_OXIDE_STEMS:
-        _skip_reason = 'polar oxide termination (GitHub #5)'
-    elif _cfg['type'] == 'pure' and is_pure_bcc_structure(_cfg['struct_path']):
-        _skip_reason = 'BCC surface/subsurface untested (GitHub #6)'
+    _skip_reason = skip_surface_reason(_cfg['struct_path'])
     _cfg['skip_surface'] = _skip_reason is not None
     _cfg['skip_reason']  = _skip_reason
 

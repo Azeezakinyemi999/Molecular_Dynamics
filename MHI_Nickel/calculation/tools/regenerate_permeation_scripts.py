@@ -43,8 +43,8 @@ from models.config import (
     SLURM_DEFAULTS, BASE_DIR, N_REPLICAS, SPRING_CONST, NEB_FTOL,
     ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
 )
+from models.materials import input_structures, classify_metal, skip_surface_reason
 from models.permeation_workflow import generate_permeation_scripts
-from models.structure import is_pure_bcc_structure
 
 WORK_DIR = os.path.join(BASE_DIR, 'calculation')
 
@@ -66,44 +66,20 @@ NEB_SLURM = dict(SLURM_DEFAULTS, partition='short', gpu=None,
 VIB_SLURM = dict(SLURM_DEFAULTS, partition='short', gpu=None,
                  cpus_per_task=8,  time='06:00:00')
 
-INPUT_STRUCTURES = [
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_7_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Cr_oxide_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_42_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_111_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_1234_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_12345_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Al_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Fe_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Ni_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/bestsqs3.lmp'),
-    os.path.join(WORK_DIR, 'input_structure/Ni_oxide_supercell.lammps'),
-]
+INPUT_STRUCTURES = input_structures(WORK_DIR)
 
 
-def classify_metal(path):
-    stem = os.path.splitext(os.path.basename(path))[0].lower()
-    if 'oxide' in stem:
-        return 'oxide'
-    if any(k in stem for k in ('hastelloy', 'bestsqs', 'sqs', 'alloy')):
-        return 'alloy'
-    return 'pure'
 
 
 # Same skip rule as regenerate_neb_scripts.py: no surface NEB was produced for
 # these, so there is no upstream for permeation either.
-SKIP_OXIDE_STEMS = {'Ni_oxide_supercell'}
 
 perm_scripts = {}
 for _struct_path in INPUT_STRUCTURES:
     stem   = os.path.splitext(os.path.basename(_struct_path))[0]
     mtype  = classify_metal(_struct_path)
 
-    skip_reason = None
-    if stem in SKIP_OXIDE_STEMS:
-        skip_reason = 'polar oxide termination (GitHub #5)'
-    elif mtype == 'pure' and is_pure_bcc_structure(_struct_path):
-        skip_reason = 'BCC surface/subsurface untested (GitHub #6)'
+    skip_reason = skip_surface_reason(_struct_path)
     if skip_reason:
         print(f'  [SKIP] {stem}: {skip_reason}')
         continue
