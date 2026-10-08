@@ -15,7 +15,7 @@ generate-then-you-submit pattern.
 
 Usage
 -----
-    python wrap_neb_runs_west.py
+    python calculation/tools/wrap_neb_runs_west.py
 """
 import glob
 import os

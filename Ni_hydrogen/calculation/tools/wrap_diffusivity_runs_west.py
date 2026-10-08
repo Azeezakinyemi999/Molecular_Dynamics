@@ -16,7 +16,7 @@ generate-then-you-submit pattern.
 
 Usage
 -----
-    python wrap_diffusivity_runs_west.py
+    python calculation/tools/wrap_diffusivity_runs_west.py
 """
 import glob
 import os

@@ -21,7 +21,7 @@ Use check_permeation_maps.py first to confirm readiness.
 
 Usage
 -----
-    python wrap_permeation_runs_west.py
+    python calculation/tools/wrap_permeation_runs_west.py
 """
 import glob
 import os

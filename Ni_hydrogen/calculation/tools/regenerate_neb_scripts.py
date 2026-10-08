@@ -19,7 +19,7 @@ deterministically from the same inputs.
 
 Usage
 -----
-    python regenerate_neb_scripts.py
+    python calculation/tools/regenerate_neb_scripts.py
 
 After this, launch each regenerated script manually (a metal at a time, or
 all at once, in the background) -- do NOT go through pipeline_run.py again,

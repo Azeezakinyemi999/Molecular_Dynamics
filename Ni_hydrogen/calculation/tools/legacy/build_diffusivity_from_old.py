@@ -35,7 +35,7 @@ check magnitudes are physically plausible), not production diffusivities.
 
 Usage
 -----
-    python build_diffusivity_from_old.py
+    python calculation/tools/legacy/build_diffusivity_from_old.py
 """
 import glob
 import json
