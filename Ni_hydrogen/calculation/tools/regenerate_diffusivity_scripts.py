@@ -47,24 +47,13 @@ from models.config import (
     ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
     BASE_DIR,
 )
+from models.materials import input_structures, classify_metal
 from models.diffusivity_workflow import write_diffusivity_run_script
 
 WORK_DIR = os.path.join(BASE_DIR, 'calculation')
 
 # ── Verbatim from regenerate_diffusivity_script.py ───────────────────────────
-INPUT_STRUCTURES = [
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_7_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Cr_oxide_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_42_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_111_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_1234_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Hastelloy_N_12345_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Al_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Fe_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/Ni_supercell.lammps'),
-    os.path.join(WORK_DIR, 'input_structure/bestsqs3.lmp'),
-    os.path.join(WORK_DIR, 'input_structure/Ni_oxide_supercell.lammps'),
-]
+INPUT_STRUCTURES = input_structures(WORK_DIR)
 N_H_VALUES   = [1, 3, 5, 10]
 TEMPERATURES = [400, 600, 800]
 
@@ -106,9 +95,11 @@ MIN_RESTART_EVERY = 2000
 # regenerate_neb_scripts.py's classify_metal() there is no 'pure' vs 'alloy'
 # distinction and no BCC/polar-oxide skip logic -- every structure below
 # gets a script. ─────────────────────────────────────────────────────────────
-def classify_metal(path):
-    stem = os.path.splitext(os.path.basename(path))[0].lower()
-    return 'oxide' if 'oxide' in stem else 'alloy'
+# classify_metal comes from models.materials. Diffusivity only ever tests
+# `== 'oxide'` (to pick the O-inclusive element table), so the shared
+# function's extra 'pure' vs 'alloy' distinction is harmless here -- it has no
+# surface/slab step, hence no BCC or polar-oxide skip: every structure gets a
+# script.
 
 diffusivity_scripts = {}
 for _struct_path in INPUT_STRUCTURES:
