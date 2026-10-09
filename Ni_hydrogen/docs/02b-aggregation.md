@@ -112,6 +112,10 @@ magnitude in contribution, so this rung is where most of the information in the
 environment table is discarded — deliberately, because that is what equilibrium
 does.
 
+![environment collapse](figures/f2_environment_collapse.png)
+
+**Figure 2.** Weight against influence. Compare the two panels: the majority environment on the left carries almost none of the solubility on the right, because the exponential outruns the weight. The imbalance eases as temperature rises and $k_BT$ grows. Fictitious data.
+
 > [!IMPORTANT]
 > An environment can dominate $S$ while holding a small share of the sites, and
 > conversely a majority environment can contribute almost nothing. Reporting
