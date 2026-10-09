@@ -14,6 +14,7 @@ everything else is built from.
 | **Outputs** | a relaxed band per pathway, its barrier, reaction energy, convergence flag and final force; the saddle geometry |
 | **Code** | [`models/ase_neb.py`](../../models/ase_neb.py), [`models/neb_workflow.py`](../../models/neb_workflow.py) |
 | **Theory** | [Part II §3](../02-theory.md#3-energetics) |
+| **Figures it writes** | `mep.png` per pathway; `neb_mep_overlay_*.png`; `neb_mep_full_pathway.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
 
 ## Concepts
 

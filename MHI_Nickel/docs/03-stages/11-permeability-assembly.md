@@ -17,6 +17,7 @@ This is the only stage where the surface chain and the bulk chain meet.
 | **Code** | [`models/permeation.py`](../../models/permeation.py), [`models/permeation_workflow.py`](../../models/permeation_workflow.py) |
 | **Theory** | [Part II §9](../02-theory.md#9-permeability) |
 | **Aggregation** | rungs [A11, A12](../02b-aggregation.md#1-the-ladder) |
+| **Figures it writes** | `permeability_arrhenius.png`, `permeation_summary.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
 
 ## Concepts
 
