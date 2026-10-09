@@ -107,3 +107,11 @@ Ni_hydrogen/calculation/pipeline_run.sh
 Ni_hydrogen/calculation/az.txt
 Ni_hydrogen/calculation/yes
 Ni_hydrogen/calculation/test.ipynb
+
+
+# saddleclimb
+saddleclimb/
+
+# Sphinx docs build
+Ni_hydrogen/docs/_build/
+Ni_hydrogen/docs/.mplcache/
