@@ -51,7 +51,7 @@ import numpy as np
 # Section 1 — Physical constants
 # ---------------------------------------------------------------------------
 
-KB_EV          = 8.617333e-5   # eV K⁻¹  (Boltzmann constant)
+KB_EV          = 8.617333262e-5  # eV K⁻¹  (Boltzmann constant, CODATA 2018)
 ANG2_PS_TO_M2S = 1e-8          # Å² ps⁻¹ → m² s⁻¹
 
 
