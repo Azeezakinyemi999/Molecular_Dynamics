@@ -256,7 +256,106 @@ the vibration calculation itself changed.
 
 ---
 
-## 5. Conventions that will bite you
+## 5. Getting the results out
+
+Everything above stops when the jobs finish. This is how a finished run becomes
+figures and tables. None of it touches the cluster — it reads artifacts that are
+already on disk and runs in seconds, so it is safe to re-run freely.
+
+### 5a. Plot
+
+Eight scripts under `models/plots/`. They share run discovery, so they all take
+the same `--pattern` and `--outdir`.
+
+**Diffusivity side** — needs Part 3 only:
+
+```bash
+PY=/home/akinyemi.az/miniforge3/envs/mace-lammps/bin/python   # check this matches your environment
+OUT=calculation/results/plots
+
+$PY models/plots/diffusivity_plot.py       --pattern 'Ni_supercell_*' --outdir $OUT
+$PY models/plots/msd_plot.py               --pattern 'Ni_supercell_*' --outdir $OUT
+$PY models/plots/arrhenius_params_plot.py  --pattern 'Ni_supercell_*' --outdir $OUT
+$PY models/plots/thermal_expansion.py      --outdir $OUT
+```
+
+**Permeation side** — needs Parts 1, 2 and 3:
+
+```bash
+$PY models/plots/permeability_plot.py  --pattern 'Ni_supercell_*H' --outdir $OUT
+$PY models/plots/solubility_plot.py    --pattern 'Ni_supercell_*H' --outdir $OUT
+$PY models/plots/environment_plot.py   --pattern 'Ni_supercell'    --outdir $OUT
+$PY models/plots/neb_mep_plot.py       --pattern 'Ni_supercell'    --outdir $OUT
+```
+
+Two patterns, not one: `environment_plot` and `neb_mep_plot` work on the
+**material** (`Ni_supercell`), because per-environment enthalpies and barriers
+do not depend on H loading. The rest work on **runs** (`Ni_supercell_*H`).
+
+Per-run figures land in `results/{run}/analysis/`, cross-run ones in
+`results/plots/`. Pass two or more materials to a pattern and the cross-material
+comparison panels appear as well.
+
+Appendix C2 of [`docs/`](docs/05-appendices.md#c2-figure-catalogue) lists every
+figure type, what it shows, and what to look at in it.
+
+### 5b. Export
+
+One command collects a finished material into a folder you can hand to someone:
+
+```bash
+$PY models/plots/export_results.py --stem Ni_supercell
+```
+
+Writes to `calculation/results/export/{stem}/`:
+
+| | |
+|---|---|
+| `part1_dissociation.csv` | per pathway: sites, barriers both directions, ZPE-corrected values, prefactors, state-quality census |
+| `part2_hop_barriers.csv` | Hop A/B per site, with environments |
+| `part2_tst_rates.csv` | forward and reverse rates per temperature |
+| `part2_solubility_by_env.csv` | ΔH_sol per environment with weights |
+| `part3_diffusivity_vs_T.csv` | D(T) per loading, in at.% H |
+| `part3_diffusivity_fits.csv` | D₀, E_D, errors, **and how many positive points each fit used** |
+| `overall_permeability.csv` | Φ₀, E_Φ per loading per route, each marked `headline` or `diagnostic` |
+| `figures/` | every figure belonging to that material |
+| `SUMMARY.md` | the above, plus caveats generated from the data |
+
+Read `SUMMARY.md` first. Its caveats are derived, not written by hand, so they
+catch things that are easy to miss by eye — how many dissociation pathways have
+both a relaxed initial state and a resolved saddle, which hop lost sites to an
+unconverged band, and whether any loading sits in the dilute limit.
+
+### 5c. Before quoting any number
+
+Five checks, in the order they bite:
+
+1. **Did the MSD converge?** `msd_plot.py` prints a half-vs-half slope ratio per
+   run and temperature. Outside 0.75–1.25 means the trace is not diffusive
+   there. **A per-temperature R² above 0.99 does not catch this.**
+2. **How many points are behind the fit?** `part3_diffusivity_fits.csv` has a
+   `n_positive_D_points` column. Two points is zero degrees of freedom, and the
+   R² of 1.0 it reports is arithmetic, not evidence.
+3. **Which solubility route?** `geometric` and `vibrational` are the reported
+   pair and differ by orders of magnitude by construction — quote both as a
+   bracket. `detailed_balance` is a **diagnostic**, not a solubility.
+4. **Is the loading dilute?** Richardson–Sieverts assumes it. The permeability
+   payload carries a flag; no loading here is both dilute and well sampled, so
+   state which compromise the number represents.
+5. **Is a quoted σ real?** A standard error of exactly zero means the group had
+   one member, i.e. unmeasurable — not precise.
+
+### 5d. Flags that change the answer
+
+| flag | default | effect |
+|---|---|---|
+| `--include-1h` | off | single-H runs are **excluded by default** — one H atom is one random walker with no ensemble average, and every 1H fit inspected so far is unsound |
+| `--mep-reference formation` | `chained` | draws the NEB stages at their true formation energy instead of shifting them to meet, so the H–H interaction at the seam is shown rather than assumed |
+| `--pattern` | varies | **check it.** `diffusivity_plot`, `msd_plot` and `arrhenius_params_plot` default to `Al*`; the permeation-side scripts default to `*`. Running one unqualified silently plots the wrong material, or every material at once. |
+
+---
+
+## 6. Conventions that will bite you
 
 **Use the absolute path to Python.** `conda activate` gets killed on the login
 node:
@@ -290,19 +389,41 @@ or you will keep the old answer.
 
 ---
 
-## 6. Where to read more
+## 7. Where to read more
+
+**Start with [`docs/`](docs/README.md)** — the method reference. It documents
+how the codebase works: what each stage does, why it is done that way, and the
+equations behind it. Eleven stage sections, every equation with its units, and
+a troubleshooting guide organised by symptom.
 
 | document | what it is for |
 |---|---|
-| `Project2_surface_labeling/PIPELINE_GUIDE.md` | **the deep guide** — the physics of each stage, the equations, every output file's schema. Read after this README. |
-| `Project2_surface_labeling/multiscale_permeation_plan.md` | the design: why the pipeline is shaped this way, phase by phase |
-| `Project2_surface_labeling/Project2_Surface_Graph_Explainer (1).md` | surface site identification and labelling. **Despite the name, this is the newer and fuller version** — twice the length of the file without the `(1)`. |
+| [`docs/README.md`](docs/README.md) | index and reading order — go here first |
+| [`docs/01-overview.md`](docs/01-overview.md) | what the workflow answers, the stage map, assumptions and limits |
+| [`docs/02-theory.md`](docs/02-theory.md) | every equation, definition and invariant, with units |
+| [`docs/02b-aggregation.md`](docs/02b-aggregation.md) | how many quantities become one, at each of twelve points |
+| [`docs/03-stages/`](docs/03-stages/) | one section per stage, eleven in all |
+| [`docs/04-practical.md`](docs/04-practical.md) | troubleshooting, the marker inventory, the code map |
+| [`docs/05-appendices.md`](docs/05-appendices.md) | notation, every setting, output-file schemas, the figure catalogue |
+
+Still current, not superseded:
+
+| document | what it is for |
+|---|---|
+| `Project2_surface_labeling/Project2_Surface_Graph_Explainer (1).md` | surface site identification and labelling, stage by stage. **Despite the name this is the newer, fuller version** — twice the length of the file without the `(1)`. |
 | `Project2_surface_labeling/Project2_Subsurface_Graph_Explainer.md` | the subsurface interstitial graph that Hop A/B traverse |
 | `Project2_surface_labeling/pipeline_changes_plan.md` | the idempotency/checkpoint design |
-| `audits/test_plan.md`, `audits/functional_test_plan.md` | what the 1626 tests cover and why |
+| `audits/test_plan.md`, `audits/functional_test_plan.md` | what the tests cover and why |
 | `audits/task_*_audit.md` | per-task audits from specific pieces of work |
-| `audits/error_propagation_plan.md` | how uncertainties are (and are not) propagated |
 | `audits/oxide_support_plan.md` | what would be needed to support oxides properly |
+
+> **Superseded — kept for history only.** `PIPELINE_GUIDE.md`,
+> `multiscale_permeation_plan.md` and `audits/error_propagation_plan.md`
+> describe the pipeline as it stood before the October 2026 physics
+> corrections — the reverse barrier and prefactor built from the final state,
+> the refusal of a prefactor when the mode counts cannot be a frequency, the
+> state-quality census, and the quasi-harmonic floor. Each carries a header
+> saying so. Where they disagree with `docs/`, `docs/` is current.
 
 Section numbers in the audits refer to each other; a number left empty is
 deliberate, the same convention as Phase 5.
