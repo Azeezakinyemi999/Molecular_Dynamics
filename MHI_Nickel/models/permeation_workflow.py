@@ -1177,7 +1177,9 @@ def plot_permeation_summary(results_dir, temperatures):
         axA.plot(1000.0 / Tg, np.log10(S0 * np.exp(-dH / (_KB * Tg))),
                  ls, color=col, lw=(2.0 if head else 1.2), alpha=(1.0 if head else 0.7))
         _has_err = (dHe is not None and dHe == dHe)  # finite (NaN fails self-eq)
-        _lbl = f'{route} (ΔH={dH:+.2f}' + (f'±{dHe:.2f}' if _has_err else '') + ' eV)'
+        # 4 dp, not 2: a σ of ~1e-3 eV is real but renders as "±0.00" at 2 dp,
+        # which reads as an exact value. Matches plots/solubility_plot.py.
+        _lbl = f'{route} (ΔH={dH:+.4f}' + (f'±{dHe:.4f}' if _has_err else '') + ' eV)'
         axA.scatter(1000.0 / Tp, np.log10(Sp), marker=mk, color=col,
                     s=(45 if head else 20), zorder=5, label=_lbl)
     axA.set_xlabel('1000 / T  [K$^{-1}$]')
@@ -1199,7 +1201,7 @@ def plot_permeation_summary(results_dir, temperatures):
         logPhi = np.log10(Phi0 * np.exp(-Eph / (_KB * Tg)))
         axB.plot(1000.0 / Tg, logPhi, ls, color=col,
                  lw=(2.0 if head else 1.2), alpha=(1.0 if head else 0.7),
-                 label=f'{route} (E$_\\Phi$={Eph:+.2f}±{Ephe:.2f} eV)')
+                 label=f'{route} (E$_\\Phi$={Eph:+.4f}±{Ephe:.4f} eV)')
         if head:  # shaded propagated band  σ_lnΦ(T)=√(Φ0_rel² + (E_Φ_err/kT)²)
             sig = np.sqrt(p0re ** 2 + (Ephe / (_KB * Tg)) ** 2) / np.log(10.0)
             axB.fill_between(1000.0 / Tg, logPhi - sig, logPhi + sig, color=col, alpha=0.15)
