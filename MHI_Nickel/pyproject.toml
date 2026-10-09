@@ -1,0 +1,21 @@
+# Packaging metadata for the hydrogen-permeation codebase.
+#
+# The package is NOT published and does not need to be installed: docs/conf.py
+# puts this directory on sys.path so autodoc can import `models` directly.
+# This file exists to carry the version and the docs dependency set.
+
+[project]
+name = "mhi-permeation"
+version = "0.1.0"
+description = "Hydrogen permeation through metal membranes: NEB, TST and MD pipeline"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.2,<8",       # <8: Sphinx 8 requires Python >= 3.10
+    "myst-parser>=2,<3",    # <3: myst-parser 3 requires Python >= 3.10
+    "furo>=2024.1",
+]
+
+[tool.setuptools]
+packages = ["models"]

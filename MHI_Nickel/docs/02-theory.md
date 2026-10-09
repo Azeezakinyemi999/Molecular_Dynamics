@@ -1,15 +1,15 @@
 # Part II — Theory
 
 Every equation, definition and invariant the workflow relies on, in one place,
-with units. The stage sections in [`03-stages/`](03-stages/) link here by
+with units. The stage sections in [`03-stages/`](03-stages/README.md) link here by
 equation number instead of restating any of this.
 
 > [!NOTE]
 > **Scope.** This part describes the method only. It contains no numbers from any
 > real calculation; the figures and worked values come from the fictitious system
-> in [`figures/example/toy.py`](figures/example/toy.py). Every numbered equation
+> in [`figures/example/toy.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/example/toy.py). Every numbered equation
 > below is verified against the code by
-> [`figures/check_equations.py`](figures/check_equations.py), which prints one
+> [`figures/check_equations.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/check_equations.py), which prints one
 > `PASS`/`FAIL` line per equation. Checked against ASE 3.26.0, MACE 0.3.8,
 > NumPy 1.26.4, SciPy 1.13.1 on 2026-10-09. Re-check with:
 >
@@ -601,36 +601,36 @@ Each equation, the function implementing it, and the check that verifies it.
 
 | eq | quantity | implemented in | checked as |
 |---|---|---|---|
-| T1 | barriers | [`energetics.py`](../models/energetics.py) | — (definition) |
-| T2 | reaction energy | [`energetics.py`](../models/energetics.py) | — (definition) |
-| T3 | $\mathrm{cm^{-1}}\to\mathrm{eV}$ | [`tst_rates.py`](../models/tst_rates.py) | `unit: cm^-1 -> eV` |
-| T4 | $\mathrm{\mathring A^2/ps}\to\mathrm{m^2/s}$ | [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) | `unit: A^2/ps -> m^2/s` |
-| T5 | binding energy | [`energetics.py`](../models/energetics.py) | — |
-| T6a | forward ZPE | [`tst_rates.py`](../models/tst_rates.py) | `ZPE: forward barrier ...` |
-| T6b | reverse ZPE, from FS | [`tst_rates.py`](../models/tst_rates.py) | `ZPE: reverse barrier uses FS, not IS` |
-| T7 | quasi-harmonic floor | [`tst_rates.py`](../models/tst_rates.py) | `Vineyard: nu* = ...` (floor branch) |
-| T8 | Vineyard prefactor | [`tst_rates.py`](../models/tst_rates.py) | `Vineyard: nu* = ...` |
-| T9 | $q_{\mathrm{vib}}$ | [`tst_rates.py`](../models/tst_rates.py) | `q_vib = prod ...` |
-| T10 | TST rate | [`tst_rates.py`](../models/tst_rates.py) | `k = nu * exp(-Ea / kB T)` |
-| T11–T12 | strike rate, coverage | [`permeation.py`](../models/permeation.py) | via T18 |
-| T13 | $\Delta H_{\mathrm{sol}}(e)$ | [`permeation.py`](../models/permeation.py) | `dH_sol(...) = 1/2 dH_diss + dH_HopA` |
-| T14 | environment sum | [`permeation.py`](../models/permeation.py) | `S(T) = S0 * sum_env ...` |
-| T14a | Sieverts limit | [`permeation.py`](../models/permeation.py) | `single environment reduces to Sieverts` |
-| T15 | $S_0^{\mathrm{geo}}$ | [`permeation.py`](../models/permeation.py) | `S0 geometric = 4 / (a0^3 N_A)` |
-| T16 | $S_0^{\mathrm{vib}}$ | [`permeation.py`](../models/permeation.py) | via T9 |
-| T17 | Langmuir | [`permeation.py`](../models/permeation.py) | — |
-| T18 | rate-based $S$ | [`permeation.py`](../models/permeation.py) | — (diagnostic) |
-| T19 | MSD | [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) | — |
-| T20 | Einstein | [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) | `Einstein: D = slope / 6` |
-| T21 | convergence ratio | [`plots/msd_plot.py`](../models/plots/msd_plot.py) | — |
+| T1 | barriers | [`energetics.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/energetics.py) | — (definition) |
+| T2 | reaction energy | [`energetics.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/energetics.py) | — (definition) |
+| T3 | $\mathrm{cm^{-1}}\to\mathrm{eV}$ | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | `unit: cm^-1 -> eV` |
+| T4 | $\mathrm{\mathring A^2/ps}\to\mathrm{m^2/s}$ | [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) | `unit: A^2/ps -> m^2/s` |
+| T5 | binding energy | [`energetics.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/energetics.py) | — |
+| T6a | forward ZPE | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | `ZPE: forward barrier ...` |
+| T6b | reverse ZPE, from FS | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | `ZPE: reverse barrier uses FS, not IS` |
+| T7 | quasi-harmonic floor | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | `Vineyard: nu* = ...` (floor branch) |
+| T8 | Vineyard prefactor | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | `Vineyard: nu* = ...` |
+| T9 | $q_{\mathrm{vib}}$ | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | `q_vib = prod ...` |
+| T10 | TST rate | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | `k = nu * exp(-Ea / kB T)` |
+| T11–T12 | strike rate, coverage | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | via T18 |
+| T13 | $\Delta H_{\mathrm{sol}}(e)$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `dH_sol(...) = 1/2 dH_diss + dH_HopA` |
+| T14 | environment sum | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `S(T) = S0 * sum_env ...` |
+| T14a | Sieverts limit | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `single environment reduces to Sieverts` |
+| T15 | $S_0^{\mathrm{geo}}$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `S0 geometric = 4 / (a0^3 N_A)` |
+| T16 | $S_0^{\mathrm{vib}}$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | via T9 |
+| T17 | Langmuir | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | — |
+| T18 | rate-based $S$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | — (diagnostic) |
+| T19 | MSD | [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) | — |
+| T20 | Einstein | [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) | `Einstein: D = slope / 6` |
+| T21 | convergence ratio | [`plots/msd_plot.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/plots/msd_plot.py) | — |
 | T22 | $D(T)$ | two modules, **reversed arguments** | `D(T) = ...` (both orders) |
-| T22a | Arrhenius fit | [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) | `Arrhenius fit recovers D0` / `E_a` |
-| T23 | atomic percent | [`plots/diffusivity_plot.py`](../models/plots/diffusivity_plot.py) | — |
-| T24 | $\Phi = DS$ | [`permeation.py`](../models/permeation.py) | `Phi = D * S` |
-| T25 | $\Phi_0$, $E_\Phi$ | [`permeation.py`](../models/permeation.py) | `Phi0 = D0 * S0`, `E_Phi = E_D + dH_sol` |
-| T26 | Richardson flux | [`permeation.py`](../models/permeation.py) | `J = (Phi / L) ...` |
-| T27 | Fick flux | [`permeation.py`](../models/permeation.py) | — |
-| T28–T30 | error propagation | [`permeation.py`](../models/permeation.py) | `... add in quadrature` |
+| T22a | Arrhenius fit | [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) | `Arrhenius fit recovers D0` / `E_a` |
+| T23 | atomic percent | [`plots/diffusivity_plot.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/plots/diffusivity_plot.py) | — |
+| T24 | $\Phi = DS$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `Phi = D * S` |
+| T25 | $\Phi_0$, $E_\Phi$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `Phi0 = D0 * S0`, `E_Phi = E_D + dH_sol` |
+| T26 | Richardson flux | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `J = (Phi / L) ...` |
+| T27 | Fick flux | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | — |
+| T28–T30 | error propagation | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | `... add in quadrature` |
 
 > [!IMPORTANT]
 > (T22) exists in two modules with **reversed argument order**: one takes

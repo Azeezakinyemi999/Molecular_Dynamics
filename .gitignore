@@ -107,3 +107,11 @@ MHI_Nickel/calculation/pipeline_run.sh
 MHI_Nickel/calculation/az.txt
 MHI_Nickel/calculation/yes
 MHI_Nickel/calculation/test.ipynb
+
+
+# saddleclimb
+saddleclimb/
+
+# Sphinx docs build
+MHI_Nickel/docs/_build/
+MHI_Nickel/docs/.mplcache/

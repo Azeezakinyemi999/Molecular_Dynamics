@@ -16,7 +16,7 @@ energy differences between states do.
 |---|---|
 | **Inputs** | ranked dissociation results; the entry-hop rate dictionary; the lattice parameter |
 | **Outputs** | `dH_sol_by_env.json` (once per material); $S(T)$ per route, per temperature |
-| **Code** | [`models/permeation.py`](../../models/permeation.py) §3b, [`models/permeation_workflow.py`](../../models/permeation_workflow.py) |
+| **Code** | [`models/permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) §3b, [`models/permeation_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation_workflow.py) |
 | **Theory** | [Part II §7](../02-theory.md#7-solubility) |
 | **Aggregation** | rungs [A3, A4, A5](../02b-aggregation.md#1-the-ladder) |
 | **Figures it writes** | `env_dH_sol.png`, `solubility_arrhenius.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |

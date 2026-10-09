@@ -13,7 +13,7 @@ on, and the environment labels the solubility sum is grouped by.
 |---|---|
 | **Inputs** | the relaxed slab; the surface sites from [Stage 3](03-surface-site-mapping.md) |
 | **Outputs** | classified interstitial sites with environment labels; a surface→first→second mapping |
-| **Code** | [`models/subsurface_graph.py`](../../models/subsurface_graph.py), [`models/neb_subsurface.py`](../../models/neb_subsurface.py) |
+| **Code** | [`models/subsurface_graph.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/subsurface_graph.py), [`models/neb_subsurface.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/neb_subsurface.py) |
 | **Prior art** | adapted from the subsurface-graph explainer in `Project2_surface_labeling/`, whose algorithm is unchanged |
 
 ## Concepts
