@@ -111,6 +111,14 @@ and their neighbour shells no longer overlap. Computing "nearest six metals per
 hydrogen" independently at each state therefore yields **different atom sets** —
 and so different mode counts.
 
+![union mobile set](../figures/f6_union_mobile_set.png)
+
+**Figure 1.** Why the mobile set is supplied rather than recomputed. Compare
+the displaced-atom counts: the two hydrogens share most of their neighbours
+when the molecule is intact, and share far fewer once separated, so per-state
+selection gives two different subsystems. The union (right) is the smallest set
+valid for both. Schematic.
+
 Two things break at once:
 
 - $\mathrm{ZPE_{TS}} - \mathrm{ZPE_{IS}}$ becomes a difference between

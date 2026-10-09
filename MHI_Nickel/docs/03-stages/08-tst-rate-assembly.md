@@ -83,6 +83,36 @@ For each pathway, in this order:
    the source marker, the census verdicts, the raw and significant imaginary
    counts, and the threshold used.
 
+```mermaid
+flowchart TD
+    A["pathway"] --> B{"IS and TS<br/>frequencies present?"}
+    B -->|no| SKIP["SKIP · named in the skip list"]
+    B -->|yes| C["census imaginary modes<br/>against the significance threshold"]
+    C --> D{"IS has none?<br/>TS has exactly one?"}
+    D -->|no| W1["WARN · record the verdict<br/>and carry on"]
+    D -->|yes| E
+    W1 --> E{"same total<br/>degrees of freedom?"}
+    E -->|no| W2["WARN · different atoms displaced"]
+    E -->|yes| F
+    W2 --> F{"FS frequencies<br/>available?"}
+    F -->|no| G1["fall back to IS<br/>zpe_source = fallback"]
+    F -->|yes| G2["use FS<br/>zpe_source = FS"]
+    G1 --> H
+    G2 --> H{"forward prefactor<br/>computable?"}
+    H -->|no, and required| SKIP
+    H -->|"no, not required<br/>(dissociation)"| I1["keep · forward prefactor null"]
+    H -->|yes| I2["forward prefactor"]
+    I1 --> J["reverse prefactor<br/>from FS"]
+    I2 --> J
+    J --> K["ZPE: forward vs IS,<br/>reverse vs FS"]
+    K --> L["rates, census and<br/>source marker in the payload"]
+```
+
+**Figure 1.** The branch structure of rate assembly. Note that only two
+conditions discard a pathway — missing frequencies, and a required prefactor
+that could not be formed. Everything else **warns and carries the verdict
+forward**, so the judgement is made downstream with the rest of the context.
+
 ## Design choices
 
 ### Why the degrees of freedom are compared before anything else

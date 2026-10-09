@@ -82,6 +82,13 @@ $\Delta H_{\mathrm{sol}}$ counts dissociation and entry, and nothing deeper.
 Motion from the first subsurface site onwards is bulk transport, and bulk
 transport is already represented by $D$.
 
+![solution enthalpy ladder](../figures/f10_dh_sol_ladder.png)
+
+**Figure 1.** What the solution enthalpy counts. Follow the red arrow: it spans
+only the gas-to-first-subsurface step, built from the two green contributions.
+Everything to the right of the dashed line is transport and belongs to $D$.
+Fictitious energies.
+
 Including the deeper hop here would count the same physics in both factors of
 $\Phi = DS$. The boundary is therefore not arbitrary: it is the line between
 *getting in* and *moving through*, and each side belongs to exactly one factor.

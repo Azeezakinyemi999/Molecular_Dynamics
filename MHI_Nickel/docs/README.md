@@ -90,6 +90,7 @@ Full notation is [Appendix A](05-appendices.md#a-notation).
 |---|---|
 | [`figures/example/toy.py`](figures/example/toy.py) | a fictitious material that runs through every stage in seconds, so nothing here needs a real run |
 | [`figures/check_equations.py`](figures/check_equations.py) | verifies every equation in Part II against the code; prints `PASS`/`FAIL` per check |
+| [`figures/make_figures.py`](figures/make_figures.py) | regenerates all ten drawn figures from that example; the mermaid diagrams live inline in the text |
 | [`CHECKPOINT.md`](CHECKPOINT.md) | working state: decisions taken, archaeology, and what remains |
 
 ## What this supersedes

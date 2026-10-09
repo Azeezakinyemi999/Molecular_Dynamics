@@ -111,6 +111,35 @@ that stage to repeat; deleting none means a re-run is nearly free.
 > fitting. They are separate, so a loading can hold complete trajectories and
 > no fit. Delete the wrong one and you repeat the expensive half for nothing.
 
+```mermaid
+flowchart TD
+    subgraph CHEAP["seconds to minutes — delete freely"]
+        M1["phase3.done<br/><i>diffusivity fit</i>"]
+        M2["rate_T&lcub;T&rcub;K.done<br/><i>rate assembly</i>"]
+        M3["permeability_T&lcub;T&rcub;K.done<br/><i>permeability</i>"]
+        M4["sites.done<br/><i>site mapping</i>"]
+    end
+    subgraph MID["hours — think first"]
+        M5["vib.done<br/><i>one state's Hessian</i>"]
+        M6["relax.done<br/><i>surface relaxation</i>"]
+        M7["fsmin.done · h_&lcub;site&rcub;.done"]
+    end
+    subgraph DEAR["GPU-days — be certain"]
+        M8["nvt_&lcub;T&rcub;K_chain.sh.done<br/><i>the dynamics</i>"]
+        M9["npt_&lcub;T&rcub;K.done<br/><i>constant pressure</i>"]
+    end
+    M8 -.->|"these two are adjacent<br/>and easily confused"| M1
+
+    style CHEAP fill:#e8f2e8,stroke:#2e7d32
+    style MID fill:#fdf6e3,stroke:#b8860b
+    style DEAR fill:#f9e4e4,stroke:#b03a2e
+```
+
+**Figure 1.** Markers grouped by what deleting one costs. Look at the dashed
+link: the dynamics marker and the fit marker belong to the *same* stage and the
+same loading, but differ in cost by about five orders of magnitude. Deleting
+the wrong one is the most expensive mistake available here.
+
 Two stages check a marker **and** its output, and re-run unless both are
 present: rate assembly and permeability. The rest check the marker only.
 
