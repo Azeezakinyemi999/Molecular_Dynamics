@@ -152,3 +152,52 @@ class TestPipelineNotebookUsesSharedModule:
 
     def test_has_no_local_classify_metal(self):
         assert 'def classify_metal' not in self._config_cell()
+
+
+class TestTemperatureCeiling:
+    """A grid above a material's melting point measures liquid diffusion.
+
+    That is a different transport mechanism, it produces numbers rather than an
+    error, and those numbers would silently corrupt a solid-state Arrhenius fit.
+    These guard the cap that prevents it.
+    """
+
+    GRID = [400, 600, 800, 1000, 1200]
+
+    def test_aluminium_is_capped_below_its_melting_point(self):
+        from models.materials import usable_temperatures, melting_point_K
+        keep = usable_temperatures('Al_supercell.lammps', self.GRID)
+        assert keep == [400, 600, 800]
+        assert all(T < melting_point_K('Al_supercell.lammps') for T in keep)
+
+    def test_nickel_keeps_the_whole_grid(self):
+        from models.materials import usable_temperatures
+        assert usable_temperatures('Ni_supercell.lammps', self.GRID) == self.GRID
+
+    def test_dropped_and_usable_partition_the_grid(self):
+        from models.materials import usable_temperatures, dropped_temperatures
+        for name in ('Al_supercell.lammps', 'Ni_supercell.lammps'):
+            keep = usable_temperatures(name, self.GRID)
+            drop = dropped_temperatures(name, self.GRID)
+            assert sorted(keep + drop) == sorted(self.GRID)
+            assert not set(keep) & set(drop)
+
+    def test_unknown_material_is_passed_through_not_silently_emptied(self):
+        from models.materials import usable_temperatures, melting_point_K
+        assert melting_point_K('not_a_real_material.lammps') is None
+        assert usable_temperatures('not_a_real_material.lammps',
+                                   self.GRID) == self.GRID
+
+    def test_every_input_structure_has_a_melting_point(self):
+        """Adding a material without one leaves its grid uncapped, silently."""
+        from models.materials import INPUT_STRUCTURE_FILES, melting_point_K
+        missing = [f for f in INPUT_STRUCTURE_FILES
+                   if melting_point_K(f) is None]
+        assert not missing, (
+            'no melting point recorded for: ' + ', '.join(missing) +
+            ' — add one to models.materials.MELTING_POINT_K, or its '
+            'temperature grid will not be capped')
+
+    def test_ceiling_is_below_melting(self):
+        from models.materials import MAX_HOMOLOGOUS_T
+        assert 0.0 < MAX_HOMOLOGOUS_T < 1.0

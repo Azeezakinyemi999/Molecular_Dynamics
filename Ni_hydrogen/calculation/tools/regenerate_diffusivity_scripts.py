@@ -47,7 +47,9 @@ from models.config import (
     ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
     BASE_DIR,
 )
-from models.materials import input_structures, classify_metal
+from models.materials import (input_structures, classify_metal,
+                              usable_temperatures, dropped_temperatures,
+                              melting_point_K, MAX_HOMOLOGOUS_T)
 from models.diffusivity_workflow import write_diffusivity_run_script
 
 WORK_DIR = os.path.join(BASE_DIR, 'calculation')
@@ -55,7 +57,12 @@ WORK_DIR = os.path.join(BASE_DIR, 'calculation')
 # ── Verbatim from regenerate_diffusivity_script.py ───────────────────────────
 INPUT_STRUCTURES = input_structures(WORK_DIR)
 N_H_VALUES   = [1, 3, 5, 10]
-TEMPERATURES = [400, 600, 800]
+# One grid for every material. Each one is then clamped to the temperatures it
+# can physically sustain -- see models.materials.usable_temperatures. A run
+# above a material's melting point measures LIQUID diffusion, which must never
+# reach a solid-state Arrhenius fit, so this list is deliberately a request
+# rather than an instruction.
+TEMPERATURES = [400, 600, 800, 1000, 1200]
 
 NVT_WALL_TIME = '24:00:00'
 CUTOFF        = '23:55:00'
@@ -106,11 +113,27 @@ for _struct_path in INPUT_STRUCTURES:
     _stem  = os.path.splitext(os.path.basename(_struct_path))[0]
     _mtype = classify_metal(_struct_path)
     _out = os.path.join(WORK_DIR, f'diffusivity_run_{_stem}.py')
+
+    _temps   = usable_temperatures(_struct_path, TEMPERATURES)
+    _dropped = dropped_temperatures(_struct_path, TEMPERATURES)
+    if _dropped:
+        print(f'  [CAP]  {_stem}: dropping {_dropped} K — above '
+              f'{MAX_HOMOLOGOUS_T:.0%} of its melting point '
+              f'({melting_point_K(_struct_path):.0f} K). Running there would '
+              f'measure liquid diffusion.')
+    if melting_point_K(_struct_path) is None:
+        print(f'  [WARN] {_stem}: no melting point recorded, so the grid is '
+              f'NOT capped. Add one to models.materials.MELTING_POINT_K.')
+    if not _temps:
+        print(f'  [SKIP] {_stem}: no requested temperature is below its '
+              f'ceiling.')
+        continue
+
     write_diffusivity_run_script(
         struct_path         = _struct_path,
         stem                = _stem,
         n_h_values          = N_H_VALUES,
-        temperatures        = TEMPERATURES,
+        temperatures        = _temps,
         work_dir            = WORK_DIR,
         nvt_wall_time       = NVT_WALL_TIME,
         cutoff              = CUTOFF,
