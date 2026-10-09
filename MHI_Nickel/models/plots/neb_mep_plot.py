@@ -34,8 +34,12 @@ The dissociation cell holds two H (from H₂); the hop cells hold one. Chaining
 costs the same whether or not a second H is adsorbed. That is testable rather
 than assumed: with ``E_clean`` and ``E(H₂)`` this module compares the formation
 energy of the adsorbed pair against the sum of the two isolated adsorbates and
-prints the residual H–H interaction. For Ni it is −28 meV, i.e. 3 % of the
-0.86 eV hopA barrier, so the chaining error is bounded and small.
+prints the residual H–H interaction. It is NOT uniformly small: Ni comes out
+at −28 to −35 meV, about 3 % of its hopA barrier, but Al reaches −274 meV,
+some 27 % of its own. The earlier claim that the chaining error is "bounded and
+small" was generalised from Ni alone, and an ``n_H`` guard had been preventing
+the check from ever running on Al. Use ``--mep-reference formation`` to see the
+gap on the figure instead of assuming it away.
 
 Note also that a chain follows **one** H. Both adsorbed H can enter, and
 distinct surface sites sometimes map to the *same* sub1/sub2 destination — the
@@ -112,11 +116,36 @@ def load_references(calc_dir: str, material: str) -> tuple[float | None, float |
     """
     e_clean = e_h2 = None
 
-    log = os.path.join(calc_dir, f'neb_run_{material}.log')
-    if os.path.isfile(log):
-        hits = re.findall(r'E_CLEAN\s*[:=]\s*(-?\d+\.?\d*)', open(log).read())
-        if hits:
-            e_clean = float(hits[-1])
+    # Preferred source: the slab relaxation, which is a persisted artifact that
+    # exists for every material. The last PotEng of its final thermo block is
+    # the relaxed clean-slab energy. The NEB run log, used as a fallback below,
+    # is transient and is absent for several metals.
+    relax = os.path.join(calc_dir, 'slabs', material, 'phase2_relax',
+                         'surface_relax.log')
+    if os.path.isfile(relax):
+        last = None
+        for blk in open(relax, errors='ignore').read().split('Step')[1:]:
+            hdr, *rest = blk.splitlines()
+            cols = ('Step ' + hdr).split()
+            if 'PotEng' not in cols:
+                continue
+            i = cols.index('PotEng')
+            for ln in rest:
+                parts = ln.split()
+                if len(parts) == len(cols) and parts[0].isdigit():
+                    try:
+                        last = float(parts[i])
+                    except ValueError:
+                        pass
+        e_clean = last
+
+    if e_clean is None:
+        log = os.path.join(calc_dir, f'neb_run_{material}.log')
+        if os.path.isfile(log):
+            hits = re.findall(r'E_CLEAN\s*[:=]\s*(-?\d+\.?\d*)',
+                              open(log).read())
+            if hits:
+                e_clean = float(hits[-1])
 
     script = os.path.join(calc_dir, f'neb_run_{material}.py')
     if os.path.isfile(script):
@@ -528,6 +557,54 @@ class Chain:
             parts.append(f'hopB {self.hopb.Ea_reported:.2f}')
         return f'{tail}   ({", ".join(parts)} eV)'
 
+    @property
+    def spectator(self) -> str | None:
+        """The other H's site — the one that stays adsorbed while this one moves."""
+        others = [s for s in self.surface.fs_sites if s != self.hop_site]
+        return others[0] if len(others) == 1 else None
+
+    def profile_formation(self, e_clean: float, e_h2: float,
+                          hopa_map: dict, per_h: bool = False):
+        """Each stage at its true formation energy — nothing shifted to meet.
+
+        Dissociation is a 2-H cell; a hop is a 1-H cell. They are put on one
+        axis by noting that during a hop the system still holds the other H,
+        adsorbed, so the hop is lifted by that spectator's own formation
+        energy::
+
+            y_hop = E_form(E_hop, 1) + E_form(E_spectator_adsorbed, 1)
+
+        Both stages then describe a 2-H system, so the only discontinuity left
+        is the H–H interaction — the quantity :func:`interaction_residual`
+        measures and the chained profile assumes away.
+
+        Returns ``(segments, gaps)``: a list of ``(x, y)`` arrays drawn without
+        joining, and the energy step at each seam in eV. ``None`` if the
+        spectator has no Hop A run, since its energy would be unknown.
+        """
+        spec = self.spectator
+        if spec is None or spec not in hopa_map:
+            return None, None
+
+        def F(E, n):
+            return formation_energy(E, n, e_clean, e_h2)
+
+        n_surf = self.surface.n_H or STAGE_NH['surface']
+        spec_E = F(hopa_map[spec].E_abs[0], 1)
+
+        segs = [(self.surface.frac, F(self.surface.E_abs, n_surf))]
+        ya = F(self.hopa.E_abs, self.hopa.n_H or STAGE_NH['hopa']) + spec_E
+        segs.append((1.0 + self.hopa.frac, ya))
+        if self.hopb is not None:
+            yb = F(self.hopb.E_abs, self.hopb.n_H or STAGE_NH['hopb']) + spec_E
+            segs.append((2.0 + self.hopb.frac, yb))
+
+        if per_h:
+            segs = [(x, y / 2.0) for x, y in segs]
+        gaps = [float(segs[i + 1][1][0] - segs[i][1][-1])
+                for i in range(len(segs) - 1)]
+        return segs, gaps
+
     def profile(self) -> tuple[np.ndarray, np.ndarray]:
         """x in stage units (0-1 diss, 1-2 hopA, 2-3 hopB); y chained ΔE."""
         xs = [self.surface.frac]
@@ -568,7 +645,10 @@ def interaction_residual(surf: NEBRun, hopa: dict[str, NEBRun],
     sites = surf.fs_sites
     if len(sites) != 2 or not all(s in hopa for s in sites):
         return None
-    if surf.n_H != 2:
+    # A run whose structure files were cleaned up reports n_H=None; a surface
+    # run always holds 2 H, so fall back to that rather than silently
+    # declining to measure the chaining error (which is how Al went unchecked).
+    if (surf.n_H or STAGE_NH['surface']) != 2:
         return None
     pair = formation_energy(surf.E_abs[-1], 2, e_clean, e_h2)
     iso  = sum(formation_energy(hopa[s].E_abs[0], 1, e_clean, e_h2)
@@ -578,8 +658,25 @@ def interaction_residual(surf: NEBRun, hopa: dict[str, NEBRun],
 
 def plot_full_pathway(material: str, stages: dict[str, list[NEBRun]],
                       colours: dict[str, tuple], outfile: str,
-                      refs: tuple[float | None, float | None] = (None, None)):
-    """Chain dissociation → hopa → hopb into one continuous profile."""
+                      refs: tuple[float | None, float | None] = (None, None),
+                      reference: str = 'chained'):
+    """Dissociation → hopa → hopb on one axis.
+
+    ``reference`` selects how the stages are placed against each other:
+
+    ``'chained'``
+        Each stage shifted so its first point meets the previous stage's last.
+        The curve is continuous by construction, which assumes the H–H
+        interaction at the seam is zero.
+    ``'formation'``
+        Each stage at its true formation energy, nothing shifted. Where two
+        stages do not meet, the gap is drawn and labelled — it is the H–H
+        interaction. Needs ``refs``; falls back to ``'chained'`` with a note
+        on the figure if they are unavailable.
+    ``'formation-per-h'``
+        As above, divided by the cell H count. Comparable stage depths, at the
+        cost of averaging two H that sit on different sites.
+    """
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
@@ -596,22 +693,49 @@ def plot_full_pathway(material: str, stages: dict[str, list[NEBRun]],
     surf_order = sorted({c.surface.label for c in chains})
     dashes = ('-', '--', '-.', ':')
 
+    e_clean, e_h2 = refs
+    hopa_map = {r.key_site: r for r in stages.get('hopa', [])}
+    want_form = reference in ('formation', 'formation-per-h')
+    fell_back = want_form and (e_clean is None or e_h2 is None)
+    use_form  = want_form and not fell_back
+    all_gaps: list[float] = []
+    n_form = 0          # chains actually drawn at true formation energy
+
     for chain in chains:
         colour = colours[chain.hop_site]
         style  = dashes[surf_order.index(chain.surface.label) % len(dashes)]
-        x, y = chain.profile()
-        ax.plot(x, y, style, color=colour, lw=1.6, zorder=4)
 
-        # Mark each stage's own saddle on the chained curve.
-        n = 0
-        for run, x0 in ((chain.surface, 0.0), (chain.hopa, 1.0),
-                        (chain.hopb, 2.0)):
-            if run is None:
-                continue
-            seg = slice(n, n + len(run.frac))
-            top = n + int(np.argmax(y[seg]))
-            ax.plot(x[top], y[top], 'o', color=colour, ms=5, zorder=6)
-            n += len(run.frac)
+        segs = None
+        if use_form:
+            segs, gaps = chain.profile_formation(
+                e_clean, e_h2, hopa_map,
+                per_h=(reference == 'formation-per-h'))
+            if segs is not None:
+                all_gaps.extend(gaps)
+                n_form += 1
+
+        if segs is None:
+            # chained, or formation declined for this chain (no spectator run)
+            x, y = chain.profile()
+            ax.plot(x, y, style, color=colour, lw=1.6, zorder=4)
+            n = 0
+            for run in (chain.surface, chain.hopa, chain.hopb):
+                if run is None:
+                    continue
+                sl = slice(n, n + len(run.frac))
+                top = n + int(np.argmax(y[sl]))
+                ax.plot(x[top], y[top], 'o', color=colour, ms=5, zorder=6)
+                n += len(run.frac)
+        else:
+            # each stage where it really sits; seams drawn, never closed
+            for xs, ys in segs:
+                ax.plot(xs, ys, style, color=colour, lw=1.6, zorder=4)
+                ax.plot(xs[int(np.argmax(ys))], float(np.max(ys)), 'o',
+                        color=colour, ms=5, zorder=6)
+            for i in range(len(segs) - 1):
+                y0, y1 = segs[i][1][-1], segs[i + 1][1][0]
+                xv = float(segs[i + 1][0][0])
+                ax.plot([xv, xv], [y0, y1], ':', color=colour, lw=1.3, zorder=5)
 
         handles.append(Line2D([], [], color=colour, lw=1.6, ls=style,
                               marker='o', ms=5))
@@ -622,17 +746,42 @@ def plot_full_pathway(material: str, stages: dict[str, list[NEBRun]],
         ax.axvline(xv, color='0.55', lw=1.0, ls=':', zorder=2)
 
     ax.set_xticks([0.0, 1.0, 2.0, 3.0])
-    ax.set_xticklabels(['H₂ + slab', '2H adsorbed', 'sub1', 'sub2'])
+    # The band's first image is H2 bound to the slab, not H2 in the gas phase:
+    # measured at 0.887 A H-H with both atoms at the top surface for Ni. The
+    # old label 'H2 + slab' read as the gas-phase reference, which it is not.
+    ax.set_xticklabels(['H₂ adsorbed', '2H adsorbed', 'sub1', 'sub2'])
     ax.set_xlabel('Reaction coordinate   (dissociation → hopA → hopB)')
-    ax.set_ylabel('E relative to H₂ + slab  (eV)')
+    if use_form and n_form:
+        per = ' per H' if reference == 'formation-per-h' else ''
+        ax.set_ylabel(f'$E_{{form}}${per} of the 2-H system  (eV)')
+    else:
+        ax.set_ylabel('E relative to the first state of each stage  (eV)')
     ax.set_title(f'H entry pathway for one H — {pretty_material(material)}')
     ax.grid(True, alpha=0.3)
 
-    caption = ('Chained from relative energies; each curve follows ONE of the '
-               'two dissociated H atoms.')
-    e_clean, e_h2 = refs
-    hopa_map = {r.key_site: r for r in stages.get('hopa', [])}
-    if e_clean is not None and e_h2 is not None:
+    if use_form and n_form:
+        caption = ('Each stage at its true formation energy — nothing is '
+                   'shifted to make the stages meet. Dotted risers are real '
+                   'gaps: the H–H interaction.')
+        if all_gaps:
+            w = max(all_gaps, key=abs)
+            caption += f' Largest gap {w * 1000:+.0f} meV.'
+        if n_form < len(chains):
+            caption += (f' {len(chains) - n_form} of {len(chains)} chains '
+                        'lack a Hop A run for the spectator H and are drawn '
+                        'CHAINED instead.')
+    elif use_form:
+        caption = ('Formation reference requested, but no chain has a Hop A '
+                   'run for its spectator H, so the spectator energy is '
+                   'unknown and every curve here is CHAINED.')
+    else:
+        caption = ('Chained from relative energies; each curve follows ONE of '
+                   'the two dissociated H atoms.')
+        if fell_back:
+            caption = ('Requested formation reference but E_clean/E(H₂) were '
+                       'unavailable, so this is the CHAINED profile. '
+                       + caption)
+    if e_clean is not None and e_h2 is not None and not use_form:
         residuals = [r for surf in stages.get('surface', [])
                      if (r := interaction_residual(surf, hopa_map, e_clean,
                                                    e_h2)) is not None]
@@ -733,6 +882,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument('--outdir', default=None,
                     help='overlay/pathway figures '
                          '(default: <calc-dir>/results/plots)')
+    ap.add_argument('--mep-reference', default='chained',
+                    choices=('chained', 'formation', 'formation-per-h'),
+                    help="how the stages are placed on the full-pathway "
+                         "figure: 'chained' shifts each to meet the last "
+                         "(assumes no H-H interaction at the seam); "
+                         "'formation' draws each at its true formation energy "
+                         "and shows the gap instead (default: chained)")
     ap.add_argument('--no-individual', action='store_true',
                     help='skip the per-run MEP figures')
     ap.add_argument('--max-individual', type=int, default=60,
@@ -748,6 +904,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     calc_dir = os.path.abspath(args.calc_dir)
+    mep_reference = args.mep_reference
     outdir   = os.path.abspath(args.outdir or
                                os.path.join(calc_dir, 'results', 'plots'))
 
@@ -804,7 +961,7 @@ def main(argv: list[str] | None = None) -> int:
         if plot_full_pathway(
                 material, stages, colours,
                 os.path.join(outdir, f'{stem}_neb_mep_full_pathway.png'),
-                refs=refs) is None:
+                refs=refs, reference=mep_reference) is None:
             have = ', '.join(s for s in STAGES if s in stages)
             print(f'  · no surface run links to an available hopa '
                   f'(stages present: {have}) — pathway plot skipped')
