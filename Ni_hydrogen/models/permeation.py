@@ -166,31 +166,24 @@ RESULT_UNITS = {
     'dH_diss_eV': 'eV', 'dH_entry_eV': 'eV',
     # diffusivity, length, temperature, time
     'D_m2s': 'm^2 s^-1', 'D0_m2s': 'm^2 s^-1',
-    'a0_m': 'm', 'L_m': 'm', 'T_K': 'K', 'T_K_arr': 'K', 't_total_vals': 's',
+    'a0_m': 'm', 'L_m': 'm', 'T_K': 'K', 'T_K_arr': 'K',
     # pressure
-    'P_vals': 'Pa', 'P_high_Pa': 'Pa', 'P_dilute_Pa': 'Pa', 'sqrt_P_vals': 'Pa^0.5',
+    'P_vals': 'Pa', 'P_high_Pa': 'Pa',
     # solubility  [mol H m^-3 Pa^-0.5]
     'S0': 'mol H m^-3 Pa^-0.5', 'S': 'mol H m^-3 Pa^-0.5', 'S_arr': 'mol H m^-3 Pa^-0.5',
     'S_mean': 'mol H m^-3 Pa^-0.5', 'S_std': 'mol H m^-3 Pa^-0.5',
-    'S_vals': 'mol H m^-3 Pa^-0.5', 'S_sub1': 'mol H m^-3 Pa^-0.5',
-    'S_sub2': 'mol H m^-3 Pa^-0.5',
     # permeability, flux, concentration
     'Phi': 'mol H m^-1 s^-1 Pa^-0.5', 'Phi0': 'mol H m^-1 s^-1 Pa^-0.5',
-    'J': 'mol H m^-2 s^-1', 'J_vals': 'mol H m^-2 s^-1', 'J_sub1_vals': 'mol H m^-2 s^-1',
-    'J_count_vals': 'mol H m^-2 s^-1', 'J_sub1_count_vals': 'mol H m^-2 s^-1',
-    'sub1_at_Phigh': 'mol H m^-2 s^-1', 'sub2_at_Phigh': 'mol H m^-2 s^-1',
-    'C0_vals': 'mol H m^-3', 'C0_sub1_vals': 'mol H m^-3', 'C0_sub2_vals': 'mol H m^-3',
-    'C0_sub1_count_vals': 'mol H m^-3', 'C0_sub2_count_vals': 'mol H m^-3',
+    'J': 'mol H m^-2 s^-1', 'J_vals': 'mol H m^-2 s^-1',
     # counts
     'n_H': 'count', 'n_env': 'count', 'n_converged': 'count', 'n_points': 'count',
-    'n_dilute_points': 'count', 'n_steps_vals': 'count',
     # dimensionless (labelled explicitly so their absence is not ambiguous)
-    'theta_vals': 'dimensionless', 'theta_dilute': 'dimensionless',
+    'theta_vals': 'dimensionless',
     'theta_max': 'dimensionless', 'theta_exponent': 'dimensionless',
     'S0_rel_err': 'dimensionless (fractional)', 'S_rel_err': 'dimensionless (fractional)',
     'Phi0_rel_err': 'dimensionless (fractional)', 'J_rel_err_by_T': 'dimensionless (fractional)',
     'Phi0_factor': 'dimensionless (x/div 1-sigma band)', 'w_env': 'dimensionless',
-    'r2': 'dimensionless', 'r2_S': 'dimensionless', 'sieverts_r2': 'dimensionless',
+    'r2': 'dimensionless', 'r2_S': 'dimensionless',
 }
 
 
@@ -373,8 +366,13 @@ def solubility_from_rates(
 # Section 3b — Heterogeneous, per-environment thermodynamic solubility
 #
 # Solubility is an equilibrium property: it depends on the reaction ENERGIES
-# along the connected chain (½ H₂ dissociation + Hop A + Hop B, to sub2), not
-# the barriers. Different octahedral environments have different ΔH_sol, so the
+# along the connected chain, not the barriers. The chain is referenced to the
+# FIRST subsurface site: ½ H₂ dissociation + Hop A (surface -> sub1). The
+# sub1 -> sub2 hop (Hop B) and everything deeper are bulk transport and are
+# carried by D, so they are deliberately NOT part of ΔH_sol -- see
+# build_dh_sol_by_env, which consumes only the Hop A rates.
+#
+# Different octahedral environments have different ΔH_sol, so the
 # statistically-correct solubility is a population-weighted Boltzmann sum over
 # environments — never a single collapsed representative. Two S₀ prefactor
 # routes are offered: geometric (lattice_site_S0) and vibrational
