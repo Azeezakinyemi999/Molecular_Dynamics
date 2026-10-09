@@ -305,8 +305,11 @@ Re-check command for the scope NOTE:
 - [x] `02b-aggregation.md` — the 12-rung ladder
 - [x] `03-stages/07-vibrations-phva.md`
 - [x] `03-stages/08-tst-rate-assembly.md`
-- [x] `03-stages/` index + stubs for the nine unwritten stages (all links resolve)
-- [ ] Stages 1–6, 9–11
+- [x] `03-stages/09-solubility.md`
+- [x] `03-stages/10-bulk-diffusivity.md`
+- [x] `03-stages/11-permeability-assembly.md`
+- [x] `03-stages/` index + stubs for the six unwritten stages (all links resolve)
+- [ ] Stages 1–6 (structural and setup half of the pipeline)
 - [ ] `01-overview.md` · `04-practical.md` · `05-appendices.md` · `README.md`
 - [ ] `make_figures.py`
 - [ ] Supersession headers
@@ -324,6 +327,16 @@ Re-check command for the scope NOTE:
 3. **A fourth frequency threshold** exists beyond the three in §8b: the
    partition-function cutoff in `vib_partition_function`. Part II §4.3 lists all
    four.
+4. **A missing reaction energy defaults to zero** when ΔH_diss is auto-extracted,
+   so an incomplete ranked file biases the mean toward zero rather than raising.
+   Documented as a failure mode in stage 09.
+5. **ΔH_diss is filtered on NEB convergence, not on the vibrational census.**
+   Defensible — a reaction energy needs sound endpoint energies, not sound
+   frequencies — but it means the census does not gate that average. Stage 09
+   states this explicitly.
+6. **Dynamics and fit are gated by separate markers** in Part 3, so a loading can
+   hold complete trajectories and no Arrhenius fit. Re-deriving costs seconds;
+   repeating the dynamics costs GPU-days. Stage 10 failure-mode table.
 
 ---
 
