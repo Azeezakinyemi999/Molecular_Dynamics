@@ -44,6 +44,7 @@ extensions = [
     "sphinx.ext.intersphinx",  # numpy.ndarray etc. become links
     "sphinx.ext.mathjax",      # $$ math in the .md
     "myst_parser",             # REQUIRED: lets Sphinx read .md at all
+    "sphinxcontrib.mermaid",   # renders the ```mermaid fences as diagrams
 ]
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
@@ -64,6 +65,10 @@ myst_enable_extensions = [
     "dollarmath",    # $...$ and $$...$$
     "colon_fence",   # :::{note} — avoids nested-backtick pain inside stubs
 ]
+# Route ```mermaid fences to the mermaid directive instead of Pygments,
+# which has no such lexer.
+myst_fence_as_directive = ["mermaid"]
+
 myst_heading_anchors = 3        # stable #slug per heading -> deep links survive
 myst_dmath_double_inline = True
 myst_footnote_transition = False

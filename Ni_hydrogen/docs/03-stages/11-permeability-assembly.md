@@ -113,7 +113,7 @@ The fit is still performed, as an **independent check**: if the analytic pair
 and the fitted pair disagree, something upstream is inconsistent. Its $R^2$
 appears in the output for that purpose and is not an uncertainty.
 
-### Why $D$ is evaluated, not measured
+### Why D is evaluated, not measured
 
 Step 2 computes $D$ from the fitted $D_0$ and $E_D$ rather than from a
 trajectory at that temperature. The permeation temperatures and the molecular
