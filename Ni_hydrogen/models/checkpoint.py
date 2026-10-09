@@ -15,6 +15,8 @@ a partial output file that could be mistaken for done).
 
 Usage
 -----
+::
+
     from models.checkpoint import is_done, mark_done
 
     marker = os.path.join(job_dir, 'fsmin.done')

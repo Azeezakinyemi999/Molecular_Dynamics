@@ -728,9 +728,11 @@ def add_adsorbate(
     ``z_top`` is the maximum z-coordinate of the slab surface atoms.
 
     For H₂, two orientations are supported:
+
     - ``'parallel'`` (default): both H atoms at the same height above the
       surface, offset ±h2_bond/2 along x.  Matches the standard initial
       geometry used in adsorption energy surveys (NB05b).
+
     - ``'vertical'``: H atoms placed symmetrically about z_ads along z,
       i.e. stacked perpendicular to the surface.
 

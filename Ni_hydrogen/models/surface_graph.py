@@ -579,10 +579,10 @@ def build_site_environment(G, slab, bond_cutoff=3.2):
     """
     Build the Level 1 / 2 / 3 chemical environment for every site node.
 
-    Level 1 — site metadata (type, composition, position, constituent atoms).
-    Level 2 — for each constituent atom: shell-1 and shell-2 surface
-               neighbors, excluding the other site atoms.
-    Level 3 — neighboring sites that share at least one constituent atom.
+    - Level 1 — site metadata (type, composition, position, constituent atoms).
+    - Level 2 — for each constituent atom: shell-1 and shell-2 surface
+      neighbors, excluding the other site atoms.
+    - Level 3 — neighboring sites that share at least one constituent atom.
 
     Parameters
     ----------
