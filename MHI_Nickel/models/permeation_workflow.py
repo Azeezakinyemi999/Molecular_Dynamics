@@ -578,6 +578,35 @@ for _n_h in N_H_VALUES:
         _perm_f_check = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
         if is_done(_perm_done_marker) and os.path.exists(_perm_f_check):
             print(f'  T={_T:4.0f} K  permeability already done — skipping')
+            # Reload this temperature into the accumulators. Skipping the
+            # COMPUTE must not also skip the CONTRIBUTION: the Arrhenius
+            # summary below is built from these arrays, so a run where every
+            # temperature is already done would otherwise fit an empty series
+            # and overwrite a good permeability_arrhenius.json with one whose
+            # routes are all unavailable.
+            try:
+                with open(_perm_f_check) as _rf:
+                    _done = json.load(_rf)
+                _o1 = _done.get('option1') or {}
+                _o2 = _done.get('option2') or {}
+                _db = _done.get('detailed_balance') or {}
+                _S1_d, _S2_d = _o1.get('S'), _o2.get('S')
+                if _S1_d is None:
+                    raise KeyError('option1.S')
+                _T_arr6.append(float(_done.get('T_K', _T)))
+                _S_geo_arr.append(_S1_d)
+                _S_vib_arr.append(_S2_d)
+                _S_db_arr.append(_db.get('S'))
+                _r1 = _o1.get('S_rel_err')
+                _r2 = _o2.get('S_rel_err')
+                _S_geo_err_arr.append(_S1_d * _r1 if _r1 is not None else None)
+                _S_vib_err_arr.append(_S2_d * _r2
+                                      if (_S2_d is not None and _r2 is not None)
+                                      else None)
+            except (OSError, ValueError, KeyError, TypeError) as _re:
+                print(f'    WARNING: could not reload T={_T:4.0f} K from '
+                      f'{os.path.basename(_perm_f_check)} ({_re}); its point '
+                      f'will be missing from the Arrhenius fit.')
             continue
         _D_T  = arrhenius_diffusivity(_D0_nh, _ED_nh, _T)
         _a0_T6 = _a0_dict.get(_T, A0_M)
