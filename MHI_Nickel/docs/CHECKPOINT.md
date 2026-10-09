@@ -308,8 +308,8 @@ Re-check command for the scope NOTE:
 - [x] `03-stages/09-solubility.md`
 - [x] `03-stages/10-bulk-diffusivity.md`
 - [x] `03-stages/11-permeability-assembly.md`
-- [x] `03-stages/` index + stubs for the six unwritten stages (all links resolve)
-- [ ] Stages 1–6 (structural and setup half of the pipeline)
+- [x] `03-stages/01` … `06` — the structural and setup half
+- [x] **Part III complete — all 11 stages written**
 - [ ] `01-overview.md` · `04-practical.md` · `05-appendices.md` · `README.md`
 - [ ] `make_figures.py`
 - [ ] Supersession headers
