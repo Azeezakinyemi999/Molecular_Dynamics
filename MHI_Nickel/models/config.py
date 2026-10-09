@@ -9,6 +9,8 @@ job-specific values (partition, time) in each notebook.
 
 Usage
 -----
+::
+
     from models.config import (
         LAMMPS_CMD, MACE_MODEL_LAMMPS, KOKKOS_FLAGS,
         E2T_7, MASSES_7, ELEM_STR_7,

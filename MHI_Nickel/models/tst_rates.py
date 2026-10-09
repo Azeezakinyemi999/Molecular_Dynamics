@@ -406,9 +406,12 @@ def build_rate_dict(
     Returns
     -------
     dict
-        ``{label: {k_forward, k_reverse, Ea_raw, Ea_zpe, Ed_raw, Ed_zpe,
-                   nu, nu_reverse, zpe_source, n_imag_is, n_imag_ts,
-                   is_minimum, ts_saddle, delta_e, T_K}}``
+        ::
+
+            {label: {k_forward, k_reverse, Ea_raw, Ea_zpe, Ed_raw, Ed_zpe,
+                     nu, nu_reverse, zpe_source, n_imag_is, n_imag_ts,
+                     is_minimum, ts_saddle, delta_e, T_K}}
+
         Rates in s⁻¹, barriers in eV.  ``nu`` is the forward prefactor and
         ``nu_reverse`` the reverse one; ``zpe_source`` is ``'FS'`` or
         ``'IS_fallback'``.
