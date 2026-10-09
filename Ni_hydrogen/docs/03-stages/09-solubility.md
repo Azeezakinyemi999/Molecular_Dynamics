@@ -19,6 +19,7 @@ energy differences between states do.
 | **Code** | [`models/permeation.py`](../../models/permeation.py) §3b, [`models/permeation_workflow.py`](../../models/permeation_workflow.py) |
 | **Theory** | [Part II §7](../02-theory.md#7-solubility) |
 | **Aggregation** | rungs [A3, A4, A5](../02b-aggregation.md#1-the-ladder) |
+| **Figures it writes** | `env_dH_sol.png`, `solubility_arrhenius.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
 
 ## Concepts
 

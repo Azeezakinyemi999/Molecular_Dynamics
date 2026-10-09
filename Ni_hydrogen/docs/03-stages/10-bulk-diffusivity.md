@@ -19,6 +19,7 @@ The two chains meet only at [Stage 11](11-permeability-assembly.md).
 | **Runs on** | GPU, chained scheduler jobs — by far the most expensive stage |
 | **Theory** | [Part II §8](../02-theory.md#8-diffusion) |
 | **Aggregation** | rungs [A8, A9, A10](../02b-aggregation.md#1-the-ladder) |
+| **Figures it writes** | `msd_vs_time.png`, `diffusivity_vs_invT.png`, `arrhenius.png`, the all-concentration overlays, `thermal_expansion.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
 
 ## Concepts
 

@@ -114,6 +114,16 @@ surface chain through 2–9 and the bulk chain through 10 — meeting only at 11
 A break anywhere in the left chain leaves diffusivity results intact, and the
 reverse.
 
+![full entry pathway](figures/f12_full_pathway.png)
+
+**Figure 2.** What the surface half computes, on one axis. Follow any single
+curve from left to right: the molecule dissociates, one atom enters the first
+subsurface layer, then hops deeper. Look at where the curves separate — the
+spread between pathways is what the averages in
+[the aggregation ladder](02b-aggregation.md) collapse. Solubility is referenced
+at `sub1`; everything to its right is carried by $D$. Fictitious energies; the
+production figure `neb_mep_full_pathway.png` uses this same layout.
+
 | # | stage | main inputs | main outputs | code |
 |---|---|---|---|---|
 | 1 | materials and structures | structure files | classified materials, bulk cells with hydrogen | [`materials.py`](../models/materials.py), [`structure.py`](../models/structure.py) |

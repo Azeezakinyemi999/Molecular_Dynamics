@@ -20,6 +20,7 @@ not at all.
 | **Code** | [`models/tst_rates.py`](../../models/tst_rates.py) |
 | **Runs on** | anywhere — this is arithmetic over stored numbers, seconds of work |
 | **Theory** | [Part II §4–§5](../02-theory.md#4-vibrational-analysis) |
+| **Figures it writes** | `site_barriers.png`, `site_rates.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
 
 ## Concepts
 

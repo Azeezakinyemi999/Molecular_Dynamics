@@ -477,6 +477,63 @@ def fig_surface_sites():
     _save(fig, 'f11_surface_sites.png')
 
 
+# ── F12. the whole entry pathway on one axis ─────────────────────────────────
+def fig_full_pathway():
+    """The chain the surface half of the workflow computes, end to end.
+
+    This mirrors the shape of the production `neb_mep_full_pathway` figure, so a
+    reader meets the layout here before seeing it filled with their own data.
+    """
+    t = TOY
+    seg = np.linspace(0, 1, 120)
+    anchors = ['H\u2082 + slab', '2H adsorbed', 'sub1', 'sub2']
+
+    # three pathways differing only in which barrier they take at each step,
+    # so the figure shows a spread rather than a single curve
+    paths = [
+        dict(c='#1f4e79', ls='-',  lv=[0.00, -0.22, 0.55, 0.62], bar=[0.53, 0.92, 0.09]),
+        dict(c='#b03a2e', ls='--', lv=[0.00, -0.13, 0.68, 0.70], bar=[0.93, 1.00, 0.29]),
+        dict(c='#2e7d32', ls='-.', lv=[0.00, -0.22, 0.60, 0.58], bar=[0.77, 0.97, 0.17]),
+    ]
+    fig, ax = plt.subplots(figsize=(7.4, 3.8))
+    for pth in paths:
+        xs, ys = [], []
+        for k in range(3):
+            lo, hi = pth['lv'][k], pth['lv'][k + 1]
+            # a barrier is measured from the state the step LEAVES (see F5),
+            # so the saddle is lo + Ea -- never max(lo, hi) + Ea, which would
+            # double-count an uphill step
+            top = max(lo + pth['bar'][k], hi + 0.02)
+            # smooth rise to the saddle, then fall to the next minimum
+            y = lo + (top - lo) * np.sin(np.pi * seg / 2) ** 2
+            y2 = top + (hi - top) * np.sin(np.pi * seg / 2) ** 2
+            xs += list(k + seg * 0.5) + list(k + 0.5 + seg * 0.5)
+            ys += list(y) + list(y2)
+            ax.scatter(k + 0.5, top, s=22, color=pth['c'], zorder=5)
+        ax.plot(xs, ys, pth['ls'], color=pth['c'], lw=1.5,
+                label=(f"diss {pth['bar'][0]:.2f}, entry {pth['bar'][1]:.2f}, "
+                       f"deeper {pth['bar'][2]:.2f} eV"))
+    for k in (1, 2):
+        ax.axvline(k, ls=':', lw=1.0, color='#999')
+    ax.axhline(0.0, ls='--', lw=0.9, color='#444')
+    ax.set_xticks(range(4)); ax.set_xticklabels(anchors)
+    ax.set_xlabel('reaction coordinate     '
+                  '(dissociation \u2192 entry \u2192 deeper hop)')
+    ax.set_ylabel('E relative to H\u2082 + slab  [eV]')
+    ax.set_title('F12 \u00b7 The whole entry pathway, on one axis')
+    for xk, lab in ((0.5, 'Stage 6\ndissociation'), (1.5, 'Stage 6\nentry hop'),
+                    (2.5, 'Stage 6\ndeeper hop')):
+        ax.text(xk, -0.42, lab, ha='center', fontsize=7.5, color='#666')
+    ax.annotate('ΔH_sol is referenced to sub1;\neverything right of it is $D$',
+                (2.0, 0.55), textcoords='offset points', xytext=(26, -46),
+                fontsize=8, color='#b03a2e', ha='left',
+                arrowprops=dict(arrowstyle='->', lw=0.9, color='#b03a2e'))
+    ax.set_ylim(-0.52, 1.05)
+    ax.legend(fontsize=7.5, frameon=False, loc='upper left',
+              title='one curve per pathway', title_fontsize=8)
+    _save(fig, 'f12_full_pathway.png')
+
+
 if __name__ == '__main__':
     fig_msd_window()
     fig_environment_collapse()
@@ -489,4 +546,5 @@ if __name__ == '__main__':
     fig_lateral_replication()
     fig_dh_sol_ladder()
     fig_surface_sites()
+    fig_full_pathway()
     print(f'\n  {len(_written)} figure(s) written to {OUT}')

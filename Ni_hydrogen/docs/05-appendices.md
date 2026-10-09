@@ -3,6 +3,7 @@
 - [A. Notation](#a-notation)
 - [B. Settings reference](#b-settings-reference)
 - [C. Output files](#c-output-files)
+- [C2. Figure catalogue](#c2-figure-catalogue)
 - [D. Unit conversions](#d-unit-conversions)
 - [E. Checking the equations](#e-checking-the-equations)
 - [F. Glossary](#f-glossary)
@@ -170,6 +171,68 @@ Every payload carries a `units` block listing the unit of each field present.
 > [!IMPORTANT]
 > A field absent from the units block is absent from the payload. The block is
 > built by walking the payload, so it never describes a field that is not there.
+
+## C2. Figure catalogue
+
+What the workflow draws, what each figure shows, and what to look at. These are
+the **production** figures, written beside their data during a run — distinct
+from the schematics in this documentation, which come from the fictitious
+example.
+
+### Stage 6 — band
+
+| figure | shows | look for |
+|---|---|---|
+| `mep.png` | one pathway's minimum-energy path | a single maximum; several means the step is not elementary |
+| `neb_mep_overlay_*.png` | every pathway of one family on one axis | the spread of barriers, and any outlier path |
+| `neb_mep_full_pathway.png` | **the whole chain** — gas, adsorbed, first and second subsurface | which step is rate-limiting, and how much the pathways differ |
+
+> [!NOTE]
+> `neb_mep_full_pathway.png` is the single most informative output of the
+> surface half. [Figure 12](figures/f12_full_pathway.png) in this documentation
+> reproduces its layout from the fictitious example, so the axis is familiar
+> before it carries real data.
+
+### Stage 8 — rates
+
+| figure | shows | look for |
+|---|---|---|
+| `site_barriers.png` | barrier per site, by family | the spread within a family; a wide one means the sites are not equivalent |
+| `site_rates.png` | the same as rates at temperature | how much of the spread survives the exponential |
+
+### Stage 9 — solubility
+
+| figure | shows | look for |
+|---|---|---|
+| `env_dH_sol.png` | solution enthalpy per environment, beside each one's share of $S$ | the mismatch between the two panels — this is the real counterpart of [Figure 2](02b-aggregation.md) |
+| `solubility_arrhenius.png` | $S(T)$ per route | the gap between routes; it is expected and large |
+| `solubility_arrhenius_all_materials.png` | the same across materials | relative ordering, not absolute values |
+
+### Stage 10 — diffusivity
+
+| figure | shows | look for |
+|---|---|---|
+| `msd_vs_time.png` | the displacement trace with the fit window shaded | curvature inside the window; a log-log slope away from 1 |
+| `diffusivity_vs_invT.png` | $D$ against inverse temperature, one loading | points off the line, and how many there are |
+| `arrhenius.png` | the fit with its parameters | the point count — fewer than three means no degrees of freedom |
+| `*_all_concentrations.png` | every loading overlaid | whether $D$ is monotonic in loading; often it is not |
+| `arrhenius_params_vs_concentration.png` | fitted $D_0$ and $E_D$ against loading | **both rising together is compensation, not faster transport** — check $D$ itself |
+| `diffusivity_vs_literature.png` | this work against published laws, each over its own stated range | whether the computed line sits inside the published spread |
+| `thermal_expansion.png`, `site_density_vs_T.png` | lattice parameter and site density against temperature | smoothness; a kink means a constant-pressure run did not equilibrate |
+
+### Stage 11 — permeability
+
+| figure | shows | look for |
+|---|---|---|
+| `permeability_arrhenius.png` | $\Phi(T)$ per route with its uncertainty band | the band width, which is dominated by $E_D$ |
+| `permeability_arrhenius_all_materials.png` | the same across materials | the ordering, which is the usable result |
+| `permeation_summary.png` | solubility and permeability side by side | that the two panels tell a consistent story |
+
+> [!IMPORTANT]
+> Several of these legends quote a $\sigma$ that is genuinely small, not zero.
+> Read the digits: a value printed to two decimals can render a real
+> uncertainty of ~0.001 eV as `±0.00`. Where a figure and a JSON payload
+> disagree on precision, the payload is authoritative.
 
 ## D. Unit conversions
 
