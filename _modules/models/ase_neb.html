@@ -1,0 +1,1500 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../genindex.html"><link rel="search" title="Search" href="../../search.html">
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2025.12.19 -->
+        <title>models.ase_neb - Hydrogen permeation through metal membranes 0.1.0</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../index.html"><div class="brand">Hydrogen permeation through metal membranes 0.1.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
+  
+  <span class="sidebar-brand-text">Hydrogen permeation through metal membranes 0.1.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../01-overview.html">Part I — Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../02-theory.html">Part II — Theory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../02b-aggregation.html">Part II-B — The aggregation ladder</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Part III — Stages</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/README.html">Part III — Stages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/01-materials-and-structures.html">Stage 1 — Materials and structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/02-slabs-and-relaxation.html">Stage 2 — Slabs and relaxation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/03-surface-site-mapping.html">Stage 3 — Surface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/04-subsurface-site-mapping.html">Stage 4 — Subsurface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/05-adsorption-and-enumeration.html">Stage 5 — Adsorption and pathway enumeration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/06-neb.html">Stage 6 — Nudged elastic band</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/07-vibrations-phva.html">Stage 7 — Vibrations (partial Hessian)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/08-tst-rate-assembly.html">Stage 8 — Rate assembly</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/09-solubility.html">Stage 9 — Solubility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/10-bulk-diffusivity.html">Stage 10 — Bulk diffusivity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/11-permeability-assembly.html">Stage 11 — Permeability assembly</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Practical</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../04-practical.html">Part IV — Practical</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../05-appendices.html">Appendices</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/index.html">API reference</a><input aria-label="Toggle navigation of API reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/ase_neb.html"><code class="docutils literal notranslate"><span class="pre">ase_neb</span></code> — ASE Climbing-Image NEB utilities for H₂ dissociation barrier calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/checkpoint.html"><code class="docutils literal notranslate"><span class="pre">checkpoint</span></code> — Uniform <code class="docutils literal notranslate"><span class="pre">.done</span></code> sentinel markers for Section/Phase/Step resume logic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/config.html"><code class="docutils literal notranslate"><span class="pre">config</span></code> — Project-wide constants for Hastelloy-N hydrogen diffusion MD simulations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/create_slurm.html"><code class="docutils literal notranslate"><span class="pre">create_slurm</span></code> — Utilities for writing and submitting SLURM batch scripts used across</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/diffusivity_post_processing.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing</span></code> — Post-processing pipeline for H diffusivity from LAMMPS MD trajectories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/diffusivity_workflow.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_workflow</span></code> — Public functions that back the action cells of calculation/diffusivity.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/energetics.html"><code class="docutils literal notranslate"><span class="pre">energetics</span></code> — Energy calculation and NEB post-processing for Hastelloy N surface science</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/lammps_script.html"><code class="docutils literal notranslate"><span class="pre">lammps_script</span></code> — Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/materials.html"><code class="docutils literal notranslate"><span class="pre">materials</span></code> — Single source of truth for <em>which</em> materials the pipeline processes, and how</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/neb_subsurface.html"><code class="docutils literal notranslate"><span class="pre">neb_subsurface</span></code> — NEB calculations for H permeation from the surface into the subsurface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/neb_workflow.html"><code class="docutils literal notranslate"><span class="pre">neb_workflow</span></code> — Prepares the FCC(111) Hastelloy N surface for adsorption and NEB calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/parsers.html"><code class="docutils literal notranslate"><span class="pre">parsers</span></code> — Parsers for LAMMPS output files produced by this project’s workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/permeation.html"><code class="docutils literal notranslate"><span class="pre">permeation</span></code> — Macroscopic H permeation from energy- and TST-based thermodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/permeation_workflow.html"><code class="docutils literal notranslate"><span class="pre">permeation_workflow</span></code> — Script generator + local analysis functions backing calculation/permeation.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/pipeline_workflow.html"><code class="docutils literal notranslate"><span class="pre">pipeline_workflow</span></code> — Script generator for the master pipeline orchestrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/site_identifier.html"><code class="docutils literal notranslate"><span class="pre">site_identifier</span></code> — ──────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/structure.html"><code class="docutils literal notranslate"><span class="pre">structure</span></code> — Atomic structure builders for Hastelloy N MD workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/subsurface_graph.html"><code class="docutils literal notranslate"><span class="pre">subsurface_graph</span></code> — # ─────────────────────────────────────────────────────────────────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/surface_graph.html"><code class="docutils literal notranslate"><span class="pre">surface_graph</span></code> — ────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/tst_rates.html"><code class="docutils literal notranslate"><span class="pre">tst_rates</span></code> — Transition-state theory rate constants from NEB barriers + vibrational frequencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/utils.html"><code class="docutils literal notranslate"><span class="pre">utils</span></code> — Utility helpers for the Hastelloy N MD workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/vibrations.html"><code class="docutils literal notranslate"><span class="pre">vibrations</span></code> — Frozen-phonon vibrational frequency calculations using ASE Vibrations + MACE</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for models.ase_neb</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">models/ase_neb.py</span>
+<span class="sd">=================</span>
+<span class="sd">ASE Climbing-Image NEB utilities for H₂ dissociation barrier calculations.</span>
+
+<span class="sd">All NEB notebooks (NB06, NB06a, NB06b, NB06b2) use the same two-solver hybrid:</span>
+<span class="sd">  1. LAMMPS (CG minimisation) → relax IS and FS structures</span>
+<span class="sd">  2. ASE CINEB + MACECalculator (.model, device-agnostic) → path optimisation</span>
+
+<span class="sd">This module centralises the repeated inline code across those notebooks.</span>
+
+<span class="sd">Typical usage</span>
+<span class="sd">-------------</span>
+<span class="sd">::</span>
+
+<span class="sd">    from models.ase_neb import (</span>
+<span class="sd">        make_mace_calc, make_frozen_calc,</span>
+<span class="sd">        build_neb_images, run_cineb, extract_mep,</span>
+<span class="sd">        write_neb_results, write_ase_neb_script,</span>
+<span class="sd">    )</span>
+<span class="sd">    from models.config import (</span>
+<span class="sd">        MACE_MODEL_ASE, N_REPLICAS, SPRING_CONST, NEB_FTOL, Z_FREEZE_CUTOFF,</span>
+<span class="sd">    )</span>
+
+<span class="sd">    images = build_neb_images(is_file, fs_file, n_images=N_REPLICAS)</span>
+<span class="sd">    neb, converged, fmax = run_cineb(</span>
+<span class="sd">        images,</span>
+<span class="sd">        calc_fn=lambda: make_frozen_calc(MACE_MODEL_ASE, Z_FREEZE_CUTOFF),</span>
+<span class="sd">        spring_const=SPRING_CONST,</span>
+<span class="sd">        neb_ftol=NEB_FTOL,</span>
+<span class="sd">    )</span>
+<span class="sd">    mep = extract_mep(images, E_IS=e_is, E_FS=e_fs)</span>
+<span class="sd">    write_neb_results(mep, fmax, converged, barrier_file, path_file)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">textwrap</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 1 — Calculator helpers</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="make_mace_calc">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.make_mace_calc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_mace_calc</span><span class="p">(</span><span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;cpu&#39;</span><span class="p">,</span>
+                   <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span> <span class="n">head</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;omat_pbe&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a fresh ``MACECalculator`` instance.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    model_path : str</span>
+<span class="sd">        Path to the ``.model`` file (ASE-compatible MACE variant).</span>
+<span class="sd">    device : str</span>
+<span class="sd">        PyTorch device string — ``&#39;cpu&#39;`` or ``&#39;cpu&#39;``.</span>
+<span class="sd">        Defaults to ``&#39;cpu&#39;``; pass ``&#39;cpu&#39;`` for CPU-only partitions.</span>
+<span class="sd">    dtype : str</span>
+<span class="sd">        Floating-point precision.  ``&#39;float64&#39;`` (default) is required for</span>
+<span class="sd">        NEB accuracy.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    MACECalculator</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mace.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">MACECalculator</span>
+    <span class="k">return</span> <span class="n">MACECalculator</span><span class="p">(</span>
+        <span class="n">model_paths</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">default_dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">head</span><span class="o">=</span><span class="n">head</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="make_frozen_calc">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.make_frozen_calc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_frozen_calc</span><span class="p">(</span><span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">z_freeze_cutoff</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                     <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+                     <span class="n">head</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;omat_pbe&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a ``MACECalculator`` subclass that zeroes forces on frozen atoms.</span>
+
+<span class="sd">    Atoms with z-coordinate &lt; ``z_freeze_cutoff`` receive zero force,</span>
+<span class="sd">    mimicking the frozen-layer constraint used in LAMMPS minimisations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    model_path : str</span>
+<span class="sd">        Path to the ``.model`` file.</span>
+<span class="sd">    z_freeze_cutoff : float</span>
+<span class="sd">        z-coordinate threshold in Å.  Atoms below this value are frozen.</span>
+<span class="sd">    device : str</span>
+<span class="sd">        PyTorch device string (``&#39;cpu&#39;`` or ``&#39;cpu&#39;``).</span>
+<span class="sd">    dtype : str</span>
+<span class="sd">        Floating-point precision.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    MACEFrozenCalc instance (MACECalculator subclass)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mace.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">MACECalculator</span>
+
+    <span class="n">_cutoff</span> <span class="o">=</span> <span class="n">z_freeze_cutoff</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">MACEFrozenCalc</span><span class="p">(</span><span class="n">MACECalculator</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_forces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">atoms</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="n">forces</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_forces</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">atoms</span> <span class="k">if</span> <span class="n">atoms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">atoms</span>
+            <span class="n">forces</span><span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">get_positions</span><span class="p">()[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">_cutoff</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">return</span> <span class="n">forces</span>
+
+    <span class="k">return</span> <span class="n">MACEFrozenCalc</span><span class="p">(</span>
+        <span class="n">model_paths</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">default_dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">head</span><span class="o">=</span><span class="n">head</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 2 — NEB image chain</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="build_neb_images">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.build_neb_images">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_neb_images</span><span class="p">(</span>
+    <span class="n">is_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">fs_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n_images</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
+    <span class="n">e_is</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">e_fs</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interpolation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;idpp&#39;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build and interpolate a NEB image chain between IS and FS.</span>
+
+<span class="sd">    Endpoint energies are pinned via ``SinglePointCalculator`` so that</span>
+<span class="sd">    MACE does not re-evaluate them during NEB (energies come from the</span>
+<span class="sd">    prior LAMMPS minimisations).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    is_file : str</span>
+<span class="sd">        Path to the LAMMPS data file for the initial state.</span>
+<span class="sd">    fs_file : str</span>
+<span class="sd">        Path to the LAMMPS data file for the final state.</span>
+<span class="sd">    n_images : int</span>
+<span class="sd">        Number of *intermediate* images (excluding IS and FS).</span>
+<span class="sd">    e_is : float, optional</span>
+<span class="sd">        Potential energy of IS in eV (from LAMMPS log).  If provided the</span>
+<span class="sd">        endpoint is pinned; otherwise it will be evaluated by MACE.</span>
+<span class="sd">    e_fs : float, optional</span>
+<span class="sd">        Potential energy of FS in eV (from LAMMPS log).</span>
+<span class="sd">    interpolation : str</span>
+<span class="sd">        Interpolation method passed to ``NEB.interpolate()``.</span>
+<span class="sd">        ``&#39;idpp&#39;`` (default) avoids atom clashes; ``&#39;linear&#39;`` is faster.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list[Atoms]</span>
+<span class="sd">        Full image list: ``[IS, img_1, …, img_n, FS]`` (length n_images + 2).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ase.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ase.mep</span><span class="w"> </span><span class="kn">import</span> <span class="n">NEB</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ase.calculators.singlepoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">SinglePointCalculator</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ase.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">find_mic</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+    <span class="c1"># NOTE: the ASE LAMMPS-data reader below always defaults atoms.pbc to</span>
+    <span class="c1"># (True, True, True) -- these files carry no periodicity metadata --</span>
+    <span class="c1"># even though these are slabs with a vacuum gap, not periodic in z.</span>
+    <span class="c1"># Investigated whether this could let the MACE</span>
+    <span class="c1"># calculator&#39;s periodic neighbour search spuriously &quot;see&quot; an atom&#39;s own</span>
+    <span class="c1"># image across the vacuum during force evaluation: with this pipeline&#39;s</span>
+    <span class="c1"># real production model (r_max=6.0 A, 2 interaction layers) and the</span>
+    <span class="c1"># real vacuum geometry (~31 A total gap -- VACUUM=15.0 A applied on</span>
+    <span class="c1"># both sides of the slab, not just one), no atom pair can ever be</span>
+    <span class="c1"># within r_max of its periodic image across z. Confirmed harmless;</span>
+    <span class="c1"># left as-is rather than fixed.</span>
+    <span class="n">is_raw</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">is_file</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;lammps-data&#39;</span><span class="p">,</span> <span class="n">atom_style</span><span class="o">=</span><span class="s1">&#39;atomic&#39;</span><span class="p">)</span>
+    <span class="n">is_raw</span><span class="o">.</span><span class="n">wrap</span><span class="p">()</span>
+    <span class="n">fs_raw</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">fs_file</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;lammps-data&#39;</span><span class="p">,</span> <span class="n">atom_style</span><span class="o">=</span><span class="s1">&#39;atomic&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">is_raw</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">fs_raw</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">array</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;IS and FS cells differ (</span><span class="si">{</span><span class="n">is_file</span><span class="si">}</span><span class="s1"> vs </span><span class="si">{</span><span class="n">fs_file</span><span class="si">}</span><span class="s1">) -- find_mic() &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;assumes a shared cell; check both LAMMPS outputs.&#39;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Align FS to IS&#39;s frame via minimum-image displacement per atom, instead</span>
+    <span class="c1"># of wrapping independently -- an atom near a cell boundary in one</span>
+    <span class="c1"># structure but not the other otherwise shows a spurious ~cell-length</span>
+    <span class="c1"># &quot;jump&quot; that NEB.interpolate() takes as a literal path to traverse</span>
+    <span class="c1"># (confirmed on a real pair: metal atoms with ~cell-length naive</span>
+    <span class="c1"># displacement but ~0.01 Å true displacement). pbc=(True, True, False)</span>
+    <span class="c1"># matches every slab in this pipeline -- periodic in-plane (x, y), fixed</span>
+    <span class="c1"># in z (surface normal, topped with vacuum). This is passed to find_mic</span>
+    <span class="c1"># only; it deliberately does NOT change is_raw/fs_raw&#39;s own .pbc, so</span>
+    <span class="c1"># calculator behaviour (periodic neighbour lists) elsewhere in the NEB</span>
+    <span class="c1"># run is unaffected by this alignment step.</span>
+    <span class="n">_slab_pbc</span> <span class="o">=</span> <span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">_diff</span> <span class="o">=</span> <span class="n">fs_raw</span><span class="o">.</span><span class="n">get_positions</span><span class="p">()</span> <span class="o">-</span> <span class="n">is_raw</span><span class="o">.</span><span class="n">get_positions</span><span class="p">()</span>
+    <span class="c1"># Gate the ambiguity check by the same pbc mask used below -- z is not</span>
+    <span class="c1"># periodic (vacuum gap), so any raw z-displacement, however large, is</span>
+    <span class="c1"># the true motion with zero wrap ambiguity. Checking all 3 axes</span>
+    <span class="c1"># uniformly would false-positive on a real, unambiguous desorption-like</span>
+    <span class="c1"># z-motion that&#39;s well over half the (typically huge, vacuum-inflated)</span>
+    <span class="c1"># z cell length but was never a candidate for wrapping in the first place.</span>
+    <span class="n">_half_cell</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">is_raw</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">_diff</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">_half_cell</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">_slab_pbc</span><span class="p">)):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Some atom&#39;s raw IS-&gt;FS displacement in </span><span class="si">{</span><span class="n">fs_file</span><span class="si">}</span><span class="s2"> exceeds half &quot;</span>
+            <span class="sa">f</span><span class="s1">&#39;the cell length along a periodic axis -- find_mic() cannot &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;distinguish a genuine large hop from wrapping around the box &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;in that case; inspect manually.&#39;</span>
+        <span class="p">)</span>
+    <span class="n">_mic_vec</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">find_mic</span><span class="p">(</span><span class="n">_diff</span><span class="p">,</span> <span class="n">is_raw</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="n">pbc</span><span class="o">=</span><span class="n">_slab_pbc</span><span class="p">)</span>
+    <span class="n">fs_raw</span><span class="o">.</span><span class="n">set_positions</span><span class="p">(</span><span class="n">is_raw</span><span class="o">.</span><span class="n">get_positions</span><span class="p">()</span> <span class="o">+</span> <span class="n">_mic_vec</span><span class="p">)</span>
+
+    <span class="c1"># Pin endpoint energies if supplied</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_pin</span><span class="p">(</span><span class="n">atoms</span><span class="p">,</span> <span class="n">energy</span><span class="p">):</span>
+        <span class="n">atoms</span> <span class="o">=</span> <span class="n">atoms</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">energy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">atoms</span><span class="o">.</span><span class="n">calc</span> <span class="o">=</span> <span class="n">SinglePointCalculator</span><span class="p">(</span><span class="n">atoms</span><span class="p">)</span>
+            <span class="n">atoms</span><span class="o">.</span><span class="n">calc</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;energy&#39;</span><span class="p">:</span> <span class="n">energy</span><span class="p">,</span>
+                <span class="s1">&#39;forces&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">atoms</span><span class="p">),</span> <span class="mi">3</span><span class="p">)),</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">atoms</span>
+
+    <span class="n">is_end</span> <span class="o">=</span> <span class="n">_pin</span><span class="p">(</span><span class="n">is_raw</span><span class="p">,</span> <span class="n">e_is</span><span class="p">)</span>
+    <span class="n">fs_end</span> <span class="o">=</span> <span class="n">_pin</span><span class="p">(</span><span class="n">fs_raw</span><span class="p">,</span> <span class="n">e_fs</span><span class="p">)</span>
+
+    <span class="n">images</span> <span class="o">=</span> <span class="p">[</span><span class="n">is_end</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">is_raw</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_images</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="n">fs_end</span><span class="p">]</span>
+
+    <span class="n">neb</span> <span class="o">=</span> <span class="n">NEB</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">climb</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;aseneb&#39;</span><span class="p">)</span>
+    <span class="n">neb</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="n">interpolation</span><span class="p">)</span>
+
+    <span class="c1"># Report H-H distances along interpolated path</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">img</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">images</span><span class="p">):</span>
+        <span class="n">lbl</span> <span class="o">=</span> <span class="s1">&#39;IS&#39;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="s1">&#39;FS&#39;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">images</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;img_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">sym</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">get_chemical_symbols</span><span class="p">())</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">get_positions</span><span class="p">()</span>
+        <span class="n">h_pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">sym</span> <span class="o">==</span> <span class="s1">&#39;H&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">h_pos</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">h_pos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">h_pos</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  </span><span class="si">{</span><span class="n">lbl</span><span class="si">:</span><span class="s1">6s</span><span class="si">}</span><span class="s1">: H-H = </span><span class="si">{</span><span class="n">dist</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> Å&#39;</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">images</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 3 — Two-phase CINEB runner</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="run_cineb">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.run_cineb">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_cineb</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="n">calc_fn</span><span class="p">,</span>
+    <span class="n">spring_const</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">neb_ftol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">phase1_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+    <span class="n">phase2_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+    <span class="n">logfile_phase1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;neb_phase1.log&#39;</span><span class="p">,</span>
+    <span class="n">logfile_phase2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;neb_phase2.log&#39;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run a two-phase climbing-image NEB optimisation with FIRE.</span>
+
+<span class="sd">    Phase 1 relaxes images onto the MEP (regular NEB, fmax = 3× ``neb_ftol``).</span>
+<span class="sd">    Phase 2 enables the climbing image to locate the true saddle point</span>
+<span class="sd">    (CINEB, fmax = ``neb_ftol``).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    images : list[Atoms]</span>
+<span class="sd">        Full image list from :func:`build_neb_images`.</span>
+<span class="sd">    calc_fn : callable</span>
+<span class="sd">        Zero-argument callable returning a fresh ``Calculator`` for each</span>
+<span class="sd">        intermediate image.  Example::</span>
+
+<span class="sd">            lambda: make_frozen_calc(MACE_MODEL_ASE, Z_FREEZE_CUTOFF)</span>
+
+<span class="sd">    spring_const : float</span>
+<span class="sd">        NEB elastic-band spring constant in eV/Å².</span>
+<span class="sd">    neb_ftol : float</span>
+<span class="sd">        Force convergence threshold for CINEB (phase 2) in eV/Å.</span>
+<span class="sd">    phase1_steps : int</span>
+<span class="sd">        Maximum FIRE steps for phase 1.</span>
+<span class="sd">    phase2_steps : int</span>
+<span class="sd">        Maximum FIRE steps for phase 2 (CINEB).</span>
+<span class="sd">    logfile_phase1 : str</span>
+<span class="sd">        FIRE log file path for phase 1.</span>
+<span class="sd">    logfile_phase2 : str</span>
+<span class="sd">        FIRE log file path for phase 2.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    neb : NEB</span>
+<span class="sd">        Converged (or best-effort) NEB object.</span>
+<span class="sd">    converged : bool</span>
+<span class="sd">        ``True`` if phase 2 reached ``fmax ≤ neb_ftol``.</span>
+<span class="sd">    fmax_final : float</span>
+<span class="sd">        Maximum force across all images at end of phase 2 in eV/Å.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ase.mep</span><span class="w"> </span><span class="kn">import</span> <span class="n">NEB</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ase.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">FIRE</span>
+
+    <span class="c1"># Attach a fresh calculator to each intermediate image</span>
+    <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">images</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">img</span><span class="o">.</span><span class="n">calc</span> <span class="o">=</span> <span class="n">calc_fn</span><span class="p">()</span>
+
+    <span class="n">neb</span> <span class="o">=</span> <span class="n">NEB</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">climb</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">spring_const</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;aseneb&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Phase 1 — regular NEB</span>
+    <span class="n">phase1_fmax</span> <span class="o">=</span> <span class="n">neb_ftol</span> <span class="o">*</span> <span class="mf">3.0</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Phase 1: regular NEB  (</span><span class="si">{</span><span class="n">phase1_steps</span><span class="si">}</span><span class="s1"> steps, fmax=</span><span class="si">{</span><span class="n">phase1_fmax</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> eV/Å)&#39;</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+    <span class="n">opt1</span> <span class="o">=</span> <span class="n">FIRE</span><span class="p">(</span><span class="n">neb</span><span class="p">,</span> <span class="n">logfile</span><span class="o">=</span><span class="n">logfile_phase1</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="n">opt1</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">fmax</span><span class="o">=</span><span class="n">phase1_fmax</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">phase1_steps</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Phase 1 done: </span><span class="si">{</span><span class="n">opt1</span><span class="o">.</span><span class="n">nsteps</span><span class="si">}</span><span class="s1"> steps&#39;</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+    <span class="c1"># Reset momenta — prevents phase-1 velocity carryover into CINEB</span>
+    <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">images</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">img</span><span class="o">.</span><span class="n">set_momenta</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">get_momenta</span><span class="p">()))</span>
+
+    <span class="c1"># Phase 2 — CINEB</span>
+    <span class="n">neb</span><span class="o">.</span><span class="n">climb</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">Phase 2: CINEB  (</span><span class="si">{</span><span class="n">phase2_steps</span><span class="si">}</span><span class="s1"> steps, fmax=</span><span class="si">{</span><span class="n">neb_ftol</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> eV/Å)&#39;</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+    <span class="n">opt2</span> <span class="o">=</span> <span class="n">FIRE</span><span class="p">(</span><span class="n">neb</span><span class="p">,</span> <span class="n">logfile</span><span class="o">=</span><span class="n">logfile_phase2</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+    <span class="n">converged</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">converged</span> <span class="o">=</span> <span class="n">opt2</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">fmax</span><span class="o">=</span><span class="n">neb_ftol</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">phase2_steps</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;WARNING: phase 2 raised: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Phase 2 done: </span><span class="si">{</span><span class="n">opt2</span><span class="o">.</span><span class="n">nsteps</span><span class="si">}</span><span class="s1"> steps&#39;</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+
+    <span class="c1"># Final fmax: use neb.get_forces() (the perpendicular/spring-projected</span>
+    <span class="c1"># force the optimizer actually converges on), not each image&#39;s raw</span>
+    <span class="c1"># calculator force -- the raw force also contains the along-path</span>
+    <span class="c1"># tangential component NEB deliberately never drives to zero, and is</span>
+    <span class="c1"># therefore always &gt;= the true NEB fmax (the two components are</span>
+    <span class="c1"># orthogonal).</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">_f</span> <span class="o">=</span> <span class="n">neb</span><span class="o">.</span><span class="n">get_forces</span><span class="p">()</span>
+        <span class="n">fmax_final</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">_f</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">fmax_final</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">neb</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">converged</span><span class="p">),</span> <span class="n">fmax_final</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 4 — MEP extraction</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="extract_mep">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.extract_mep">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_mep</span><span class="p">(</span>
+    <span class="n">images</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="n">E_IS</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">E_FS</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute MEP energetics from a converged NEB image chain.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    images : list[Atoms]</span>
+<span class="sd">        Full image list (including IS and FS endpoints).</span>
+<span class="sd">    E_IS : float, optional</span>
+<span class="sd">        Pinned IS energy in eV.  If ``None``, read from ``images[0]``.</span>
+<span class="sd">    E_FS : float, optional</span>
+<span class="sd">        Pinned FS energy in eV.  If ``None``, read from ``images[-1]``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict with keys</span>
+<span class="sd">        ``energies``  – list of per-image energies (eV), ``None`` if unavailable</span>
+<span class="sd">        ``frac``      – reaction coordinate array (0 → 1)</span>
+<span class="sd">        ``E_IS``      – initial state energy (eV)</span>
+<span class="sd">        ``E_FS``      – final state energy (eV)</span>
+<span class="sd">        ``E_abs``     – absorption / forward barrier = E_TS − E_IS (eV)</span>
+<span class="sd">        ``E_des``     – desorption / reverse barrier = E_TS − E_FS (eV)</span>
+<span class="sd">        ``delta_E``   – reaction energy = E_FS − E_IS (eV)</span>
+<span class="sd">        ``ts_index``  – image index of the transition state</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">images</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">get_potential_energy</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">valid</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">energies</span> <span class="k">if</span> <span class="n">e</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">e_is</span> <span class="o">=</span> <span class="n">E_IS</span> <span class="k">if</span> <span class="n">E_IS</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">energies</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">e_fs</span> <span class="o">=</span> <span class="n">E_FS</span> <span class="k">if</span> <span class="n">E_FS</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">energies</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">e_ts</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">valid</span><span class="p">)</span>
+    <span class="n">ts_index</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span> <span class="k">if</span> <span class="n">e</span> <span class="o">==</span> <span class="n">e_ts</span><span class="p">)</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+    <span class="n">frac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)])</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;energies&#39;</span><span class="p">:</span> <span class="n">energies</span><span class="p">,</span>
+        <span class="s1">&#39;frac&#39;</span><span class="p">:</span>     <span class="n">frac</span><span class="p">,</span>
+        <span class="s1">&#39;E_IS&#39;</span><span class="p">:</span>     <span class="n">e_is</span><span class="p">,</span>
+        <span class="s1">&#39;E_FS&#39;</span><span class="p">:</span>     <span class="n">e_fs</span><span class="p">,</span>
+        <span class="s1">&#39;E_abs&#39;</span><span class="p">:</span>    <span class="n">e_ts</span> <span class="o">-</span> <span class="n">e_is</span><span class="p">,</span>
+        <span class="s1">&#39;E_des&#39;</span><span class="p">:</span>    <span class="n">e_ts</span> <span class="o">-</span> <span class="n">e_fs</span><span class="p">,</span>
+        <span class="s1">&#39;delta_E&#39;</span><span class="p">:</span>  <span class="n">e_fs</span> <span class="o">-</span> <span class="n">e_is</span><span class="p">,</span>
+        <span class="s1">&#39;ts_index&#39;</span><span class="p">:</span> <span class="n">ts_index</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 5 — Write result files</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="write_neb_results">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.write_neb_results">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_neb_results</span><span class="p">(</span>
+    <span class="n">mep</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">fmax_final</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">converged</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">barrier_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">path_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">label_is</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;IS&#39;</span><span class="p">,</span>
+    <span class="n">label_fs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;FS&#39;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write ``neb_barrier.txt`` and ``neb_path.dat`` from MEP dict.</span>
+
+<span class="sd">    Output format is compatible with :func:`models.parsers.parse_barrier_file`</span>
+<span class="sd">    and :func:`models.parsers.parse_neb_path`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mep : dict</span>
+<span class="sd">        Output of :func:`extract_mep`.</span>
+<span class="sd">    fmax_final : float</span>
+<span class="sd">        Final maximum force across intermediate images (eV/Å).</span>
+<span class="sd">    converged : bool</span>
+<span class="sd">        Whether phase 2 reached the force tolerance.</span>
+<span class="sd">    barrier_file : str</span>
+<span class="sd">        Path to write the human-readable barrier summary.</span>
+<span class="sd">    path_file : str</span>
+<span class="sd">        Path to write the 3-column MEP data file.</span>
+<span class="sd">    label_is : str</span>
+<span class="sd">        Descriptive label for IS printed in barrier_file.</span>
+<span class="sd">    label_fs : str</span>
+<span class="sd">        Descriptive label for FS printed in barrier_file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">barrier_file</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path_file</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">energies</span> <span class="o">=</span> <span class="n">mep</span><span class="p">[</span><span class="s1">&#39;energies&#39;</span><span class="p">]</span>
+    <span class="n">e_is</span>     <span class="o">=</span> <span class="n">mep</span><span class="p">[</span><span class="s1">&#39;E_IS&#39;</span><span class="p">]</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">barrier_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;IS          : </span><span class="si">{</span><span class="n">label_is</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;FS          : </span><span class="si">{</span><span class="n">label_fs</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;N images    : </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span><span class="o">-</span><span class="mi">2</span><span class="si">}</span><span class="s1"> intermediate + IS + FS)</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;fmax_final  : </span><span class="si">{</span><span class="n">fmax_final</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> eV/A</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Converged   : </span><span class="si">{</span><span class="n">converged</span><span class="si">}</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;E_IS    = </span><span class="si">{</span><span class="n">mep</span><span class="p">[</span><span class="s2">&quot;E_IS&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1"> eV</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;E_FS    = </span><span class="si">{</span><span class="n">mep</span><span class="p">[</span><span class="s2">&quot;E_FS&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1"> eV</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;E_abs   = </span><span class="si">{</span><span class="n">mep</span><span class="p">[</span><span class="s2">&quot;E_abs&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> eV</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;E_des   = </span><span class="si">{</span><span class="n">mep</span><span class="p">[</span><span class="s2">&quot;E_des&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> eV</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;delta_E = </span><span class="si">{</span><span class="n">mep</span><span class="p">[</span><span class="s2">&quot;delta_E&quot;</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> eV</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;Image energies:</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">energies</span><span class="p">):</span>
+            <span class="n">lbl</span> <span class="o">=</span> <span class="s1">&#39;IS&#39;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="s1">&#39;FS&#39;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;img_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">e</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;  </span><span class="si">{</span><span class="n">lbl</span><span class="si">:</span><span class="s1">6s</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">e</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1"> eV  (</span><span class="si">{</span><span class="n">e</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">e_is</span><span class="si">:</span><span class="s1">+.4f</span><span class="si">}</span><span class="s1"> eV)</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;# image_frac  E_eV  dE_from_IS_eV</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">energies</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">e</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">i</span><span class="o">/</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">  </span><span class="si">{</span><span class="n">e</span><span class="si">:</span><span class="s1">.6f</span><span class="si">}</span><span class="s1">  </span><span class="si">{</span><span class="n">e</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">e_is</span><span class="si">:</span><span class="s1">+.4f</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Wrote: </span><span class="si">{</span><span class="n">barrier_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Wrote: </span><span class="si">{</span><span class="n">path_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 6 — Write standalone ASE NEB job script</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="write_ase_neb_script">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.write_ase_neb_script">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_ase_neb_script</span><span class="p">(</span>
+    <span class="n">is_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">fs_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">e_is</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">mace_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">barrier_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">path_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">logfile_phase1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">logfile_phase2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">e_fs</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fs_log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">n_images</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
+    <span class="n">spring_const</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">neb_ftol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">phase1_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+    <span class="n">phase2_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+    <span class="n">z_freeze_cutoff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">22.115</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;cpu&#39;</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;float32&#39;</span><span class="p">,</span>
+    <span class="n">parallel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">label_is</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;IS&#39;</span><span class="p">,</span>
+    <span class="n">label_fs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;FS&#39;</span><span class="p">,</span>
+    <span class="n">out_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;run_neb.py&#39;</span><span class="p">,</span>
+    <span class="n">images_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">traj_phase1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">traj_phase2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">masses</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">e2t</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write a self-contained Python script that runs ASE CINEB on a cluster node.</span>
+
+<span class="sd">    The generated script is submitted via SLURM and does not depend on the</span>
+<span class="sd">    notebook kernel.  All parameters are injected at write time.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    is_file : str</span>
+<span class="sd">        Path (on the cluster) to the LAMMPS data file for IS.</span>
+<span class="sd">    fs_file : str</span>
+<span class="sd">        Path (on the cluster) to the LAMMPS data file for FS.</span>
+<span class="sd">    e_is : float</span>
+<span class="sd">        IS potential energy in eV (from LAMMPS minimisation log).</span>
+<span class="sd">    mace_model_path : str</span>
+<span class="sd">        Path (on the cluster) to the ``.model`` MACE file.</span>
+<span class="sd">    barrier_file : str</span>
+<span class="sd">        Output path for ``neb_barrier.txt``.</span>
+<span class="sd">    path_file : str</span>
+<span class="sd">        Output path for ``neb_path.dat``.</span>
+<span class="sd">    logfile_phase1 : str</span>
+<span class="sd">        FIRE log path for phase 1.</span>
+<span class="sd">    logfile_phase2 : str</span>
+<span class="sd">        FIRE log path for phase 2.</span>
+<span class="sd">    e_fs : float, optional</span>
+<span class="sd">        FS potential energy in eV (from LAMMPS minimisation log).</span>
+<span class="sd">        Mutually exclusive with ``fs_log_file``.</span>
+<span class="sd">    fs_log_file : str, optional</span>
+<span class="sd">        Path to the FS LAMMPS minimisation log (``fs_min.log``).  When</span>
+<span class="sd">        provided, the generated script parses ``E_FS`` at runtime from</span>
+<span class="sd">        ``pe_final_eV : &lt;value&gt;`` lines written by</span>
+<span class="sd">        :func:`models.lammps_script.write_adsorbate_min_script`.</span>
+<span class="sd">        Use this when E_FS is not known at script-generation time.</span>
+<span class="sd">        Mutually exclusive with ``e_fs``.</span>
+<span class="sd">    n_images : int</span>
+<span class="sd">        Number of intermediate NEB images.</span>
+<span class="sd">    spring_const : float</span>
+<span class="sd">        Elastic-band spring constant in eV/Å².</span>
+<span class="sd">    neb_ftol : float</span>
+<span class="sd">        CINEB force convergence tolerance in eV/Å.</span>
+<span class="sd">    phase1_steps : int</span>
+<span class="sd">        Phase 1 FIRE step limit.</span>
+<span class="sd">    phase2_steps : int</span>
+<span class="sd">        Phase 2 FIRE step limit.</span>
+<span class="sd">    z_freeze_cutoff : float</span>
+<span class="sd">        Frozen-layer z threshold in Å.</span>
+<span class="sd">    device : str</span>
+<span class="sd">        PyTorch device (``&#39;cpu&#39;`` or ``&#39;cpu&#39;``).</span>
+<span class="sd">    dtype : str</span>
+<span class="sd">        MACE ``default_dtype`` — ``&#39;float32&#39;`` (default) or ``&#39;float64&#39;``.</span>
+<span class="sd">    parallel : bool</span>
+<span class="sd">        Pass ``parallel=True`` (default) to ASE&#39;s ``NEB`` so intermediate</span>
+<span class="sd">        images are force-evaluated on separate Python threads instead of</span>
+<span class="sd">        sequentially. No MPI is required — this uses ASE&#39;s built-in</span>
+<span class="sd">        threading fallback when ``ase.parallel.world.size == 1``.</span>
+<span class="sd">    label_is : str</span>
+<span class="sd">        Descriptive label for IS (written to barrier file header).</span>
+<span class="sd">    label_fs : str</span>
+<span class="sd">        Descriptive label for FS (written to barrier file header).</span>
+<span class="sd">    out_path : str</span>
+<span class="sd">        Path where the generated ``.py`` script is written.</span>
+<span class="sd">    masses : dict, optional</span>
+<span class="sd">        ``{atom_type: (mass_amu, element_symbol)}`` used to write each</span>
+<span class="sd">        per-image structure with :func:`models.structure.write_lammps_data`</span>
+<span class="sd">        (the same canonical writer used everywhere else in this codebase),</span>
+<span class="sd">        so the files carry a real ``Masses`` section and round-trip</span>
+<span class="sd">        correctly when read later (e.g. by the vibration scripts). Default</span>
+<span class="sd">        ``None`` resolves to ``MASSES_7``.</span>
+<span class="sd">    e2t : dict, optional</span>
+<span class="sd">        ``{element_symbol: atom_type}`` paired with ``masses``. Default</span>
+<span class="sd">        ``None`` resolves to ``E2T_7``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Path to the written script (``out_path``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">models.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">MASSES_7</span><span class="p">,</span> <span class="n">E2T_7</span>
+    <span class="k">if</span> <span class="n">masses</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">masses</span> <span class="o">=</span> <span class="n">MASSES_7</span>
+    <span class="k">if</span> <span class="n">e2t</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">e2t</span> <span class="o">=</span> <span class="n">E2T_7</span>
+
+    <span class="k">if</span> <span class="n">e_fs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">fs_log_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s1">&#39;write_ase_neb_script: provide either e_fs (float) or &#39;</span>
+            <span class="s1">&#39;fs_log_file (path to fs_min.log).&#39;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">images_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">images_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">out_path</span><span class="p">))</span>
+
+    <span class="c1"># Project root, so the generated script (run standalone on a cluster</span>
+    <span class="c1"># node) can import models.structure.write_lammps_data.</span>
+    <span class="n">_project_root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="n">fs_log_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Accumulate last valid float — LAMMPS echoes the `print` command itself</span>
+        <span class="c1"># (containing `${pe_final}`) on the line immediately before the actual</span>
+        <span class="c1"># output value. Returning on the first match hits the echo line and raises</span>
+        <span class="c1"># ValueError. Overwriting `_val` on each successful parse picks the last</span>
+        <span class="c1"># valid line instead.</span>
+        <span class="n">efs_block</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s1">&#39;def _parse_pe_final(log_path):</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s1">&#39;    _val = None</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s1">&#39;    with open(log_path) as _f:</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s1">&#39;        for _line in _f:</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s2">&quot;            if &#39;pe_final_eV&#39; in _line and &#39;:&#39; in _line:</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s1">&#39;                try:</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s2">&quot;                    _val = float(_line.split(&#39;:&#39;)[1].strip())</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s1">&#39;                except ValueError:</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s1">&#39;                    pass</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s1">&#39;    if _val is None:</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s1">&#39;        raise ValueError(f&quot;pe_final_eV not found in </span><span class="si">{log_path}</span><span class="s1">&quot;)</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="s1">&#39;    return _val</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">E_FS = _parse_pe_final(&quot;</span><span class="si">{</span><span class="n">fs_log_file</span><span class="si">}</span><span class="s1">&quot;)  # eV — from fs_min.log at runtime&#39;</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">efs_block</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;E_FS            = </span><span class="si">{</span><span class="n">e_fs</span><span class="si">}</span><span class="s1">               # eV — from LAMMPS FS minimisation&#39;</span>
+
+    <span class="n">script</span> <span class="o">=</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">        #!/usr/bin/env python3</span>
+<span class="s2">        # ASE CINEB — generated by models.ase_neb.write_ase_neb_script</span>
+<span class="s2">        # IS: </span><span class="si">{</span><span class="n">label_is</span><span class="si">}</span>
+<span class="s2">        # FS: </span><span class="si">{</span><span class="n">label_fs</span><span class="si">}</span>
+<span class="s2">        # Interpolation: IDPP</span>
+<span class="s2">        # Two-phase: regular NEB (phase 1) → CINEB (phase 2)</span>
+
+<span class="s2">        import os, sys</span>
+<span class="s2">        import warnings</span>
+<span class="s2">        import numpy as np</span>
+
+<span class="s2">        # Strip cpu stubs from LD_LIBRARY_PATH — causes segfault on some nodes</span>
+<span class="s2">        _ld = os.environ.get(&quot;LD_LIBRARY_PATH&quot;, &quot;&quot;)</span>
+<span class="s2">        os.environ[&quot;LD_LIBRARY_PATH&quot;] = &quot;:&quot;.join(</span>
+<span class="s2">            p for p in _ld.split(&quot;:&quot;) if &quot;stubs&quot; not in p)</span>
+
+<span class="s2">        _parent = </span><span class="si">{</span><span class="n">_project_root</span><span class="si">!r}</span>
+<span class="s2">        if _parent not in sys.path:</span>
+<span class="s2">            sys.path.insert(0, _parent)</span>
+
+<span class="s2">        from pathlib import Path as _Path</span>
+<span class="s2">        from ase.io import read, Trajectory as _Trajectory</span>
+<span class="s2">        from ase.mep import NEB</span>
+<span class="s2">        from ase.optimize import FIRE</span>
+<span class="s2">        from ase.calculators.singlepoint import SinglePointCalculator</span>
+<span class="s2">        from ase.geometry import find_mic</span>
+<span class="s2">        from mace.calculators import MACECalculator</span>
+<span class="s2">        from models.structure import write_lammps_data</span>
+
+<span class="s2">        import torch</span>
+<span class="s2">        torch.set_num_threads(1)  # NEB(parallel=True) below spawns one Python</span>
+<span class="s2">        # thread per intermediate image; without this each thread&#39;s MACE</span>
+<span class="s2">        # forward pass would also try to use multiple intra-op threads,</span>
+<span class="s2">        # oversubscribing the allocated CPUs.</span>
+
+<span class="s2">        # ── Parameters injected from notebook ─────────────────────────────</span>
+<span class="s2">        MACE_MODEL      = &quot;</span><span class="si">{</span><span class="n">mace_model_path</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        NEB_IS_FILE     = &quot;</span><span class="si">{</span><span class="n">is_file</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        FS_RELAXED_DATA = &quot;</span><span class="si">{</span><span class="n">fs_file</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        Z_FREEZE_CUTOFF = </span><span class="si">{</span><span class="n">z_freeze_cutoff</span><span class="si">}</span><span class="s2">    # Å — frozen layer threshold</span>
+<span class="s2">        E_IS            = </span><span class="si">{</span><span class="n">e_is</span><span class="si">}</span><span class="s2">               # eV — from LAMMPS IS minimisation</span>
+<span class="s2">        MASSES          = </span><span class="si">{</span><span class="n">masses</span><span class="si">!r}</span>
+<span class="s2">        E2T             = </span><span class="si">{</span><span class="n">e2t</span><span class="si">!r}</span>
+<span class="s2">        %%EFS_BLOCK%%</span>
+<span class="s2">        N_IMAGES        = </span><span class="si">{</span><span class="n">n_images</span><span class="si">}</span><span class="s2">           # intermediate images</span>
+<span class="s2">        SPRING_CONST    = </span><span class="si">{</span><span class="n">spring_const</span><span class="si">}</span><span class="s2">       # eV/Å²</span>
+<span class="s2">        NEB_FMAX        = </span><span class="si">{</span><span class="n">neb_ftol</span><span class="si">}</span><span class="s2">           # eV/Å — CINEB convergence</span>
+<span class="s2">        N1_FMAX         = NEB_FMAX * 3         # eV/Å — phase 1 (looser)</span>
+<span class="s2">        N1_STEPS        = </span><span class="si">{</span><span class="n">phase1_steps</span><span class="si">}</span>
+<span class="s2">        NEB_STEPS       = </span><span class="si">{</span><span class="n">phase2_steps</span><span class="si">}</span>
+<span class="s2">        DEVICE          = &quot;</span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        DTYPE           = &quot;</span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        PARALLEL        = </span><span class="si">{</span><span class="n">parallel</span><span class="si">!r}</span>
+<span class="s2">        BARRIER_FILE    = &quot;</span><span class="si">{</span><span class="n">barrier_file</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        PATH_FILE       = &quot;</span><span class="si">{</span><span class="n">path_file</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        LOG_PHASE1      = &quot;</span><span class="si">{</span><span class="n">logfile_phase1</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        LOG_PHASE2      = &quot;</span><span class="si">{</span><span class="n">logfile_phase2</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        LABEL_IS        = &quot;</span><span class="si">{</span><span class="n">label_is</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        LABEL_FS        = &quot;</span><span class="si">{</span><span class="n">label_fs</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        IMAGES_DIR      = &quot;</span><span class="si">{</span><span class="n">images_dir</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="s2">        TRAJ_PHASE1     = </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">traj_phase1</span><span class="p">)</span><span class="si">}</span>
+<span class="s2">        TRAJ_PHASE2     = </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">traj_phase2</span><span class="p">)</span><span class="si">}</span>
+
+<span class="s2">        # ── Calculator with frozen layers ─────────────────────────────────</span>
+<span class="s2">        class MACEFrozenCalc(MACECalculator):</span>
+<span class="s2">            def get_forces(self, atoms=None):</span>
+<span class="s2">                forces = super().get_forces(atoms).copy()</span>
+<span class="s2">                a = self.atoms if atoms is None else atoms</span>
+<span class="s2">                forces[a.get_positions()[:, 2] &lt; Z_FREEZE_CUTOFF] = 0.0</span>
+<span class="s2">                return forces</span>
+
+<span class="s2">        def make_calc():</span>
+<span class="s2">            return MACEFrozenCalc(</span>
+<span class="s2">                model_paths=MACE_MODEL, device=DEVICE, default_dtype=DTYPE, head=&quot;omat_pbe&quot;)</span>
+
+<span class="s2">        # ── Load structures and pin endpoint energies ─────────────────────</span>
+<span class="s2">        # NOTE: atoms.pbc defaults to (True, True, True) from this read()</span>
+<span class="s2">        # despite the vacuum gap in z -- investigated and confirmed harmless</span>
+<span class="s2">        # for the actual MACE calculator&#39;s periodic neighbour search given</span>
+<span class="s2">        # this pipeline&#39;s real r_max/vacuum geometry; see the matching note</span>
+<span class="s2">        # in build_neb_images() in models/ase_neb.py for the full reasoning.</span>
+<span class="s2">        is_raw = read(NEB_IS_FILE, format=&quot;lammps-data&quot;, atom_style=&quot;atomic&quot;)</span>
+<span class="s2">        is_raw.wrap()</span>
+<span class="s2">        fs_raw = read(FS_RELAXED_DATA, format=&quot;lammps-data&quot;, atom_style=&quot;atomic&quot;)</span>
+
+<span class="s2">        if not np.allclose(is_raw.cell.array, fs_raw.cell.array):</span>
+<span class="s2">            raise RuntimeError(</span>
+<span class="s2">                f&quot;IS and FS cells differ (</span><span class="se">{{</span><span class="s2">NEB_IS_FILE</span><span class="se">}}</span><span class="s2"> vs </span><span class="se">{{</span><span class="s2">FS_RELAXED_DATA</span><span class="se">}}</span><span class="s2">) -- &quot;</span>
+<span class="s2">                f&quot;find_mic() assumes a shared cell; check both LAMMPS outputs.&quot;</span>
+<span class="s2">            )</span>
+
+<span class="s2">        # Align FS to IS&#39;s frame via minimum-image displacement per atom,</span>
+<span class="s2">        # instead of wrapping independently -- an atom near a cell boundary</span>
+<span class="s2">        # in one structure but not the other otherwise shows a spurious</span>
+<span class="s2">        # ~cell-length &quot;jump&quot; that NEB.interpolate() takes as a literal path</span>
+<span class="s2">        # to traverse (confirmed on a real pair: metal atoms with</span>
+<span class="s2">        # ~cell-length naive displacement but ~0.01 Å true displacement).</span>
+<span class="s2">        # pbc=(True, True, False) matches every slab in this pipeline --</span>
+<span class="s2">        # periodic in-plane (x, y), fixed in z (surface normal, topped with</span>
+<span class="s2">        # vacuum). This is passed to find_mic only; it deliberately does NOT</span>
+<span class="s2">        # change is_raw/fs_raw&#39;s own .pbc, so calculator behaviour (periodic</span>
+<span class="s2">        # neighbour lists) elsewhere in the NEB run is unaffected.</span>
+<span class="s2">        _slab_pbc = (True, True, False)</span>
+<span class="s2">        _diff = fs_raw.get_positions() - is_raw.get_positions()</span>
+<span class="s2">        # Gate the ambiguity check by the same pbc mask used below -- z is</span>
+<span class="s2">        # not periodic (vacuum gap), so any raw z-displacement, however</span>
+<span class="s2">        # large, is the true motion with zero wrap ambiguity. Checking all</span>
+<span class="s2">        # 3 axes uniformly would false-positive on a real, unambiguous</span>
+<span class="s2">        # desorption-like z-motion that&#39;s well over half the (typically</span>
+<span class="s2">        # huge, vacuum-inflated) z cell length but was never a candidate</span>
+<span class="s2">        # for wrapping in the first place.</span>
+<span class="s2">        _half_cell = 0.5 * is_raw.cell.lengths()</span>
+<span class="s2">        if np.any((np.abs(_diff) &gt; _half_cell) &amp; np.array(_slab_pbc)):</span>
+<span class="s2">            warnings.warn(</span>
+<span class="s2">                f&quot;Some atom&#39;s raw IS-&gt;FS displacement in </span><span class="se">{{</span><span class="s2">FS_RELAXED_DATA</span><span class="se">}}</span><span class="s2"> &quot;</span>
+<span class="s2">                f&quot;exceeds half the cell length along a periodic axis -- &quot;</span>
+<span class="s2">                f&quot;find_mic() cannot distinguish a genuine large hop from &quot;</span>
+<span class="s2">                f&quot;wrapping around the box in that case; inspect manually.&quot;</span>
+<span class="s2">            )</span>
+<span class="s2">        _mic_vec, _ = find_mic(_diff, is_raw.cell, pbc=_slab_pbc)</span>
+<span class="s2">        fs_raw.set_positions(is_raw.get_positions() + _mic_vec)</span>
+
+<span class="s2">        def pin(atoms, energy):</span>
+<span class="s2">            atoms = atoms.copy()</span>
+<span class="s2">            atoms.calc = SinglePointCalculator(atoms)</span>
+<span class="s2">            atoms.calc.results = </span><span class="se">{{</span><span class="s2">&quot;energy&quot;: energy,</span>
+<span class="s2">                                   &quot;forces&quot;: np.zeros((len(atoms), 3))</span><span class="se">}}</span>
+<span class="s2">            return atoms</span>
+
+<span class="s2">        is_end = pin(is_raw, E_IS)</span>
+<span class="s2">        fs_end = pin(fs_raw, E_FS)</span>
+
+<span class="s2">        # ── Restart detection / IDPP interpolation ───────────────────────</span>
+<span class="s2">        def _load_last_band(traj_path):</span>
+<span class="s2">            _t = _Trajectory(traj_path)</span>
+<span class="s2">            _n = len(_t)</span>
+<span class="s2">            # A timeout can land mid-write of one step&#39;s N_IMAGES+2-frame</span>
+<span class="s2">            # batch, leaving a partial trailing batch -- this is a normal,</span>
+<span class="s2">            # expected consequence of the chain-resubmit mechanism, not an</span>
+<span class="s2">            # error. Truncate to the last COMPLETE batch and resume from</span>
+<span class="s2">            # there rather than failing the whole job over a few incomplete</span>
+<span class="s2">            # trailing frames.</span>
+<span class="s2">            _n_complete = (_n // (N_IMAGES + 2)) * (N_IMAGES + 2)</span>
+<span class="s2">            if _n_complete == 0:</span>
+<span class="s2">                raise RuntimeError(</span>
+<span class="s2">                    f&quot;</span><span class="se">{{</span><span class="s2">traj_path</span><span class="se">}}</span><span class="s2"> has only </span><span class="se">{{</span><span class="s2">_n</span><span class="se">}}</span><span class="s2"> frames, fewer than one &quot;</span>
+<span class="s2">                    f&quot;full band (N_IMAGES+2=</span><span class="se">{{</span><span class="s2">N_IMAGES + 2</span><span class="se">}}</span><span class="s2">). Nothing usable &quot;</span>
+<span class="s2">                    f&quot;to resume from -- delete this file, its .log file, and &quot;</span>
+<span class="s2">                    f&quot;any .extxyz file derived from it, then resubmit for a &quot;</span>
+<span class="s2">                    f&quot;clean restart.&quot;</span>
+<span class="s2">                )</span>
+<span class="s2">            if _n_complete != _n:</span>
+<span class="s2">                print(f&quot;WARNING: </span><span class="se">{{</span><span class="s2">traj_path</span><span class="se">}}</span><span class="s2"> has </span><span class="se">{{</span><span class="s2">_n</span><span class="se">}}</span><span class="s2"> frames, not a clean &quot;</span>
+<span class="s2">                      f&quot;multiple of N_IMAGES+2 (</span><span class="se">{{</span><span class="s2">N_IMAGES + 2</span><span class="se">}}</span><span class="s2">) -- likely an &quot;</span>
+<span class="s2">                      f&quot;interrupted write mid-batch. Using the last &quot;</span>
+<span class="s2">                      f&quot;</span><span class="se">{{</span><span class="s2">_n_complete</span><span class="se">}}</span><span class="s2"> frames, discarding </span><span class="se">{{</span><span class="s2">_n - _n_complete</span><span class="se">}}</span><span class="s2"> &quot;</span>
+<span class="s2">                      f&quot;incomplete trailing frame(s).&quot;)</span>
+<span class="s2">                sys.stdout.flush()</span>
+<span class="s2">            _last = max(0, _n_complete - (N_IMAGES + 2))</span>
+<span class="s2">            return [_t[_last + _i] for _i in range(min(N_IMAGES + 2, _n_complete - _last))]</span>
+
+<span class="s2">        def _neb_fmax(neb_obj):</span>
+<span class="s2">            # neb.get_forces() returns the perpendicular/spring-projected</span>
+<span class="s2">            # NEB force -- what the optimizer actually converges on -- not</span>
+<span class="s2">            # each image&#39;s raw calculator force (which also contains the</span>
+<span class="s2">            # along-path tangential component NEB deliberately never drives</span>
+<span class="s2">            # to zero, and is therefore always &gt;= the true NEB fmax since</span>
+<span class="s2">            # the two components are orthogonal).</span>
+<span class="s2">            try:</span>
+<span class="s2">                _f = neb_obj.get_forces()</span>
+<span class="s2">                return float(np.sqrt((_f**2).sum(axis=1).max()))</span>
+<span class="s2">            except Exception:</span>
+<span class="s2">                return float(&quot;nan&quot;)</span>
+
+<span class="s2">        def _steps_done(traj_path):</span>
+<span class="s2">            # Each completed FIRE step writes N_IMAGES+2 frames; one extra</span>
+<span class="s2">            # pre-optimization batch is written on the very first leg only.</span>
+<span class="s2">            _n = len(_Trajectory(traj_path))</span>
+<span class="s2">            return max(0, _n // (N_IMAGES + 2) - 1)</span>
+
+<span class="s2">        _p1_fmax_final = float(&quot;nan&quot;)</span>
+<span class="s2">        _p1_converged = None</span>
+
+<span class="s2">        if TRAJ_PHASE2 and _Path(TRAJ_PHASE2).exists():</span>
+<span class="s2">            print(&quot;Restart: Phase 2 checkpoint found — resuming CINEB&quot;)</span>
+<span class="s2">            sys.stdout.flush()</span>
+<span class="s2">            images = _load_last_band(TRAJ_PHASE2)</span>
+<span class="s2">            for img in images[1:-1]:</span>
+<span class="s2">                img.calc = make_calc()</span>
+<span class="s2">            neb = NEB(images, climb=True, k=SPRING_CONST, method=&quot;aseneb&quot;, parallel=PARALLEL)</span>
+<span class="s2">            _restart_phase = 2</span>
+<span class="s2">        elif TRAJ_PHASE1 and _Path(TRAJ_PHASE1).exists():</span>
+<span class="s2">            images = _load_last_band(TRAJ_PHASE1)</span>
+<span class="s2">            for img in images[1:-1]:</span>
+<span class="s2">                img.calc = make_calc()</span>
+<span class="s2">            # climb=False here matches Phase 1&#39;s own optimizer -- evaluating</span>
+<span class="s2">            # the loaded band&#39;s fmax against N1_FMAX must use the same</span>
+<span class="s2">            # (non-climbing) force definition Phase 1 itself converges on.</span>
+<span class="s2">            neb = NEB(images, climb=False, k=SPRING_CONST, method=&quot;aseneb&quot;, parallel=PARALLEL)</span>
+<span class="s2">            _loaded_fmax = _neb_fmax(neb)</span>
+<span class="s2">            _p1_steps_done = _steps_done(TRAJ_PHASE1)</span>
+<span class="s2">            _p1_remaining = N1_STEPS - _p1_steps_done</span>
+<span class="s2">            if _loaded_fmax &gt; N1_FMAX and _p1_remaining &gt; 0:</span>
+<span class="s2">                print(f&quot;Restart: Phase 1 checkpoint found — fmax=</span><span class="se">{{</span><span class="s2">_loaded_fmax:.4f</span><span class="se">}}</span><span class="s2"> &gt; &quot;</span>
+<span class="s2">                      f&quot;</span><span class="se">{{</span><span class="s2">N1_FMAX:.4f</span><span class="se">}}</span><span class="s2"> (</span><span class="se">{{</span><span class="s2">_p1_steps_done</span><span class="se">}}</span><span class="s2">/</span><span class="se">{{</span><span class="s2">N1_STEPS</span><span class="se">}}</span><span class="s2"> steps done) — resuming Phase 1&quot;)</span>
+<span class="s2">                _restart_phase = 1</span>
+<span class="s2">            else:</span>
+<span class="s2">                _reason = &quot;converged&quot; if _loaded_fmax &lt;= N1_FMAX else &quot;step budget exhausted&quot;</span>
+<span class="s2">                print(f&quot;Restart: Phase 1 checkpoint found — </span><span class="se">{{</span><span class="s2">_reason</span><span class="se">}}</span><span class="s2"> &quot;</span>
+<span class="s2">                      f&quot;(fmax=</span><span class="se">{{</span><span class="s2">_loaded_fmax:.4f</span><span class="se">}}</span><span class="s2">, </span><span class="se">{{</span><span class="s2">_p1_steps_done</span><span class="se">}}</span><span class="s2">/</span><span class="se">{{</span><span class="s2">N1_STEPS</span><span class="se">}}</span><span class="s2"> steps) — starting Phase 2&quot;)</span>
+<span class="s2">                neb.climb = True</span>
+<span class="s2">                _p1_fmax_final = _loaded_fmax</span>
+<span class="s2">                _p1_converged = _loaded_fmax &lt;= N1_FMAX</span>
+<span class="s2">                _restart_phase = 2</span>
+<span class="s2">            sys.stdout.flush()</span>
+<span class="s2">        else:</span>
+<span class="s2">            images = [is_end] + [is_raw.copy() for _ in range(N_IMAGES)] + [fs_end]</span>
+<span class="s2">            neb = NEB(images, climb=False, k=SPRING_CONST, method=&quot;aseneb&quot;, parallel=PARALLEL)</span>
+<span class="s2">            neb.interpolate(method=&quot;idpp&quot;)</span>
+<span class="s2">            print(&quot;IDPP interpolation done&quot;)</span>
+<span class="s2">            sys.stdout.flush()</span>
+<span class="s2">            for img in images[1:-1]:</span>
+<span class="s2">                img.calc = make_calc()</span>
+<span class="s2">            _restart_phase = 1</span>
+<span class="s2">            _p1_remaining = N1_STEPS</span>
+
+<span class="s2">        # ── Phase 1: regular NEB (skipped once converged / budget exhausted) ──</span>
+<span class="s2">        if _restart_phase == 1:</span>
+<span class="s2">            print(f&quot;</span><span class="se">\\</span><span class="s2">nPhase 1: regular NEB  (</span><span class="se">{{</span><span class="s2">_p1_remaining</span><span class="se">}}</span><span class="s2"> steps remaining of &quot;</span>
+<span class="s2">                  f&quot;</span><span class="se">{{</span><span class="s2">N1_STEPS</span><span class="se">}}</span><span class="s2"> total, fmax=</span><span class="se">{{</span><span class="s2">N1_FMAX:.3f</span><span class="se">}}</span><span class="s2"> eV/Å)&quot;)</span>
+<span class="s2">            sys.stdout.flush()</span>
+<span class="s2">            _traj1_kw = </span><span class="se">{{</span><span class="s2">&quot;trajectory&quot;: TRAJ_PHASE1, &quot;append_trajectory&quot;: True</span><span class="se">}}</span><span class="s2"> if TRAJ_PHASE1 else </span><span class="se">{{}}</span>
+<span class="s2">            opt1 = FIRE(neb, logfile=LOG_PHASE1, dt=0.05, **_traj1_kw)</span>
+<span class="s2">            opt1.run(fmax=N1_FMAX, steps=_p1_remaining)</span>
+<span class="s2">            print(f&quot;Phase 1 done: </span><span class="se">{{</span><span class="s2">opt1.nsteps</span><span class="se">}}</span><span class="s2"> steps (this leg)&quot;)</span>
+<span class="s2">            sys.stdout.flush()</span>
+
+<span class="s2">            if TRAJ_PHASE1 and os.path.exists(TRAJ_PHASE1):</span>
+<span class="s2">                from ase.io import read as _r1, write as _w1</span>
+<span class="s2">                _lmp1 = TRAJ_PHASE1.replace(&quot;.traj&quot;, &quot;.extxyz&quot;)</span>
+<span class="s2">                _w1(_lmp1, _r1(TRAJ_PHASE1, index=&quot;:&quot;), format=&quot;extxyz&quot;)</span>
+<span class="s2">                print(f&quot;Wrote OVITO trajectory: </span><span class="se">{{</span><span class="s2">_lmp1</span><span class="se">}}</span><span class="s2">&quot;)</span>
+<span class="s2">                sys.stdout.flush()</span>
+
+<span class="s2">            _p1_fmax_final = _neb_fmax(neb)</span>
+<span class="s2">            _p1_converged = _p1_fmax_final &lt;= N1_FMAX</span>
+
+<span class="s2">            for img in images[1:-1]:</span>
+<span class="s2">                img.set_momenta(np.zeros_like(img.get_momenta()))</span>
+
+<span class="s2">        # ── Phase 2: CINEB ────────────────────────────────────────────────</span>
+<span class="s2">        neb.climb = True</span>
+<span class="s2">        _p2_done = _steps_done(TRAJ_PHASE2) if TRAJ_PHASE2 and _Path(TRAJ_PHASE2).exists() else 0</span>
+<span class="s2">        _p2_remaining = NEB_STEPS - _p2_done</span>
+<span class="s2">        print(f&quot;</span><span class="se">\\</span><span class="s2">nPhase 2: CINEB  (</span><span class="se">{{</span><span class="s2">_p2_remaining</span><span class="se">}}</span><span class="s2"> steps remaining of &quot;</span>
+<span class="s2">              f&quot;</span><span class="se">{{</span><span class="s2">NEB_STEPS</span><span class="se">}}</span><span class="s2"> total, fmax=</span><span class="se">{{</span><span class="s2">NEB_FMAX:.3f</span><span class="se">}}</span><span class="s2"> eV/Å)&quot;)</span>
+<span class="s2">        sys.stdout.flush()</span>
+<span class="s2">        _traj2_kw = </span><span class="se">{{</span><span class="s2">&quot;trajectory&quot;: TRAJ_PHASE2, &quot;append_trajectory&quot;: True</span><span class="se">}}</span><span class="s2"> if TRAJ_PHASE2 else </span><span class="se">{{}}</span>
+<span class="s2">        opt2 = FIRE(neb, logfile=LOG_PHASE2, dt=0.02, **_traj2_kw)</span>
+<span class="s2">        converged = False</span>
+<span class="s2">        try:</span>
+<span class="s2">            converged = opt2.run(fmax=NEB_FMAX, steps=_p2_remaining)</span>
+<span class="s2">        except Exception as exc:</span>
+<span class="s2">            print(f&quot;WARNING: phase 2 raised: </span><span class="se">{{</span><span class="s2">exc</span><span class="se">}}</span><span class="s2">&quot;)</span>
+<span class="s2">            sys.stdout.flush()</span>
+<span class="s2">        print(f&quot;Phase 2 done: </span><span class="se">{{</span><span class="s2">opt2.nsteps</span><span class="se">}}</span><span class="s2"> steps (this leg)&quot;)</span>
+<span class="s2">        sys.stdout.flush()</span>
+
+<span class="s2">        if TRAJ_PHASE2 and os.path.exists(TRAJ_PHASE2):</span>
+<span class="s2">            from ase.io import read as _r2, write as _w2</span>
+<span class="s2">            _lmp2 = TRAJ_PHASE2.replace(&quot;.traj&quot;, &quot;.extxyz&quot;)</span>
+<span class="s2">            _w2(_lmp2, _r2(TRAJ_PHASE2, index=&quot;:&quot;), format=&quot;extxyz&quot;)</span>
+<span class="s2">            print(f&quot;Wrote OVITO trajectory: </span><span class="se">{{</span><span class="s2">_lmp2</span><span class="se">}}</span><span class="s2">&quot;)</span>
+<span class="s2">            sys.stdout.flush()</span>
+
+<span class="s2">        # ── Extract MEP results ───────────────────────────────────────────</span>
+<span class="s2">        energies = []</span>
+<span class="s2">        for img in images:</span>
+<span class="s2">            try:    energies.append(img.get_potential_energy())</span>
+<span class="s2">            except: energies.append(None)</span>
+
+<span class="s2">        valid  = [e for e in energies if e is not None]</span>
+<span class="s2">        e_ts   = max(valid)</span>
+<span class="s2">        E_abs  = e_ts  - E_IS</span>
+<span class="s2">        E_des  = e_ts  - E_FS</span>
+<span class="s2">        dE     = E_FS  - E_IS</span>
+
+<span class="s2">        fmax_final = _neb_fmax(neb)</span>
+
+<span class="s2">        print(f&quot;</span><span class="se">\\</span><span class="s2">nResults&quot;)</span>
+<span class="s2">        print(f&quot;  E_IS    : </span><span class="se">{{</span><span class="s2">E_IS:.6f</span><span class="se">}}</span><span class="s2"> eV&quot;)</span>
+<span class="s2">        print(f&quot;  E_FS    : </span><span class="se">{{</span><span class="s2">E_FS:.6f</span><span class="se">}}</span><span class="s2"> eV&quot;)</span>
+<span class="s2">        print(f&quot;  E_abs   : </span><span class="se">{{</span><span class="s2">E_abs:.4f</span><span class="se">}}</span><span class="s2"> eV&quot;)</span>
+<span class="s2">        print(f&quot;  E_des   : </span><span class="se">{{</span><span class="s2">E_des:.4f</span><span class="se">}}</span><span class="s2"> eV&quot;)</span>
+<span class="s2">        print(f&quot;  delta_E : </span><span class="se">{{</span><span class="s2">dE:.4f</span><span class="se">}}</span><span class="s2"> eV&quot;)</span>
+<span class="s2">        print(f&quot;  fmax    : </span><span class="se">{{</span><span class="s2">fmax_final:.4f</span><span class="se">}}</span><span class="s2"> eV/Å&quot;)</span>
+<span class="s2">        print(f&quot;  Converged: </span><span class="se">{{</span><span class="s2">converged</span><span class="se">}}</span><span class="s2">&quot;)</span>
+<span class="s2">        sys.stdout.flush()</span>
+
+<span class="s2">        # ── Write output files ────────────────────────────────────────────</span>
+<span class="s2">        os.makedirs(os.path.dirname(BARRIER_FILE) or &quot;.&quot;, exist_ok=True)</span>
+<span class="s2">        os.makedirs(os.path.dirname(PATH_FILE) or &quot;.&quot;, exist_ok=True)</span>
+
+<span class="s2">        n = len(energies)</span>
+<span class="s2">        with open(BARRIER_FILE, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:</span>
+<span class="s2">            f.write(f&quot;IS          : </span><span class="se">{{</span><span class="s2">LABEL_IS</span><span class="se">}}\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;FS          : </span><span class="se">{{</span><span class="s2">LABEL_FS</span><span class="se">}}\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;N images    : </span><span class="se">{{</span><span class="s2">n</span><span class="se">}}</span><span class="s2"> (</span><span class="se">{{</span><span class="s2">n-2</span><span class="se">}}</span><span class="s2"> intermediate + IS + FS)</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;fmax_final  : </span><span class="se">{{</span><span class="s2">fmax_final:.4f</span><span class="se">}}</span><span class="s2"> eV/A</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;Converged   : </span><span class="se">{{</span><span class="s2">converged</span><span class="se">}}\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;phase1_fmax_final : </span><span class="se">{{</span><span class="s2">_p1_fmax_final:.4f</span><span class="se">}}</span><span class="s2"> eV/A</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;phase1_converged  : </span><span class="se">{{</span><span class="s2">_p1_converged</span><span class="se">}}\\</span><span class="s2">n</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;E_IS    = </span><span class="se">{{</span><span class="s2">E_IS:.6f</span><span class="se">}}</span><span class="s2"> eV</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;E_FS    = </span><span class="se">{{</span><span class="s2">E_FS:.6f</span><span class="se">}}</span><span class="s2"> eV</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;E_abs   = </span><span class="se">{{</span><span class="s2">E_abs:.4f</span><span class="se">}}</span><span class="s2"> eV</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;E_des   = </span><span class="se">{{</span><span class="s2">E_des:.4f</span><span class="se">}}</span><span class="s2"> eV</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(f&quot;delta_E = </span><span class="se">{{</span><span class="s2">dE:.4f</span><span class="se">}}</span><span class="s2"> eV</span><span class="se">\\</span><span class="s2">n</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            f.write(&quot;Image energies:</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            for i, e in enumerate(energies):</span>
+<span class="s2">                lbl = &quot;IS&quot; if i == 0 else (&quot;FS&quot; if i == n-1 else f&quot;img_</span><span class="se">{{</span><span class="s2">i</span><span class="se">}}</span><span class="s2">&quot;)</span>
+<span class="s2">                if e is not None:</span>
+<span class="s2">                    f.write(f&quot;  </span><span class="se">{{</span><span class="s2">lbl:6s</span><span class="se">}}</span><span class="s2">: </span><span class="se">{{</span><span class="s2">e:.6f</span><span class="se">}}</span><span class="s2"> eV  (</span><span class="se">{{</span><span class="s2">e-E_IS:+.4f</span><span class="se">}}</span><span class="s2"> eV)</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+
+<span class="s2">        with open(PATH_FILE, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:</span>
+<span class="s2">            f.write(&quot;# image_frac  E_eV  dE_from_IS_eV</span><span class="se">\\</span><span class="s2">n&quot;)</span>
+<span class="s2">            for i, e in enumerate(energies):</span>
+<span class="s2">                if e is not None:</span>
+<span class="s2">                    f.write(f&quot;</span><span class="se">{{</span><span class="s2">i/(n-1):.4f</span><span class="se">}}</span><span class="s2">  </span><span class="se">{{</span><span class="s2">e:.6f</span><span class="se">}}</span><span class="s2">  </span><span class="se">{{</span><span class="s2">e-E_IS:+.4f</span><span class="se">}}\\</span><span class="s2">n&quot;)</span>
+
+<span class="s2">        print(f&quot;Wrote: </span><span class="se">{{</span><span class="s2">BARRIER_FILE</span><span class="se">}}</span><span class="s2">&quot;)</span>
+<span class="s2">        print(f&quot;Wrote: </span><span class="se">{{</span><span class="s2">PATH_FILE</span><span class="se">}}</span><span class="s2">&quot;)</span>
+
+<span class="s2">        # ── Write per-image LAMMPS data files ─────────────────────────────</span>
+<span class="s2">        # write_lammps_data (this project&#39;s canonical writer, used</span>
+<span class="s2">        # everywhere else) always includes a real Masses section. A bare</span>
+<span class="s2">        # ase.io.write with no masses does not, and a later ase.io.read of</span>
+<span class="s2">        # such a file, with no explicit type-to-element override, then</span>
+<span class="s2">        # falls back to treating the raw atom type id as the atomic</span>
+<span class="s2">        # number -- with this project&#39;s E2T_7 mapping (Ni=7, H=8) that</span>
+<span class="s2">        # silently collides with real elements (N=7, O=8) instead of</span>
+<span class="s2">        # erroring, and vib_run.py found &quot;0 H atoms&quot; on a structure that</span>
+<span class="s2">        # actually has exactly one.</span>
+<span class="s2">        os.makedirs(IMAGES_DIR, exist_ok=True)</span>
+<span class="s2">        _n = len(images)</span>
+<span class="s2">        for _i, _img in enumerate(images):</span>
+<span class="s2">            _lbl  = &quot;IS&quot; if _i == 0 else (&quot;FS&quot; if _i == _n - 1 else f&quot;img_</span><span class="se">{{</span><span class="s2">_i:02d</span><span class="se">}}</span><span class="s2">&quot;)</span>
+<span class="s2">            _path = os.path.join(IMAGES_DIR, f&quot;image_</span><span class="se">{{</span><span class="s2">_i:02d</span><span class="se">}}</span><span class="s2">_</span><span class="se">{{</span><span class="s2">_lbl</span><span class="se">}}</span><span class="s2">.lammps&quot;)</span>
+<span class="s2">            write_lammps_data(</span>
+<span class="s2">                symbols=_img.get_chemical_symbols(),</span>
+<span class="s2">                positions=_img.get_positions(),</span>
+<span class="s2">                cell_lengths=_img.cell.diagonal(),</span>
+<span class="s2">                masses=MASSES,</span>
+<span class="s2">                e2t=E2T,</span>
+<span class="s2">                out_path=_path,</span>
+<span class="s2">                comment=f&quot;NEB image </span><span class="se">{{</span><span class="s2">_i</span><span class="se">}}</span><span class="s2"> (</span><span class="se">{{</span><span class="s2">_lbl</span><span class="se">}}</span><span class="s2">)&quot;,</span>
+<span class="s2">            )</span>
+<span class="s2">        print(f&quot;Wrote </span><span class="se">{{</span><span class="s2">_n</span><span class="se">}}</span><span class="s2"> image structures → </span><span class="se">{{</span><span class="s2">IMAGES_DIR</span><span class="se">}}</span><span class="s2">/&quot;)</span>
+<span class="s2">    &quot;&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%%</span><span class="s1">EFS_BLOCK</span><span class="si">%%</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">efs_block</span><span class="p">)</span>
+
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">script</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="mo">0o755</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Written: </span><span class="si">{</span><span class="n">out_path</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out_path</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 7 — Orchestrator</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="run_neb_pipeline">
+<a class="viewcode-back" href="../../api/ase_neb.html#models.ase_neb.run_neb_pipeline">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_neb_pipeline</span><span class="p">(</span>
+    <span class="n">is_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">fs_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">e_is</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">mace_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">barrier_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">path_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">outdir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">e_fs</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fs_log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">job_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;neb&#39;</span><span class="p">,</span>
+    <span class="n">n_images</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
+    <span class="n">spring_const</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">neb_ftol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">phase1_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+    <span class="n">phase2_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+    <span class="n">z_freeze_cutoff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">22.115</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;cpu&#39;</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;float32&#39;</span><span class="p">,</span>
+    <span class="n">parallel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">label_is</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;IS&#39;</span><span class="p">,</span>
+    <span class="n">label_fs</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;FS&#39;</span><span class="p">,</span>
+    <span class="n">images_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">traj_phase1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">traj_phase2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">masses</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">e2t</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write a complete, ready-to-submit ASE CINEB job script.</span>
+
+<span class="sd">    Single entry point — calls all other functions in order:</span>
+
+<span class="sd">    1. Creates ``outdir`` and derives log file paths from ``job_name``.</span>
+<span class="sd">    2. Calls :func:`write_ase_neb_script` to generate</span>
+<span class="sd">       ``&lt;outdir&gt;/run_&lt;job_name&gt;.py`` with all parameters injected.</span>
+
+<span class="sd">    The generated script handles everything on the cluster node:</span>
+<span class="sd">    IDPP interpolation → Phase 1 (regular NEB) → Phase 2 (CINEB) →</span>
+<span class="sd">    writes ``neb_barrier.txt`` and ``neb_path.dat``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    is_file : str</span>
+<span class="sd">        Path (on cluster) to the LAMMPS data file for the initial state.</span>
+<span class="sd">    fs_file : str</span>
+<span class="sd">        Path (on cluster) to the LAMMPS data file for the final state.</span>
+<span class="sd">    e_is : float</span>
+<span class="sd">        IS potential energy in eV (from LAMMPS minimisation log).</span>
+<span class="sd">    mace_model_path : str</span>
+<span class="sd">        Path (on cluster) to the ``.model`` MACE file.</span>
+<span class="sd">    barrier_file : str</span>
+<span class="sd">        Output path the script will write ``neb_barrier.txt`` to.</span>
+<span class="sd">    path_file : str</span>
+<span class="sd">        Output path the script will write ``neb_path.dat`` to.</span>
+<span class="sd">    outdir : str</span>
+<span class="sd">        Directory where the script and log files will be written.</span>
+<span class="sd">    e_fs : float, optional</span>
+<span class="sd">        FS potential energy in eV. Mutually exclusive with ``fs_log_file``.</span>
+<span class="sd">    fs_log_file : str, optional</span>
+<span class="sd">        Path to the FS minimisation log (``fs_min.log``).  Passed through</span>
+<span class="sd">        to :func:`write_ase_neb_script` so E_FS is parsed at cluster runtime.</span>
+<span class="sd">        Use this when E_FS is not known at script-generation time.</span>
+<span class="sd">    job_name : str</span>
+<span class="sd">        Base name for the script and log files (default ``&#39;neb&#39;``).</span>
+<span class="sd">    n_images : int</span>
+<span class="sd">        Number of intermediate NEB images (default 18).</span>
+<span class="sd">    spring_const : float</span>
+<span class="sd">        Elastic-band spring constant in eV/Å² (default 2.0).</span>
+<span class="sd">    neb_ftol : float</span>
+<span class="sd">        CINEB force convergence tolerance in eV/Å (default 0.05).</span>
+<span class="sd">    phase1_steps : int</span>
+<span class="sd">        Phase 1 FIRE step limit (default 5000).</span>
+<span class="sd">    phase2_steps : int</span>
+<span class="sd">        Phase 2 FIRE step limit (default 10000).</span>
+<span class="sd">    z_freeze_cutoff : float</span>
+<span class="sd">        Frozen-layer z threshold in Å (default 22.115).</span>
+<span class="sd">    device : str</span>
+<span class="sd">        PyTorch device — ``&#39;cpu&#39;`` (default) or ``&#39;cpu&#39;`` for CPU partitions.</span>
+<span class="sd">    dtype : str</span>
+<span class="sd">        MACE ``default_dtype`` — ``&#39;float32&#39;`` (default) or ``&#39;float64&#39;``.</span>
+<span class="sd">    parallel : bool</span>
+<span class="sd">        Thread-parallel NEB image evaluation (default ``True``); see</span>
+<span class="sd">        :func:`write_ase_neb_script`.</span>
+<span class="sd">    label_is : str</span>
+<span class="sd">        Human-readable label for IS written to the barrier file header.</span>
+<span class="sd">    label_fs : str</span>
+<span class="sd">        Human-readable label for FS written to the barrier file header.</span>
+<span class="sd">    masses : dict, optional</span>
+<span class="sd">        ``{atom_type: (mass_amu, element_symbol)}`` passed through to</span>
+<span class="sd">        :func:`write_ase_neb_script` for writing per-image structures with</span>
+<span class="sd">        :func:`models.structure.write_lammps_data`. Default ``None``</span>
+<span class="sd">        resolves to ``MASSES_7``.</span>
+<span class="sd">    e2t : dict, optional</span>
+<span class="sd">        ``{element_symbol: atom_type}`` paired with ``masses``. Default</span>
+<span class="sd">        ``None`` resolves to ``E2T_7``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Path to the generated ``.py`` script, ready for SLURM submission.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from models.ase_neb import run_neb_pipeline</span>
+<span class="sd">    &gt;&gt;&gt; from models.config import (</span>
+<span class="sd">    ...     MACE_MODEL_ASE, N_REPLICAS, SPRING_CONST, NEB_FTOL, Z_FREEZE_CUTOFF)</span>
+<span class="sd">    &gt;&gt;&gt; script = run_neb_pipeline(</span>
+<span class="sd">    ...     is_file=&#39;structures/neb/neb_initial.lammps&#39;,</span>
+<span class="sd">    ...     fs_file=&#39;structures/neb/neb_final.lammps&#39;,</span>
+<span class="sd">    ...     e_is=-1234.56, e_fs=-1234.12,</span>
+<span class="sd">    ...     mace_model_path=MACE_MODEL_ASE,</span>
+<span class="sd">    ...     barrier_file=&#39;results/neb/neb_barrier.txt&#39;,</span>
+<span class="sd">    ...     path_file=&#39;results/neb/neb_path.dat&#39;,</span>
+<span class="sd">    ...     outdir=&#39;lammps_scripts/neb&#39;,</span>
+<span class="sd">    ...     job_name=&#39;neb06&#39;,</span>
+<span class="sd">    ...     n_images=N_REPLICAS, spring_const=SPRING_CONST,</span>
+<span class="sd">    ...     neb_ftol=NEB_FTOL, z_freeze_cutoff=Z_FREEZE_CUTOFF,</span>
+<span class="sd">    ...     device=&#39;cpu&#39;,</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; # Then submit: submit_slurm_job(write_slurm_job(..., script_body=f&#39;python {script}&#39;))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">images_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">images_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="s1">&#39;images&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">write_ase_neb_script</span><span class="p">(</span>
+        <span class="n">is_file</span><span class="o">=</span><span class="n">is_file</span><span class="p">,</span>
+        <span class="n">fs_file</span><span class="o">=</span><span class="n">fs_file</span><span class="p">,</span>
+        <span class="n">e_is</span><span class="o">=</span><span class="n">e_is</span><span class="p">,</span>
+        <span class="n">mace_model_path</span><span class="o">=</span><span class="n">mace_model_path</span><span class="p">,</span>
+        <span class="n">barrier_file</span><span class="o">=</span><span class="n">barrier_file</span><span class="p">,</span>
+        <span class="n">path_file</span><span class="o">=</span><span class="n">path_file</span><span class="p">,</span>
+        <span class="n">logfile_phase1</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">job_name</span><span class="si">}</span><span class="s1">_phase1.log&#39;</span><span class="p">),</span>
+        <span class="n">logfile_phase2</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">job_name</span><span class="si">}</span><span class="s1">_phase2.log&#39;</span><span class="p">),</span>
+        <span class="n">e_fs</span><span class="o">=</span><span class="n">e_fs</span><span class="p">,</span>
+        <span class="n">fs_log_file</span><span class="o">=</span><span class="n">fs_log_file</span><span class="p">,</span>
+        <span class="n">n_images</span><span class="o">=</span><span class="n">n_images</span><span class="p">,</span>
+        <span class="n">spring_const</span><span class="o">=</span><span class="n">spring_const</span><span class="p">,</span>
+        <span class="n">neb_ftol</span><span class="o">=</span><span class="n">neb_ftol</span><span class="p">,</span>
+        <span class="n">phase1_steps</span><span class="o">=</span><span class="n">phase1_steps</span><span class="p">,</span>
+        <span class="n">phase2_steps</span><span class="o">=</span><span class="n">phase2_steps</span><span class="p">,</span>
+        <span class="n">z_freeze_cutoff</span><span class="o">=</span><span class="n">z_freeze_cutoff</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span><span class="p">,</span>
+        <span class="n">label_is</span><span class="o">=</span><span class="n">label_is</span><span class="p">,</span>
+        <span class="n">label_fs</span><span class="o">=</span><span class="n">label_fs</span><span class="p">,</span>
+        <span class="n">out_path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outdir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;run_</span><span class="si">{</span><span class="n">job_name</span><span class="si">}</span><span class="s1">.py&#39;</span><span class="p">),</span>
+        <span class="n">images_dir</span><span class="o">=</span><span class="n">images_dir</span><span class="p">,</span>
+        <span class="n">traj_phase1</span><span class="o">=</span><span class="n">traj_phase1</span><span class="p">,</span>
+        <span class="n">traj_phase2</span><span class="o">=</span><span class="n">traj_phase2</span><span class="p">,</span>
+        <span class="n">masses</span><span class="o">=</span><span class="n">masses</span><span class="p">,</span>
+        <span class="n">e2t</span><span class="o">=</span><span class="n">e2t</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Azeez Akinyemi
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    </body>
+</html>

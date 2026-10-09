@@ -1,0 +1,829 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="materials — Single source of truth for which materials the pipeline processes, and how" href="materials.html"><link rel="prev" title="energetics — Energy calculation and NEB post-processing for Hastelloy N surface science" href="energetics.html">
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2025.12.19 -->
+        <title>lammps_script — Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks - Hydrogen permeation through metal membranes 0.1.0</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">Hydrogen permeation through metal membranes 0.1.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">Hydrogen permeation through metal membranes 0.1.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../01-overview.html">Part I — Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../02-theory.html">Part II — Theory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../02b-aggregation.html">Part II-B — The aggregation ladder</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Part III — Stages</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/README.html">Part III — Stages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/01-materials-and-structures.html">Stage 1 — Materials and structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/02-slabs-and-relaxation.html">Stage 2 — Slabs and relaxation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/03-surface-site-mapping.html">Stage 3 — Surface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/04-subsurface-site-mapping.html">Stage 4 — Subsurface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/05-adsorption-and-enumeration.html">Stage 5 — Adsorption and pathway enumeration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/06-neb.html">Stage 6 — Nudged elastic band</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/07-vibrations-phva.html">Stage 7 — Vibrations (partial Hessian)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/08-tst-rate-assembly.html">Stage 8 — Rate assembly</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/09-solubility.html">Stage 9 — Solubility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/10-bulk-diffusivity.html">Stage 10 — Bulk diffusivity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../03-stages/11-permeability-assembly.html">Stage 11 — Permeability assembly</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Practical</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../04-practical.html">Part IV — Practical</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../05-appendices.html">Appendices</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="index.html">API reference</a><input aria-label="Toggle navigation of API reference" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ase_neb.html"><code class="docutils literal notranslate"><span class="pre">ase_neb</span></code> — ASE Climbing-Image NEB utilities for H₂ dissociation barrier calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="checkpoint.html"><code class="docutils literal notranslate"><span class="pre">checkpoint</span></code> — Uniform <code class="docutils literal notranslate"><span class="pre">.done</span></code> sentinel markers for Section/Phase/Step resume logic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="config.html"><code class="docutils literal notranslate"><span class="pre">config</span></code> — Project-wide constants for Hastelloy-N hydrogen diffusion MD simulations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="create_slurm.html"><code class="docutils literal notranslate"><span class="pre">create_slurm</span></code> — Utilities for writing and submitting SLURM batch scripts used across</a></li>
+<li class="toctree-l2"><a class="reference internal" href="diffusivity_post_processing.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing</span></code> — Post-processing pipeline for H diffusivity from LAMMPS MD trajectories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="diffusivity_workflow.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_workflow</span></code> — Public functions that back the action cells of calculation/diffusivity.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="energetics.html"><code class="docutils literal notranslate"><span class="pre">energetics</span></code> — Energy calculation and NEB post-processing for Hastelloy N surface science</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">lammps_script</span></code> — Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="materials.html"><code class="docutils literal notranslate"><span class="pre">materials</span></code> — Single source of truth for <em>which</em> materials the pipeline processes, and how</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neb_subsurface.html"><code class="docutils literal notranslate"><span class="pre">neb_subsurface</span></code> — NEB calculations for H permeation from the surface into the subsurface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neb_workflow.html"><code class="docutils literal notranslate"><span class="pre">neb_workflow</span></code> — Prepares the FCC(111) Hastelloy N surface for adsorption and NEB calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parsers.html"><code class="docutils literal notranslate"><span class="pre">parsers</span></code> — Parsers for LAMMPS output files produced by this project’s workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="permeation.html"><code class="docutils literal notranslate"><span class="pre">permeation</span></code> — Macroscopic H permeation from energy- and TST-based thermodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="permeation_workflow.html"><code class="docutils literal notranslate"><span class="pre">permeation_workflow</span></code> — Script generator + local analysis functions backing calculation/permeation.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pipeline_workflow.html"><code class="docutils literal notranslate"><span class="pre">pipeline_workflow</span></code> — Script generator for the master pipeline orchestrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="site_identifier.html"><code class="docutils literal notranslate"><span class="pre">site_identifier</span></code> — ──────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="structure.html"><code class="docutils literal notranslate"><span class="pre">structure</span></code> — Atomic structure builders for Hastelloy N MD workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="subsurface_graph.html"><code class="docutils literal notranslate"><span class="pre">subsurface_graph</span></code> — # ─────────────────────────────────────────────────────────────────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surface_graph.html"><code class="docutils literal notranslate"><span class="pre">surface_graph</span></code> — ────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tst_rates.html"><code class="docutils literal notranslate"><span class="pre">tst_rates</span></code> — Transition-state theory rate constants from NEB barriers + vibrational frequencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html"><code class="docutils literal notranslate"><span class="pre">utils</span></code> — Utility helpers for the Hastelloy N MD workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vibrations.html"><code class="docutils literal notranslate"><span class="pre">vibrations</span></code> — Frozen-phonon vibrational frequency calculations using ASE Vibrations + MACE</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/api/lammps_script.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section class="tex2jax_ignore mathjax_ignore" id="module-models.lammps_script">
+<span id="lammps-script-writer-functions-for-lammps-input-scripts-used-across-mhi-nickel-notebooks"></span><h1><code class="docutils literal notranslate"><span class="pre">lammps_script</span></code> — Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks<a class="headerlink" href="#module-models.lammps_script" title="Link to this heading">¶</a></h1>
+<section id="models-lammps-scripts-py">
+<h2>models/lammps_scripts.py<a class="headerlink" href="#models-lammps-scripts-py" title="Link to this heading">¶</a></h2>
+<p>Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks.</p>
+<p>Covers:
+- Bulk CG minimization + box/relax        (NB02)
+- NPT lattice parameter scan               (NB02)
+- Surface relaxation (freeze → min → NVT) (NB04, NB04b)
+- NVT bulk equilibration + H MSD tracking (NB10)</p>
+<p>All functions support optional periodic restart checkpointing via
+<code class="docutils literal notranslate"><span class="pre">restart_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">restart_every</span></code>.  The surface relaxation function
+additionally writes both <code class="docutils literal notranslate"><span class="pre">write_restart</span></code> and <code class="docutils literal notranslate"><span class="pre">write_data</span></code> at the end
+of each phase.</p>
+</section>
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_minimization_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_minimization_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bulk_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxeval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supercell_reps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">masses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_minimization_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_minimization_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a LAMMPS conjugate-gradient minimization script with isotropic
+box relaxation (<code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">box/relax</span> <span class="pre">iso</span> <span class="pre">0.0</span></code>).</p>
+<p>Used in NB02 to find the MACE equilibrium lattice parameter at 0 K.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bulk_input</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the LAMMPS data file produced by NB01.</p></li>
+<li><p><strong>min_output</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path where the minimized structure is written (<code class="docutils literal notranslate"><span class="pre">write_data</span></code>).</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword, e.g. <code class="docutils literal notranslate"><span class="pre">'mliap</span> <span class="pre">unified'</span></code>.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix appended to the model path in <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>, e.g. <code class="docutils literal notranslate"><span class="pre">'0'</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Space-separated element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>etol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Energy tolerance for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><strong>ftol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Force tolerance (eV/Å) for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">1e-8</span></code>.</p></li>
+<li><p><strong>maxiter</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum minimization iterations. Default <code class="docutils literal notranslate"><span class="pre">50000</span></code>.</p></li>
+<li><p><strong>maxeval</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum force evaluations. Default <code class="docutils literal notranslate"><span class="pre">500000</span></code>.</p></li>
+<li><p><strong>supercell_reps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Unit cell repetitions along one axis for <code class="docutils literal notranslate"><span class="pre">a0</span></code> calculation.
+Default <code class="docutils literal notranslate"><span class="pre">5</span></code>.</p></li>
+<li><p><strong>thermo_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Frequency of thermo output lines. Default <code class="docutils literal notranslate"><span class="pre">10</span></code>.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic binary restart files.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no
+restart directive is written. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between restart file writes. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_minimization_restart_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_minimization_restart_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restart_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxeval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supercell_reps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_minimization_restart_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_minimization_restart_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a LAMMPS minimization continuation script that resumes from a
+periodic binary restart checkpoint.</p>
+<p>Mirrors <a class="reference internal" href="#models.lammps_script.write_minimization_script" title="models.lammps_script.write_minimization_script"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_minimization_script()</span></code></a> exactly, with three
+differences:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">read_restart</span></code> replaces <code class="docutils literal notranslate"><span class="pre">read_data</span></code> – atom positions and the
+box are restored from the checkpoint; no <code class="docutils literal notranslate"><span class="pre">mass</span></code> lines needed
+(restart files carry per-type masses already).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">boxrelax</span></code> is re-declared from scratch – restart files do
+not preserve fix definitions.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">minimize</span></code> is re-run with the <em>same full</em> <code class="docutils literal notranslate"><span class="pre">etol</span></code>/<code class="docutils literal notranslate"><span class="pre">ftol</span></code>/
+<code class="docutils literal notranslate"><span class="pre">maxiter</span></code>/<code class="docutils literal notranslate"><span class="pre">maxeval</span></code> budget, not a reduced “remaining” one –
+CG minimization has no persistent state across separate
+<code class="docutils literal notranslate"><span class="pre">minimize</span></code> calls, so resuming with the full budget is standard
+and correct (same convention as
+<a class="reference internal" href="#models.lammps_script.write_nvt_bulk_restart_script" title="models.lammps_script.write_nvt_bulk_restart_script"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_nvt_bulk_restart_script()</span></code></a>’s continuation legs).</p></li>
+</ol>
+<p>Use this as the <code class="docutils literal notranslate"><span class="pre">restart_commands</span></code> leg in
+<a class="reference internal" href="create_slurm.html#models.create_slurm.write_chained_slurm_job" title="models.create_slurm.write_chained_slurm_job"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_chained_slurm_job()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>restart_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Glob path to the LAMMPS binary restart, e.g.
+<code class="docutils literal notranslate"><span class="pre">'structures/checkpoints/min.*.restart'</span></code>. LAMMPS’s
+<code class="docutils literal notranslate"><span class="pre">read_restart</span></code> resolves a wildcard to the highest-numbered
+(most recent) matching file itself – no need to determine the
+exact filename before writing this script.</p></li>
+<li><p><strong>min_output</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path where the minimized structure is written (<code class="docutils literal notranslate"><span class="pre">write_data</span></code>).
+Must match the first-leg (<a class="reference internal" href="#models.lammps_script.write_minimization_script" title="models.lammps_script.write_minimization_script"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_minimization_script()</span></code></a>)
+call’s <code class="docutils literal notranslate"><span class="pre">min_output</span></code> so either leg converges on the same
+deliverable.</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword, e.g. <code class="docutils literal notranslate"><span class="pre">'mliap</span> <span class="pre">unified'</span></code>.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix appended to the model path in <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>, e.g. <code class="docutils literal notranslate"><span class="pre">'0'</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Space-separated element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>etol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Energy tolerance for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><strong>ftol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Force tolerance (eV/Å) for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">1e-8</span></code>.</p></li>
+<li><p><strong>maxiter</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum minimization iterations. Default <code class="docutils literal notranslate"><span class="pre">50000</span></code>.</p></li>
+<li><p><strong>maxeval</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum force evaluations. Default <code class="docutils literal notranslate"><span class="pre">500000</span></code>.</p></li>
+<li><p><strong>supercell_reps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Unit cell repetitions along one axis for <code class="docutils literal notranslate"><span class="pre">a0</span></code> calculation.
+Default <code class="docutils literal notranslate"><span class="pre">5</span></code>.</p></li>
+<li><p><strong>thermo_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Frequency of thermo output lines. Default <code class="docutils literal notranslate"><span class="pre">10</span></code>.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic binary restart files.  Should be the
+same directory used by the first-leg call, so both legs write
+into (and resume from) the same glob. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no restart
+directive is written. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between restart file writes. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+<li><p><strong>traj_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Path to an existing trajectory file to append to (<code class="docutils literal notranslate"><span class="pre">dump_modify</span>
+<span class="pre">...</span> <span class="pre">append</span> <span class="pre">yes</span></code>). If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no dump is written. Default
+<code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>dump_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Trajectory dump frequency. Default <code class="docutils literal notranslate"><span class="pre">10</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_npt_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_npt_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npt_dump</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_damp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baro_damp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">heat_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npt_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supercell_reps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_npt_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_npt_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a two-stage NPT script: temperature ramp followed by
+constant-T/P production to extract the equilibrium lattice parameter.</p>
+<p>Used in NB02 immediately after <code class="docutils literal notranslate"><span class="pre">write_minimization_script</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_output</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the minimized LAMMPS data file (NB02 output).</p></li>
+<li><p><strong>npt_dump</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path for the <code class="docutils literal notranslate"><span class="pre">ave/time</span></code> box-dimension output file.</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix for <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>target_t</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Target temperature in K. Default <code class="docutils literal notranslate"><span class="pre">300</span></code>.</p></li>
+<li><p><strong>timestep</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – MD timestep in ps. Default <code class="docutils literal notranslate"><span class="pre">0.001</span></code> (1 fs).</p></li>
+<li><p><strong>thermo_damp</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Nosé-Hoover thermostat damping time in ps. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></li>
+<li><p><strong>baro_damp</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Parrinello-Rahman barostat damping time in ps. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></li>
+<li><p><strong>heat_steps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps for the 10 K → target_t heating ramp. Default <code class="docutils literal notranslate"><span class="pre">20000</span></code>.</p></li>
+<li><p><strong>npt_steps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps for constant-T NPT production. Default <code class="docutils literal notranslate"><span class="pre">200000</span></code>.</p></li>
+<li><p><strong>dump_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Frequency for box-dimension output. Default <code class="docutils literal notranslate"><span class="pre">100</span></code>.</p></li>
+<li><p><strong>supercell_reps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Unit cell repetitions along one axis for <code class="docutils literal notranslate"><span class="pre">a0</span></code> calculation.
+Default <code class="docutils literal notranslate"><span class="pre">5</span></code>.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic binary restart files.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no
+restart directive is written. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between restart file writes. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_npt_restart_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_npt_restart_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restart_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npt_dump</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_damp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baro_damp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npt_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supercell_reps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_npt_restart_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_npt_restart_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a LAMMPS NPT continuation script (Stage 2 production only).</p>
+<p>Reads <code class="docutils literal notranslate"><span class="pre">*_after_heat.restart</span></code> written by <a class="reference internal" href="#models.lammps_script.write_npt_script" title="models.lammps_script.write_npt_script"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_npt_script()</span></code></a> and
+runs NPT production at <em>target_t</em>, appending box dimensions to the
+existing <em>npt_dump</em> file.</p>
+<p>Mirrors <a class="reference internal" href="#models.lammps_script.write_npt_script" title="models.lammps_script.write_npt_script"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_npt_script()</span></code></a> Stage 2 exactly with three differences:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">read_restart</span></code> replaces <code class="docutils literal notranslate"><span class="pre">read_data</span></code> — velocities and thermostat
+state are restored from the checkpoint; no <code class="docutils literal notranslate"><span class="pre">velocity</span></code> command.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">boxdump</span></code> uses <code class="docutils literal notranslate"><span class="pre">append</span> <span class="pre">yes</span></code> — box dims are appended to the
+existing <code class="docutils literal notranslate"><span class="pre">npt_dump</span></code> rather than overwriting it.</p></li>
+<li><p>Only Stage 2 (production) runs — Stage 1 heating is skipped.</p></li>
+</ol>
+<p>Intended as the <code class="docutils literal notranslate"><span class="pre">restart_commands</span></code> LAMMPS input for
+<a class="reference internal" href="create_slurm.html#models.create_slurm.write_chained_slurm_job" title="models.create_slurm.write_chained_slurm_job"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_chained_slurm_job()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>restart_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to <code class="docutils literal notranslate"><span class="pre">*_after_heat.restart</span></code> produced by <a class="reference internal" href="#models.lammps_script.write_npt_script" title="models.lammps_script.write_npt_script"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_npt_script()</span></code></a>.</p></li>
+<li><p><strong>npt_dump</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the <code class="docutils literal notranslate"><span class="pre">ave/time</span></code> box-dimension dump file
+(<code class="docutils literal notranslate"><span class="pre">npt_boxdims_{T}K.dat</span></code>).  Box dims are appended to this file.</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix for <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>target_t</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Target temperature in K. Default <code class="docutils literal notranslate"><span class="pre">300</span></code>.</p></li>
+<li><p><strong>timestep</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – MD timestep in ps. Default <code class="docutils literal notranslate"><span class="pre">0.001</span></code> (1 fs).</p></li>
+<li><p><strong>thermo_damp</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Nosé-Hoover thermostat damping time in ps. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></li>
+<li><p><strong>baro_damp</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Parrinello-Rahman barostat damping time in ps. Default <code class="docutils literal notranslate"><span class="pre">1.0</span></code>.</p></li>
+<li><p><strong>npt_steps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps for constant-T NPT production. Default <code class="docutils literal notranslate"><span class="pre">200000</span></code>.</p></li>
+<li><p><strong>dump_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Frequency for box-dimension output. Default <code class="docutils literal notranslate"><span class="pre">100</span></code>.</p></li>
+<li><p><strong>supercell_reps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Unit cell repetitions along one axis for <code class="docutils literal notranslate"><span class="pre">a0</span></code> calculation.
+Default <code class="docutils literal notranslate"><span class="pre">5</span></code>.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic binary restart files.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no
+restart directive is written. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between restart file writes. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_surface_relaxation_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_surface_relaxation_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">slab_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slab_relaxed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">relax_thermo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_freeze_cutoff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_damp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxeval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">heat_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nvt_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_surface_relaxation_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_surface_relaxation_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a three-phase surface relaxation script:
+frozen-layer setup → CG minimization → velocity-rescale heating → NVT.</p>
+<p>Each phase ends with both <code class="docutils literal notranslate"><span class="pre">write_restart</span></code> and <code class="docutils literal notranslate"><span class="pre">write_data</span></code> so the
+structure is checkpointed incrementally.  A periodic <code class="docutils literal notranslate"><span class="pre">restart</span></code>
+directive is also written at the top of the script when
+<code class="docutils literal notranslate"><span class="pre">restart_dir</span></code> is provided.</p>
+<p>Used in NB04 and NB04b.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>slab_input</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the LAMMPS slab data file from NB03.</p></li>
+<li><p><strong>slab_relaxed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Base path for the relaxed slab output.  Phase outputs are
+derived by appending <code class="docutils literal notranslate"><span class="pre">_phase1_min</span></code>, <code class="docutils literal notranslate"><span class="pre">_phase2_heat</span></code>, and the
+final structure uses this path directly.</p></li>
+<li><p><strong>relax_thermo</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path for the <code class="docutils literal notranslate"><span class="pre">ave/time</span></code> temperature output file.</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix for <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>target_t</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – NVT target temperature in K. Default <code class="docutils literal notranslate"><span class="pre">300</span></code>.</p></li>
+<li><p><strong>z_freeze_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Atoms with z ≤ this value (Å) are frozen with
+<code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">setforce</span> <span class="pre">0.0</span> <span class="pre">0.0</span> <span class="pre">0.0</span></code>.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a placeholder is
+written and must be filled manually. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>timestep</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – MD timestep in ps. Default <code class="docutils literal notranslate"><span class="pre">0.0005</span></code> (0.5 fs).</p></li>
+<li><p><strong>thermo_damp</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Nosé-Hoover thermostat damping time in ps. Default <code class="docutils literal notranslate"><span class="pre">0.05</span></code>.</p></li>
+<li><p><strong>etol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Energy tolerance for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><strong>ftol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Force tolerance (eV/Å) for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">1e-6</span></code>.</p></li>
+<li><p><strong>maxiter</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum minimization iterations. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+<li><p><strong>maxeval</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum force evaluations. Default <code class="docutils literal notranslate"><span class="pre">100000</span></code>.</p></li>
+<li><p><strong>heat_steps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps for velocity-rescale heating. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+<li><p><strong>nvt_steps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps for NVT equilibration. Default <code class="docutils literal notranslate"><span class="pre">100000</span></code>.</p></li>
+<li><p><strong>thermo_freq</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Thermo output frequency (steps). Default <code class="docutils literal notranslate"><span class="pre">1000</span></code>.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic binary restart files.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no
+periodic restart directive is written. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between periodic restart file writes. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_surface_relaxation_restart_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_surface_relaxation_restart_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restart_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slab_relaxed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">relax_thermo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_freeze_cutoff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_damp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxeval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nvt_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_surface_relaxation_restart_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_surface_relaxation_restart_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a LAMMPS surface relaxation continuation script (Phase 3 NVT only).</p>
+<p>Reads the latest periodic restart from <em>restart_file</em> (a glob pattern
+matching <code class="docutils literal notranslate"><span class="pre">restarts/surf_300K.*.restart</span></code>) and re-runs Phase 3 NVT,
+appending to the existing trajectory and thermo files.</p>
+<p>Mirrors <a class="reference internal" href="#models.lammps_script.write_surface_relaxation_script" title="models.lammps_script.write_surface_relaxation_script"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_surface_relaxation_script()</span></code></a> Phase 3 exactly with
+three differences:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">read_restart</span></code> replaces all three phases’ setup — velocities and
+thermostat state are restored; no <code class="docutils literal notranslate"><span class="pre">velocity</span></code> or <code class="docutils literal notranslate"><span class="pre">minimize</span></code> needed.</p></li>
+<li><p>The NVT dump uses <code class="docutils literal notranslate"><span class="pre">append</span> <span class="pre">yes</span></code>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">ave/time</span></code> thermo file uses <code class="docutils literal notranslate"><span class="pre">append</span> <span class="pre">yes</span></code>.</p></li>
+</ol>
+<p>Intended as the <code class="docutils literal notranslate"><span class="pre">restart_commands</span></code> LAMMPS input for
+<a class="reference internal" href="create_slurm.html#models.create_slurm.write_chained_slurm_job" title="models.create_slurm.write_chained_slurm_job"><code class="xref py py-func docutils literal notranslate"><span class="pre">write_chained_slurm_job()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>restart_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Glob-style path to the periodic LAMMPS restart file, e.g.
+<code class="docutils literal notranslate"><span class="pre">'restarts/surf_300K.*.restart'</span></code>.  LAMMPS picks the most recent.</p></li>
+<li><p><strong>slab_relaxed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path for the final relaxed slab output (<code class="docutils literal notranslate"><span class="pre">write_data</span></code>).</p></li>
+<li><p><strong>relax_thermo</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the existing <code class="docutils literal notranslate"><span class="pre">ave/time</span></code> temperature file. Appended to.</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix for <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>target_t</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – NVT target temperature in K. Default <code class="docutils literal notranslate"><span class="pre">300</span></code>.</p></li>
+<li><p><strong>z_freeze_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Z-coordinate threshold for frozen-layer group. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>timestep</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – MD timestep in ps. Default <code class="docutils literal notranslate"><span class="pre">0.0005</span></code> (0.5 fs).</p></li>
+<li><p><strong>thermo_damp</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Nosé-Hoover thermostat damping time in ps. Default <code class="docutils literal notranslate"><span class="pre">0.05</span></code>.</p></li>
+<li><p><strong>nvt_steps</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps for Phase 3 NVT. Default <code class="docutils literal notranslate"><span class="pre">100000</span></code>.</p></li>
+<li><p><strong>thermo_freq</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Thermo output frequency. Default <code class="docutils literal notranslate"><span class="pre">1000</span></code>.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic binary restart files. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between periodic restart writes. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_nvt_bulk_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_nvt_bulk_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bulk_h_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msd_equil_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msd_prod_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_equil</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_prod</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">velocity_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_nvt_bulk_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_nvt_bulk_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a two-phase NVT bulk equilibration script with H-atom MSD tracking.</p>
+<p>Phase 1 equilibrates the system; Phase 2 runs production and dumps
+the full trajectory for NB11 MSD analysis.  Both phases end with
+<code class="docutils literal notranslate"><span class="pre">write_restart</span></code> and <code class="docutils literal notranslate"><span class="pre">write_data</span></code>.</p>
+<p>Used in NB10 for each temperature in the Arrhenius series.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bulk_h_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the bulk + H LAMMPS data file from the H insertion cell.</p></li>
+<li><p><strong>traj_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path for the production trajectory dump (<code class="docutils literal notranslate"><span class="pre">.lammpstrj</span></code>).</p></li>
+<li><p><strong>out_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path where the final structure is written (<code class="docutils literal notranslate"><span class="pre">write_data</span></code>).</p></li>
+<li><p><strong>msd_equil_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path for the H-atom MSD time series during equilibration (diagnostic).</p></li>
+<li><p><strong>msd_prod_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path for the H-atom MSD time series during production (used for post-processing).</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix for <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>temperature</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – NVT temperature in K.</p></li>
+<li><p><strong>h_type</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – LAMMPS atom type number for H. Default <code class="docutils literal notranslate"><span class="pre">9</span></code>.</p></li>
+<li><p><strong>timestep</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – MD timestep in ps. Default <code class="docutils literal notranslate"><span class="pre">0.0005</span></code> (0.5 fs).</p></li>
+<li><p><strong>tau_t</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Nosé-Hoover thermostat damping time in ps. Default <code class="docutils literal notranslate"><span class="pre">0.1</span></code>.</p></li>
+<li><p><strong>n_equil</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Number of equilibration steps (Phase 1). Default <code class="docutils literal notranslate"><span class="pre">500000</span></code>.</p></li>
+<li><p><strong>n_prod</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Number of production steps (Phase 2). Default <code class="docutils literal notranslate"><span class="pre">1500000</span></code>.</p></li>
+<li><p><strong>thermo_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Thermo output frequency. Default <code class="docutils literal notranslate"><span class="pre">1000</span></code>.</p></li>
+<li><p><strong>dump_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Trajectory dump frequency. Default <code class="docutils literal notranslate"><span class="pre">1000</span></code>.</p></li>
+<li><p><strong>velocity_seed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Random seed for velocity initialisation. Default <code class="docutils literal notranslate"><span class="pre">42</span></code>.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic binary restart files.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, no
+restart directive is written. Default <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between periodic restart file writes. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.lammps</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_nvt_bulk_restart_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_nvt_bulk_restart_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restart_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msd_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_equil</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_prod</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_nvt_bulk_restart_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_nvt_bulk_restart_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a NVT bulk continuation script that resumes from a LAMMPS
+binary restart file.</p>
+<p>Mirrors write_nvt_bulk_script exactly, with three differences:
+1. read_restart instead of read_data (velocities restored from checkpoint).
+2. dump_modify append yes  — trajectory frames appended, not overwritten.
+3. fix ave/time append yes — MSD rows appended, not overwritten.</p>
+<p>Use this as the restart_commands leg in write_chained_slurm_job.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>restart_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Glob path to the LAMMPS binary restart, e.g.
+‘results/500K/nvt_500K.*.restart’.</p></li>
+<li><p><strong>traj_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the existing .lammpstrj; opened with append yes.</p></li>
+<li><p><strong>out_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path where the final structure is written (write_data).</p></li>
+<li><p><strong>msd_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to the existing MSD time series; opened with append yes.</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the .lammps script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Same as write_nvt_bulk_script.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Same as write_nvt_bulk_script.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Same as write_nvt_bulk_script.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Same as write_nvt_bulk_script.</p></li>
+<li><p><strong>temperature</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – NVT temperature in K.</p></li>
+<li><p><strong>h_type</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – LAMMPS atom type number for H. Default 9.</p></li>
+<li><p><strong>timestep</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – MD timestep in ps. Default 0.0005.</p></li>
+<li><p><strong>tau_t</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Nose-Hoover damping time in ps. Default 0.1.</p></li>
+<li><p><strong>n_equil</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Equilibration steps. Default 500000.</p></li>
+<li><p><strong>n_prod</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Production steps. Default 1500000.</p></li>
+<li><p><strong>thermo_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Thermo output frequency. Default 1000.</p></li>
+<li><p><strong>dump_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Trajectory dump frequency. Default 1000.</p></li>
+<li><p><strong>restart_dir</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <em>optional</em>) – Directory for periodic restart files. Default None.</p></li>
+<li><p><strong>restart_every</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Steps between periodic restart writes. Default 10000.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong></p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_nvt_equil_restart_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_nvt_equil_restart_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restart_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msd_equil_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msd_prod_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_equil</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_prod</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_nvt_equil_restart_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_nvt_equil_restart_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a NVT restart script for when the checkpoint is mid-equilibration
+(step &lt; n_equil).</p>
+<p>Continues equil to the absolute step count via <code class="docutils literal notranslate"><span class="pre">run</span> <span class="pre">n_equil</span> <span class="pre">upto</span></code>,
+then runs the FULL production phase fresh
+(no append on dump or MSD prod — first time production runs).</p>
+<p>Equil MSD appends to <code class="docutils literal notranslate"><span class="pre">msd_equil_file</span></code>; production MSD writes fresh to
+<code class="docutils literal notranslate"><span class="pre">msd_prod_file</span></code>.  Log is redirected to <code class="docutils literal notranslate"><span class="pre">log_file</span></code> in append mode so
+prior legs’ thermo output is preserved.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_nvt_prod_restart_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_nvt_prod_restart_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restart_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msd_prod_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tau_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_equil</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_prod</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_nvt_prod_restart_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_nvt_prod_restart_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a NVT restart script for when the checkpoint is mid-production
+(step &gt;= n_equil).</p>
+<p>Skips equilibration entirely.  Continues production to the absolute
+step count via <code class="docutils literal notranslate"><span class="pre">run</span> <span class="pre">(n_equil</span> <span class="pre">+</span> <span class="pre">n_prod)</span> <span class="pre">upto</span></code>.
+Dump and MSD prod use <code class="docutils literal notranslate"><span class="pre">append</span> <span class="pre">yes</span></code> to continue accumulating data from
+prior production legs.</p>
+<p>Log is redirected to <code class="docutils literal notranslate"><span class="pre">log_file</span></code> in append mode.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="models.lammps_script.write_adsorbate_min_script">
+<span class="sig-prename descclassname"><span class="pre">models.lammps_script.</span></span><span class="sig-name descname"><span class="pre">write_adsorbate_min_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">slab_ads_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ads_output</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_style</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mace_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pair_suffix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elem_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_freeze_cutoff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ftol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxeval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermo_freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/models/lammps_script.html#write_adsorbate_min_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#models.lammps_script.write_adsorbate_min_script" title="Link to this definition">¶</a></dt>
+<dd><p>Write a fixed-box CG minimization script for a slab + adsorbate system.</p>
+<p>Unlike <code class="docutils literal notranslate"><span class="pre">write_minimization_script</span></code> (which relaxes the box with
+<code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">box/relax</span></code>) and <code class="docutils literal notranslate"><span class="pre">write_surface_relaxation_script</span></code> (which runs
+3-phase MD), this function minimizes atomic positions only in a fixed
+periodic-in-xy, free-in-z slab geometry.  Bottom layers are frozen
+via <code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">setforce</span> <span class="pre">0.0</span> <span class="pre">0.0</span> <span class="pre">0.0</span></code>.</p>
+<p>Used in NB05 (H2*) and NB06 (H*) to compute adsorption energies for
+every site enumerated in Section A Phase 3.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>slab_ads_input</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS data file containing the slab with the adsorbate placed above
+a site (written by <code class="docutils literal notranslate"><span class="pre">structure.add_adsorbate</span></code>).</p></li>
+<li><p><strong>ads_output</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path where the CG-relaxed slab+adsorbate structure is written.</p></li>
+<li><p><strong>out_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Destination path for the <code class="docutils literal notranslate"><span class="pre">.in</span></code> LAMMPS input script.</p></li>
+<li><p><strong>pair_style</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – LAMMPS <code class="docutils literal notranslate"><span class="pre">pair_style</span></code> keyword, e.g. <code class="docutils literal notranslate"><span class="pre">'mliap</span> <span class="pre">unified'</span></code>.</p></li>
+<li><p><strong>mace_model</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Full path to the MACE <code class="docutils literal notranslate"><span class="pre">.pt</span></code> model file.</p></li>
+<li><p><strong>pair_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Suffix for <code class="docutils literal notranslate"><span class="pre">pair_style</span></code>, e.g. <code class="docutils literal notranslate"><span class="pre">'0'</span></code>.</p></li>
+<li><p><strong>elem_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Space-separated element string for <code class="docutils literal notranslate"><span class="pre">pair_coeff</span> <span class="pre">*</span> <span class="pre">*</span></code>.</p></li>
+<li><p><strong>z_freeze_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Atoms with z ≤ this value (Å) are frozen with
+<code class="docutils literal notranslate"><span class="pre">fix</span> <span class="pre">setforce</span> <span class="pre">0.0</span> <span class="pre">0.0</span> <span class="pre">0.0</span></code>.  Should match the value used in
+surface relaxation (e.g. <code class="docutils literal notranslate"><span class="pre">Z_FREEZE_CUTOFF</span> <span class="pre">=</span> <span class="pre">22.115</span></code> Å).</p></li>
+<li><p><strong>etol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Energy tolerance for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p><strong>ftol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Force tolerance (eV/Å) for <code class="docutils literal notranslate"><span class="pre">minimize</span></code>. Default <code class="docutils literal notranslate"><span class="pre">1e-6</span></code>.</p></li>
+<li><p><strong>maxiter</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum minimization iterations. Default <code class="docutils literal notranslate"><span class="pre">10000</span></code>.</p></li>
+<li><p><strong>maxeval</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum force evaluations. Default <code class="docutils literal notranslate"><span class="pre">100000</span></code>.</p></li>
+<li><p><strong>thermo_freq</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Thermo output frequency (steps). Default <code class="docutils literal notranslate"><span class="pre">100</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>out_path</strong> – Path to the written <code class="docutils literal notranslate"><span class="pre">.in</span></code> script.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="materials.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title"><code class="docutils literal notranslate"><span class="pre">materials</span></code> — Single source of truth for <em>which</em> materials the pipeline processes, and how</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="energetics.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title"><code class="docutils literal notranslate"><span class="pre">energetics</span></code> — Energy calculation and NEB post-processing for Hastelloy N surface science</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Azeez Akinyemi
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">lammps_script</span></code> — Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks</a><ul>
+<li><a class="reference internal" href="#models-lammps-scripts-py">models/lammps_scripts.py</a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_minimization_script"><code class="docutils literal notranslate"><span class="pre">write_minimization_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_minimization_restart_script"><code class="docutils literal notranslate"><span class="pre">write_minimization_restart_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_npt_script"><code class="docutils literal notranslate"><span class="pre">write_npt_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_npt_restart_script"><code class="docutils literal notranslate"><span class="pre">write_npt_restart_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_surface_relaxation_script"><code class="docutils literal notranslate"><span class="pre">write_surface_relaxation_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_surface_relaxation_restart_script"><code class="docutils literal notranslate"><span class="pre">write_surface_relaxation_restart_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_nvt_bulk_script"><code class="docutils literal notranslate"><span class="pre">write_nvt_bulk_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_nvt_bulk_restart_script"><code class="docutils literal notranslate"><span class="pre">write_nvt_bulk_restart_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_nvt_equil_restart_script"><code class="docutils literal notranslate"><span class="pre">write_nvt_equil_restart_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_nvt_prod_restart_script"><code class="docutils literal notranslate"><span class="pre">write_nvt_prod_restart_script()</span></code></a></li>
+<li><a class="reference internal" href="#models.lammps_script.write_adsorbate_min_script"><code class="docutils literal notranslate"><span class="pre">write_adsorbate_min_script()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

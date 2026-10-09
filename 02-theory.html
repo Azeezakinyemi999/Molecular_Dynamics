@@ -1,0 +1,1399 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Part II-B — The aggregation ladder" href="02b-aggregation.html"><link rel="prev" title="Part I — Overview" href="01-overview.html">
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2025.12.19 -->
+        <title>Part II — Theory - Hydrogen permeation through metal membranes 0.1.0</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">Hydrogen permeation through metal membranes 0.1.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">Hydrogen permeation through metal membranes 0.1.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="01-overview.html">Part I — Overview</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Part II — Theory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="02b-aggregation.html">Part II-B — The aggregation ladder</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Part III — Stages</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/README.html">Part III — Stages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/01-materials-and-structures.html">Stage 1 — Materials and structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/02-slabs-and-relaxation.html">Stage 2 — Slabs and relaxation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/03-surface-site-mapping.html">Stage 3 — Surface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/04-subsurface-site-mapping.html">Stage 4 — Subsurface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/05-adsorption-and-enumeration.html">Stage 5 — Adsorption and pathway enumeration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/06-neb.html">Stage 6 — Nudged elastic band</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/07-vibrations-phva.html">Stage 7 — Vibrations (partial Hessian)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/08-tst-rate-assembly.html">Stage 8 — Rate assembly</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/09-solubility.html">Stage 9 — Solubility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/10-bulk-diffusivity.html">Stage 10 — Bulk diffusivity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="03-stages/11-permeability-assembly.html">Stage 11 — Permeability assembly</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Practical</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="04-practical.html">Part IV — Practical</a></li>
+<li class="toctree-l1"><a class="reference internal" href="05-appendices.html">Appendices</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/index.html">API reference</a><input aria-label="Toggle navigation of API reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/ase_neb.html"><code class="docutils literal notranslate"><span class="pre">ase_neb</span></code> — ASE Climbing-Image NEB utilities for H₂ dissociation barrier calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/checkpoint.html"><code class="docutils literal notranslate"><span class="pre">checkpoint</span></code> — Uniform <code class="docutils literal notranslate"><span class="pre">.done</span></code> sentinel markers for Section/Phase/Step resume logic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/config.html"><code class="docutils literal notranslate"><span class="pre">config</span></code> — Project-wide constants for Hastelloy-N hydrogen diffusion MD simulations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/create_slurm.html"><code class="docutils literal notranslate"><span class="pre">create_slurm</span></code> — Utilities for writing and submitting SLURM batch scripts used across</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/diffusivity_post_processing.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing</span></code> — Post-processing pipeline for H diffusivity from LAMMPS MD trajectories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/diffusivity_workflow.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_workflow</span></code> — Public functions that back the action cells of calculation/diffusivity.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/energetics.html"><code class="docutils literal notranslate"><span class="pre">energetics</span></code> — Energy calculation and NEB post-processing for Hastelloy N surface science</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/lammps_script.html"><code class="docutils literal notranslate"><span class="pre">lammps_script</span></code> — Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/materials.html"><code class="docutils literal notranslate"><span class="pre">materials</span></code> — Single source of truth for <em>which</em> materials the pipeline processes, and how</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/neb_subsurface.html"><code class="docutils literal notranslate"><span class="pre">neb_subsurface</span></code> — NEB calculations for H permeation from the surface into the subsurface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/neb_workflow.html"><code class="docutils literal notranslate"><span class="pre">neb_workflow</span></code> — Prepares the FCC(111) Hastelloy N surface for adsorption and NEB calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/parsers.html"><code class="docutils literal notranslate"><span class="pre">parsers</span></code> — Parsers for LAMMPS output files produced by this project’s workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/permeation.html"><code class="docutils literal notranslate"><span class="pre">permeation</span></code> — Macroscopic H permeation from energy- and TST-based thermodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/permeation_workflow.html"><code class="docutils literal notranslate"><span class="pre">permeation_workflow</span></code> — Script generator + local analysis functions backing calculation/permeation.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/pipeline_workflow.html"><code class="docutils literal notranslate"><span class="pre">pipeline_workflow</span></code> — Script generator for the master pipeline orchestrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/site_identifier.html"><code class="docutils literal notranslate"><span class="pre">site_identifier</span></code> — ──────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/structure.html"><code class="docutils literal notranslate"><span class="pre">structure</span></code> — Atomic structure builders for Hastelloy N MD workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/subsurface_graph.html"><code class="docutils literal notranslate"><span class="pre">subsurface_graph</span></code> — # ─────────────────────────────────────────────────────────────────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/surface_graph.html"><code class="docutils literal notranslate"><span class="pre">surface_graph</span></code> — ────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/tst_rates.html"><code class="docutils literal notranslate"><span class="pre">tst_rates</span></code> — Transition-state theory rate constants from NEB barriers + vibrational frequencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html"><code class="docutils literal notranslate"><span class="pre">utils</span></code> — Utility helpers for the Hastelloy N MD workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/vibrations.html"><code class="docutils literal notranslate"><span class="pre">vibrations</span></code> — Frozen-phonon vibrational frequency calculations using ASE Vibrations + MACE</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/02-theory.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section class="tex2jax_ignore mathjax_ignore" id="part-ii-theory">
+<h1>Part II — Theory<a class="headerlink" href="#part-ii-theory" title="Link to this heading">¶</a></h1>
+<p>Every equation, definition and invariant the workflow relies on, in one place,
+with units. The stage sections in <a class="reference internal" href="03-stages/README.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">03-stages/</span></code></span></a> link here by
+equation number instead of restating any of this.</p>
+<blockquote>
+<div><p>[!NOTE]
+<strong>Scope.</strong> This part describes the method only. It contains no numbers from any
+real calculation; the figures and worked values come from the fictitious system
+in <a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/example/toy.py"><code class="docutils literal notranslate"><span class="pre">figures/example/toy.py</span></code></a>. Every numbered equation
+below is verified against the code by
+<a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/check_equations.py"><code class="docutils literal notranslate"><span class="pre">figures/check_equations.py</span></code></a>, which prints one
+<code class="docutils literal notranslate"><span class="pre">PASS</span></code>/<code class="docutils literal notranslate"><span class="pre">FAIL</span></code> line per equation. Checked against ASE 3.26.0, MACE 0.3.8,
+NumPy 1.26.4, SciPy 1.13.1 on 2026-10-09. Re-check with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>~/anaconda3/envs/mace_env/bin/python<span class="w"> </span>docs/figures/check_equations.py
+</pre></div>
+</div>
+</div></blockquote>
+<section id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="#conventions">1. Conventions</a></p></li>
+<li><p><a class="reference internal" href="#constants">2. Constants</a></p></li>
+<li><p><a class="reference internal" href="#energetics">3. Energetics</a></p></li>
+<li><p><a class="reference internal" href="#vibrational-analysis">4. Vibrational analysis</a></p></li>
+<li><p><a class="reference internal" href="#transition-state-theory">5. Transition-state theory</a></p></li>
+<li><p><a class="reference internal" href="#gas-phase-reference-and-the-surface">6. Gas-phase reference and the surface</a></p></li>
+<li><p><a class="reference internal" href="#solubility">7. Solubility</a></p></li>
+<li><p><a class="reference internal" href="#diffusion">8. Diffusion</a></p></li>
+<li><p><a class="reference internal" href="#permeability">9. Permeability</a></p></li>
+<li><p><a class="reference internal" href="#uncertainty">10. Uncertainty</a></p></li>
+<li><p><a class="reference internal" href="#invariants">11. Invariants</a></p></li>
+<li><p><a class="reference internal" href="#equation-index">12. Equation index</a></p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="conventions">
+<h2>1. Conventions<a class="headerlink" href="#conventions" title="Link to this heading">¶</a></h2>
+<section id="symbols">
+<h3>1.1 Symbols<a class="headerlink" href="#symbols" title="Link to this heading">¶</a></h3>
+<p>Generic symbols are used throughout. A <em>state</em> is one of three stationary points
+on a reaction path:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>symbol</p></th>
+<th class="head"><p>name</p></th>
+<th class="head"><p>meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>IS</p></td>
+<td><p>initial state</p></td>
+<td><p>the reactant minimum</p></td>
+</tr>
+<tr class="row-odd"><td><p>TS</p></td>
+<td><p>transition state</p></td>
+<td><p>the saddle separating IS from FS</p></td>
+</tr>
+<tr class="row-even"><td><p>FS</p></td>
+<td><p>final state</p></td>
+<td><p>the product minimum</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>An <em>environment</em> <span class="math notranslate nohighlight">\(e\)</span> is a class of interstitial site distinguished by its
+neighbour shell. Sites in the same environment are treated as equivalent and are
+averaged over; environments are kept distinct and summed over with weights. The
+distinction matters, and §7.2 is where it takes effect.</p>
+</section>
+<section id="units">
+<h3>1.2 Units<a class="headerlink" href="#units" title="Link to this heading">¶</a></h3>
+<p>Energies are in electronvolts, <strong>not</strong> joules or kJ/mol. Frequencies are
+<em>wavenumbers</em> in <span class="math notranslate nohighlight">\(\mathrm{cm^{-1}}\)</span> as produced by the vibration stage, not
+angular frequencies. Lengths are metres in all derived quantities, even though
+the structure files use ångström.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>quantity</p></th>
+<th class="head"><p>symbol</p></th>
+<th class="head"><p>unit</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>energy, barrier, enthalpy</p></td>
+<td><p><span class="math notranslate nohighlight">\(E\)</span>, <span class="math notranslate nohighlight">\(E_a\)</span>, <span class="math notranslate nohighlight">\(\Delta H\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{eV}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>wavenumber</p></td>
+<td><p><span class="math notranslate nohighlight">\(\tilde\nu\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{cm^{-1}}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>attempt frequency, rate</p></td>
+<td><p><span class="math notranslate nohighlight">\(\nu^*\)</span>, <span class="math notranslate nohighlight">\(k\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{s^{-1}}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>temperature</p></td>
+<td><p><span class="math notranslate nohighlight">\(T\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{K}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>lattice parameter, thickness</p></td>
+<td><p><span class="math notranslate nohighlight">\(a_0\)</span>, <span class="math notranslate nohighlight">\(L\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{m}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>diffusivity</p></td>
+<td><p><span class="math notranslate nohighlight">\(D\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{m^2\,s^{-1}}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>solubility</p></td>
+<td><p><span class="math notranslate nohighlight">\(S\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{mol\,m^{-3}\,Pa^{-1/2}}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>permeability</p></td>
+<td><p><span class="math notranslate nohighlight">\(\Phi\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{mol\,m^{-1}\,s^{-1}\,Pa^{-1/2}}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>flux</p></td>
+<td><p><span class="math notranslate nohighlight">\(J\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{mol\,m^{-2}\,s^{-1}}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p>pressure</p></td>
+<td><p><span class="math notranslate nohighlight">\(P\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{Pa}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<div><p>[!IMPORTANT]
+The half-power of pressure in <span class="math notranslate nohighlight">\(S\)</span> and <span class="math notranslate nohighlight">\(\Phi\)</span> is not decorative. It is the
+signature of Sieverts’ law — diatomic gas dissolving as atoms — and it means
+those units are implicitly <em>per</em> <span class="math notranslate nohighlight">\(\sqrt{1\ \mathrm{Pa}}\)</span>. A reference pressure
+that is not exactly <span class="math notranslate nohighlight">\(1\ \mathrm{Pa}\)</span> changes what the number means without
+changing the number. See §7.3.</p>
+</div></blockquote>
+</section>
+<section id="sign-conventions">
+<h3>1.3 Sign conventions<a class="headerlink" href="#sign-conventions" title="Link to this heading">¶</a></h3>
+<p>A barrier is always positive and always measured from the state it leaves:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_a = E_{\mathrm{TS}} - E_{\mathrm{IS}} \qquad
+  E_{\mathrm{des}} = E_{\mathrm{TS}} - E_{\mathrm{FS}} \tag{T1}\]</div>
+</div>
+<p>A reaction energy is signed, negative for exothermic:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Delta E = E_{\mathrm{FS}} - E_{\mathrm{IS}} \tag{T2}\]</div>
+</div>
+<p>A solution enthalpy <span class="math notranslate nohighlight">\(\Delta H_{\mathrm{sol}} &gt; 0\)</span> means dissolution is
+endothermic, so occupancy falls as temperature falls.</p>
+<p><img alt="sign conventions" src="_images/f5_sign_conventions.png" /></p>
+<p><strong>Figure 1.</strong> All three definitions on one profile. Look at where each arrow
+starts: the forward barrier is measured from IS, the reverse from FS, and the
+reaction energy spans the two minima. The dotted curve is the same path once
+zero-point energy is added — note that it shifts the two barriers by <em>different</em>
+amounts, which is why (T6a) and (T6b) reference different states. Fictitious
+profile.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+Because <span class="math notranslate nohighlight">\(E_{\mathrm{des}}\)</span> is referenced to FS and <span class="math notranslate nohighlight">\(E_a\)</span> to IS, their
+zero-point corrections use <strong>different</strong> states. Getting this wrong leaves the
+reverse barrier with the forward barrier’s correction, which silently cancels
+in <span class="math notranslate nohighlight">\(\Delta E\)</span> and is therefore easy to miss. See §4.2 and equation (T6).</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="constants">
+<h2>2. Constants<a class="headerlink" href="#constants" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>symbol</p></th>
+<th class="head"><p>value</p></th>
+<th class="head"><p>unit</p></th>
+<th class="head"><p>note</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(k_B\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(8.617333262\times10^{-5}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{eV\,K^{-1}}\)</span></p></td>
+<td><p>CODATA 2018</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(k_B\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1.380649\times10^{-23}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{J\,K^{-1}}\)</span></p></td>
+<td><p>SI form, for the gas terms</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(h\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(4.135667696\times10^{-15}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{eV\,s}\)</span></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(c\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(2.99792458\times10^{10}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{cm\,s^{-1}}\)</span></p></td>
+<td><p>converts <span class="math notranslate nohighlight">\(\mathrm{cm^{-1}}\)</span> to <span class="math notranslate nohighlight">\(\mathrm{s^{-1}}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(N_A\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(6.02214076\times10^{23}\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{mol^{-1}}\)</span></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<div><p>[!IMPORTANT]
+One Boltzmann constant, defined once per module, must be identical everywhere.
+It has not always been: two modules once carried a seven-digit truncation,
+which appeared as a <span class="math notranslate nohighlight">\(\sim10^{-7}\)</span> relative disagreement in <span class="math notranslate nohighlight">\(D(T)\)</span> between
+stages. Physically irrelevant, but it made cross-module agreement untestable
+at tight tolerance. Four checks now pin all definitions together.</p>
+</div></blockquote>
+<section id="unit-conversions">
+<h3>2.1 Unit conversions<a class="headerlink" href="#unit-conversions" title="Link to this heading">¶</a></h3>
+<p>A wavenumber is an energy divided by <span class="math notranslate nohighlight">\(hc\)</span>, so</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E[\mathrm{eV}] = h\,c\,\tilde\nu = 1.23984198\times10^{-4}\ \tilde\nu[\mathrm{cm^{-1}}] \tag{T3}\]</div>
+</div>
+<p>Mean-squared displacement is reported in <span class="math notranslate nohighlight">\(\mathrm{\mathring A^2}\)</span> against time in
+<span class="math notranslate nohighlight">\(\mathrm{ps}\)</span>, so a slope in <span class="math notranslate nohighlight">\(\mathrm{\mathring A^2\,ps^{-1}}\)</span> becomes SI by</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[1\ \mathrm{\mathring A^2\,ps^{-1}} = \frac{(10^{-10})^2\ \mathrm{m^2}}{10^{-12}\ \mathrm{s}} = 10^{-8}\ \mathrm{m^2\,s^{-1}} \tag{T4}\]</div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="energetics">
+<h2>3. Energetics<a class="headerlink" href="#energetics" title="Link to this heading">¶</a></h2>
+<p>Binding of <span class="math notranslate nohighlight">\(n\)</span> adsorbed atoms, referenced to the clean surface and the gas-phase
+diatomic:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_{\mathrm{bind}} = E(\text{slab}+n\mathrm{H}) - E(\text{slab}) - \tfrac{n}{2}E(\mathrm{H_2}) \tag{T5}\]</div>
+</div>
+<p>Barriers and reaction energies are (T1) and (T2). All three are electronic
+energies from the potential: no thermal or zero-point contribution yet.</p>
+<p>The gas-phase chemical potential sets the pressure reference,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\mu = \tfrac12 E(\mathrm{H_2}) + \tfrac12 k_B T \ln\!\left(P/P_0\right) \tag{T5a}\]</div>
+</div>
+<p>used only to convert between a chosen <span class="math notranslate nohighlight">\(\mu\)</span> and the pressure it corresponds to.</p>
+</section>
+<hr class="docutils" />
+<section id="vibrational-analysis">
+<h2>4. Vibrational analysis<a class="headerlink" href="#vibrational-analysis" title="Link to this heading">¶</a></h2>
+<section id="what-is-computed">
+<h3>4.1 What is computed<a class="headerlink" href="#what-is-computed" title="Link to this heading">¶</a></h3>
+<p>Each stationary point is characterised by a <em>partial</em> Hessian: only a chosen
+subset of atoms is displaced, the rest held fixed. This is Partial Hessian
+Vibrational Analysis (PHVA). It is an approximation made for cost, and it has a
+consequence that shapes everything downstream.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+Freezing most of the lattice removes the modes that would otherwise carry
+away pseudo-translation and pseudo-rotation of the mobile fragment. Those
+motions reappear mixed into the lowest frequencies of the partial Hessian, so
+<strong>spurious low-frequency and imaginary modes are expected, not a sign of
+failure</strong>. §4.3 and §5.2 exist to keep them from contaminating the results.</p>
+</div></blockquote>
+<p>A mode is <em>real</em> if its eigenvalue is positive and <em>imaginary</em> otherwise.
+Imaginary modes are reported as positive magnitudes. A proper minimum has no
+imaginary modes; a proper saddle has exactly one.</p>
+</section>
+<section id="zero-point-energy">
+<h3>4.2 Zero-point energy<a class="headerlink" href="#zero-point-energy" title="Link to this heading">¶</a></h3>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\mathrm{ZPE} = \tfrac12 \sum_i h\,c\,\tilde\nu_i \tag{T6}\]</div>
+</div>
+<p>summed over real modes only. A barrier is corrected by the ZPE difference
+between its two endpoints — and the endpoints differ by direction:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_a^{\mathrm{ZPE}} = E_a + \left(\mathrm{ZPE_{TS}} - \mathrm{ZPE_{IS}}\right) \tag{T6a}\]</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_{\mathrm{des}}^{\mathrm{ZPE}} = E_{\mathrm{des}} + \left(\mathrm{ZPE_{TS}} - \mathrm{ZPE_{FS}}\right) \tag{T6b}\]</div>
+</div>
+<p>(T6b) is the equation that is easy to get wrong. Using <span class="math notranslate nohighlight">\(\mathrm{ZPE_{IS}}\)</span> in
+the reverse direction makes the correction cancel exactly in
+<span class="math notranslate nohighlight">\(E_a^{\mathrm{ZPE}} - E_{\mathrm{des}}^{\mathrm{ZPE}}\)</span>, leaving the reaction
+energy uncorrected while both barriers look corrected.</p>
+</section>
+<section id="quasi-harmonic-treatment-of-low-modes">
+<h3>4.3 Quasi-harmonic treatment of low modes<a class="headerlink" href="#quasi-harmonic-treatment-of-low-modes" title="Link to this heading">¶</a></h3>
+<p>Low frequencies are unreliable, and they enter the prefactor (T8) as a
+<em>product</em>, where a near-zero denominator mode is unbounded. Two treatments are
+possible: discard modes below a cutoff, or raise them to it. The workflow
+raises:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\tilde\nu_i^{\mathrm{use}} = \max\!\left(\tilde\nu_i,\ \tilde\nu_{\mathrm{floor}}\right) \tag{T7}\]</div>
+</div>
+<p>with <span class="math notranslate nohighlight">\(\tilde\nu_{\mathrm{floor}} = 100\ \mathrm{cm^{-1}}\)</span> by default. This is
+Truhlar’s quasi-harmonic treatment, standard in thermochemistry tooling.</p>
+<p>Raising is preferred over discarding for two reasons. It leaves the <strong>mode
+counts unchanged</strong>, so the dimensional invariant (I1) remains meaningful without
+rebalancing. And it damps the artefact <strong>symmetrically</strong>, since the same floor
+applies to both states and the spurious factors largely cancel in the ratio.</p>
+<p><img alt="quasi-harmonic floor" src="_images/f3_quasiharmonic_floor.png" /></p>
+<p><strong>Figure 2.</strong> What the floor does to a mode list. Look at the count: every mode below the floor is moved up to it, and none is removed, so the list is the same length before and after. Discarding would shorten it and break (I1). Fictitious frequencies.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+Three thresholds with different meanings exist, and they once shared a name.
+They are not interchangeable:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>threshold</p></th>
+<th class="head"><p>default</p></th>
+<th class="head"><p>action</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>quasi-harmonic floor</p></td>
+<td><p><span class="math notranslate nohighlight">\(100\ \mathrm{cm^{-1}}\)</span></p></td>
+<td><p><strong>raise</strong> modes below it to it</p></td>
+</tr>
+<tr class="row-odd"><td><p>ZPE inclusion</p></td>
+<td><p><span class="math notranslate nohighlight">\(0\ \mathrm{cm^{-1}}\)</span></p></td>
+<td><p><strong>include</strong> every real mode</p></td>
+</tr>
+<tr class="row-even"><td><p>imaginary significance</p></td>
+<td><p><span class="math notranslate nohighlight">\(50\ \mathrm{cm^{-1}}\)</span></p></td>
+<td><p><strong>ignore</strong> imaginary modes below it when judging state quality</p></td>
+</tr>
+<tr class="row-odd"><td><p>partition-function cutoff</p></td>
+<td><p><span class="math notranslate nohighlight">\(50\ \mathrm{cm^{-1}}\)</span></p></td>
+<td><p><strong>drop</strong> modes below it</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div></blockquote>
+</section>
+<section id="partition-functions">
+<h3>4.4 Partition functions<a class="headerlink" href="#partition-functions" title="Link to this heading">¶</a></h3>
+<p>Harmonic vibrational partition function, measured from the zero-point level:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[q_{\mathrm{vib}}(T) = \prod_i \left[1 - \exp\!\left(-\frac{h c \tilde\nu_i}{k_B T}\right)\right]^{-1} \tag{T9}\]</div>
+</div>
+<p>Each factor exceeds unity, so <span class="math notranslate nohighlight">\(q_{\mathrm{vib}} \ge 1\)</span> always. The gas-phase
+diatomic reference <span class="math notranslate nohighlight">\(q^{\mathrm{gas}}(T,P)\)</span> combines translational, rotational and
+vibrational terms; its translational part carries a <span class="math notranslate nohighlight">\(1/P\)</span> factor, which is why
+the reference pressure propagates into §7.3.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="transition-state-theory">
+<h2>5. Transition-state theory<a class="headerlink" href="#transition-state-theory" title="Link to this heading">¶</a></h2>
+<section id="rate">
+<h3>5.1 Rate<a class="headerlink" href="#rate" title="Link to this heading">¶</a></h3>
+<p>Within harmonic TST a rate is an attempt frequency times a Boltzmann penalty:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[k(T) = \nu^*\,\exp\!\left(-\frac{E_a^{\mathrm{ZPE}}}{k_B T}\right) \tag{T10}\]</div>
+</div>
+<p>The reverse rate uses the reverse barrier (T6b) <strong>and the reverse prefactor</strong>:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[k_{\mathrm{rev}}(T) = \nu^*_{\mathrm{rev}}\,\exp\!\left(-\frac{E_{\mathrm{des}}^{\mathrm{ZPE}}}{k_B T}\right) \tag{T10a}\]</div>
+</div>
+<p>Reusing the forward <span class="math notranslate nohighlight">\(\nu^*\)</span> in the reverse direction is a second easy error: the
+two prefactors are built from different state pairs and are not equal.</p>
+</section>
+<section id="vineyard-prefactor">
+<h3>5.2 Vineyard prefactor<a class="headerlink" href="#vineyard-prefactor" title="Link to this heading">¶</a></h3>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\nu^* = c\,\frac{\prod_i \tilde\nu_i^{\mathrm{IS}}}{\prod_j \tilde\nu_j^{\mathrm{TS}}} \tag{T8}\]</div>
+</div>
+<p>with both products taken over the floored frequencies (T7), and the TS product
+excluding its single imaginary mode. The reverse prefactor is the same
+expression with FS in place of IS.</p>
+<p>The factor <span class="math notranslate nohighlight">\(c\)</span> carries the units. The IS product has one more factor than the TS
+product, leaving one unpaired <span class="math notranslate nohighlight">\(\mathrm{cm^{-1}}\)</span> which <span class="math notranslate nohighlight">\(c\)</span> converts to
+<span class="math notranslate nohighlight">\(\mathrm{s^{-1}}\)</span>. This is only dimensionally consistent if</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[n_{\mathrm{IS}} = n_{\mathrm{TS}} + 1 \tag{I1}\]</div>
+</div>
+<p>which is invariant (I1) in §11. When it fails, the expression is not a frequency
+and no prefactor is returned.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+(I1) fails whenever the two states were computed with <strong>different sets of
+displaced atoms</strong>, because each state’s mode count is three times its own
+displaced-atom count. A partial Hessian makes this easy to do by accident, and
+the resulting prefactor can be wrong by many orders of magnitude while
+remaining a finite, plausible-looking number. The fix is to displace the
+<em>union</em> of both states’ mobile atoms. Refusing to return a value is deliberate.</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="gas-phase-reference-and-the-surface">
+<h2>6. Gas-phase reference and the surface<a class="headerlink" href="#gas-phase-reference-and-the-surface" title="Link to this heading">¶</a></h2>
+<p>The rate at which gas molecules strike unit area is Hertz–Knudsen:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Gamma(T,P) = \frac{P}{\sqrt{2\pi m k_B T}} \tag{T11}\]</div>
+</div>
+<p>with <span class="math notranslate nohighlight">\(m\)</span> the molecular mass. Dissociative sticking is treated as a dimensionless
+Boltzmann probability rather than a rate; multiplying by (T11) and a site area
+gives an adsorption rate.</p>
+<p>Balancing adsorption against desorption gives the equilibrium surface coverage</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\theta_{\mathrm{eq}} = \sqrt{\frac{k_{\mathrm{diss}}\,A_{\mathrm{site}}\,P}{k_{\mathrm{des}}\sqrt{2\pi m k_B T}}} \tag{T12}\]</div>
+</div>
+<p>The square root is the stoichiometry of a diatomic dissociating into two atoms —
+the same origin as the half-power in §1.2. The site area for a close-packed
+plane is <span class="math notranslate nohighlight">\(A_{\mathrm{site}} = a_0^2/2\)</span>.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+<span class="math notranslate nohighlight">\(k_{\mathrm{des}}\)</span> sits in the <strong>denominator, inside</strong> the square root. It is a
+desorption process leaving from FS, so by §5.1 it takes the <em>reverse</em>
+prefactor.</p>
+</div></blockquote>
+</section>
+<hr class="docutils" />
+<section id="solubility">
+<h2>7. Solubility<a class="headerlink" href="#solubility" title="Link to this heading">¶</a></h2>
+<section id="per-environment-solution-enthalpy">
+<h3>7.1 Per-environment solution enthalpy<a class="headerlink" href="#per-environment-solution-enthalpy" title="Link to this heading">¶</a></h3>
+<p>Solubility is an equilibrium property, so it depends on reaction <em>energies</em>
+along the dissolution path, not on barriers. The path is referenced to the first
+subsurface site: half a diatomic dissociates, then one atom moves from the
+surface into the first subsurface layer.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Delta H_{\mathrm{sol}}(e) = \tfrac12 \Delta H_{\mathrm{diss}} + \Delta H_{\mathrm{entry}}(e) \tag{T13}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\Delta H_{\mathrm{entry}}(e)\)</span> is the entry-hop reaction energy, obtained
+from its ZPE-corrected barriers as <span class="math notranslate nohighlight">\(E_a^{\mathrm{ZPE}} - E_{\mathrm{des}}^{\mathrm{ZPE}}\)</span>,
+averaged over the pathways belonging to environment <span class="math notranslate nohighlight">\(e\)</span>.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+Deeper hops are <strong>deliberately excluded</strong> from (T13). Motion beyond the first
+subsurface layer is bulk transport and is carried by <span class="math notranslate nohighlight">\(D\)</span> in §8. Including it
+here would count the same physics twice.</p>
+</div></blockquote>
+</section>
+<section id="collapsing-environments">
+<h3>7.2 Collapsing environments<a class="headerlink" href="#collapsing-environments" title="Link to this heading">¶</a></h3>
+<p>Environments are not collapsed to a representative. They are summed with
+population weights:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[S(T) = S_0 \sum_{e} w_e \exp\!\left(-\frac{\Delta H_{\mathrm{sol}}(e)}{k_B T}\right), \qquad \sum_e w_e = 1 \tag{T14}\]</div>
+</div>
+<p>The exponential makes this sum strongly non-democratic: an environment several
+<span class="math notranslate nohighlight">\(k_BT\)</span> more favourable than the others dominates <span class="math notranslate nohighlight">\(S\)</span> even when its weight is
+small. A single environment reduces (T14) to plain Sieverts,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[S(T) = S_0 \exp\!\left(-\frac{\Delta H_{\mathrm{sol}}}{k_B T}\right) \tag{T14a}\]</div>
+</div>
+<blockquote>
+<div><p>[!IMPORTANT]
+<span class="math notranslate nohighlight">\(w_e\)</span> is the fraction of computed <em>pathways</em> in environment <span class="math notranslate nohighlight">\(e\)</span>, not a
+crystallographic site fraction. This is a deliberate approximation, and it
+means the sampling of pathways acts as an implicit weight on top of the
+Boltzmann factor. A site’s influence on <span class="math notranslate nohighlight">\(S\)</span> is a product of three things, only
+one of which is physics. See <a class="reference internal" href="02b-aggregation.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">02b-aggregation.md</span></code></span></a>.</p>
+</div></blockquote>
+</section>
+<section id="the-two-prefactor-routes">
+<h3>7.3 The two prefactor routes<a class="headerlink" href="#the-two-prefactor-routes" title="Link to this heading">¶</a></h3>
+<p><span class="math notranslate nohighlight">\(S_0\)</span> is the solubility at zero solution enthalpy — the ceiling if dissolution
+carried no thermodynamic penalty. Two independent constructions are reported.</p>
+<p><strong>Geometric.</strong> Pure site counting. For a face-centred cubic lattice with four
+octahedral sites per cubic cell,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[S_0^{\mathrm{geo}} = \frac{4}{a_0^3 N_A} \tag{T15}\]</div>
+</div>
+<p><strong>Vibrational.</strong> A partition-function ratio, per dissolved atom:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[S_0^{\mathrm{vib}} = \rho_{\mathrm{site}}\,\frac{q_{\mathrm{vib}}^{\mathrm{dissolved}}(T)}{\sqrt{q^{\mathrm{gas}}(T,P_{\mathrm{ref}})}} \tag{T16}\]</div>
+</div>
+<p>The square root is again the diatomic stoichiometry. The two routes differ by
+orders of magnitude, because (T15) ignores the entropy of the gas reservoir
+entirely. They are reported side by side as a bracket, not averaged.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+<span class="math notranslate nohighlight">\(P_{\mathrm{ref}}\)</span> must be <span class="math notranslate nohighlight">\(1\ \mathrm{Pa}\)</span>. (T15) has no pressure term at all,
+while (T16) scales as <span class="math notranslate nohighlight">\(\sqrt{P_{\mathrm{ref}}}\)</span>. Any other reference moves one
+route and not the other, silently putting them on different footings. The
+operating pressure of the membrane is a separate quantity and enters only in
+§9.</p>
+</div></blockquote>
+</section>
+<section id="saturation">
+<h3>7.4 Saturation<a class="headerlink" href="#saturation" title="Link to this heading">¶</a></h3>
+<p>(T14) is a dilute-limit expression and is unbounded in principle. Occupancy of a
+finite number of sites follows a Langmuir form,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\theta = \frac{K\sqrt{P/P_{\mathrm{ref}}}}{1 + K\sqrt{P/P_{\mathrm{ref}}}}, \qquad K = K_0\exp\!\left(-\frac{\Delta H_{\mathrm{sol}}}{k_B T}\right) \tag{T17}\]</div>
+</div>
+<p>and the dissolved concentration cannot exceed the site density <span class="math notranslate nohighlight">\(\rho_{\mathrm{site}}\)</span>.
+Reported solubilities carry a saturating counterpart so the dilute result can be
+compared against that ceiling.</p>
+</section>
+<section id="rate-based-cross-check">
+<h3>7.5 Rate-based cross-check<a class="headerlink" href="#rate-based-cross-check" title="Link to this heading">¶</a></h3>
+<p>Solubility can also be reconstructed from rates alone, via (T12) and an
+entry/exit balance:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[S^{\mathrm{db}}(T) = \rho_{\mathrm{site}}\,\frac{k_{\mathrm{entry}}}{k_{\mathrm{exit}}}\,\sqrt{\frac{k_{\mathrm{diss}}A_{\mathrm{site}}}{k_{\mathrm{des}}\sqrt{2\pi m k_B T}}} \tag{T18}\]</div>
+</div>
+<blockquote>
+<div><p>[!IMPORTANT]
+(T18) is a <strong>diagnostic, not a reported solubility</strong>. It averages rates over
+pathways, and averaging exponentials of differing barriers is not the same
+operation as (T14)’s weighted Boltzmann sum. Agreement between (T18) and (T14)
+is reassuring; disagreement indicates the averaging artefact, not a physical
+result. Quote (T14).</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="diffusion">
+<h2>8. Diffusion<a class="headerlink" href="#diffusion" title="Link to this heading">¶</a></h2>
+<section id="mean-squared-displacement">
+<h3>8.1 Mean-squared displacement<a class="headerlink" href="#mean-squared-displacement" title="Link to this heading">¶</a></h3>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\mathrm{MSD}(\tau) = \big\langle\,\lvert \mathbf r(t+\tau) - \mathbf r(t)\rvert^2\,\big\rangle_{t,\,\text{atoms}} \tag{T19}\]</div>
+</div>
+<p>averaged over both time origins <span class="math notranslate nohighlight">\(t\)</span> and mobile atoms. Trajectories must be
+unwrapped through the periodic boundary first, or a crossing registers as a
+large spurious displacement.</p>
+</section>
+<section id="einstein-relation">
+<h3>8.2 Einstein relation<a class="headerlink" href="#einstein-relation" title="Link to this heading">¶</a></h3>
+<p>For three-dimensional isotropic diffusion in the long-time limit,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\mathrm{MSD}(t) = 6 D t + \mathrm{const} \qquad\Longrightarrow\qquad D = \frac{1}{6}\frac{\mathrm d\,\mathrm{MSD}}{\mathrm d t} \tag{T20}\]</div>
+</div>
+<p>The factor is 6 in three dimensions (<span class="math notranslate nohighlight">\(2d\)</span> for dimension <span class="math notranslate nohighlight">\(d\)</span>). The slope is taken
+over an interior window of the trace, excluding both the early ballistic region
+and the late region where few time origins remain.</p>
+</section>
+<section id="is-the-slope-meaningful">
+<h3>8.3 Is the slope meaningful?<a class="headerlink" href="#is-the-slope-meaningful" title="Link to this heading">¶</a></h3>
+<p>(T20) holds only once motion is diffusive. The test used is to split the fit
+window in half and compare the two slopes:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[r = \frac{\text{slope over the second half}}{\text{slope over the first half}} \tag{T21}\]</div>
+</div>
+<p>A converged trace gives <span class="math notranslate nohighlight">\(r \approx 1\)</span>. The accepted band is <span class="math notranslate nohighlight">\(0.75 \le r \le 1.25\)</span>.</p>
+<p><img alt="MSD fit window" src="_images/f1_msd_fit_window.png" /></p>
+<p><strong>Figure 3.</strong> Why the slope is taken over an interior window. Look at the two ends: the early region curves upward because motion is still ballistic, and the late region wanders because few time origins remain. Only the shaded middle is a straight line whose slope means anything. Fictitious data.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+A per-temperature <span class="math notranslate nohighlight">\(R^2\)</span> does <strong>not</strong> detect this. A visibly curved MSD can fit
+a straight line with <span class="math notranslate nohighlight">\(R^2 &gt; 0.99\)</span>. Judge convergence by (T21), never by <span class="math notranslate nohighlight">\(R^2\)</span>.</p>
+</div></blockquote>
+<blockquote>
+<div><p>[!NOTE]
+<strong>Planned:</strong> the band in (T21) is a chosen tolerance, not a derived one, and no
+source for it is recorded. It decides which points are trustworthy, so it
+deserves either a justification or exposure as a setting.</p>
+</div></blockquote>
+</section>
+<section id="temperature-dependence">
+<h3>8.4 Temperature dependence<a class="headerlink" href="#temperature-dependence" title="Link to this heading">¶</a></h3>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[D(T) = D_0 \exp\!\left(-\frac{E_D}{k_B T}\right) \tag{T22}\]</div>
+</div>
+<p>fitted as a straight line in <span class="math notranslate nohighlight">\(\ln D\)</span> against <span class="math notranslate nohighlight">\(1/T\)</span>:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\ln D = \ln D_0 - \frac{E_D}{k_B}\cdot\frac1T \tag{T22a}\]</div>
+</div>
+<p>optionally weighted by inverse variance, <span class="math notranslate nohighlight">\(w_i = (D_i/\sigma_{D_i})^2\)</span>.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+(T22a) has <span class="math notranslate nohighlight">\(n-2\)</span> degrees of freedom for <span class="math notranslate nohighlight">\(n\)</span> temperatures. With two
+temperatures it has none, and the fit reproduces them exactly: <span class="math notranslate nohighlight">\(R^2 = 1\)</span> is
+then arithmetic, not evidence. A series that loses points to a non-positive
+<span class="math notranslate nohighlight">\(D\)</span> can silently reach this state.</p>
+</div></blockquote>
+<p><img alt="two-point Arrhenius trap" src="_images/f4_two_point_trap.png" /></p>
+<p><strong>Figure 4.</strong> The same statistic meaning two different things. Compare the two <span class="math notranslate nohighlight">\(R^2\)</span> values: three points leave one degree of freedom and the residuals show, while two points leave none and fit perfectly by construction — note how far the discarded point lies from that line. Fictitious data.</p>
+</section>
+<section id="concentration">
+<h3>8.5 Concentration<a class="headerlink" href="#concentration" title="Link to this heading">¶</a></h3>
+<p>Hydrogen content is reported in atomic percent,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[x_{\mathrm{at\%}} = 100\,\frac{n}{n + N_{\mathrm{host}}} \tag{T23}\]</div>
+</div>
+<p><span class="math notranslate nohighlight">\(D\)</span> depends on <span class="math notranslate nohighlight">\(n\)</span>; <span class="math notranslate nohighlight">\(S\)</span> does not, because (T13) is built from energetics of
+isolated states. Consequently every loading dependence of <span class="math notranslate nohighlight">\(\Phi\)</span> enters through
+<span class="math notranslate nohighlight">\(D\)</span> alone.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+A single mobile atom is a single random walker: (T19) then has no ensemble
+average, only a time average, and the variance of <span class="math notranslate nohighlight">\(D\)</span> is large. This is a
+property of the loading, not of the material.</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="permeability">
+<h2>9. Permeability<a class="headerlink" href="#permeability" title="Link to this heading">¶</a></h2>
+<section id="definition">
+<h3>9.1 Definition<a class="headerlink" href="#definition" title="Link to this heading">¶</a></h3>
+<p>Steady-state permeability is the product of the two transport properties:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Phi = D\,S \tag{T24}\]</div>
+</div>
+</section>
+<section id="arrhenius-form">
+<h3>9.2 Arrhenius form<a class="headerlink" href="#arrhenius-form" title="Link to this heading">¶</a></h3>
+<p>Substituting (T22) and (T14a) into (T24) and collecting terms gives a result
+that needs no separate fit:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Phi_0 = D_0 S_0, \qquad E_\Phi = E_D + \Delta H_{\mathrm{sol}} \tag{T25}\]</div>
+</div>
+<p>The permeation activation energy is the diffusion barrier plus the solution
+enthalpy. A direct regression of <span class="math notranslate nohighlight">\(\ln\Phi\)</span> against <span class="math notranslate nohighlight">\(1/T\)</span> is computed as a
+<strong>cross-check</strong> on (T25), not as the primary route.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+<span class="math notranslate nohighlight">\(D(T)\)</span> in (T24) is evaluated from the fitted parameters (T22), not re-measured
+at the permeation temperatures. The permeation temperature grid and the
+molecular-dynamics temperature grid are independent, and the former may
+interpolate or extrapolate the latter. Any change to which points enter the
+fit (T22a) therefore moves <span class="math notranslate nohighlight">\(\Phi\)</span> at <strong>every</strong> temperature.</p>
+</div></blockquote>
+</section>
+<section id="flux">
+<h3>9.3 Flux<a class="headerlink" href="#flux" title="Link to this heading">¶</a></h3>
+<p>For a membrane of thickness <span class="math notranslate nohighlight">\(L\)</span> with a diatomic feed, the driving force is a
+difference of square roots, not of pressures:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[J = \frac{\Phi}{L}\left(\sqrt{P_{\mathrm{high}}} - \sqrt{P_{\mathrm{low}}}\right) \tag{T26}\]</div>
+</div>
+<p>The ordinary Fickian form is also available for comparison, in terms of
+concentrations rather than pressures:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[J = D\,\frac{C_{\mathrm{high}} - C_{\mathrm{low}}}{L} \tag{T27}\]</div>
+</div>
+</section>
+<section id="validity">
+<h3>9.4 Validity<a class="headerlink" href="#validity" title="Link to this heading">¶</a></h3>
+<p>(T24)–(T26) assume dilute dissolved hydrogen: non-interacting atoms on
+independent sites, occupancy far below saturation. Two conditions must be
+checked rather than assumed — that the loading is dilute, and that <span class="math notranslate nohighlight">\(S\)</span> is below
+the ceiling of §7.4.</p>
+<blockquote>
+<div><p>[!IMPORTANT]
+There is a tension between this and §8.5, and it cannot be resolved by
+choosing a loading. The dilute limit is a single mobile atom, which is exactly
+the case whose mean-squared displacement is least converged. No loading is
+simultaneously dilute and well sampled; the honest course is to state which
+compromise a given number represents.</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="uncertainty">
+<h2>10. Uncertainty<a class="headerlink" href="#uncertainty" title="Link to this heading">¶</a></h2>
+<section id="representation">
+<h3>10.1 Representation<a class="headerlink" href="#representation" title="Link to this heading">¶</a></h3>
+<p>How an uncertainty should be written depends on how the quantity combines.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>quantity</p></th>
+<th class="head"><p>combines by</p></th>
+<th class="head"><p>represent as</p></th>
+<th class="head"><p>reason</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>energies: <span class="math notranslate nohighlight">\(E_a\)</span>, <span class="math notranslate nohighlight">\(\Delta H\)</span>, <span class="math notranslate nohighlight">\(E_D\)</span>, <span class="math notranslate nohighlight">\(E_\Phi\)</span></p></td>
+<td><p>addition (in an exponent)</p></td>
+<td><p><strong>absolute</strong> <span class="math notranslate nohighlight">\(\sigma\)</span>, in eV</p></td>
+<td><p>absolute errors add in quadrature; symmetric; cannot cross a forbidden bound</p></td>
+</tr>
+<tr class="row-odd"><td><p>prefactors: <span class="math notranslate nohighlight">\(D_0\)</span>, <span class="math notranslate nohighlight">\(S_0\)</span>, <span class="math notranslate nohighlight">\(\Phi_0\)</span></p></td>
+<td><p>multiplication</p></td>
+<td><p><strong>fractional</strong> <span class="math notranslate nohighlight">\(\sigma/x\)</span>, or a <span class="math notranslate nohighlight">\(\times/\div\)</span> factor</p></td>
+<td><p>fractional errors add in quadrature; an absolute <span class="math notranslate nohighlight">\(\pm\)</span> can go negative</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\sigma_{\text{sum}} = \sqrt{\textstyle\sum_i \sigma_i^2} \qquad
+  \frac{\sigma_{\text{product}}}{x} = \sqrt{\textstyle\sum_i \left(\frac{\sigma_i}{x_i}\right)^2} \tag{T28}\]</div>
+</div>
+<blockquote>
+<div><p>[!IMPORTANT]
+A prefactor is fitted in log space, <span class="math notranslate nohighlight">\(D_0 = \exp(\text{intercept})\)</span>, and spans
+orders of magnitude. Reporting it as <span class="math notranslate nohighlight">\(x \pm \sigma\)</span> can put the lower bound
+below zero — a negative diffusivity prefactor. The honest statement is
+geometric: <span class="math notranslate nohighlight">\(\sigma/x\)</span> as a fraction, equivalently a <span class="math notranslate nohighlight">\(\times/\div\)</span> band
+<span class="math notranslate nohighlight">\([x/f,\ x f]\)</span> with <span class="math notranslate nohighlight">\(f = \exp(\sigma/x)\)</span>.</p>
+</div></blockquote>
+<p>Applying (T28) to (T25):</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\sigma_{E_\Phi} = \sqrt{\sigma_{E_D}^2 + \sigma_{\Delta H}^2}, \qquad
+  \frac{\sigma_{\Phi_0}}{\Phi_0} = \sqrt{\left(\frac{\sigma_{D_0}}{D_0}\right)^2 + \left(\frac{\sigma_{S_0}}{S_0}\right)^2} \tag{T29}\]</div>
+</div>
+</section>
+<section id="averages-over-pathways">
+<h3>10.2 Averages over pathways<a class="headerlink" href="#averages-over-pathways" title="Link to this heading">¶</a></h3>
+<p>Where a quantity is a mean over <span class="math notranslate nohighlight">\(n\)</span> pathways, the uncertainty reported is the
+standard error of that mean:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\sigma_{\bar x} = \frac{s}{\sqrt n}, \qquad s^2 = \frac{1}{n-1}\sum_i (x_i - \bar x)^2 \tag{T30}\]</div>
+</div>
+<blockquote>
+<div><p>[!IMPORTANT]
+(T30) is undefined for <span class="math notranslate nohighlight">\(n = 1\)</span> and is recorded as <span class="math notranslate nohighlight">\(0\)</span>. <strong>Zero here means
+unmeasurable, not precise.</strong> It propagates into (T13) as a zero contribution,
+which can make a composite enthalpy look better determined than it is.</p>
+</div></blockquote>
+</section>
+<section id="what-is-not-an-uncertainty">
+<h3>10.3 What is not an uncertainty<a class="headerlink" href="#what-is-not-an-uncertainty" title="Link to this heading">¶</a></h3>
+<p><span class="math notranslate nohighlight">\(R^2\)</span> is a goodness-of-fit statistic. It is not an error bar, and for a quantity
+like (T14) — a <em>sum</em> of exponentials — curvature is physical, so <span class="math notranslate nohighlight">\(R^2 &lt; 1\)</span> is
+expected rather than indicative of error. See also §8.3 and §8.4.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="invariants">
+<h2>11. Invariants<a class="headerlink" href="#invariants" title="Link to this heading">¶</a></h2>
+<p>Properties that must hold. Each is checked.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>#</p></th>
+<th class="head"><p>invariant</p></th>
+<th class="head"><p>consequence if violated</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>I1</p></td>
+<td><p><span class="math notranslate nohighlight">\(n_{\mathrm{IS}} = n_{\mathrm{TS}} + 1\)</span> for a Vineyard prefactor</p></td>
+<td><p>(T8) is not a frequency; no prefactor is returned</p></td>
+</tr>
+<tr class="row-odd"><td><p>I2</p></td>
+<td><p>a minimum has no significant imaginary mode</p></td>
+<td><p>the state is not a minimum; its ZPE and prefactor are meaningless</p></td>
+</tr>
+<tr class="row-even"><td><p>I3</p></td>
+<td><p>a saddle has exactly one significant imaginary mode</p></td>
+<td><p>the barrier does not describe a single process</p></td>
+</tr>
+<tr class="row-odd"><td><p>I4</p></td>
+<td><p><span class="math notranslate nohighlight">\(q_{\mathrm{vib}} \ge 1\)</span></p></td>
+<td><p>a factor in (T9) was built from a non-real mode</p></td>
+</tr>
+<tr class="row-even"><td><p>I5</p></td>
+<td><p><span class="math notranslate nohighlight">\(\sum_e w_e = 1\)</span></p></td>
+<td><p>(T14) is not a weighted average</p></td>
+</tr>
+<tr class="row-odd"><td><p>I6</p></td>
+<td><p>every <span class="math notranslate nohighlight">\(\sum_e w_e e^{-\Delta H/k_BT} \le 1\)</span> when all <span class="math notranslate nohighlight">\(\Delta H &gt; 0\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(S\)</span> exceeds its own zero-enthalpy ceiling <span class="math notranslate nohighlight">\(S_0\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p>I7</p></td>
+<td><p>one <span class="math notranslate nohighlight">\(k_B\)</span> across all modules</p></td>
+<td><p>stages disagree on the same equation</p></td>
+</tr>
+<tr class="row-odd"><td><p>I8</p></td>
+<td><p><span class="math notranslate nohighlight">\(P_{\mathrm{ref}} = 1\ \mathrm{Pa}\)</span></p></td>
+<td><p>(T15) and (T16) are on different references</p></td>
+</tr>
+<tr class="row-even"><td><p>I9</p></td>
+<td><p><span class="math notranslate nohighlight">\(n \ge 3\)</span> points for an Arrhenius fit</p></td>
+<td><p>zero degrees of freedom; <span class="math notranslate nohighlight">\(R^2 = 1\)</span> is arithmetic</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="equation-index">
+<h2>12. Equation index<a class="headerlink" href="#equation-index" title="Link to this heading">¶</a></h2>
+<p>Each equation, the function implementing it, and the check that verifies it.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>eq</p></th>
+<th class="head"><p>quantity</p></th>
+<th class="head"><p>implemented in</p></th>
+<th class="head"><p>checked as</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>T1</p></td>
+<td><p>barriers</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/energetics.py"><code class="docutils literal notranslate"><span class="pre">energetics.py</span></code></a></p></td>
+<td><p>— (definition)</p></td>
+</tr>
+<tr class="row-odd"><td><p>T2</p></td>
+<td><p>reaction energy</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/energetics.py"><code class="docutils literal notranslate"><span class="pre">energetics.py</span></code></a></p></td>
+<td><p>— (definition)</p></td>
+</tr>
+<tr class="row-even"><td><p>T3</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{cm^{-1}}\to\mathrm{eV}\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py"><code class="docutils literal notranslate"><span class="pre">tst_rates.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">unit:</span> <span class="pre">cm^-1</span> <span class="pre">-&gt;</span> <span class="pre">eV</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T4</p></td>
+<td><p><span class="math notranslate nohighlight">\(\mathrm{\mathring A^2/ps}\to\mathrm{m^2/s}\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">unit:</span> <span class="pre">A^2/ps</span> <span class="pre">-&gt;</span> <span class="pre">m^2/s</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T5</p></td>
+<td><p>binding energy</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/energetics.py"><code class="docutils literal notranslate"><span class="pre">energetics.py</span></code></a></p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-odd"><td><p>T6a</p></td>
+<td><p>forward ZPE</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py"><code class="docutils literal notranslate"><span class="pre">tst_rates.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ZPE:</span> <span class="pre">forward</span> <span class="pre">barrier</span> <span class="pre">...</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T6b</p></td>
+<td><p>reverse ZPE, from FS</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py"><code class="docutils literal notranslate"><span class="pre">tst_rates.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ZPE:</span> <span class="pre">reverse</span> <span class="pre">barrier</span> <span class="pre">uses</span> <span class="pre">FS,</span> <span class="pre">not</span> <span class="pre">IS</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T7</p></td>
+<td><p>quasi-harmonic floor</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py"><code class="docutils literal notranslate"><span class="pre">tst_rates.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Vineyard:</span> <span class="pre">nu*</span> <span class="pre">=</span> <span class="pre">...</span></code> (floor branch)</p></td>
+</tr>
+<tr class="row-even"><td><p>T8</p></td>
+<td><p>Vineyard prefactor</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py"><code class="docutils literal notranslate"><span class="pre">tst_rates.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Vineyard:</span> <span class="pre">nu*</span> <span class="pre">=</span> <span class="pre">...</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T9</p></td>
+<td><p><span class="math notranslate nohighlight">\(q_{\mathrm{vib}}\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py"><code class="docutils literal notranslate"><span class="pre">tst_rates.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">q_vib</span> <span class="pre">=</span> <span class="pre">prod</span> <span class="pre">...</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T10</p></td>
+<td><p>TST rate</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py"><code class="docutils literal notranslate"><span class="pre">tst_rates.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">=</span> <span class="pre">nu</span> <span class="pre">*</span> <span class="pre">exp(-Ea</span> <span class="pre">/</span> <span class="pre">kB</span> <span class="pre">T)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T11–T12</p></td>
+<td><p>strike rate, coverage</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p>via T18</p></td>
+</tr>
+<tr class="row-even"><td><p>T13</p></td>
+<td><p><span class="math notranslate nohighlight">\(\Delta H_{\mathrm{sol}}(e)\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dH_sol(...)</span> <span class="pre">=</span> <span class="pre">1/2</span> <span class="pre">dH_diss</span> <span class="pre">+</span> <span class="pre">dH_HopA</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T14</p></td>
+<td><p>environment sum</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">S(T)</span> <span class="pre">=</span> <span class="pre">S0</span> <span class="pre">*</span> <span class="pre">sum_env</span> <span class="pre">...</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T14a</p></td>
+<td><p>Sieverts limit</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">single</span> <span class="pre">environment</span> <span class="pre">reduces</span> <span class="pre">to</span> <span class="pre">Sieverts</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T15</p></td>
+<td><p><span class="math notranslate nohighlight">\(S_0^{\mathrm{geo}}\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">S0</span> <span class="pre">geometric</span> <span class="pre">=</span> <span class="pre">4</span> <span class="pre">/</span> <span class="pre">(a0^3</span> <span class="pre">N_A)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T16</p></td>
+<td><p><span class="math notranslate nohighlight">\(S_0^{\mathrm{vib}}\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p>via T9</p></td>
+</tr>
+<tr class="row-odd"><td><p>T17</p></td>
+<td><p>Langmuir</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-even"><td><p>T18</p></td>
+<td><p>rate-based <span class="math notranslate nohighlight">\(S\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p>— (diagnostic)</p></td>
+</tr>
+<tr class="row-odd"><td><p>T19</p></td>
+<td><p>MSD</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing.py</span></code></a></p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-even"><td><p>T20</p></td>
+<td><p>Einstein</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Einstein:</span> <span class="pre">D</span> <span class="pre">=</span> <span class="pre">slope</span> <span class="pre">/</span> <span class="pre">6</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T21</p></td>
+<td><p>convergence ratio</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/plots/msd_plot.py"><code class="docutils literal notranslate"><span class="pre">plots/msd_plot.py</span></code></a></p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-even"><td><p>T22</p></td>
+<td><p><span class="math notranslate nohighlight">\(D(T)\)</span></p></td>
+<td><p>two modules, <strong>reversed arguments</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">D(T)</span> <span class="pre">=</span> <span class="pre">...</span></code> (both orders)</p></td>
+</tr>
+<tr class="row-odd"><td><p>T22a</p></td>
+<td><p>Arrhenius fit</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Arrhenius</span> <span class="pre">fit</span> <span class="pre">recovers</span> <span class="pre">D0</span></code> / <code class="docutils literal notranslate"><span class="pre">E_a</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T23</p></td>
+<td><p>atomic percent</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/plots/diffusivity_plot.py"><code class="docutils literal notranslate"><span class="pre">plots/diffusivity_plot.py</span></code></a></p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-odd"><td><p>T24</p></td>
+<td><p><span class="math notranslate nohighlight">\(\Phi = DS\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Phi</span> <span class="pre">=</span> <span class="pre">D</span> <span class="pre">*</span> <span class="pre">S</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T25</p></td>
+<td><p><span class="math notranslate nohighlight">\(\Phi_0\)</span>, <span class="math notranslate nohighlight">\(E_\Phi\)</span></p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Phi0</span> <span class="pre">=</span> <span class="pre">D0</span> <span class="pre">*</span> <span class="pre">S0</span></code>, <code class="docutils literal notranslate"><span class="pre">E_Phi</span> <span class="pre">=</span> <span class="pre">E_D</span> <span class="pre">+</span> <span class="pre">dH_sol</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>T26</p></td>
+<td><p>Richardson flux</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">J</span> <span class="pre">=</span> <span class="pre">(Phi</span> <span class="pre">/</span> <span class="pre">L)</span> <span class="pre">...</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>T27</p></td>
+<td><p>Fick flux</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p>—</p></td>
+</tr>
+<tr class="row-odd"><td><p>T28–T30</p></td>
+<td><p>error propagation</p></td>
+<td><p><a class="reference external" href="https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py"><code class="docutils literal notranslate"><span class="pre">permeation.py</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">...</span> <span class="pre">add</span> <span class="pre">in</span> <span class="pre">quadrature</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<div><p>[!IMPORTANT]
+(T22) exists in two modules with <strong>reversed argument order</strong>: one takes
+<span class="math notranslate nohighlight">\((D_0, E_D, T)\)</span>, the other <span class="math notranslate nohighlight">\((T, E_a, D_0)\)</span>. Calling either the wrong way round
+does not raise — it underflows to exactly <code class="docutils literal notranslate"><span class="pre">0.0</span></code>, a silent and plausible
+result. Both orders are pinned by checks.</p>
+</div></blockquote>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="02b-aggregation.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Part II-B — The aggregation ladder</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="01-overview.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Part I — Overview</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Azeez Akinyemi
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Part II — Theory</a><ul>
+<li><a class="reference internal" href="#contents">Contents</a></li>
+<li><a class="reference internal" href="#conventions">1. Conventions</a><ul>
+<li><a class="reference internal" href="#symbols">1.1 Symbols</a></li>
+<li><a class="reference internal" href="#units">1.2 Units</a></li>
+<li><a class="reference internal" href="#sign-conventions">1.3 Sign conventions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#constants">2. Constants</a><ul>
+<li><a class="reference internal" href="#unit-conversions">2.1 Unit conversions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#energetics">3. Energetics</a></li>
+<li><a class="reference internal" href="#vibrational-analysis">4. Vibrational analysis</a><ul>
+<li><a class="reference internal" href="#what-is-computed">4.1 What is computed</a></li>
+<li><a class="reference internal" href="#zero-point-energy">4.2 Zero-point energy</a></li>
+<li><a class="reference internal" href="#quasi-harmonic-treatment-of-low-modes">4.3 Quasi-harmonic treatment of low modes</a></li>
+<li><a class="reference internal" href="#partition-functions">4.4 Partition functions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#transition-state-theory">5. Transition-state theory</a><ul>
+<li><a class="reference internal" href="#rate">5.1 Rate</a></li>
+<li><a class="reference internal" href="#vineyard-prefactor">5.2 Vineyard prefactor</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#gas-phase-reference-and-the-surface">6. Gas-phase reference and the surface</a></li>
+<li><a class="reference internal" href="#solubility">7. Solubility</a><ul>
+<li><a class="reference internal" href="#per-environment-solution-enthalpy">7.1 Per-environment solution enthalpy</a></li>
+<li><a class="reference internal" href="#collapsing-environments">7.2 Collapsing environments</a></li>
+<li><a class="reference internal" href="#the-two-prefactor-routes">7.3 The two prefactor routes</a></li>
+<li><a class="reference internal" href="#saturation">7.4 Saturation</a></li>
+<li><a class="reference internal" href="#rate-based-cross-check">7.5 Rate-based cross-check</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#diffusion">8. Diffusion</a><ul>
+<li><a class="reference internal" href="#mean-squared-displacement">8.1 Mean-squared displacement</a></li>
+<li><a class="reference internal" href="#einstein-relation">8.2 Einstein relation</a></li>
+<li><a class="reference internal" href="#is-the-slope-meaningful">8.3 Is the slope meaningful?</a></li>
+<li><a class="reference internal" href="#temperature-dependence">8.4 Temperature dependence</a></li>
+<li><a class="reference internal" href="#concentration">8.5 Concentration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#permeability">9. Permeability</a><ul>
+<li><a class="reference internal" href="#definition">9.1 Definition</a></li>
+<li><a class="reference internal" href="#arrhenius-form">9.2 Arrhenius form</a></li>
+<li><a class="reference internal" href="#flux">9.3 Flux</a></li>
+<li><a class="reference internal" href="#validity">9.4 Validity</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#uncertainty">10. Uncertainty</a><ul>
+<li><a class="reference internal" href="#representation">10.1 Representation</a></li>
+<li><a class="reference internal" href="#averages-over-pathways">10.2 Averages over pathways</a></li>
+<li><a class="reference internal" href="#what-is-not-an-uncertainty">10.3 What is not an uncertainty</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#invariants">11. Invariants</a></li>
+<li><a class="reference internal" href="#equation-index">12. Equation index</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </body>
+</html>

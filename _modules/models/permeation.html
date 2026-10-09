@@ -1,0 +1,1360 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../genindex.html"><link rel="search" title="Search" href="../../search.html">
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2025.12.19 -->
+        <title>models.permeation - Hydrogen permeation through metal membranes 0.1.0</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../index.html"><div class="brand">Hydrogen permeation through metal membranes 0.1.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
+  
+  <span class="sidebar-brand-text">Hydrogen permeation through metal membranes 0.1.0</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../01-overview.html">Part I — Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../02-theory.html">Part II — Theory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../02b-aggregation.html">Part II-B — The aggregation ladder</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Part III — Stages</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/README.html">Part III — Stages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/01-materials-and-structures.html">Stage 1 — Materials and structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/02-slabs-and-relaxation.html">Stage 2 — Slabs and relaxation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/03-surface-site-mapping.html">Stage 3 — Surface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/04-subsurface-site-mapping.html">Stage 4 — Subsurface site mapping</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/05-adsorption-and-enumeration.html">Stage 5 — Adsorption and pathway enumeration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/06-neb.html">Stage 6 — Nudged elastic band</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/07-vibrations-phva.html">Stage 7 — Vibrations (partial Hessian)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/08-tst-rate-assembly.html">Stage 8 — Rate assembly</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/09-solubility.html">Stage 9 — Solubility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/10-bulk-diffusivity.html">Stage 10 — Bulk diffusivity</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../03-stages/11-permeability-assembly.html">Stage 11 — Permeability assembly</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Practical</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../04-practical.html">Part IV — Practical</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../05-appendices.html">Appendices</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/index.html">API reference</a><input aria-label="Toggle navigation of API reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/ase_neb.html"><code class="docutils literal notranslate"><span class="pre">ase_neb</span></code> — ASE Climbing-Image NEB utilities for H₂ dissociation barrier calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/checkpoint.html"><code class="docutils literal notranslate"><span class="pre">checkpoint</span></code> — Uniform <code class="docutils literal notranslate"><span class="pre">.done</span></code> sentinel markers for Section/Phase/Step resume logic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/config.html"><code class="docutils literal notranslate"><span class="pre">config</span></code> — Project-wide constants for Hastelloy-N hydrogen diffusion MD simulations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/create_slurm.html"><code class="docutils literal notranslate"><span class="pre">create_slurm</span></code> — Utilities for writing and submitting SLURM batch scripts used across</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/diffusivity_post_processing.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_post_processing</span></code> — Post-processing pipeline for H diffusivity from LAMMPS MD trajectories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/diffusivity_workflow.html"><code class="docutils literal notranslate"><span class="pre">diffusivity_workflow</span></code> — Public functions that back the action cells of calculation/diffusivity.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/energetics.html"><code class="docutils literal notranslate"><span class="pre">energetics</span></code> — Energy calculation and NEB post-processing for Hastelloy N surface science</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/lammps_script.html"><code class="docutils literal notranslate"><span class="pre">lammps_script</span></code> — Writer functions for LAMMPS input scripts used across MHI_Nickel notebooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/materials.html"><code class="docutils literal notranslate"><span class="pre">materials</span></code> — Single source of truth for <em>which</em> materials the pipeline processes, and how</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/neb_subsurface.html"><code class="docutils literal notranslate"><span class="pre">neb_subsurface</span></code> — NEB calculations for H permeation from the surface into the subsurface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/neb_workflow.html"><code class="docutils literal notranslate"><span class="pre">neb_workflow</span></code> — Prepares the FCC(111) Hastelloy N surface for adsorption and NEB calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/parsers.html"><code class="docutils literal notranslate"><span class="pre">parsers</span></code> — Parsers for LAMMPS output files produced by this project’s workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/permeation.html"><code class="docutils literal notranslate"><span class="pre">permeation</span></code> — Macroscopic H permeation from energy- and TST-based thermodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/permeation_workflow.html"><code class="docutils literal notranslate"><span class="pre">permeation_workflow</span></code> — Script generator + local analysis functions backing calculation/permeation.ipynb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/pipeline_workflow.html"><code class="docutils literal notranslate"><span class="pre">pipeline_workflow</span></code> — Script generator for the master pipeline orchestrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/site_identifier.html"><code class="docutils literal notranslate"><span class="pre">site_identifier</span></code> — ──────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/structure.html"><code class="docutils literal notranslate"><span class="pre">structure</span></code> — Atomic structure builders for Hastelloy N MD workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/subsurface_graph.html"><code class="docutils literal notranslate"><span class="pre">subsurface_graph</span></code> — # ─────────────────────────────────────────────────────────────────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/surface_graph.html"><code class="docutils literal notranslate"><span class="pre">surface_graph</span></code> — ────────────────</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/tst_rates.html"><code class="docutils literal notranslate"><span class="pre">tst_rates</span></code> — Transition-state theory rate constants from NEB barriers + vibrational frequencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/utils.html"><code class="docutils literal notranslate"><span class="pre">utils</span></code> — Utility helpers for the Hastelloy N MD workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/vibrations.html"><code class="docutils literal notranslate"><span class="pre">vibrations</span></code> — Frozen-phonon vibrational frequency calculations using ASE Vibrations + MACE</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for models.permeation</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">models/permeation.py</span>
+<span class="sd">====================</span>
+<span class="sd">Macroscopic H permeation from energy- and TST-based thermodynamics.</span>
+
+<span class="sd">Pipeline</span>
+<span class="sd">--------</span>
+<span class="sd">1. ``fick_flux``            — J = D (C0 − C_low) / L</span>
+<span class="sd">2. Richardson-Sieverts permeability:</span>
+
+<span class="sd">   a. ``arrhenius_diffusivity``   — D(T) = D₀ exp(−E_D / k_B T)</span>
+<span class="sd">   b. Solubility S₀ via three routes, all consuming the same per-environment</span>
+<span class="sd">      ΔH_sol and differing only in the prefactor:</span>
+
+<span class="sd">      - ``lattice_site_S0``       — S₀ = 4/a₀³/N_A  (geometric site density)</span>
+<span class="sd">      - ``vibrational_S0``        — S₀ from partition functions</span>
+<span class="sd">      - ``solubility_from_rates`` — S(T) from TST rates (detailed balance)</span>
+
+<span class="sd">   c. ``sieverts_solubility`` — S(T) = S₀ exp(−ΔH_sol / k_B T)</span>
+<span class="sd">   d. ``permeability``        — Φ = D × S  [mol·m⁻¹·s⁻¹·Pa^(−½)]</span>
+<span class="sd">   e. ``richardson_flux``     — J = Φ (√P_high − √P_low) / L</span>
+
+<span class="sd">Sieverts&#39; law</span>
+<span class="sd">-------------</span>
+<span class="sd">For bulk-diffusion-limited transport, J ∝ √P (Richardson / Sieverts regime):</span>
+<span class="sd">H₂ pressure sets the surface H concentration via C ∝ √P, and flux follows.</span>
+
+<span class="sd">Sieverts&#39; law is *assumed* here, not verified. Confirming it requires the</span>
+<span class="sd">low-pressure exponent of a coverage isotherm, θ ∝ Pⁿ (n ≈ 0.5 diffusion-limited</span>
+<span class="sd">vs n ≈ 1.0 dissociation-limited), which needs a kinetic simulation and is out</span>
+<span class="sd">of scope. What remains available is the *thermodynamic* dilute-limit test in</span>
+<span class="sd">:func:`solubility_by_environment_saturating`, which detects saturation</span>
+<span class="sd">(θ → 1) but cannot detect a surface-limited surface.</span>
+
+<span class="sd">Richardson-Sieverts permeability</span>
+<span class="sd">---------------------------------</span>
+<span class="sd">Φ(T) = D(T) · S(T)   where  S(T) = S₀ · exp(−ΔH_sol / k_B T)</span>
+
+<span class="sd">ΔH_sol = ΔH_diss / 2 + ΔH_entry  (half H₂-dissociation + Hop A reaction energy)</span>
+
+<span class="sd">For the detailed-balance route, the derivation equates adsorption</span>
+<span class="sd">and desorption rates for (1/2)H₂ ↔ H*,  then entry/exit for H* ↔ H_sub::</span>
+
+<span class="sd">    θ_eq ≈ √( k_diss · A_site · P / (k_des · √(2π m_H2 k_B T)) )</span>
+<span class="sd">    C_sub = ρ_oct · (k_entry / k_exit) · θ_eq</span>
+
+<span class="sd">    S(T) = C_sub/√P = ρ_oct · (k_entry/k_exit) · √( k_diss·A_site / (k_des·√(2πm_H2 k_BT)) )</span>
+
+<span class="sd">k_diss is dimensionless (a Boltzmann sticking probability, not a rate).</span>
+<span class="sd">k_des, k_entry, k_exit are full TST rates in s⁻¹.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">models.tst_rates</span><span class="w"> </span><span class="kn">import</span> <span class="n">vib_partition_function</span><span class="p">,</span> <span class="n">h2_gas_partition_function</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 1 — Fick&#39;s law</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="fick_flux">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.fick_flux">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fick_flux</span><span class="p">(</span>
+    <span class="n">D_m2s</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">C0_m3</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">L_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">C_low_m3</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Steady-state permeation flux through a membrane of thickness L.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        J = D \\cdot \\frac{C_0 - C_{\\text{low}}}{L}</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    D_m2s : float</span>
+<span class="sd">        Bulk diffusivity [m²/s].</span>
+<span class="sd">    C0_m3 : float</span>
+<span class="sd">        H concentration at the high-pressure surface [mol/m³].</span>
+<span class="sd">    L_m : float</span>
+<span class="sd">        Membrane thickness [m].</span>
+<span class="sd">    C_low_m3 : float</span>
+<span class="sd">        H concentration at the low-pressure surface [mol/m³].</span>
+<span class="sd">        Default 0 (permeate side assumed H-free).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Flux J [mol/(m²·s)].</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">L_m</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Membrane thickness must be positive; got L_m=</span><span class="si">{</span><span class="n">L_m</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">D_m2s</span> <span class="o">*</span> <span class="p">(</span><span class="n">C0_m3</span> <span class="o">-</span> <span class="n">C_low_m3</span><span class="p">)</span> <span class="o">/</span> <span class="n">L_m</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 2 — Population-weighted rate ratio</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="pop_weighted_rate_ratio">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.pop_weighted_rate_ratio">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pop_weighted_rate_ratio</span><span class="p">(</span><span class="n">fwd_by_env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">rev_by_env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">env_array</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Population-weighted mean of ``k_forward(env)/k_reverse(env)`` over grid sites.</span>
+
+<span class="sd">    This is the dimensionless factor in the rate-ratio (dilute detailed-balance)</span>
+<span class="sd">    subsurface occupancy ``C = ρ_oct·⟨k_fwd/k_rev⟩·θ`` — the continuous,</span>
+<span class="sd">    count-free estimator that replaces integer occupancy counting for the</span>
+<span class="sd">    subsurface layers. Counting floors at ~1 atom whenever the true equilibrium</span>
+<span class="sd">    occupancy is ≪ 1 atom per grid (e.g. endothermic entry), losing all P/T</span>
+<span class="sd">    dependence; the rate ratio does not.</span>
+
+<span class="sd">    The ratio is averaged over the environments actually present on the grid</span>
+<span class="sd">    (``env_array`` from ``make_grid``); an env absent from a rate dict falls back</span>
+<span class="sd">    to that dict&#39;s mean, and a non-positive reverse rate contributes nothing.</span>
+<span class="sd">    Returns 0.0 if no valid ratio exists — e.g. an empty entry-rate dict, i.e.</span>
+<span class="sd">    no surface→sub1 channel at all.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fwd_by_env, rev_by_env : dict</span>
+<span class="sd">        Environment-keyed forward (entry) and reverse (exit) rates [s⁻¹].</span>
+<span class="sd">    env_array : ndarray or None</span>
+<span class="sd">        Per-site environment labels for the layer. If ``None``, a uniform mean</span>
+<span class="sd">        over the rate dict&#39;s environments is used.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Population-weighted ⟨k_fwd/k_rev⟩ (dimensionless), or 0.0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fwd_by_env</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">rev_by_env</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="n">_fm</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">fwd_by_env</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">fwd_by_env</span><span class="p">)</span>
+    <span class="n">_rm</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">rev_by_env</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">rev_by_env</span><span class="p">)</span>
+    <span class="n">envs</span> <span class="o">=</span> <span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">env_array</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">env_array</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">fwd_by_env</span><span class="p">))</span>
+    <span class="n">ratios</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">envs</span><span class="p">:</span>
+        <span class="n">kr</span> <span class="o">=</span> <span class="n">rev_by_env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">_rm</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kr</span> <span class="ow">and</span> <span class="n">kr</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">ratios</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fwd_by_env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">_fm</span><span class="p">)</span> <span class="o">/</span> <span class="n">kr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ratios</span><span class="p">))</span> <span class="k">if</span> <span class="n">ratios</span> <span class="k">else</span> <span class="mf">0.0</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 3 — Richardson-Sieverts permeability</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="c1"># Physical constants used throughout the remaining sections</span>
+<span class="n">_KB_EV</span>   <span class="o">=</span> <span class="mf">8.617333262e-5</span>    <span class="c1"># eV / K</span>
+<span class="n">_KB_J</span>    <span class="o">=</span> <span class="mf">1.380649e-23</span>      <span class="c1"># J / K</span>
+<span class="n">_M_H2_KG</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="mf">1.6735575e-27</span>  <span class="c1"># kg  (H₂ molecule)</span>
+<span class="n">_N_A</span>     <span class="o">=</span> <span class="mf">6.02214076e23</span>     <span class="c1"># Avogadro / mol  (counts -&gt; mol H)</span>
+
+
+<span class="c1"># ── Step G: units metadata for result payloads ──────────────────────────────────</span>
+<span class="c1"># Maps result value-field name -&gt; unit string, so written JSON carries units</span>
+<span class="c1"># explicitly instead of relying on inconsistent key-name suffixes. All quantities</span>
+<span class="c1"># are SI + per mol H, pressures in Pa (implicit P_ref = 1 Pa). Fields absent from</span>
+<span class="c1"># a payload are simply skipped; string/bool/genuinely-dimensionless fields are</span>
+<span class="c1"># either labelled &#39;dimensionless&#39; or omitted.</span>
+<span class="n">RESULT_UNITS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># energies</span>
+    <span class="s1">&#39;E_D_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span> <span class="s1">&#39;Ea_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span> <span class="s1">&#39;E_phi_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span> <span class="s1">&#39;E_phi_err_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;dH_sol_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span> <span class="s1">&#39;dH_sol_err_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span> <span class="s1">&#39;dH_sol_mean_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;dH_diss_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span> <span class="s1">&#39;dH_entry_eV&#39;</span><span class="p">:</span> <span class="s1">&#39;eV&#39;</span><span class="p">,</span>
+    <span class="c1"># diffusivity, length, temperature, time</span>
+    <span class="s1">&#39;D_m2s&#39;</span><span class="p">:</span> <span class="s1">&#39;m^2 s^-1&#39;</span><span class="p">,</span> <span class="s1">&#39;D0_m2s&#39;</span><span class="p">:</span> <span class="s1">&#39;m^2 s^-1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;a0_m&#39;</span><span class="p">:</span> <span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="s1">&#39;L_m&#39;</span><span class="p">:</span> <span class="s1">&#39;m&#39;</span><span class="p">,</span> <span class="s1">&#39;T_K&#39;</span><span class="p">:</span> <span class="s1">&#39;K&#39;</span><span class="p">,</span> <span class="s1">&#39;T_K_arr&#39;</span><span class="p">:</span> <span class="s1">&#39;K&#39;</span><span class="p">,</span>
+    <span class="c1"># pressure</span>
+    <span class="s1">&#39;P_vals&#39;</span><span class="p">:</span> <span class="s1">&#39;Pa&#39;</span><span class="p">,</span> <span class="s1">&#39;P_high_Pa&#39;</span><span class="p">:</span> <span class="s1">&#39;Pa&#39;</span><span class="p">,</span>
+    <span class="c1"># solubility  [mol H m^-3 Pa^-0.5]</span>
+    <span class="s1">&#39;S0&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-3 Pa^-0.5&#39;</span><span class="p">,</span> <span class="s1">&#39;S&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-3 Pa^-0.5&#39;</span><span class="p">,</span> <span class="s1">&#39;S_arr&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-3 Pa^-0.5&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;S_mean&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-3 Pa^-0.5&#39;</span><span class="p">,</span> <span class="s1">&#39;S_std&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-3 Pa^-0.5&#39;</span><span class="p">,</span>
+    <span class="c1"># permeability, flux, concentration</span>
+    <span class="s1">&#39;Phi&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-1 s^-1 Pa^-0.5&#39;</span><span class="p">,</span> <span class="s1">&#39;Phi0&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-1 s^-1 Pa^-0.5&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;J&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-2 s^-1&#39;</span><span class="p">,</span> <span class="s1">&#39;J_vals&#39;</span><span class="p">:</span> <span class="s1">&#39;mol H m^-2 s^-1&#39;</span><span class="p">,</span>
+    <span class="c1"># counts</span>
+    <span class="s1">&#39;n_H&#39;</span><span class="p">:</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="s1">&#39;n_env&#39;</span><span class="p">:</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="s1">&#39;n_converged&#39;</span><span class="p">:</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="s1">&#39;n_points&#39;</span><span class="p">:</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span>
+    <span class="c1"># dimensionless (labelled explicitly so their absence is not ambiguous)</span>
+    <span class="s1">&#39;theta_vals&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;theta_max&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless&#39;</span><span class="p">,</span> <span class="s1">&#39;theta_exponent&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;S0_rel_err&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless (fractional)&#39;</span><span class="p">,</span> <span class="s1">&#39;S_rel_err&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless (fractional)&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Phi0_rel_err&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless (fractional)&#39;</span><span class="p">,</span> <span class="s1">&#39;J_rel_err_by_T&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless (fractional)&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Phi0_factor&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless (x/div 1-sigma band)&#39;</span><span class="p">,</span> <span class="s1">&#39;w_env&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;r2&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless&#39;</span><span class="p">,</span> <span class="s1">&#39;r2_S&#39;</span><span class="p">:</span> <span class="s1">&#39;dimensionless&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="units_for">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.units_for">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">units_for</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Collect ``{field_name: unit_string}`` for every known value field appearing</span>
+<span class="sd">    anywhere in a (possibly nested) result payload.</span>
+
+<span class="sd">    Walks nested dicts/lists so nested value fields (e.g. ``option1[&#39;Phi&#39;]``) are</span>
+<span class="sd">    covered by a single flat block. Fields not in :data:`RESULT_UNITS` are skipped</span>
+<span class="sd">    (strings, bools, and genuinely-dimensionless-by-omission fields). Intended to</span>
+<span class="sd">    be attached as ``payload[&#39;units&#39;] = units_for(payload)`` just before writing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">found</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_walk</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">RESULT_UNITS</span> <span class="ow">and</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">found</span><span class="p">:</span>
+                    <span class="n">found</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">RESULT_UNITS</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                <span class="n">_walk</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">:</span>
+                <span class="n">_walk</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+
+    <span class="n">_walk</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">found</span></div>
+
+
+
+<div class="viewcode-block" id="arrhenius_diffusivity">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.arrhenius_diffusivity">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">arrhenius_diffusivity</span><span class="p">(</span><span class="n">D0_m2s</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">E_D_eV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Temperature-dependent bulk diffusivity from an Arrhenius fit.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        D(T) = D_0 \\cdot \\exp\\!\\left(-\\frac{E_D}{k_B T}\\right)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    D0_m2s : float</span>
+<span class="sd">        Diffusivity pre-exponential [m²/s].  Fit from LAMMPS MSD Arrhenius plot.</span>
+<span class="sd">    E_D_eV : float</span>
+<span class="sd">        Diffusion activation energy [eV].</span>
+<span class="sd">    T_K : float</span>
+<span class="sd">        Temperature [K].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        D(T) in m²/s.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">T_K</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Temperature must be positive; got T_K=</span><span class="si">{</span><span class="n">T_K</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">D0_m2s</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">E_D_eV</span> <span class="o">/</span> <span class="p">(</span><span class="n">_KB_EV</span> <span class="o">*</span> <span class="n">T_K</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="lattice_site_S0">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.lattice_site_S0">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">lattice_site_S0</span><span class="p">(</span><span class="n">a0_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">P_ref_Pa</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Geometric route — S₀ from the FCC octahedral-site density.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        S_0 = \\frac{4}{a_0^3 N_A}  \\quad [\\text{mol m}^{-3}\\,\\text{Pa}^{-1/2}]</span>
+
+<span class="sd">    This is the geometric maximum: if every oct site were filled at</span>
+<span class="sd">    ``P_ref_Pa`` with no thermodynamic penalty (ΔH_sol = 0). Multiply by</span>
+<span class="sd">    exp(−ΔH_sol / k_B T) via :func:`sieverts_solubility` to obtain S(T).</span>
+
+<span class="sd">    ``P_ref_Pa`` **must be 1.0** — see the warning below. It is accepted only so</span>
+<span class="sd">    that this route carries the reference explicitly, matching</span>
+<span class="sd">    :func:`vibrational_S0`; otherwise the two routes could silently end up on</span>
+<span class="sd">    different references.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        ``P_ref_Pa`` is an SI normalisation, **not** a configurable operating</span>
+<span class="sd">        pressure. The expression has no pressure term, so its ``Pa^(-1/2)``</span>
+<span class="sd">        units are implicitly *per √(1 Pa)*: passing anything else changes what</span>
+<span class="sd">        the returned number means without changing the number. In</span>
+<span class="sd">        :func:`vibrational_S0` the same reference appears explicitly and scales</span>
+<span class="sd">        the result as ``√P_ref``, so a non-unit reference would move that route</span>
+<span class="sd">        by ``√P_ref`` while leaving this one fixed — 1000× apart at 1e6 Pa.</span>
+<span class="sd">        The feed-side pressure for the flux is a separate quantity; pass it to</span>
+<span class="sd">        :func:`richardson_flux`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    a0_m : float</span>
+<span class="sd">        FCC lattice constant [m]. This route assumes 4 octahedral sites per</span>
+<span class="sd">        cubic cell, so it is **not** valid for non-FCC hosts (rocksalt or</span>
+<span class="sd">        corundum oxides need a structure-derived site count).</span>
+<span class="sd">    P_ref_Pa : float</span>
+<span class="sd">        Reference pressure fixing the units. Must be 1.0.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        S₀ in mol m⁻³ Pa^(−½).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``P_ref_Pa`` is not 1.0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">P_ref_Pa</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;lattice_site_S0: P_ref_Pa must be 1.0 (SI normalisation), got &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">P_ref_Pa</span><span class="si">}</span><span class="s1">. This route has no pressure term, so a non-unit &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;reference would silently desynchronise it from vibrational_S0, &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;which scales as sqrt(P_ref). For the feed-side pressure use &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;richardson_flux(P_high_Pa=...).&#39;</span><span class="p">)</span>
+    <span class="n">_S0</span> <span class="o">=</span> <span class="mf">4.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">a0_m</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="n">_N_A</span>            <span class="c1"># mol H per m^3 (÷ Avogadro)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[S0 geometric] S0=</span><span class="si">{</span><span class="n">_S0</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> mol·m⁻³·Pa⁻⁰·⁵  &#39;</span>
+          <span class="sa">f</span><span class="s1">&#39;(a0=</span><span class="si">{</span><span class="n">a0_m</span><span class="o">*</span><span class="mf">1e10</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> Å, P_ref=</span><span class="si">{</span><span class="n">P_ref_Pa</span><span class="si">:</span><span class="s1">g</span><span class="si">}</span><span class="s1"> Pa)&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_S0</span></div>
+
+
+
+<div class="viewcode-block" id="solubility_from_rates">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.solubility_from_rates">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solubility_from_rates</span><span class="p">(</span>
+    <span class="n">k_diss</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">k_des_s1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">k_entry_s1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">k_exit_s1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">a0_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Option 2 — S(T) from TST rate constants via detailed balance.</span>
+
+<span class="sd">    Derivation (dilute-limit equilibrium):</span>
+
+<span class="sd">    1. Adsorption/desorption balance:</span>
+<span class="sd">       θ_eq = √( k_diss · A_site · P / (k_des · √(2π m_H2 k_B T)) )</span>
+
+<span class="sd">    2. Entry/exit balance:</span>
+<span class="sd">       C_sub = ρ_oct · (k_entry / k_exit) · θ_eq</span>
+
+<span class="sd">    Combining:  S(T) = C_sub / √P = ρ_oct · (k_entry / k_exit)</span>
+<span class="sd">                       · √( k_diss · A_site / (k_des · √(2π m_H2 k_B T)) )</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    k_diss : float</span>
+<span class="sd">        Dimensionless H₂ sticking coefficient (Boltzmann factor).</span>
+<span class="sd">        This is *not* a rate; it is combined with the Hertz-Knudsen gas-strike</span>
+<span class="sd">        flux to give a pressure-dependent adsorption rate.</span>
+<span class="sd">    k_des_s1 : float</span>
+<span class="sd">        H₂ desorption rate [s⁻¹] (TST full rate from dissociation NEB).</span>
+<span class="sd">    k_entry_s1 : float</span>
+<span class="sd">        H* → H_sub (Hop A forward) rate [s⁻¹].</span>
+<span class="sd">    k_exit_s1 : float</span>
+<span class="sd">        H_sub → H* (Hop A reverse) rate [s⁻¹].</span>
+<span class="sd">    a0_m : float</span>
+<span class="sd">        FCC lattice constant [m].</span>
+<span class="sd">    T_K : float</span>
+<span class="sd">        Temperature [K].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        S(T) in mol m⁻³ Pa^(−½).</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The site area for H₂ dissociation is A_site = (a₀ / √2)² = a₀² / 2</span>
+<span class="sd">    (nearest-neighbour distance squared).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">T_K</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Temperature must be positive; got T_K=</span><span class="si">{</span><span class="n">T_K</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">k_des_s1</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">k_exit_s1</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;k_des_s1 and k_exit_s1 must be positive.&#39;</span><span class="p">)</span>
+
+    <span class="n">rho_oct</span>  <span class="o">=</span> <span class="mf">4.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">a0_m</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="n">_N_A</span>     <span class="c1"># oct-site density [mol·m⁻³] (÷ Avogadro)</span>
+    <span class="n">A_site</span>   <span class="o">=</span> <span class="p">(</span><span class="n">a0_m</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span>  <span class="c1"># dissociation site area [m²]</span>
+
+    <span class="c1"># Denominator: k_des × √(2π m_H2 k_B T)  [s⁻¹ × kg·m/s = N]</span>
+    <span class="n">denom</span> <span class="o">=</span> <span class="n">k_des_s1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">_M_H2_KG</span> <span class="o">*</span> <span class="n">_KB_J</span> <span class="o">*</span> <span class="n">T_K</span><span class="p">)</span>
+
+    <span class="n">S</span> <span class="o">=</span> <span class="n">rho_oct</span> <span class="o">*</span> <span class="p">(</span><span class="n">k_entry_s1</span> <span class="o">/</span> <span class="n">k_exit_s1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">k_diss</span> <span class="o">*</span> <span class="n">A_site</span> <span class="o">/</span> <span class="n">denom</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[S opt2] S(T=</span><span class="si">{</span><span class="n">T_K</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1">K)=</span><span class="si">{</span><span class="n">S</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> mol·m⁻³·Pa⁻⁰·⁵&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">S</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 3b — Heterogeneous, per-environment thermodynamic solubility</span>
+<span class="c1">#</span>
+<span class="c1"># Solubility is an equilibrium property: it depends on the reaction ENERGIES</span>
+<span class="c1"># along the connected chain, not the barriers. The chain is referenced to the</span>
+<span class="c1"># FIRST subsurface site: ½ H₂ dissociation + Hop A (surface -&gt; sub1). The</span>
+<span class="c1"># sub1 -&gt; sub2 hop (Hop B) and everything deeper are bulk transport and are</span>
+<span class="c1"># carried by D, so they are deliberately NOT part of ΔH_sol -- see</span>
+<span class="c1"># build_dh_sol_by_env, which consumes only the Hop A rates.</span>
+<span class="c1">#</span>
+<span class="c1"># Different octahedral environments have different ΔH_sol, so the</span>
+<span class="c1"># statistically-correct solubility is a population-weighted Boltzmann sum over</span>
+<span class="c1"># environments — never a single collapsed representative. Two S₀ prefactor</span>
+<span class="c1"># routes are offered: geometric (lattice_site_S0) and vibrational</span>
+<span class="c1"># (vibrational_S0, reusing the dissolved-H FS modes + gas-phase H₂ reference).</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="vibrational_S0">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.vibrational_S0">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">vibrational_S0</span><span class="p">(</span><span class="n">a0_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">freqs_dissolved_cm1</span><span class="p">,</span>
+                   <span class="n">P_ref_Pa</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Vibrational (partition-function) solubility pre-exponential S₀.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        S_0 = \\rho_{\\text{oct}} \\cdot</span>
+<span class="sd">              \\frac{q_{\\text{vib}}^{\\text{H,dissolved}}(T)}</span>
+<span class="sd">                   {\\sqrt{q^{\\text{H}_2,\\text{gas}}(T, P_{\\text{ref}})}}</span>
+
+<span class="sd">    The √ on the gas partition function reflects the H₂ → 2H stoichiometry</span>
+<span class="sd">    (per dissolved H atom). The gas translational term carries a 1/P factor, so</span>
+<span class="sd">    with ``P_ref_Pa = 1`` the resulting S₀ has units mol·m⁻³·Pa^(−½) and</span>
+<span class="sd">    ``C₀ = S₀·exp(−ΔH_sol/kT)·√P`` with P in Pa (see</span>
+<span class="sd">    :func:`solubility_by_environment` / :func:`sieverts_solubility`).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    a0_m : float</span>
+<span class="sd">        FCC lattice constant [m].</span>
+<span class="sd">    T_K : float</span>
+<span class="sd">        Temperature [K].</span>
+<span class="sd">    freqs_dissolved_cm1 : iterable of float</span>
+<span class="sd">        Real vibrational frequencies [cm⁻¹] of a dissolved H in its oct cage</span>
+<span class="sd">        (the FS-endpoint modes from Part 2&#39;s vibration run).</span>
+<span class="sd">    P_ref_Pa : float</span>
+<span class="sd">        Reference pressure fixing the S₀ units. **Must be 1.0** — see the</span>
+<span class="sd">        warning below. Default 1.0 Pa.</span>
+
+<span class="sd">    .. warning::</span>
+
+<span class="sd">        This is an SI normalisation, not an operating pressure. ``q_H2`` carries</span>
+<span class="sd">        a ``1/P_ref`` through ``V = k_B T/P``, so ``S₀ = S_true · √P_ref``: the</span>
+<span class="sd">        factor only vanishes at ``P_ref = 1`` in SI. Passing 1e6 Pa multiplies</span>
+<span class="sd">        this route by 1000 while leaving :func:`lattice_site_S0` untouched — the</span>
+<span class="sd">        two would then disagree by 1000× on top of any real discrepancy, which</span>
+<span class="sd">        is easy to mistake for the routes converging. The feed-side pressure for</span>
+<span class="sd">        the flux belongs in :func:`richardson_flux`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        S₀ in mol·m⁻³·Pa^(−½).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">P_ref_Pa</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;vibrational_S0: P_ref_Pa must be 1.0 (SI normalisation), got &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">P_ref_Pa</span><span class="si">}</span><span class="s1">. S0 scales as sqrt(P_ref), so this would rescale the &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;vibrational route by </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">P_ref_Pa</span><span class="p">)</span><span class="si">:</span><span class="s1">g</span><span class="si">}</span><span class="s1">x while leaving &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;lattice_site_S0 unchanged. For the feed-side pressure use &#39;</span>
+            <span class="sa">f</span><span class="s1">&#39;richardson_flux(P_high_Pa=...).&#39;</span><span class="p">)</span>
+    <span class="n">rho_oct</span> <span class="o">=</span> <span class="mf">4.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">a0_m</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="n">_N_A</span>       <span class="c1"># mol H per m^3 (÷ Avogadro)</span>
+    <span class="n">q_H</span>  <span class="o">=</span> <span class="n">vib_partition_function</span><span class="p">(</span><span class="n">freqs_dissolved_cm1</span><span class="p">,</span> <span class="n">T_K</span><span class="p">)</span>
+    <span class="n">q_H2</span> <span class="o">=</span> <span class="n">h2_gas_partition_function</span><span class="p">(</span><span class="n">T_K</span><span class="p">,</span> <span class="n">P_ref_Pa</span><span class="p">)[</span><span class="s1">&#39;total&#39;</span><span class="p">]</span>
+    <span class="n">_S0</span> <span class="o">=</span> <span class="n">rho_oct</span> <span class="o">*</span> <span class="n">q_H</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">q_H2</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[S0 vib] S0=</span><span class="si">{</span><span class="n">_S0</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> mol·m⁻³·Pa⁻⁰·⁵  (q_H=</span><span class="si">{</span><span class="n">q_H</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">, &#39;</span>
+          <span class="sa">f</span><span class="s1">&#39;q_H2=</span><span class="si">{</span><span class="n">q_H2</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">, P_ref=</span><span class="si">{</span><span class="n">P_ref_Pa</span><span class="si">:</span><span class="s1">g</span><span class="si">}</span><span class="s1"> Pa)&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_S0</span></div>
+
+
+
+<div class="viewcode-block" id="build_dh_sol_by_env">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.build_dh_sol_by_env">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_dh_sol_by_env</span><span class="p">(</span><span class="n">hopa_vib</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">dh_diss_eV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                        <span class="n">dh_diss_err_eV</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="n">out_json</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-environment solution enthalpy ΔH_sol(env), referenced to sub1.</span>
+
+<span class="sd">    ``ΔH_sol(env) = ½·ΔH_diss + ΔH_HopA(env)``, built from the ZPE-corrected</span>
+<span class="sd">    reaction energy of Hop A (reaction energy = forward barrier − reverse</span>
+<span class="sd">    barrier = ``Ea_zpe − Ed_zpe``), grouped by the sub1 entry environment.</span>
+<span class="sd">    Solubility is referenced to the first subsurface (sub1) dissolved site; the</span>
+<span class="sd">    sub1→sub2 hop (Hop B) and deeper transport are treated as bulk diffusion</span>
+<span class="sd">    (carried by D), so they are deliberately NOT included here. Population</span>
+<span class="sd">    weight ``w_env`` is the fraction of Hop A pathways in each environment.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    hopa_vib : dict</span>
+<span class="sd">        ``{label: {env, Ea_zpe, Ed_zpe, ...}}`` from</span>
+<span class="sd">        ``tst_rates.write_hop_vib_rates`` (env = sub1 env).</span>
+<span class="sd">    dh_diss_eV : float</span>
+<span class="sd">        H₂ dissociation reaction energy [eV] (per H₂).</span>
+<span class="sd">    dh_diss_err_eV : float</span>
+<span class="sd">        Absolute σ on ΔH_diss (e.g. the SEM over the dissociation pathways).</span>
+<span class="sd">        Propagated into ``dH_sol_err_eV``; default 0.0.</span>
+<span class="sd">    out_json : str, optional</span>
+<span class="sd">        If given, written here as ``dH_sol_by_env.json``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        ``{env: {dH_sol_eV, dH_sol_err_eV, w_env, n_sites, dH_hopA_eV,</span>
+<span class="sd">        dH_hopA_err_eV}}``.  Energy errors are absolute σ [eV]; ``dH_sol_err_eV``</span>
+<span class="sd">        = √((½·σ_diss)² + σ_HopA²) with σ_HopA the within-env SEM.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rxn</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Ea_zpe&#39;</span><span class="p">),</span> <span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Ed_zpe&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="p">(</span><span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+
+    <span class="n">a_by_env</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">hopa_vib</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;env&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sub1_env&#39;</span><span class="p">)</span>
+        <span class="n">dr</span>  <span class="o">=</span> <span class="n">_rxn</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">env</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">dr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">a_by_env</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dr</span><span class="p">)</span>
+
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">a_by_env</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="ow">or</span> <span class="mi">1</span>
+    <span class="n">out</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">env</span><span class="p">,</span> <span class="n">deltas</span> <span class="ow">in</span> <span class="n">a_by_env</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">dh_hopa</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">deltas</span><span class="p">))</span>
+        <span class="c1"># SEM of the Hop A reaction energy within this environment</span>
+        <span class="n">sem_hopa</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">deltas</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">deltas</span><span class="p">)))</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">deltas</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="c1"># ΔH_sol = ½·ΔH_diss + ΔH_HopA  -&gt;  σ = √((½·σ_diss)² + σ_HopA²) [absolute, eV]</span>
+        <span class="n">dh_sol_err</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">dh_diss_err_eV</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">sem_hopa</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">env</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;dH_sol_eV&#39;</span><span class="p">:</span>      <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dh_diss_eV</span> <span class="o">+</span> <span class="n">dh_hopa</span><span class="p">,</span>
+            <span class="s1">&#39;dH_sol_err_eV&#39;</span><span class="p">:</span>  <span class="n">dh_sol_err</span><span class="p">,</span>
+            <span class="s1">&#39;w_env&#39;</span><span class="p">:</span>          <span class="nb">len</span><span class="p">(</span><span class="n">deltas</span><span class="p">)</span> <span class="o">/</span> <span class="n">total</span><span class="p">,</span>
+            <span class="s1">&#39;n_sites&#39;</span><span class="p">:</span>        <span class="nb">len</span><span class="p">(</span><span class="n">deltas</span><span class="p">),</span>
+            <span class="s1">&#39;dH_hopA_eV&#39;</span><span class="p">:</span>     <span class="n">dh_hopa</span><span class="p">,</span>
+            <span class="s1">&#39;dH_hopA_err_eV&#39;</span><span class="p">:</span> <span class="n">sem_hopa</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">out_json</span><span class="p">:</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">out_json</span><span class="p">)),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">out_json</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">fh</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[dH_sol by env] </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="si">}</span><span class="s1"> environments → </span><span class="si">{</span><span class="n">out_json</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span></div>
+
+
+
+<div class="viewcode-block" id="solubility_by_environment">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.solubility_by_environment">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solubility_by_environment</span><span class="p">(</span><span class="n">dh_sol_by_env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">S0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Population-weighted Boltzmann solubility over oct-site environments.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        S(T) = S_0 \\cdot \\sum_{\\text{env}} w_{\\text{env}}\\,</span>
+<span class="sd">               e^{-\\Delta H_{\\text{sol}}(\\text{env}) / k_B T}</span>
+
+<span class="sd">    ``S0`` supplies the prefactor (ρ_oct-bearing) — either the geometric</span>
+<span class="sd">    :func:`lattice_site_S0` or the vibrational :func:`vibrational_S0`. The sum</span>
+<span class="sd">    is the dimensionless population-weighted Boltzmann average; the most</span>
+<span class="sd">    favourable environments dominate but all contribute (replacing the old</span>
+<span class="sd">    single-representative collapse).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dh_sol_by_env : dict</span>
+<span class="sd">        Output of :func:`build_dh_sol_by_env`.</span>
+<span class="sd">    S0 : float</span>
+<span class="sd">        Solubility pre-exponential [mol·m⁻³·Pa^(−½)].</span>
+<span class="sd">    T_K : float</span>
+<span class="sd">        Temperature [K].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        S(T) in mol·m⁻³·Pa^(−½).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">T_K</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Temperature must be positive; got T_K=</span><span class="si">{</span><span class="n">T_K</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dh_sol_by_env</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="n">kT</span> <span class="o">=</span> <span class="n">_KB_EV</span> <span class="o">*</span> <span class="n">T_K</span>
+    <span class="n">boltz</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;w_env&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;dH_sol_eV&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">kT</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dh_sol_by_env</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="n">_S</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">S0</span> <span class="o">*</span> <span class="n">boltz</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[S by env] S(T=</span><span class="si">{</span><span class="n">T_K</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1">K)=</span><span class="si">{</span><span class="n">_S</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">  (Σw·e^(−ΔH/kT)=</span><span class="si">{</span><span class="n">boltz</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">, &#39;</span>
+          <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">dh_sol_by_env</span><span class="p">)</span><span class="si">}</span><span class="s1"> envs)&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_S</span></div>
+
+
+
+<div class="viewcode-block" id="langmuir_theta">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.langmuir_theta">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">langmuir_theta</span><span class="p">(</span><span class="n">dH_sol_eV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">K0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+                   <span class="n">P_Pa</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">P_ref_Pa</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Equilibrium site occupancy under dissociative (Sieverts) adsorption.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \\theta = \\frac{K\\sqrt{P/P_{ref}}}{1 + K\\sqrt{P/P_{ref}}},</span>
+<span class="sd">        \\qquad K = K_0\\,e^{-\\Delta H_{sol}/k_BT}</span>
+
+<span class="sd">    Bounded on [0, 1] by construction, unlike the bare Boltzmann factor. In the</span>
+<span class="sd">    dilute limit (θ ≪ 1) this reduces to ``θ ≈ K√(P/P_ref)``, which is what</span>
+<span class="sd">    :func:`solubility_by_environment` assumes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">T_K</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Temperature must be positive; got T_K=</span><span class="si">{</span><span class="n">T_K</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">K0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dH_sol_eV</span> <span class="o">/</span> <span class="p">(</span><span class="n">_KB_EV</span> <span class="o">*</span> <span class="n">T_K</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">P_Pa</span> <span class="o">/</span> <span class="n">P_ref_Pa</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">x</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="solubility_by_environment_saturating">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.solubility_by_environment_saturating">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solubility_by_environment_saturating</span><span class="p">(</span>
+    <span class="n">dh_sol_by_env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">S0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">rho_site</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">P_Pa</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">P_ref_Pa</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Occupancy-limited counterpart of :func:`solubility_by_environment`.</span>
+
+<span class="sd">    ``solubility_by_environment`` uses an unbounded ``exp(−ΔH/kT)``, so a single</span>
+<span class="sd">    exothermic environment can drive S past the point where every site is</span>
+<span class="sd">    already full — physically impossible, and observed here: Hastelloy N 7&#39;s</span>
+<span class="sd">    geometric route reaches 1.3e11 against a site density of 1.5e5.</span>
+
+<span class="sd">    The fix is not to change the enthalpies but to stop assuming θ ≪ 1. The</span>
+<span class="sd">    route&#39;s own prefactor supplies the entropic constant, ``K0 = S0/ρ_site``, so</span>
+<span class="sd">    the two forms agree exactly wherever the dilute limit is valid and diverge</span>
+<span class="sd">    only where it is not.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dh_sol_by_env : dict</span>
+<span class="sd">        Output of :func:`build_dh_sol_by_env`.</span>
+<span class="sd">    S0 : float</span>
+<span class="sd">        The route&#39;s dilute pre-exponential [mol·m⁻³·Pa^(−½)] — geometric,</span>
+<span class="sd">        vibrational, or any other.</span>
+<span class="sd">    rho_site : float</span>
+<span class="sd">        Total site density available to H [mol·m⁻³], i.e.</span>
+<span class="sd">        :func:`lattice_site_S0`. This is the ceiling on the dissolved</span>
+<span class="sd">        concentration.</span>
+<span class="sd">    T_K, P_Pa, P_ref_Pa : float</span>
+<span class="sd">        Temperature [K] and pressures [Pa].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        ``{&#39;S&#39;, &#39;S_dilute&#39;, &#39;C&#39;, &#39;theta_mean&#39;, &#39;theta_max&#39;, &#39;regime&#39;,</span>
+<span class="sd">        &#39;saturation_ratio&#39;}``. ``regime`` uses a fixed occupancy vocabulary</span>
+<span class="sd">        with thresholds at θ = 0.4 / 0.85.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">T_K</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Temperature must be positive; got T_K=</span><span class="si">{</span><span class="n">T_K</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rho_site</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;rho_site must be positive; got </span><span class="si">{</span><span class="n">rho_site</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dh_sol_by_env</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;S&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;S_dilute&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;theta_mean&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s1">&#39;theta_max&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;regime&#39;</span><span class="p">:</span> <span class="s1">&#39;insufficient_data&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;saturation_ratio&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}</span>
+
+    <span class="n">K0</span>     <span class="o">=</span> <span class="n">S0</span> <span class="o">/</span> <span class="n">rho_site</span>
+    <span class="n">sqrtP</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">P_Pa</span> <span class="o">/</span> <span class="n">P_ref_Pa</span><span class="p">)</span>
+    <span class="n">thetas</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">langmuir_theta</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;dH_sol_eV&#39;</span><span class="p">],</span> <span class="n">T_K</span><span class="p">,</span> <span class="n">K0</span><span class="p">,</span> <span class="n">P_Pa</span><span class="p">,</span> <span class="n">P_ref_Pa</span><span class="p">)</span>
+              <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dh_sol_by_env</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="n">C</span> <span class="o">=</span> <span class="n">rho_site</span> <span class="o">*</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dh_sol_by_env</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;w_env&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">t</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">thetas</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">C</span> <span class="o">/</span> <span class="n">sqrtP</span>
+
+    <span class="n">S_dilute</span>   <span class="o">=</span> <span class="n">solubility_by_environment</span><span class="p">(</span><span class="n">dh_sol_by_env</span><span class="p">,</span> <span class="n">S0</span><span class="p">,</span> <span class="n">T_K</span><span class="p">)</span>
+    <span class="n">theta_max</span>  <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">thetas</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="n">theta_mean</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dh_sol_by_env</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;w_env&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">t</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">thetas</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+    <span class="k">if</span> <span class="n">theta_max</span> <span class="o">&gt;=</span> <span class="mf">0.85</span><span class="p">:</span>                       <span class="c1"># sat_theta</span>
+        <span class="n">regime</span> <span class="o">=</span> <span class="s1">&#39;saturated_only&#39;</span>
+    <span class="k">elif</span> <span class="n">theta_max</span> <span class="o">&gt;=</span> <span class="mf">0.4</span><span class="p">:</span>                      <span class="c1"># dilute_theta_max</span>
+        <span class="n">regime</span> <span class="o">=</span> <span class="s1">&#39;partially_saturated&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">regime</span> <span class="o">=</span> <span class="s1">&#39;sieverts_compatible&#39;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[S sat] S(T=</span><span class="si">{</span><span class="n">T_K</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1">K)=</span><span class="si">{</span><span class="n">S</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> vs dilute </span><span class="si">{</span><span class="n">S_dilute</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">  &#39;</span>
+          <span class="sa">f</span><span class="s1">&#39;(θ_max=</span><span class="si">{</span><span class="n">theta_max</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">regime</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;S&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">S</span><span class="p">),</span> <span class="s1">&#39;S_dilute&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">S_dilute</span><span class="p">),</span> <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">C</span><span class="p">),</span>
+        <span class="s1">&#39;theta_mean&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">theta_mean</span><span class="p">),</span> <span class="s1">&#39;theta_max&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">theta_max</span><span class="p">),</span>
+        <span class="s1">&#39;regime&#39;</span><span class="p">:</span> <span class="n">regime</span><span class="p">,</span>
+        <span class="s1">&#39;saturation_ratio&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">S_dilute</span> <span class="o">/</span> <span class="n">S</span><span class="p">)</span> <span class="k">if</span> <span class="n">S</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="solubility_env_rel_err">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.solubility_env_rel_err">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solubility_env_rel_err</span><span class="p">(</span><span class="n">dh_sol_by_env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                           <span class="n">S0_rel_err</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fractional error σ_S/S of the per-environment Boltzmann solubility.</span>
+
+<span class="sd">    For ``S = S0·B`` with ``B(T) = Σ_env w_env·exp(−ΔH_env/kT)`` and per-env</span>
+<span class="sd">    absolute errors ``dH_sol_err_eV`` (see :func:`build_dh_sol_by_env`):</span>
+
+<span class="sd">        f_env = w_env·exp(−ΔH_env/kT) / B          (fractional Boltzmann weight)</span>
+<span class="sd">        σ_B/B = (1/k_BT)·√( Σ_env f_env²·σ_(ΔH_env)² )</span>
+<span class="sd">        σ_S/S = √( (σ_S0/S0)² + (σ_B/B)² )</span>
+
+<span class="sd">    Because Σ f_env² ≤ 1, the Boltzmann average reduces the effective ΔH error</span>
+<span class="sd">    relative to a single environment (single-env limit: σ_B/B → σ_ΔH/kT).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dh_sol_by_env : dict</span>
+<span class="sd">        Output of :func:`build_dh_sol_by_env` (must carry ``dH_sol_err_eV``).</span>
+<span class="sd">    T_K : float</span>
+<span class="sd">        Temperature [K].</span>
+<span class="sd">    S0_rel_err : float</span>
+<span class="sd">        Fractional error on the S₀ prefactor. Default 0.0.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Fractional error σ_S/S (dimensionless).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">T_K</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">dh_sol_by_env</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">S0_rel_err</span><span class="p">)</span>
+    <span class="n">kT</span> <span class="o">=</span> <span class="n">_KB_EV</span> <span class="o">*</span> <span class="n">T_K</span>
+    <span class="n">contribs</span> <span class="o">=</span> <span class="p">{</span><span class="n">e</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;w_env&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;dH_sol_eV&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">kT</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">e</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dh_sol_by_env</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">contribs</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">B</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">S0_rel_err</span><span class="p">)</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">contribs</span><span class="p">[</span><span class="n">e</span><span class="p">]</span> <span class="o">/</span> <span class="n">B</span> <span class="o">*</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;dH_sol_err_eV&#39;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span>
+              <span class="k">for</span> <span class="n">e</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dh_sol_by_env</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="n">sigma_B_over_B</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="o">/</span> <span class="n">kT</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">S0_rel_err</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">sigma_B_over_B</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="sieverts_solubility">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.sieverts_solubility">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sieverts_solubility</span><span class="p">(</span><span class="n">dH_sol_eV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">S0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T_K</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Arrhenius Sieverts solubility at temperature T.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        S(T) = S_0 \\cdot \\exp\\!\\left(-\\frac{\\Delta H_{\\text{sol}}}{k_B T}\\right)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dH_sol_eV : float</span>
+<span class="sd">        Solution enthalpy per H atom [eV].</span>
+<span class="sd">        ΔH_sol = ΔH_diss / 2 + ΔH_entry  (sign convention: positive = endothermic).</span>
+<span class="sd">    S0 : float</span>
+<span class="sd">        Solubility pre-exponential [mol m⁻³ Pa^(−½)].</span>
+<span class="sd">        Use :func:`lattice_site_S0` for Option 1, or extract from</span>
+<span class="sd">        :func:`solubility_from_rates`.</span>
+<span class="sd">    T_K : float</span>
+<span class="sd">        Temperature [K].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        S(T) in mol m⁻³ Pa^(−½).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">T_K</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Temperature must be positive; got T_K=</span><span class="si">{</span><span class="n">T_K</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="n">_S</span> <span class="o">=</span> <span class="n">S0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dH_sol_eV</span> <span class="o">/</span> <span class="p">(</span><span class="n">_KB_EV</span> <span class="o">*</span> <span class="n">T_K</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[Sieverts] S(</span><span class="si">{</span><span class="n">T_K</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1">K)=</span><span class="si">{</span><span class="n">_S</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">  (S0=</span><span class="si">{</span><span class="n">S0</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">  dH=</span><span class="si">{</span><span class="n">dH_sol_eV</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1"> eV)&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_S</span></div>
+
+
+
+<div class="viewcode-block" id="permeability">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.permeability">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">permeability</span><span class="p">(</span><span class="n">D_m2s</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">S_m3_pasqrt</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Richardson-Sieverts permeability Φ = D × S.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \\Phi = D \\cdot S</span>
+<span class="sd">        \\quad [\\text{mol}\\cdot\\text{m}^{-1}\\cdot\\text{s}^{-1}\\cdot\\text{Pa}^{-1/2}]</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    D_m2s : float</span>
+<span class="sd">        Bulk diffusivity [m²/s].</span>
+<span class="sd">    S_m3_pasqrt : float</span>
+<span class="sd">        Sieverts solubility [mol m⁻³ Pa^(−½)].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Permeability Φ in mol·m⁻¹·s⁻¹·Pa^(−½).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_Phi</span> <span class="o">=</span> <span class="n">D_m2s</span> <span class="o">*</span> <span class="n">S_m3_pasqrt</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[Phi] Φ=</span><span class="si">{</span><span class="n">_Phi</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> mol·m⁻¹·s⁻¹·Pa⁻⁰·⁵&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_Phi</span></div>
+
+
+
+<div class="viewcode-block" id="fit_arrhenius">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.fit_arrhenius">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fit_arrhenius</span><span class="p">(</span><span class="n">T_K_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">,</span> <span class="n">y_err_arr</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit ``y(T) = A·exp(−Ea / kB T)`` by (optionally weighted) regression of ln y vs 1/T.</span>
+
+<span class="sd">    Reusable for the solubility (Ea = ΔH_sol) and permeability (Ea = E_Φ)</span>
+<span class="sd">    Arrhenius outputs. Points with non-positive T or y are dropped. The R² of</span>
+<span class="sd">    the ln-linear fit is the curvature/fit-quality flag the plan calls for: a</span>
+<span class="sd">    per-environment S(T) is a *sum* of Arrhenius terms, so R² &lt; 1 flags the</span>
+<span class="sd">    physically-real curvature (the dominant environment shifting with T) rather</span>
+<span class="sd">    than hiding it behind a forced straight line.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    T_K_arr : iterable of float</span>
+<span class="sd">        Temperatures [K].</span>
+<span class="sd">    y_arr : iterable of float</span>
+<span class="sd">        Quantity at each temperature (e.g. S or Φ).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        ``{&#39;prefactor&#39;, &#39;Ea_eV&#39;, &#39;r2&#39;, &#39;n_points&#39;, &#39;Ea_err_eV&#39;,</span>
+<span class="sd">        &#39;prefactor_rel_err&#39;}``. When per-point absolute errors ``y_err_arr`` are</span>
+<span class="sd">        supplied the fit is inverse-variance weighted in log space</span>
+<span class="sd">        (wᵢ = (yᵢ/σ_yᵢ)²) and ``Ea_err_eV`` (absolute σ on Ea) and</span>
+<span class="sd">        ``prefactor_rel_err`` (σ_ln of the prefactor) are propagated; otherwise</span>
+<span class="sd">        those two are NaN. ``prefactor``/``Ea_eV`` are NaN with &lt; 2 valid points.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">T_K_arr</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">y_arr</span><span class="p">),</span>   <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">ye</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">y_err_arr</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">if</span> <span class="n">y_err_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">T</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">y</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ye</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">ye</span><span class="p">)</span>
+    <span class="n">T</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">T</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">ye</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ye</span> <span class="o">=</span> <span class="n">ye</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+    <span class="n">_nan</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;prefactor&#39;</span><span class="p">:</span> <span class="n">_nan</span><span class="p">,</span> <span class="s1">&#39;Ea_eV&#39;</span><span class="p">:</span> <span class="n">_nan</span><span class="p">,</span> <span class="s1">&#39;r2&#39;</span><span class="p">:</span> <span class="n">_nan</span><span class="p">,</span>
+                <span class="s1">&#39;n_points&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)),</span> <span class="s1">&#39;Ea_err_eV&#39;</span><span class="p">:</span> <span class="n">_nan</span><span class="p">,</span> <span class="s1">&#39;prefactor_rel_err&#39;</span><span class="p">:</span> <span class="n">_nan</span><span class="p">}</span>
+    <span class="n">x</span>  <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">T</span>
+    <span class="n">ly</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="c1"># inverse-variance weights in log space: wᵢ = 1/σ_(ln y)² = (y/σ_y)²</span>
+    <span class="k">if</span> <span class="n">ye</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">ye</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">/</span> <span class="n">ye</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">sw</span>  <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">();</span> <span class="n">sx</span> <span class="o">=</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">();</span> <span class="n">sy</span> <span class="o">=</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">ly</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">sxx</span> <span class="o">=</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">();</span> <span class="n">sxy</span> <span class="o">=</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">ly</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">denom</span> <span class="o">=</span> <span class="n">sw</span> <span class="o">*</span> <span class="n">sxx</span> <span class="o">-</span> <span class="n">sx</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="n">slope</span> <span class="o">=</span> <span class="p">(</span><span class="n">sw</span> <span class="o">*</span> <span class="n">sxy</span> <span class="o">-</span> <span class="n">sx</span> <span class="o">*</span> <span class="n">sy</span><span class="p">)</span> <span class="o">/</span> <span class="n">denom</span>
+    <span class="n">inter</span> <span class="o">=</span> <span class="p">(</span><span class="n">sy</span> <span class="o">-</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">sx</span><span class="p">)</span> <span class="o">/</span> <span class="n">sw</span>
+    <span class="n">pred</span>   <span class="o">=</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">inter</span>
+    <span class="n">ss_res</span> <span class="o">=</span> <span class="nb">float</span><span class="p">((</span><span class="n">w</span> <span class="o">*</span> <span class="p">(</span><span class="n">ly</span> <span class="o">-</span> <span class="n">pred</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+    <span class="n">ss_tot</span> <span class="o">=</span> <span class="nb">float</span><span class="p">((</span><span class="n">w</span> <span class="o">*</span> <span class="p">(</span><span class="n">ly</span> <span class="o">-</span> <span class="n">sy</span> <span class="o">/</span> <span class="n">sw</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+    <span class="n">r2</span>     <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">ss_res</span> <span class="o">/</span> <span class="n">ss_tot</span> <span class="k">if</span> <span class="n">ss_tot</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">1.0</span>
+    <span class="n">Ea</span> <span class="o">=</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="n">slope</span><span class="p">)</span> <span class="o">*</span> <span class="n">_KB_EV</span>
+    <span class="n">A</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">inter</span><span class="p">))</span>
+    <span class="c1"># parameter standard errors (need &gt;2 points for a residual-variance estimate)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">sigma2</span>    <span class="o">=</span> <span class="n">ss_res</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">Ea_err</span>    <span class="o">=</span> <span class="n">_KB_EV</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sigma2</span> <span class="o">*</span> <span class="n">sw</span> <span class="o">/</span> <span class="n">denom</span><span class="p">))</span>    <span class="c1"># absolute σ on Ea</span>
+        <span class="n">A_rel_err</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sigma2</span> <span class="o">*</span> <span class="n">sxx</span> <span class="o">/</span> <span class="n">denom</span><span class="p">))</span>            <span class="c1"># σ_ln A (fractional)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">Ea_err</span> <span class="o">=</span> <span class="n">A_rel_err</span> <span class="o">=</span> <span class="n">_nan</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[Arrhenius fit] A=</span><span class="si">{</span><span class="n">A</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1">  Ea=</span><span class="si">{</span><span class="n">Ea</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">±</span><span class="si">{</span><span class="n">Ea_err</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> eV  R²=</span><span class="si">{</span><span class="n">r2</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">  (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;prefactor&#39;</span><span class="p">:</span> <span class="n">A</span><span class="p">,</span> <span class="s1">&#39;Ea_eV&#39;</span><span class="p">:</span> <span class="n">Ea</span><span class="p">,</span> <span class="s1">&#39;r2&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r2</span><span class="p">),</span> <span class="s1">&#39;n_points&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)),</span>
+            <span class="s1">&#39;Ea_err_eV&#39;</span><span class="p">:</span> <span class="n">Ea_err</span><span class="p">,</span> <span class="s1">&#39;prefactor_rel_err&#39;</span><span class="p">:</span> <span class="n">A_rel_err</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="permeability_arrhenius">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.permeability_arrhenius">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">permeability_arrhenius</span><span class="p">(</span><span class="n">D0_m2s</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">E_D_eV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                           <span class="n">S0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dH_sol_eV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                           <span class="n">D0_rel_err</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">E_D_err_eV</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+                           <span class="n">S0_rel_err</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">dH_sol_err_eV</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Permeability Arrhenius parameters from the diffusivity and solubility fits.</span>
+
+<span class="sd">    Since Φ = D·S with D = D₀·exp(−E_D/kT) and S = S₀·exp(−ΔH_sol/kT):</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \\Phi_0 = D_0 \\cdot S_0, \\qquad E_\\Phi = E_D + \\Delta H_{\\text{sol}}</span>
+
+<span class="sd">    the textbook result that the permeation activation energy is the diffusion</span>
+<span class="sd">    barrier plus the solution enthalpy. No separate fit is required; a direct</span>
+<span class="sd">    ``ln Φ`` vs 1/T fit (via :func:`fit_arrhenius`) is the cross-check.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    D0_m2s : float</span>
+<span class="sd">        Diffusivity pre-exponential [m²/s].</span>
+<span class="sd">    E_D_eV : float</span>
+<span class="sd">        Diffusion activation energy [eV].</span>
+<span class="sd">    S0 : float</span>
+<span class="sd">        Solubility pre-exponential [mol·m⁻³·Pa^(−½)] (geometric or vibrational).</span>
+<span class="sd">    dH_sol_eV : float</span>
+<span class="sd">        Solution enthalpy [eV].</span>
+
+<span class="sd">    Error propagation (§ audits/error_propagation_plan.md): Φ0 is a product, so</span>
+<span class="sd">    fractional errors add in quadrature; E_Φ is a sum, so absolute errors do::</span>
+
+<span class="sd">        Φ0_rel_err = √( D0_rel_err² + S0_rel_err² )          (fractional)</span>
+<span class="sd">        E_phi_err  = √( E_D_err²    + dH_sol_err² )           (absolute, eV)</span>
+
+<span class="sd">    ``Phi0_factor = exp(Φ0_rel_err)`` is the multiplicative (×/÷) 1σ band for the</span>
+<span class="sd">    log-normal Φ0 (report Φ0 ∈ [Φ0/factor, Φ0·factor], never a symmetric ±).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        ``{&#39;Phi0&#39;, &#39;E_phi_eV&#39;, &#39;Phi0_rel_err&#39;, &#39;Phi0_factor&#39;, &#39;E_phi_err_eV&#39;}``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Phi0</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">D0_m2s</span> <span class="o">*</span> <span class="n">S0</span><span class="p">)</span>
+    <span class="n">E_phi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">E_D_eV</span> <span class="o">+</span> <span class="n">dH_sol_eV</span><span class="p">)</span>
+    <span class="n">Phi0_rel_err</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">D0_rel_err</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">S0_rel_err</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">E_phi_err</span>    <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">E_D_err_eV</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">dH_sol_err_eV</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;Phi0&#39;</span><span class="p">:</span> <span class="n">Phi0</span><span class="p">,</span> <span class="s1">&#39;E_phi_eV&#39;</span><span class="p">:</span> <span class="n">E_phi</span><span class="p">,</span>
+            <span class="s1">&#39;Phi0_rel_err&#39;</span><span class="p">:</span> <span class="n">Phi0_rel_err</span><span class="p">,</span> <span class="s1">&#39;Phi0_factor&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">Phi0_rel_err</span><span class="p">)),</span>
+            <span class="s1">&#39;E_phi_err_eV&#39;</span><span class="p">:</span> <span class="n">E_phi_err</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="richardson_flux">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.richardson_flux">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">richardson_flux</span><span class="p">(</span>
+    <span class="n">Phi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">P_high_Pa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">P_low_Pa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">L_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Permeation flux from the Richardson-Sieverts equation.</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        J = \\frac{\\Phi}{L} \\left(\\sqrt{P_{\\text{high}}} - \\sqrt{P_{\\text{low}}}\\right)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Phi : float</span>
+<span class="sd">        Permeability [mol·m⁻¹·s⁻¹·Pa^(−½)].  From :func:`permeability`.</span>
+<span class="sd">    P_high_Pa : float</span>
+<span class="sd">        Feed-side H₂ pressure [Pa].</span>
+<span class="sd">    P_low_Pa : float</span>
+<span class="sd">        Permeate-side H₂ pressure [Pa].  Use 0 for a fully swept permeate.</span>
+<span class="sd">    L_m : float</span>
+<span class="sd">        Membrane thickness [m].</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Flux J in mol m⁻² s⁻¹.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">L_m</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Membrane thickness must be positive; got L_m=</span><span class="si">{</span><span class="n">L_m</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+    <span class="n">_J</span> <span class="o">=</span> <span class="n">Phi</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">P_high_Pa</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">P_low_Pa</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)))</span> <span class="o">/</span> <span class="n">L_m</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[Richardson] J=</span><span class="si">{</span><span class="n">_J</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> mol·m⁻²·s⁻¹  (P_high=</span><span class="si">{</span><span class="n">P_high_Pa</span><span class="si">:</span><span class="s1">.2e</span><span class="si">}</span><span class="s1"> Pa  L=</span><span class="si">{</span><span class="n">L_m</span><span class="si">:</span><span class="s1">.3e</span><span class="si">}</span><span class="s1"> m)&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_J</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Section 4 — Per-(stem, n_H) diffusivity resolution (Part 2 ↔ Part 3 handoff)</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="resolve_nh_diffusivity">
+<a class="viewcode-back" href="../../api/permeation.html#models.permeation.resolve_nh_diffusivity">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_nh_diffusivity</span><span class="p">(</span><span class="n">work_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">stem</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_h</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load Part 3&#39;s per-(stem, n_H) diffusivity fit for use in Part 2.</span>
+
+<span class="sd">    No placeholder is ever substituted: a missing file, or a fit with a</span>
+<span class="sd">    NaN/missing D0 or Ea, means this concentration is not ready — the</span>
+<span class="sd">    caller should skip it entirely rather than fabricate a value. This</span>
+<span class="sd">    is the decision logic behind permeation_run.py&#39;s per-n_H loop</span>
+<span class="sd">    (generated by :func:`models.permeation_workflow.generate_permeation_scripts`),</span>
+<span class="sd">    extracted here so it can be unit tested directly.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    work_dir : str</span>
+<span class="sd">        The shared root directory Parts 2 and 3 both write ``results/`` under.</span>
+<span class="sd">    stem : str</span>
+<span class="sd">        Material stem, e.g. ``&#39;ni_bulk_test&#39;``.</span>
+<span class="sd">    n_h : int</span>
+<span class="sd">        H concentration — number of H mol in the Part-3 MD box.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+
+<span class="sd">        - ``nh_dir`` : str — ``results/{stem}_{n_h}H`` directory.</span>
+<span class="sd">        - ``diff_file`` : str — path to ``diffusivity_arrhenius.json``.</span>
+<span class="sd">        - ``ready`` : bool — True iff a valid (non-NaN) D0/Ea was found.</span>
+<span class="sd">        - ``D0_m2s`` : float or None.</span>
+<span class="sd">        - ``E_D_eV`` : float or None.</span>
+<span class="sd">        - ``message`` : str or None — human-readable reason, set iff not ready.</span>
+<span class="sd">        - ``dilute_note`` : str or None — set iff ready and ``n_h &gt; 1``</span>
+<span class="sd">          (Sieverts&#39;/Richardson&#39;s formulas assume dilute H; n_H &gt; 1 is</span>
+<span class="sd">          not the dilute limit, so H-H interactions were present in the</span>
+<span class="sd">          MD box that produced this fit).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nh_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">work_dir</span><span class="p">,</span> <span class="s1">&#39;results&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">n_h</span><span class="si">}</span><span class="s1">H&#39;</span><span class="p">)</span>
+    <span class="n">diff_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">nh_dir</span><span class="p">,</span> <span class="s1">&#39;diffusivity_arrhenius.json&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">diff_file</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">nh_dir</span><span class="o">=</span><span class="n">nh_dir</span><span class="p">,</span> <span class="n">diff_file</span><span class="o">=</span><span class="n">diff_file</span><span class="p">,</span> <span class="n">ready</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">D0_m2s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">E_D_eV</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">D0_err_m2s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">E_D_err_eV</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">dilute_note</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">diff_file</span><span class="si">}</span><span class="s1"> not found — Part 3 has not produced a &#39;</span>
+                     <span class="sa">f</span><span class="s1">&#39;diffusivity fit for n_H=</span><span class="si">{</span><span class="n">n_h</span><span class="si">}</span><span class="s1">. Skipping this &#39;</span>
+                     <span class="sa">f</span><span class="s1">&#39;concentration entirely (no permeability computed, &#39;</span>
+                     <span class="sa">f</span><span class="s1">&#39;nothing fabricated).&#39;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">diff_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">diff_fit</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">D0</span><span class="p">,</span> <span class="n">Ea</span> <span class="o">=</span> <span class="n">diff_fit</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;D0_m2s&#39;</span><span class="p">),</span> <span class="n">diff_fit</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;E_D_eV&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">D0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">Ea</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">D0</span> <span class="o">!=</span> <span class="n">D0</span> <span class="ow">or</span> <span class="n">Ea</span> <span class="o">!=</span> <span class="n">Ea</span><span class="p">:</span>   <span class="c1"># NaN-safe</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">nh_dir</span><span class="o">=</span><span class="n">nh_dir</span><span class="p">,</span> <span class="n">diff_file</span><span class="o">=</span><span class="n">diff_file</span><span class="p">,</span> <span class="n">ready</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">D0_m2s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">E_D_eV</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">D0_err_m2s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">E_D_err_eV</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">dilute_note</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">diff_file</span><span class="si">}</span><span class="s1"> has no valid D0/Ea (NaN or missing — &#39;</span>
+                      <span class="sa">f</span><span class="s1">&#39;Part 3 likely could not fit an Arrhenius relation &#39;</span>
+                      <span class="sa">f</span><span class="s1">&#39;for n_H=</span><span class="si">{</span><span class="n">n_h</span><span class="si">}</span><span class="s1">, e.g. fewer than 2 valid &#39;</span>
+                      <span class="sa">f</span><span class="s1">&#39;temperatures). Skipping this concentration &#39;</span>
+                      <span class="sa">f</span><span class="s1">&#39;entirely.&#39;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="n">dilute_note</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">n_h</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">dilute_note</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Sieverts&#39; law and Richardson&#39;s permeation formula assume dilute &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;dissolved H. n_H=</span><span class="si">{</span><span class="n">n_h</span><span class="si">}</span><span class="s2"> is not the dilute limit (n_H=1), so H-H &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;interactions were present in this MD box and may make the &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;derived solubility/permeability below an approximation. A &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;rigorous non-dilute treatment needs an explicit isotherm rather &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;than a √P scaling; the occupancy-limited route in &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;solubility_by_environment_saturating is the available partial &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;check.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">nh_dir</span><span class="o">=</span><span class="n">nh_dir</span><span class="p">,</span> <span class="n">diff_file</span><span class="o">=</span><span class="n">diff_file</span><span class="p">,</span> <span class="n">ready</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">D0_m2s</span><span class="o">=</span><span class="n">D0</span><span class="p">,</span> <span class="n">E_D_eV</span><span class="o">=</span><span class="n">Ea</span><span class="p">,</span>
+                <span class="n">D0_err_m2s</span><span class="o">=</span><span class="n">diff_fit</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;D0_err_m2s&#39;</span><span class="p">),</span>
+                <span class="n">E_D_err_eV</span><span class="o">=</span><span class="n">diff_fit</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;E_D_err_eV&#39;</span><span class="p">),</span>
+                <span class="n">dilute_note</span><span class="o">=</span><span class="n">dilute_note</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Azeez Akinyemi
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    </body>
+</html>
