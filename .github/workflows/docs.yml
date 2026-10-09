@@ -1,0 +1,67 @@
+# Build the method reference and publish it to GitHub Pages.
+#
+# `make html` carries -W --keep-going, so any Sphinx warning fails the job:
+# the build doubles as a test of the docs and of every docstring autodoc reads.
+#
+# Versions are pinned to the ones the docs were written against, so CI and a
+# local build report the same warnings. The ceilings are not caprice: the
+# working environment is Python 3.9, where sphinx 8 and myst-parser 3 will not
+# install.
+name: docs
+
+on:
+  push:
+    branches: [main, docs/sphinx-site]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two publishes race; queue instead of cancelling a half-done deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install the doc toolchain and autodoc's imports
+        run: |
+          python -m pip install --upgrade pip
+          # The toolchain, pinned to the versions in MHI_Nickel/pyproject.toml.
+          pip install "sphinx>=7.2,<8" "myst-parser>=2,<3" "furo>=2024.1" \
+                      "sphinxcontrib-mermaid>=0.9,<1.0"
+          # autodoc imports models/, so its module-scope dependencies must be
+          # present. None of MACE, torch or LAMMPS is imported at module scope,
+          # which is what makes building these docs possible off the cluster.
+          pip install "numpy<2" ase networkx pandas matplotlib scipy
+
+      - name: Build
+        run: make -C MHI_Nickel/docs html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: MHI_Nickel/docs/_build/html
+
+  deploy:
+    # A pull request builds but does not publish.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
