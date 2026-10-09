@@ -19,7 +19,7 @@ import os
 import numpy as np
 
 # Boltzmann constant in eV/K  (same value as in diffusivity_post_processing)
-KB_EV = 8.617333e-5
+KB_EV = 8.617333262e-5          # eV / K  (CODATA 2018)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

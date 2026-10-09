@@ -63,7 +63,7 @@ def _linear_msd(n_frames=200, velocity=1.0, dt=0.5):
 class TestConstants:
 
     def test_kb_ev_value(self):
-        assert KB_EV == pytest.approx(8.617333e-5, rel=1e-6)
+        assert KB_EV == pytest.approx(8.617333262e-5, rel=1e-12)
 
     def test_ang2_ps_to_m2s_value(self):
         assert ANG2_PS_TO_M2S == pytest.approx(1e-8, rel=1e-10)
