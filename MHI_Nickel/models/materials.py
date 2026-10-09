@@ -110,3 +110,74 @@ def skip_surface_reason(path: str) -> str | None:
         except Exception:
             return None
     return None
+
+# ---------------------------------------------------------------------------
+# Temperature ceilings for molecular dynamics
+# ---------------------------------------------------------------------------
+# A molecular-dynamics run above a material's melting point measures diffusion
+# in a LIQUID. That is a different transport mechanism with a different
+# activation energy, and feeding it into a solid-state Arrhenius fit corrupts
+# both D0 and E_D -- silently, because the run completes and produces numbers.
+#
+# The temperature grid is global (one list for every material in the
+# regenerators), but the materials are not interchangeable: Al melts at 933 K
+# while Ni melts at 1728 K, so a grid that suits Ni runs Al as a liquid. These
+# ceilings let one global list stay safe -- each material takes only the
+# temperatures it can physically sustain.
+#
+# VALUES NEED CHECKING against your own sources before being relied on. The
+# pure metals are standard; the alloys are approximate, and an alloy melts over
+# a RANGE, so the figure below is meant as the solidus -- the temperature above
+# which the solid is no longer a solid everywhere.
+MELTING_POINT_K = {
+    # pure metals -- standard values
+    'Al_supercell':               933.5,
+    'Ni_supercell':              1728.0,
+    'Fe_supercell':              1811.0,
+    # oxides -- far above any grid used here
+    'Cr_oxide_supercell':        2708.0,
+    'Ni_oxide_supercell':        2228.0,
+    # Ni-based alloys -- APPROXIMATE solidus, verify before relying on these
+    'Hastelloy_N_7_supercell':   1570.0,
+    'Hastelloy_N_42_supercell':  1570.0,
+    'Hastelloy_N_111_supercell': 1570.0,
+    'Hastelloy_N_1234_supercell':1570.0,
+    'Hastelloy_N_12345_supercell': 1570.0,
+    'bestsqs3':                  1570.0,
+}
+
+# Highest homologous temperature T/Tm a production run may use. 0.90 keeps the
+# existing Al grid intact (800 K is 0.86 Tm) while excluding 1000 K, which is
+# above Al's melting point outright.
+MAX_HOMOLOGOUS_T = 0.90
+
+
+def melting_point_K(path: str) -> float | None:
+    """Melting point for a structure, or ``None`` if not recorded."""
+    return MELTING_POINT_K.get(stem_of(path))
+
+
+def max_md_temperature_K(path: str) -> float | None:
+    """Highest temperature this material may be run at, or ``None`` if unknown."""
+    tm = melting_point_K(path)
+    return None if tm is None else MAX_HOMOLOGOUS_T * tm
+
+
+def usable_temperatures(path: str, temperatures) -> list:
+    """Those of `temperatures` this material can physically sustain.
+
+    A material with no recorded melting point is passed through unchanged --
+    refusing would break structures that run correctly today -- but the caller
+    is expected to surface that, since an unchecked grid is exactly how a
+    liquid-phase run reaches an Arrhenius fit.
+    """
+    cap = max_md_temperature_K(path)
+    if cap is None:
+        return list(temperatures)
+    return [T for T in temperatures if float(T) <= cap]
+
+
+def dropped_temperatures(path: str, temperatures) -> list:
+    """Those of `temperatures` excluded by the ceiling, for reporting."""
+    keep = set(usable_temperatures(path, temperatures))
+    return [T for T in temperatures if T not in keep]
