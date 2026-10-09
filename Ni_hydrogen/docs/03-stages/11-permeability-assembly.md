@@ -61,6 +61,41 @@ Finally, across loadings:
 
 9. **Select the headline loading.** Not an average.
 
+```mermaid
+flowchart TD
+    subgraph SURF["surface chain — stages 2 to 9"]
+        A["ΔH_diss"] --> C["ΔH_sol(e) per environment"]
+        B["ΔH_entry(e)"] --> C
+        C --> D1["S(T) · geometric"]
+        C --> D2["S(T) · vibrational"]
+        C -.-> D3["S(T) · rate-based<br/><i>diagnostic only</i>"]
+    end
+    subgraph BULK["bulk chain — stage 10"]
+        E["MSD per temperature"] --> F["D₀, E_D"]
+    end
+    F --> G["D at each<br/>permeation temperature<br/><i>evaluated, not measured</i>"]
+    D1 --> P1["Φ geometric"]
+    D2 --> P2["Φ vibrational"]
+    D3 -.-> P3["Φ rate-based"]
+    G --> P1
+    G --> P2
+    G -.-> P3
+    P1 --> Q["Φ₀ = D₀S₀ · E_Φ = E_D + ΔH_sol<br/>per route, per loading"]
+    P2 --> Q
+    Q --> R["select one headline loading"]
+
+    style BULK fill:#f2f6fa,stroke:#1f4e79
+    style SURF fill:#f7f4ee,stroke:#8a7a5c
+    style D3 fill:#f9e4e4,stroke:#b03a2e
+    style P3 fill:#f9e4e4,stroke:#b03a2e
+```
+
+**Figure 1.** Where the two chains meet. Follow them separately as far as the
+product: they share no input at all. Note that the routes stay parallel to the
+very end rather than being merged, that the rate-based route (red, dashed) is
+carried as a diagnostic, and that the last step is a **selection**, not an
+average.
+
 ## Design choices
 
 ### Why the Arrhenius pair is computed, not fitted

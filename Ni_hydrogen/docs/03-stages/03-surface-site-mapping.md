@@ -48,6 +48,20 @@ Oxides take the same path with separate tolerances throughout — a shorter bond
 cutoff, and additional tolerances for detecting planes and judging exposure —
 because their interatomic distances and plane spacings differ from a metal's.
 
+![surface sites and labels](../figures/f11_surface_sites.png)
+
+**Figure 1.** Sites and the labels they carry. On the left, the three site
+types with lines to the atoms that coordinate each one. The right panel states
+the general rule rather than reading off the drawing: a label records *what*
+coordinates a site, so the same geometry on a mixed surface yields several
+distinct labels. Schematic, with two generic elements.
+
+> [!NOTE]
+> The graph construction behind this is described at length, with worked
+> stages, in `Project2_surface_labeling/Project2_Surface_Graph_Explainer.md`.
+> That document is **not** superseded — its algorithm is unchanged, and this
+> section adapts it.
+
 ## Design choices
 
 ### Why a graph rather than a list

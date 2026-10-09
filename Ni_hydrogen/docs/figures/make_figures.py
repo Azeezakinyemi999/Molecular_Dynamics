@@ -398,6 +398,85 @@ def fig_dh_sol_ladder():
     _save(fig, 'f10_dh_sol_ladder.png')
 
 
+# ── F11. surface sites and how a label is formed ─────────────────────────────
+def fig_surface_sites():
+    """The three site types on a mixed surface, and where a label comes from."""
+    # close-packed layer, two elements, so labels differ between like positions
+    pts, kinds = [], []
+    rng = np.random.default_rng(11)
+    for row in range(4):
+        for col in range(5):
+            pts.append((col + 0.5 * (row % 2), row * 0.866))
+            kinds.append(rng.integers(0, 2))
+    pts = np.array(pts, float); kinds = np.array(kinds)
+    colA, colB = '#8aa8c4', '#cbb994'
+
+    fig, (ax, axl) = plt.subplots(1, 2, figsize=(8.6, 3.5),
+                                  gridspec_kw={'width_ratios': [1.25, 1]})
+    ax.scatter(pts[kinds == 0, 0], pts[kinds == 0, 1], s=260, color=colA,
+               edgecolors='#1f4e79', lw=1.2, zorder=2)
+    ax.scatter(pts[kinds == 1, 0], pts[kinds == 1, 1], s=260, color=colB,
+               edgecolors='#8a7a5c', lw=1.2, zorder=2)
+
+    def nearest(p, k):
+        d = np.linalg.norm(pts - np.array(p), axis=1)
+        return np.argsort(d)[:k]
+
+    # built from atoms known to be mutually adjacent on this lattice:
+    # row r index is 5*r + c, and (r,c), (r,c+1), (r+1,c) form a triangle
+    a, b, c3 = pts[5 * 1 + 1], pts[5 * 1 + 2], pts[5 * 2 + 1]
+    sites = {'atop': tuple(pts[5 * 2 + 3]),
+             'bridge': tuple((a + b) / 2),
+             'hollow': tuple((a + b + c3) / 3)}
+    counts = {'atop': 1, 'bridge': 2, 'hollow': 3}
+    for name, pos in sites.items():
+        idx = nearest(pos, counts[name])
+        for i in idx:                                   # edges to coordinating atoms
+            ax.plot([pos[0], pts[i][0]], [pos[1], pts[i][1]], lw=1.0,
+                    color='#b03a2e', zorder=3)
+        ax.scatter(*pos, s=58, marker='D', color='#b03a2e',
+                   edgecolors='white', lw=0.8, zorder=5)
+        dy = {'atop': 16, 'bridge': -20, 'hollow': 15}[name]
+        ax.annotate(name, pos, textcoords='offset points', xytext=(0, dy),
+                    ha='center', fontsize=8.5, color='#b03a2e',
+                    fontweight='bold')
+    ax.set_xlim(-0.8, 5.3); ax.set_ylim(-0.7, 3.3)
+    ax.set_xticks([]); ax.set_yticks([]); ax.grid(False)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.set_title('one surface layer, two elements', fontsize=9)
+
+    # how a label is built -- fixed 0..1 axes so every artist shares one
+    # coordinate system; an axis('off') panel with default data coords would
+    # autoscale to whatever was drawn last
+    axl.set_xlim(0, 1); axl.set_ylim(0, 1); axl.axis('off')
+    T = axl.transAxes
+    axl.text(0.0, 0.95, 'a label is the coordination,\nnot the position',
+             fontsize=9.5, fontweight='bold', va='top', transform=T)
+    rows = [('atop',   '1 neighbour',  'A'),
+            ('bridge', '2 neighbours', 'A B'),
+            ('hollow', '3 neighbours', 'A\u2082 B')]
+    for i, (nm, co, lab) in enumerate(rows):
+        y = 0.70 - 0.13 * i
+        axl.scatter([0.04], [y], s=42, marker='D', color='#b03a2e',
+                    transform=T, clip_on=False, zorder=4)
+        axl.text(0.13, y, f'{nm}  \u00b7  {co}', fontsize=9, va='center',
+                 transform=T)
+        axl.text(0.78, y, lab, fontsize=10, family='monospace', va='center',
+                 color='#1f4e79', fontweight='bold', transform=T)
+    axl.text(0.0, 0.26,
+             'Two sites share a label only if their neighbour\n'
+             'shells match in count AND in element, so the\n'
+             'same geometry on a mixed surface can give\n'
+             'several distinct labels.\n\n'
+             'Everything downstream averages within a label\n'
+             'and weights across labels.',
+             fontsize=8.2, va='top', color='#444', transform=T)
+    fig.suptitle('F11 · Geometry finds the sites; chemistry labels them',
+                 y=1.03, fontsize=10)
+    _save(fig, 'f11_surface_sites.png')
+
+
 if __name__ == '__main__':
     fig_msd_window()
     fig_environment_collapse()
@@ -409,4 +488,5 @@ if __name__ == '__main__':
     fig_freeze_snapping()
     fig_lateral_replication()
     fig_dh_sol_ladder()
+    fig_surface_sites()
     print(f'\n  {len(_written)} figure(s) written to {OUT}')
