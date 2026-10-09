@@ -50,6 +50,14 @@ straight-line interpolation produces when atoms must move around each other.
 
 ## Design choices
 
+![two-phase band](../figures/f7_two_phase_band.png)
+
+**Figure 1.** The two phases. Compare the middle and right panels: phase 1 only
+has to get the images onto the path, which is why its tolerance is deliberately
+loose — once the chain is roughly right, the highest image is near the saddle
+and worth driving uphill. Enabling the climb against the left panel would push
+the wrong image. Fictitious profile.
+
 ### Why two phases instead of one
 
 Enabling the climbing image from the start is counterproductive. Before the band

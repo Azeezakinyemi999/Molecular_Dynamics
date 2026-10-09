@@ -70,6 +70,14 @@ and any material without a per-material constant.
 > plane falls on — so a single layer is split arbitrarily between frozen and
 > mobile, differently on different machines.
 
+![freeze cutoff snapping](../figures/f8_freeze_snapping.png)
+
+**Figure 1.** Why the cutoff is snapped. Compare the two panels: at twelve
+layers the raw cutoff falls harmlessly between planes, but at thirteen it lands
+exactly on one (drawn red), where floating-point noise decides atom by atom
+which side each one falls on. The green line is the snapped cutoff, always in a
+gap. Schematic.
+
 Snapping to the midpoint of the gap means the cutoff can never coincide with a
 plane, and the frozen layer count is deterministic.
 

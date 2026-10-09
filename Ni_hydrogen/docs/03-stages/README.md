@@ -27,5 +27,6 @@ same layout, so a stage can be read in isolation or skimmed for one of its parts
 | 11 | Permeability assembly | `11-permeability-assembly.md` |
 
 > [!NOTE]
-> **Planned:** these sections are not yet written. Writing order and status are
-> tracked in [`../CHECKPOINT.md`](../CHECKPOINT.md) §11.
+> All eleven sections are written. Outstanding method-level gaps are collected
+> in [Part IV §6](../04-practical.md#6-planned-improvements); working state is in
+> [`../CHECKPOINT.md`](../CHECKPOINT.md).

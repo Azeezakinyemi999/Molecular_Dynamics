@@ -53,6 +53,27 @@ Hops are enumerated from the connections built in
 pathway, each first-to-second link a deeper one. The final state of each is
 constructed and relaxed before the band is built.
 
+```mermaid
+flowchart TD
+    P["pools · adsorbed molecules,<br/>adsorbed atoms, surface sites"]
+      --> FS["every final-state pair"]
+    FS -->|"separation min and max<br/>+ graph distance"| FS2["admissible pairs"]
+    FS2 -->|deduplicate| FS3["unique pairs"]
+    P --> IS["initial sites"]
+    IS -->|deduplicate| IS2["unique initial sites"]
+    IS2 --> X["cross product"]
+    FS3 --> X
+    X -->|filter| SUB["pathways submitted to the band"]
+
+    style FS fill:#eef3f8,stroke:#1f4e79
+    style SUB fill:#dce8f2,stroke:#1f4e79,stroke-width:2px
+```
+
+**Figure 1.** The enumeration funnel. Follow the two branches: both input sets
+are deduplicated **before** the cross product, not after, so the product is
+formed from representatives only. Each box is written to its own directory, so
+a surprising final count can be traced to the step that caused it.
+
 ## Design choices
 
 ### Why enumeration is a funnel with its stages on disk

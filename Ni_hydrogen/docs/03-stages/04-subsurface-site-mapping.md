@@ -81,6 +81,12 @@ they really are.
 
 ### Why replication is lateral only
 
+![lateral replication](../figures/f9_lateral_replication.png)
+
+**Figure 1.** Why replication is lateral only. Look at the vacuum region on the
+right: replicating through the thickness puts image atoms there, and the
+tessellation then finds "interstitials" (crossed) in empty space. Schematic.
+
 > [!IMPORTANT]
 > The slab is periodic in the plane and finite through its thickness.
 > Replicating in $z$ as well would place image atoms across the vacuum gap and

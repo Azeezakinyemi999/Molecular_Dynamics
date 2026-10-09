@@ -93,6 +93,15 @@ $$\Delta E = E_{\mathrm{FS}} - E_{\mathrm{IS}} \tag{T2}$$
 A solution enthalpy $\Delta H_{\mathrm{sol}} > 0$ means dissolution is
 endothermic, so occupancy falls as temperature falls.
 
+![sign conventions](figures/f5_sign_conventions.png)
+
+**Figure 1.** All three definitions on one profile. Look at where each arrow
+starts: the forward barrier is measured from IS, the reverse from FS, and the
+reaction energy spans the two minima. The dotted curve is the same path once
+zero-point energy is added — note that it shifts the two barriers by *different*
+amounts, which is why (T6a) and (T6b) reference different states. Fictitious
+profile.
+
 > [!IMPORTANT]
 > Because $E_{\mathrm{des}}$ is referenced to FS and $E_a$ to IS, their
 > zero-point corrections use **different** states. Getting this wrong leaves the
@@ -204,7 +213,7 @@ applies to both states and the spurious factors largely cancel in the ratio.
 
 ![quasi-harmonic floor](figures/f3_quasiharmonic_floor.png)
 
-**Figure 1.** What the floor does to a mode list. Look at the count: every mode below the floor is moved up to it, and none is removed, so the list is the same length before and after. Discarding would shorten it and break (I1). Fictitious frequencies.
+**Figure 2.** What the floor does to a mode list. Look at the count: every mode below the floor is moved up to it, and none is removed, so the list is the same length before and after. Discarding would shorten it and break (I1). Fictitious frequencies.
 
 > [!IMPORTANT]
 > Three thresholds with different meanings exist, and they once shared a name.
@@ -420,7 +429,7 @@ A converged trace gives $r \approx 1$. The accepted band is $0.75 \le r \le 1.25
 
 ![MSD fit window](figures/f1_msd_fit_window.png)
 
-**Figure 2.** Why the slope is taken over an interior window. Look at the two ends: the early region curves upward because motion is still ballistic, and the late region wanders because few time origins remain. Only the shaded middle is a straight line whose slope means anything. Fictitious data.
+**Figure 3.** Why the slope is taken over an interior window. Look at the two ends: the early region curves upward because motion is still ballistic, and the late region wanders because few time origins remain. Only the shaded middle is a straight line whose slope means anything. Fictitious data.
 
 > [!IMPORTANT]
 > A per-temperature $R^2$ does **not** detect this. A visibly curved MSD can fit
@@ -449,7 +458,7 @@ optionally weighted by inverse variance, $w_i = (D_i/\sigma_{D_i})^2$.
 
 ![two-point Arrhenius trap](figures/f4_two_point_trap.png)
 
-**Figure 3.** The same statistic meaning two different things. Compare the two $R^2$ values: three points leave one degree of freedom and the residuals show, while two points leave none and fit perfectly by construction — note how far the discarded point lies from that line. Fictitious data.
+**Figure 4.** The same statistic meaning two different things. Compare the two $R^2$ values: three points leave one degree of freedom and the residuals show, while two points leave none and fit perfectly by construction — note how far the discarded point lies from that line. Fictitious data.
 
 ### 8.5 Concentration
 

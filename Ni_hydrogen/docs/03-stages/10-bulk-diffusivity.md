@@ -65,6 +65,26 @@ Four phases, the first three on the scheduler.
    4. **Fit the Arrhenius law** across temperatures in log space (T22a),
       weighted by inverse variance.
 
+```mermaid
+flowchart LR
+    A["minimise<br/>bare cell"] --> B["constant pressure<br/>per temperature"]
+    B --> C["lattice parameter<br/>vs temperature"]
+    B --> D["insert hydrogen,<br/>minimise"]
+    D --> E["constant volume<br/>dynamics · chained"]
+    E --> F["unwrap → MSD →<br/>D per temperature"]
+    F --> G["Arrhenius fit<br/>D₀, E_D"]
+    C -.->|"reused by Stage 9<br/>for the site density"| H(["solubility"])
+
+    style E fill:#f4dede,stroke:#b03a2e,stroke-width:2px
+    style G fill:#dce8f2,stroke:#1f4e79
+```
+
+**Figure 1.** The four phases and their two outputs. Note that the
+constant-pressure phase feeds *two* consumers — the hydrogen-loaded cell, and
+the lattice parameter that Stage 9 needs. The red box is where essentially all
+the cost sits, and it is gated by a marker separate from the fit that follows
+it.
+
 ## Design choices
 
 ### Why the lag range stops at half the trajectory
