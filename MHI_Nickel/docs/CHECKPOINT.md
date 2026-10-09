@@ -310,9 +310,13 @@ Re-check command for the scope NOTE:
 - [x] `03-stages/11-permeability-assembly.md`
 - [x] `03-stages/01` … `06` — the structural and setup half
 - [x] **Part III complete — all 11 stages written**
-- [ ] `01-overview.md` · `04-practical.md` · `05-appendices.md` · `README.md`
-- [ ] `make_figures.py`
-- [ ] Supersession headers
+- [x] `01-overview.md` · `04-practical.md` · `05-appendices.md` · `README.md`
+- [x] `make_figures.py` — 4 figures, all from the fictitious example
+- [x] Supersession headers on the three stale documents
+
+**The reference is complete.** 229 links (4 images), none broken; 40/40
+equation checks; 1626 tests. Remaining work is maintenance, not writing:
+the seven items in Part IV §6.
 
 ### Found while writing (not in the original survey)
 

@@ -1,3 +1,16 @@
+> [!IMPORTANT]
+> **Superseded.** This document describes the pipeline as it stood before the
+> physics corrections of October 2026 — the reverse barrier and prefactor built
+> from the final state, the refusal of a prefactor when the mode counts cannot
+> be a frequency, the real desorption prefactor for dissociation, the
+> state-quality census, and the Truhlar quasi-harmonic floor. None of those is
+> described here.
+>
+> The current reference is [`docs/`](../docs/README.md). This file is kept for
+> history; where the two disagree, `docs/` is current.
+
+---
+
 # Error / uncertainty conventions and propagation plan
 
 Status: **convention agreed; propagation NOT yet implemented on the permeation

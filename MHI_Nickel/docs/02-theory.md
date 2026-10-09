@@ -202,6 +202,10 @@ counts unchanged**, so the dimensional invariant (I1) remains meaningful without
 rebalancing. And it damps the artefact **symmetrically**, since the same floor
 applies to both states and the spurious factors largely cancel in the ratio.
 
+![quasi-harmonic floor](figures/f3_quasiharmonic_floor.png)
+
+**Figure 1.** What the floor does to a mode list. Look at the count: every mode below the floor is moved up to it, and none is removed, so the list is the same length before and after. Discarding would shorten it and break (I1). Fictitious frequencies.
+
 > [!IMPORTANT]
 > Three thresholds with different meanings exist, and they once shared a name.
 > They are not interchangeable:
@@ -414,6 +418,10 @@ $$r = \frac{\text{slope over the second half}}{\text{slope over the first half}}
 
 A converged trace gives $r \approx 1$. The accepted band is $0.75 \le r \le 1.25$.
 
+![MSD fit window](figures/f1_msd_fit_window.png)
+
+**Figure 2.** Why the slope is taken over an interior window. Look at the two ends: the early region curves upward because motion is still ballistic, and the late region wanders because few time origins remain. Only the shaded middle is a straight line whose slope means anything. Fictitious data.
+
 > [!IMPORTANT]
 > A per-temperature $R^2$ does **not** detect this. A visibly curved MSD can fit
 > a straight line with $R^2 > 0.99$. Judge convergence by (T21), never by $R^2$.
@@ -438,6 +446,10 @@ optionally weighted by inverse variance, $w_i = (D_i/\sigma_{D_i})^2$.
 > temperatures it has none, and the fit reproduces them exactly: $R^2 = 1$ is
 > then arithmetic, not evidence. A series that loses points to a non-positive
 > $D$ can silently reach this state.
+
+![two-point Arrhenius trap](figures/f4_two_point_trap.png)
+
+**Figure 3.** The same statistic meaning two different things. Compare the two $R^2$ values: three points leave one degree of freedom and the residuals show, while two points leave none and fit perfectly by construction — note how far the discarded point lies from that line. Fictitious data.
 
 ### 8.5 Concentration
 
