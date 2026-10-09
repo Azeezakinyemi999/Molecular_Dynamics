@@ -115,3 +115,6 @@ saddleclimb/
 # Sphinx docs build
 Ni_hydrogen/docs/_build/
 Ni_hydrogen/docs/.mplcache/
+
+# Re-admit the documentation figures; the blanket *.png above is for run output.
+!Ni_hydrogen/docs/figures/**/*.png
