@@ -115,3 +115,6 @@ saddleclimb/
 # Sphinx docs build
 MHI_Nickel/docs/_build/
 MHI_Nickel/docs/.mplcache/
+
+# Re-admit the documentation figures; the blanket *.png above is for run output.
+!MHI_Nickel/docs/figures/**/*.png
