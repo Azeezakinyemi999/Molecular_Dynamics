@@ -53,6 +53,31 @@ workflow. It does not exclude it from bulk diffusivity.
    separations from the host atoms and from other hydrogens, from a seeded
    random choice.
 
+```mermaid
+flowchart TD
+    A["structure file"] --> B{"stem contains<br/>'oxide'?"}
+    B -->|yes| C1["class: oxide"]
+    B -->|no| D{"stem names an alloy<br/>or a quasirandom structure?"}
+    D -->|yes| C2["class: alloy"]
+    D -->|no| C3["class: pure"]
+    C1 --> E{"a named polar<br/>termination?"}
+    C2 --> G
+    C3 --> F{"reads as<br/>body-centred cubic?"}
+    E -->|yes| SKIP["surface work SKIPPED<br/>reason recorded"]
+    E -->|no| G
+    F -->|yes| SKIP
+    F -->|"no, or unreadable"| G["full workflow"]
+    SKIP --> H["bulk diffusivity still runs"]
+
+    style SKIP fill:#fdf6e3,stroke:#b8860b
+    style H fill:#e8f2e8,stroke:#2e7d32
+```
+
+**Figure 1.** Classification and the skip decision. Two things to note: an
+**unreadable** structure takes the "no" branch rather than being skipped, so a
+corrupt file fails loudly downstream instead of vanishing silently; and a skip
+removes only the *surface* work — bulk diffusivity runs for every material.
+
 ## Design choices
 
 ### Why the material list is a module and not a literal
