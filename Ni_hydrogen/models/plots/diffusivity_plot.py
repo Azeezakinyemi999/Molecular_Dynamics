@@ -143,13 +143,24 @@ def is_validation_grade(run_dir: str) -> str | None:
 
 
 def discover_runs(results_dir: str, pattern: str,
-                  include_validation: bool = False) -> list[Run]:
+                  include_validation: bool = False,
+                  include_single_h: bool = False) -> list[Run]:
     """Glob `pattern` under `results_dir` and parse material + H count.
 
     Directories with no ``_<N>H`` suffix hold the pristine host and are
     dropped — there is no hydrogen in them to diffuse. Validation-grade runs are
     dropped too unless `include_validation` is set, and any remaining
     (stem, n_H) collision is reported rather than silently double-counted.
+
+    Single-H runs (``n_H == 1``, which covers both the ``_1H`` and ``_01H``
+    spellings) are dropped unless `include_single_h` is set. One H atom is one
+    random walker with no ensemble average, and every such fit inspected in this
+    project has been unsound in some way: Al 1H fails the half-vs-half MSD slope
+    test at all three temperatures, Hastelloy N 7 1H returns a negative D at
+    400 K, and Hastelloy N 42 1H returns a negative D at 600 K. Dropping a
+    non-positive point leaves a two-point Arrhenius fit with zero degrees of
+    freedom, which reports R² = 1.0 as an arithmetic artefact rather than as
+    evidence. The skip is printed, never silent.
     """
     runs: list[Run] = []
     for path in sorted(glob.glob(os.path.join(results_dir, pattern))):
@@ -162,7 +173,13 @@ def discover_runs(results_dir: str, pattern: str,
             print(f'  · {os.path.basename(path)}: skipped, validation-grade '
                   f'({why[:70]}{"…" if len(why) > 70 else ""})')
             continue
-        runs.append(Run(path=path, stem=m.group('stem'), n_H=int(m.group('nh'))))
+        n_h = int(m.group('nh'))
+        if not include_single_h and n_h == 1:
+            print(f'  · {os.path.basename(path)}: skipped, single-H run '
+                  f'(one walker, no ensemble average) — pass --include-1h '
+                  f'to keep it')
+            continue
+        runs.append(Run(path=path, stem=m.group('stem'), n_H=n_h))
 
     seen: dict[tuple[str, int], str] = {}
     for run in runs:
@@ -778,6 +795,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument('--pattern', default='Al*',
                     help="glob for run folders, e.g. 'Ni*' or '*' "
                          "(default: 'Al*')")
+    ap.add_argument('--include-1h', action='store_true',
+                    help='keep single-H runs, which are excluded by default '
+                         '(one walker, no ensemble average)')
     ap.add_argument('--host-atoms', type=int, default=None,
                     help='host supercell atom count; skips on-disk detection')
     ap.add_argument('--outdir', default=None,
@@ -798,7 +818,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f'Results directory not found: {results_dir}')
         return 1
 
-    runs = discover_runs(results_dir, args.pattern)
+    runs = discover_runs(results_dir, args.pattern,
+                         include_single_h=args.include_1h)
     if not runs:
         print(f"No H-loaded run directories matched '{args.pattern}' "
               f'in {results_dir}')

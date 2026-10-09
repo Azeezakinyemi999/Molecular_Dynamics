@@ -366,6 +366,9 @@ def main(argv: list[str] | None = None) -> int:
                          '(default: calculation/results)')
     ap.add_argument('--pattern', default='*',
                     help="glob for run folders, e.g. 'Al*' (default: '*')")
+    ap.add_argument('--include-1h', action='store_true',
+                    help='keep single-H runs, which are excluded by default '
+                         '(one walker, no ensemble average)')
     ap.add_argument('--outdir', default=None,
                     help='where figures go (default: <results-dir>/plots)')
     args = ap.parse_args(argv)
@@ -377,7 +380,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f'Results directory not found: {results_dir}')
         return 1
 
-    runs = discover_runs(results_dir, args.pattern)
+    runs = discover_runs(results_dir, args.pattern,
+                         include_single_h=args.include_1h)
     if not runs:
         print(f"No H-loaded run directories matched '{args.pattern}'")
         return 1
