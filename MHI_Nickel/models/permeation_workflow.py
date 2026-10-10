@@ -14,7 +14,6 @@ Section A — Script generation
 
 Section B — Local analysis (Phase 4 cells in permeation.ipynb)
     load_barrier_summary, load_rate_summary, load_permeability_results,
-    plot_barrier_overview, plot_mep_overlay,
     plot_permeability_vs_T
 """
 
@@ -1059,72 +1058,6 @@ def load_permeability_results(results_dir, temperatures):
             with open(p) as f:
                 out[T] = json.load(f)
     return out
-
-
-def plot_barrier_overview(df, out_dir):
-    """Histogram of Ea for Hop A and Hop B. Saves barriers_overview.png."""
-    if df.empty:
-        print('[plot_barrier_overview] No barrier data found — skipping.')
-        return None
-
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    for ax, (hop, color) in zip(axes, [('hopa', 'steelblue'), ('hopb', 'coral')]):
-        sub = df[df['hop'] == hop]
-        if sub.empty:
-            ax.set_title(f'{hop.upper()}: no data')
-            continue
-        if 'converged' in sub.columns:
-            sub = sub[sub['converged']]
-        ax.hist(sub['E_abs'], bins=max(5, len(sub) // 3),
-                color=color, edgecolor='white', alpha=0.85)
-        ax.axvline(sub['E_abs'].mean(), color='k', ls='--', lw=1.2,
-                   label=f'mean = {sub["E_abs"].mean():.3f} eV')
-        ax.set_xlabel('$E_a$  [eV]')
-        ax.set_ylabel('Count')
-        hop_label = 'Hop A  (surface → sub1)' if hop == 'hopa' else 'Hop B  (sub1 → sub2)'
-        ax.set_title(f'{hop_label}  (n = {len(sub)})')
-        ax.legend(fontsize=8)
-
-    plt.tight_layout()
-    out_png = os.path.join(out_dir, 'barriers_overview.png')
-    plt.savefig(out_png, dpi=150)
-    plt.show()
-    print(f'Saved: {out_png}')
-    return out_png
-
-
-def plot_mep_overlay(sub_neb_dir):
-    """Overlay all MEP curves for Hop A and Hop B. Saves mep_overlay.png."""
-    from models.parsers import parse_neb_path
-
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=False)
-    for ax, (hop, color) in zip(axes, [('hopa', 'steelblue'), ('hopb', 'coral')]):
-        jobs_json = os.path.join(sub_neb_dir, hop, f'{hop}_jobs.json')
-        if not os.path.exists(jobs_json):
-            ax.set_title(f'{hop.upper()}: no data')
-            continue
-        with open(jobs_json) as f:
-            jobs = json.load(f)
-        _plotted = 0
-        for job in jobs:
-            pf = job.get('path_file', '')
-            if not os.path.exists(pf):
-                continue
-            frac, _, dE = parse_neb_path(pf)
-            ax.plot(frac, dE, color=color, alpha=0.4, lw=1.2)
-            _plotted += 1
-        ax.axhline(0, color='k', lw=0.8, ls='--')
-        ax.set_xlabel('Reaction coordinate')
-        ax.set_ylabel('$\\Delta E$  [eV]')
-        hop_label = 'Hop A  (surface → sub1)' if hop == 'hopa' else 'Hop B  (sub1 → sub2)'
-        ax.set_title(f'{hop_label}  ({_plotted} MEPs)')
-
-    plt.tight_layout()
-    out_png = os.path.join(sub_neb_dir, 'mep_overlay.png')
-    plt.savefig(out_png, dpi=150)
-    plt.show()
-    print(f'Saved: {out_png}')
-    return out_png
 
 
 def plot_permeability_vs_T(results_dir, temperatures):
