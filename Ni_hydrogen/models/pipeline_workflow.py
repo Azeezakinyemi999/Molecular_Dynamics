@@ -119,6 +119,19 @@ for _m in METALS:
         sys.exit(1)
     print(f'  [{_stem}] permeation complete')
 
+    # Post-process immediately, so analysis is never something to remember.
+    # Gated per stage and catch-and-continue: a metal whose Part 2 failed still
+    # gets its diffusivity figures, and a plotting error never takes down a run
+    # that already produced the physics.
+    try:
+        sys.path.insert(0, os.path.join(BASE_DIR, 'models', 'plots'))
+        from postprocess import postprocess, print_report
+        print_report(postprocess(_stem))
+    except Exception as _pp_exc:
+        print(f'  WARNING: post-processing failed for {_stem} ({_pp_exc}); '
+              f'results are intact - run '
+              f'models/plots/postprocess.py --stem {_stem} by hand')
+
 print('\n' + '=' * 70)
 print('  Pipeline complete.')
 print('=' * 70)

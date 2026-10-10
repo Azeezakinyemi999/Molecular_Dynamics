@@ -262,7 +262,28 @@ Everything above stops when the jobs finish. This is how a finished run becomes
 figures and tables. None of it touches the cluster — it reads artifacts that are
 already on disk and runs in seconds, so it is safe to re-run freely.
 
-### 5a. Plot
+### 5a. One command for all of it
+
+```bash
+$PY models/plots/postprocess.py --stem Ni_supercell
+$PY models/plots/postprocess.py --all          # every material, most complete first
+```
+
+This runs the eight plot scripts and then the export, in the right order, and
+prints what ran, what was skipped and why. **The pipeline calls it for you** —
+`pipeline_run.py` after each metal, and `permeation_run.py` when Part 2 alone
+finishes — so you only need the command above to re-do analysis after a change.
+
+Each stage is gated on **its own** inputs. A material with only Part 3 gets its
+diffusivity figures and a CSV export; the permeation figures are skipped with
+the reason stated, because "Part 2 isn't finished" is a normal state and not an
+error. A plot script that fails is reported and stepped over — analysis never
+takes down a run that already produced the physics.
+
+The rest of this section is what that command does, in case you want a step on
+its own.
+
+### 5b. Plot
 
 Eight scripts under `models/plots/`. They share run discovery, so they all take
 the same `--pattern` and `--outdir`.
@@ -299,7 +320,7 @@ comparison panels appear as well.
 Appendix C2 of [`docs/`](docs/05-appendices.md#c2-figure-catalogue) lists every
 figure type, what it shows, and what to look at in it.
 
-### 5b. Export
+### 5c. Export
 
 One command collects a finished material into a folder you can hand to someone:
 
@@ -326,7 +347,7 @@ catch things that are easy to miss by eye — how many dissociation pathways hav
 both a relaxed initial state and a resolved saddle, which hop lost sites to an
 unconverged band, and whether any loading sits in the dilute limit.
 
-### 5c. Before quoting any number
+### 5d. Before quoting any number
 
 Five checks, in the order they bite:
 
@@ -345,7 +366,7 @@ Five checks, in the order they bite:
 5. **Is a quoted σ real?** A standard error of exactly zero means the group had
    one member, i.e. unmeasurable — not precise.
 
-### 5d. Flags that change the answer
+### 5e. Flags that change the answer
 
 | flag | default | effect |
 |---|---|---|

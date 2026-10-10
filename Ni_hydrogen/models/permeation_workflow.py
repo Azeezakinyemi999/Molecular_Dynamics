@@ -824,6 +824,18 @@ if not _PERM_STATUS['permeability_written']:
 else:
     print(f'\n=== permeation_run.py complete: '
           f'{len(_PERM_STATUS["permeability_written"])} permeability result(s) written ===')
+
+    # Post-process this metal, so running Part 2 alone still produces the
+    # figures and tables. Gated per stage, and never fatal: the permeability is
+    # already on disk by this point and must not be put at risk by plotting.
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(WORK_DIR), 'models', 'plots'))
+        from postprocess import postprocess, print_report
+        print('\n--- post-processing ---')
+        print_report(postprocess(STEM, results_dir=os.path.join(WORK_DIR, 'results')))
+    except Exception as _pp_exc:
+        print(f'  WARNING: post-processing failed ({_pp_exc}); results are '
+              f'intact - run models/plots/postprocess.py --stem {STEM} by hand')
 """
 
 
