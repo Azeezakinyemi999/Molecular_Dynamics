@@ -24,6 +24,7 @@ crystal-structure caveats do not apply to it.
 
 from __future__ import annotations
 
+import json
 import os
 
 # ---------------------------------------------------------------------------
@@ -181,3 +182,74 @@ def dropped_temperatures(path: str, temperatures) -> list:
     """Those of `temperatures` excluded by the ceiling, for reporting."""
     keep = set(usable_temperatures(path, temperatures))
     return [T for T in temperatures if T not in keep]
+
+
+def narrow_temperatures(path: str, temperatures, results_dir: str = None) -> tuple:
+    """`temperatures` reduced to what this material can actually be quoted at.
+
+    Returns ``(kept, notes)``, where `notes` are human-readable reasons for
+    every temperature removed — empty when nothing was dropped. Callers are
+    expected to print them: a grid that silently shrinks is as bad as one that
+    silently melts a slab.
+
+    The caller's list is treated as a *request*, not an instruction. Enforcing
+    it here rather than in each regenerator means the notebook, the developer
+    tools and any future driver all inherit the same guard, instead of each
+    having to remember a rule none of them is in a good position to check.
+
+    Two filters, the second optional:
+
+    1. **Melting ceiling** (always). Drops anything above
+       ``MAX_HOMOLOGOUS_T x Tm``. A material with no recorded melting point is
+       passed through, and that is itself reported.
+
+    2. **Measured lattice parameter** (only when `results_dir` is given).
+       Phase 6 of the permeation workflow reads ``a0(T)`` from
+       ``lattice_params_vs_T.json`` with a *silent* fallback to a fixed
+       constant, so a temperature with no NPT point is computed with the wrong
+       lattice constant and nothing in the output says so. Pass `results_dir`
+       wherever that fallback applies; omit it on the diffusivity side, which
+       is what *produces* that file — filtering there would be circular, since
+       a temperature could never be run for the first time.
+
+    When the lattice file is absent entirely, nothing is dropped and the
+    absence is reported instead: with no measured ``a0(T)`` at all, every
+    temperature falls back to the same fixed constant, so there is no ground
+    for preferring some over others. Removing a caller's temperature needs a
+    reason specific to that temperature.
+    """
+    kept, notes = list(temperatures), []
+
+    cap = max_md_temperature_K(path)
+    if cap is None:
+        notes.append(f'{stem_of(path)}: no melting point recorded — '
+                     f'temperature ceiling NOT enforced')
+    else:
+        by_melt = dropped_temperatures(path, kept)
+        kept = usable_temperatures(path, kept)
+        if by_melt:
+            notes.append(f'{stem_of(path)}: above the {cap:.0f} K ceiling '
+                         f'({MAX_HOMOLOGOUS_T:g} x Tm), dropped {by_melt}')
+
+    if results_dir is not None:
+        lat = os.path.join(results_dir, 'lattice_params_vs_T.json')
+        if os.path.exists(lat):
+            try:
+                with open(lat) as f:
+                    have = {int(T) for T in json.load(f)['temperatures']}
+            except (OSError, ValueError, KeyError, TypeError):
+                have = None
+                notes.append(f'{stem_of(path)}: lattice_params_vs_T.json is '
+                             f'unreadable — lattice filter NOT applied')
+            if have is not None:
+                by_lat = [T for T in kept if int(T) not in have]
+                kept = [T for T in kept if int(T) in have]
+                if by_lat:
+                    notes.append(f'{stem_of(path)}: no measured a0(T), '
+                                 f'dropped {by_lat}')
+        else:
+            notes.append(f'{stem_of(path)}: no lattice_params_vs_T.json — '
+                         f'a0(T) falls back to a fixed constant at every '
+                         f'temperature')
+
+    return kept, notes
