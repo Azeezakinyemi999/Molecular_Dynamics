@@ -18,22 +18,52 @@ Usage
 """
 
 # =============================================================================
-# Section 1 — Hardware paths
+# ►►► CONFIGURATION — EDIT THIS BLOCK FIRST ◄◄◄
 # =============================================================================
+#
+# Everything in this block is specific to one machine and one account. Nothing
+# below this block is: Sections 2-5 are LAMMPS settings and physical constants
+# that are the same wherever you run.
+#
+# None of these values fails loudly when wrong. A BASE_DIR pointing at a
+# directory that does not exist produces a FileNotFoundError deep inside a
+# generator, long after you thought setup was done; a wrong MACE_MODEL path
+# surfaces only once a job has already been queued and started. Check them
+# before the first run:
+#
+#     python -c "from models.config import check_configuration as c; c()"
+#
+# Section 1 — Hardware paths
+# -----------------------------------------------------------------------------
 
+# The LAMMPS executable, built with the MLIAP package and Kokkos GPU support.
 LAMMPS_CMD = (
     '/projects/westgroup/akinyemi.az/mace_lammps/lammps/build-mliap/lmp'
 )
 
+# The MACE potential, in two forms. These are data files you supply; they do
+# not come from pip. LAMMPS needs the compiled .pt, ASE needs the .model.
 MACE_MODEL_LAMMPS = (
     '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model-mliap_lammps.pt'
 )
 MACE_MODEL_ASE = (
     '/projects/westgroup/akinyemi.az/mace_lammps/models/mace-mh-1.model'
 )
+# Which head of a multi-head MACE model to evaluate. Wrong head = wrong
+# energies, silently -- the run completes and the numbers look plausible.
 MACE_HEAD = 'omat_pbe'
 
+# The repository root: the directory containing calculation/ and models/.
+# Every generated script embeds absolute paths derived from this, so it must
+# be correct on the machine where the JOBS run, not where you edit.
 BASE_DIR = '/projects/westgroup/akinyemi.az/mace_lammps/MHI_Nickel'
+
+# The SLURM account/environment settings are further down, in Section 4
+# (SLURM_DEFAULTS and _LD_PATHS) -- they are equally machine-specific, and are
+# left beside the other SLURM values rather than duplicated here.
+#
+# ►►► END OF CONFIGURATION ◄◄◄
+# =============================================================================
 
 # =============================================================================
 # Section 2 — LAMMPS runtime settings
@@ -175,3 +205,68 @@ PARTITION_SUBMIT_LIMITS = {
     'sharing':   (4,    2),
     'gpu-short': (4,    2),
 }
+
+
+# =============================================================================
+# Section 7 — Configuration check
+# =============================================================================
+
+def check_configuration(verbose: bool = True) -> list:
+    """Verify the machine-specific paths at the top of this file.
+
+    Returns the list of problems found, empty when everything resolves. Import
+    of this module never checks anything -- a missing LAMMPS binary is not an
+    error for the many code paths that only read results -- so this is a
+    deliberate, explicit call:
+
+        python -c "from models.config import check_configuration as c; c()"
+
+    Run it before the first job. Every value it checks is one that otherwise
+    surfaces late: BASE_DIR as a FileNotFoundError inside a generator, the
+    MACE paths only once a queued job has started and burned its startup time.
+    """
+    import os
+
+    problems = []
+    checks = [
+        ('BASE_DIR',          BASE_DIR,          'dir',  'repository root (contains calculation/ and models/)'),
+        ('LAMMPS_CMD',        LAMMPS_CMD,        'exec', 'LAMMPS binary with MLIAP + Kokkos'),
+        ('MACE_MODEL_ASE',    MACE_MODEL_ASE,    'file', 'MACE model for ASE (NEB, vibrations)'),
+        ('MACE_MODEL_LAMMPS', MACE_MODEL_LAMMPS, 'file', 'compiled MACE model for LAMMPS'),
+    ]
+    for name, value, kind, what in checks:
+        if kind == 'dir':
+            ok = os.path.isdir(value)
+        elif kind == 'exec':
+            ok = os.path.isfile(value) and os.access(value, os.X_OK)
+        else:
+            ok = os.path.isfile(value)
+        if not ok:
+            problems.append(f'{name}: {value}  — not found ({what})')
+        if verbose:
+            print(f'  [{"ok" if ok else "MISSING":>7}] {name:<18} {value}')
+
+    # BASE_DIR must be the root that holds both trees, not one of them.
+    if os.path.isdir(BASE_DIR):
+        for sub in ('models', 'calculation'):
+            if not os.path.isdir(os.path.join(BASE_DIR, sub)):
+                problems.append(
+                    f'BASE_DIR: {BASE_DIR} has no {sub}/ — it should be the '
+                    f'directory CONTAINING models/ and calculation/')
+
+    env = SLURM_DEFAULTS.get('conda_env')
+    if env and not os.path.isdir(env):
+        problems.append(f"SLURM_DEFAULTS['conda_env']: {env} — not found "
+                        f"(the environment SLURM jobs activate)")
+    if verbose:
+        print(f'  [{"ok" if (env and os.path.isdir(env)) else "MISSING":>7}] '
+              f'{"conda_env":<18} {env}')
+        print()
+        if problems:
+            print(f'  {len(problems)} problem(s) — edit the CONFIGURATION '
+                  f'block at the top of models/config.py:')
+            for p in problems:
+                print(f'    - {p}')
+        else:
+            print('  Configuration OK.')
+    return problems

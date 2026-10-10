@@ -1,0 +1,72 @@
+# Python dependencies for the MHI hydrogen-permeation pipeline.
+#
+# Versions below are the ones this project is known to run on, not the only
+# ones that work. They are given as lower bounds so a newer release is allowed,
+# with one exception (numpy) that is pinned for a reason given below.
+#
+# The dependencies split into two tiers, and the split matters: the whole test
+# suite and every post-processing/plotting step run on TIER 1 ALONE. Install
+# tier 1, run `pytest tests/ -q`, and confirm 1629 tests pass before spending
+# time on tier 2 or on cluster hours. Tier 2 is needed only to actually
+# evaluate the MACE potential (MD, NEB, vibrations).
+#
+#     python -m pip install -r requirements.txt           # tier 1 + dev
+#     pytest tests/ -q                                    # expect 1629 passed
+#
+# Python 3.9-3.10 are the versions in use here.
+
+# =============================================================================
+# Tier 1 — analysis, plotting, script generation, and the full test suite
+# =============================================================================
+
+numpy>=1.24,<2            # see note below -- the upper bound is deliberate
+scipy>=1.13
+pandas>=2.0
+matplotlib>=3.8
+networkx>=3.2
+ase>=3.25
+
+# numpy is capped below 2.0 on purpose. The compiled stack this project sits on
+# -- matplotlib, and especially the torch/mace builds in tier 2 -- is built
+# against the numpy 1.x ABI, and mixing it with numpy 2.x raises
+# "numpy.dtype size changed" / "_ARRAY_API not found" at import time. If you
+# have rebuilt that whole stack against numpy 2, lift the cap.
+
+# =============================================================================
+# Tier 2 — only needed to evaluate the MACE potential (MD / NEB / vibrations)
+# =============================================================================
+#
+# Left commented because torch is platform-specific: pick the CUDA (or CPU)
+# build that matches your machine from https://pytorch.org, then install the
+# rest. On a GPU cluster, install torch FIRST and confirm
+# `python -c "import torch; print(torch.cuda.is_available())"` prints True
+# before installing mace-torch.
+#
+# Which modules need these, so you know what breaks without them:
+#     torch        models/ase_neb.py
+#     mace-torch   models/ase_neb.py, models/vibrations.py
+#     spglib       models/structure.py       (symmetry analysis)
+#     acat         models/surface_graph.py   (adsorption-site enumeration)
+#
+# torch>=2.2
+# mace-torch>=0.3.8
+# spglib>=2.6
+# acat>=2.0.1
+
+# =============================================================================
+# Development
+# =============================================================================
+
+pytest>=8.0
+
+# =============================================================================
+# Not installable with pip -- you must supply these yourself
+# =============================================================================
+#
+#   1. The MACE model files (.model for ASE, .model-mliap_lammps.pt for
+#      LAMMPS). These are data, not packages.
+#   2. A LAMMPS build with the MLIAP package and Kokkos GPU support.
+#   3. SLURM, if you are running on a cluster.
+#
+# All three are addressed by the paths at the top of models/config.py, which
+# must be edited before anything runs. See the CONFIGURATION block there.
