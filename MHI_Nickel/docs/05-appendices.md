@@ -254,7 +254,7 @@ example.
 
 Each check recomputes a quantity twice — once through the project's own
 function, once from the equation as this documentation states it — on the
-fictitious system in [`figures/example/toy.py`](figures/example/toy.py). One
+fictitious system in [`figures/example/toy.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/example/toy.py). One
 `PASS` or `FAIL` line per check, then a count. Exit status is 0 only if all
 pass.
 

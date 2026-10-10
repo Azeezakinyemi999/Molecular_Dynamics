@@ -17,7 +17,7 @@ not at all.
 |---|---|
 | **Inputs** | barrier results per pathway; `vib_frequencies.json` for IS, TS and — where available — FS |
 | **Outputs** | one rate dictionary per pathway, written as JSON |
-| **Code** | [`models/tst_rates.py`](../../models/tst_rates.py) |
+| **Code** | [`models/tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) |
 | **Runs on** | anywhere — this is arithmetic over stored numbers, seconds of work |
 | **Theory** | [Part II §4–§5](../02-theory.md#4-vibrational-analysis) |
 | **Figures it writes** | `site_barriers.png`, `site_rates.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |

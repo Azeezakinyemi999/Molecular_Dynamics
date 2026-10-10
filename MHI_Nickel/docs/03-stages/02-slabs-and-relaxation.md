@@ -12,7 +12,7 @@ workflow happens on this geometry.
 |---|---|
 | **Inputs** | a minimised bulk cell; a Miller index, layer count and vacuum thickness |
 | **Outputs** | a relaxed slab; a freeze cutoff in $z$ |
-| **Code** | [`models/structure.py`](../../models/structure.py), [`models/lammps_script.py`](../../models/lammps_script.py) |
+| **Code** | [`models/structure.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/structure.py), [`models/lammps_script.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/lammps_script.py) |
 | **Validated for** | close-packed faces of face-centred-cubic materials |
 
 ## Concepts

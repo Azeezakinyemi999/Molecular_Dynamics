@@ -135,7 +135,8 @@ def run_phase2_surface_relaxation(
     Section A Phase 2: Relax the slab surface via four-phase LAMMPS MD.
 
     This follows NB04 (real chained MD -- self-resubmitting via restart
-    files -- same category of job as diffusivity's NPT equilibration):
+    files -- same category of job as diffusivity's NPT equilibration)::
+
         Phase 1: CG minimization (ftol=1e-6, freeze bottom layers)
         Phase 2: Thermal anneal 10K → 300K over 5 ps (velocity rescaling)
         Phase 3: NVT equilibration at 300K for 50 ps (Nosé-Hoover, frozen bottom)
@@ -176,16 +177,19 @@ def run_phase2_surface_relaxation(
     Returns
     -------
     dict
-        {
-            'slab_path'   : input slab file,
-            'relaxed_slab': path to relaxed structure,
-            'traj_file'   : NVT trajectory path,
-            'log_file'    : LAMMPS log path,
-            'job_id'      : SLURM job ID (if submitted, else None),
-            'outdir'      : output directory,
-            'a0'          : lattice parameter (Å),
-            'status'      : 'submitted' or 'generated',
-        }
+        ::
+
+            {
+                'slab_path'   : input slab file,
+                'relaxed_slab': path to relaxed structure,
+                'traj_file'   : NVT trajectory path,
+                'log_file'    : LAMMPS log path,
+                'job_id'      : SLURM job ID (if submitted, else None),
+                'outdir'      : output directory,
+                'a0'          : lattice parameter (Å),
+                'status'      : 'submitted' or 'generated',
+            }
+
     """
     from models.config import (
         SLURM_DEFAULTS, LAMMPS_CMD, MACE_MODEL_LAMMPS,
@@ -432,14 +436,17 @@ def orchestrate_slab_prep(
     Returns
     -------
     dict
-        Summary with keys: {
-            'phase1_slab': path to initial slab,
-            'phase2_relaxed': path to relaxed slab,
-            'phase3_sites': path to surface_sites.json,
-            'n_sites': number of enumerated sites,
-            'outdir': output directory,
-            'status': overall completion status,
-        }
+        Summary with keys::
+
+            {
+                'phase1_slab': path to initial slab,
+                'phase2_relaxed': path to relaxed slab,
+                'phase3_sites': path to surface_sites.json,
+                'n_sites': number of enumerated sites,
+                'outdir': output directory,
+                'status': overall completion status,
+            }
+
     """
     if e2t is None:
         e2t = E2T_7
@@ -740,15 +747,18 @@ def run_phase1_h2_adsorption(
     Returns
     -------
     dict
-        {
-          'h2_energies': {site_id: E_H2_eV},
-          'ranked_sites': [[site_id, E_H2_eV], ...],
-          'is_pool': {site_id: {status, centroid, E_ads, true_label}},
-          'n_sites_computed': int,
-          'n_sites_total': int,
-          'outdir': str,
-          'status': 'generated' or 'submitted',
-        }
+        ::
+
+            {
+              'h2_energies': {site_id: E_H2_eV},
+              'ranked_sites': [[site_id, E_H2_eV], ...],
+              'is_pool': {site_id: {status, centroid, E_ads, true_label}},
+              'n_sites_computed': int,
+              'n_sites_total': int,
+              'outdir': str,
+              'status': 'generated' or 'submitted',
+            }
+
     """
     from models.config import SLURM_DEFAULTS
 
@@ -995,15 +1005,18 @@ def run_phase2_h_adsorption(
     Returns
     -------
     dict
-        {
-          'h_energies': {site_id: E_H_eV},
-          'ranked_sites': [[site_id, E_H_eV], ...],
-          'fs_pool': {site_id: {centroid, E_ads, true_label, relaxed_h_pos}},
-          'n_sites_computed': int,
-          'n_sites_total': int,
-          'outdir': str,
-          'status': 'generated' or 'submitted',
-        }
+        ::
+
+            {
+              'h_energies': {site_id: E_H_eV},
+              'ranked_sites': [[site_id, E_H_eV], ...],
+              'fs_pool': {site_id: {centroid, E_ads, true_label, relaxed_h_pos}},
+              'n_sites_computed': int,
+              'n_sites_total': int,
+              'outdir': str,
+              'status': 'generated' or 'submitted',
+            }
+
     """
     from models.config import SLURM_DEFAULTS
 
@@ -1243,13 +1256,16 @@ def orchestrate_adsorption_energies(
     Returns
     -------
     dict
-        {
-          'phase1': phase 1 result dict,
-          'phase2': phase 2 result dict,
-          'neb_candidates': [[site_id, E_H_eV], ...],
-          'summary_json': str,
-          'status': str,
-        }
+        ::
+
+            {
+              'phase1': phase 1 result dict,
+              'phase2': phase 2 result dict,
+              'neb_candidates': [[site_id, E_H_eV], ...],
+              'summary_json': str,
+              'status': str,
+            }
+
     """
     if e2t is None:
         e2t = E2T_7
@@ -1781,10 +1797,11 @@ def apply_proximity_and_dedup_filter(
     Section C Phase 2b: Proximity filter then true-label + graph-dist dedup.
 
     Step 1 — Proximity: keep combinations where is_fs_dist < prox_cutoff (Å, XY).
-    Step 2 — Label dedup: key = (is_true_label,
-                                  sorted([fs_true_label1, fs_true_label2]),
-                                  graph_dist).
-             Keep the representative with the most negative delta_E per key.
+    Step 2 — Label dedup, keyed on::
+
+        (is_true_label, sorted([fs_true_label1, fs_true_label2]), graph_dist)
+
+    Keep the representative with the most negative delta_E per key.
 
     Saves filtered_combinations.json and deduped_combinations.json.
     Returns deduped_combinations (the final NEB job list).
@@ -2208,13 +2225,16 @@ def collect_neb_results(
     Returns
     -------
     dict
-        {
-          'results'    : list of per-job dicts (label, Ea, E_des, delta_E, ...),
-          'n_converged': int,
-          'n_failed'   : int,
-          'n_missing'  : int,
-          'ranked_json': path to ranked_barriers.json,
-        }
+        ::
+
+            {
+              'results'    : list of per-job dicts (label, Ea, E_des, delta_E, ...),
+              'n_converged': int,
+              'n_failed'   : int,
+              'n_missing'  : int,
+              'ranked_json': path to ranked_barriers.json,
+            }
+
     """
     neb_dir   = Path(neb_outdir) / 'neb'
     pairs_json = neb_dir / 'neb_pairs.json'
@@ -3085,7 +3105,7 @@ def load_neb_results(neb_dir: str):
     """Load completed NEB barrier results into a DataFrame.
 
     Reads neb_pairs.json from neb_dir and calls summarise_neb on each job.
-    Falls back to scanning neb_dir/*/neb_barrier.txt if the JSON is absent.
+    Falls back to scanning ``neb_dir/*/neb_barrier.txt`` if the JSON is absent.
     Returns a pandas DataFrame sorted by E_abs (ascending), or an empty
     DataFrame if no completed jobs are found.
     """

@@ -15,7 +15,7 @@ The two chains meet only at [Stage 11](11-permeability-assembly.md).
 |---|---|
 | **Inputs** | a bulk cell; a hydrogen count; a temperature list |
 | **Outputs** | `lattice_params_vs_T.json`; MSD traces; `diffusivity_arrhenius.json` per loading |
-| **Code** | [`models/diffusivity_workflow.py`](../../models/diffusivity_workflow.py), [`models/diffusivity_post_processing.py`](../../models/diffusivity_post_processing.py) |
+| **Code** | [`models/diffusivity_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_workflow.py), [`models/diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) |
 | **Runs on** | GPU, chained scheduler jobs — by far the most expensive stage |
 | **Theory** | [Part II §8](../02-theory.md#8-diffusion) |
 | **Aggregation** | rungs [A8, A9, A10](../02b-aggregation.md#1-the-ladder) |

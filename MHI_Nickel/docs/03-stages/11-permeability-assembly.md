@@ -14,7 +14,7 @@ This is the only stage where the surface chain and the bulk chain meet.
 |---|---|
 | **Inputs** | $S(T)$ per route from [Stage 9](09-solubility.md); $D_0, E_D$ per loading from [Stage 10](10-bulk-diffusivity.md) |
 | **Outputs** | `permeability_T{T}K.json` per loading per temperature; `permeability_arrhenius.json` per loading |
-| **Code** | [`models/permeation.py`](../../models/permeation.py), [`models/permeation_workflow.py`](../../models/permeation_workflow.py) |
+| **Code** | [`models/permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py), [`models/permeation_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation_workflow.py) |
 | **Theory** | [Part II §9](../02-theory.md#9-permeability) |
 | **Aggregation** | rungs [A11, A12](../02b-aggregation.md#1-the-ladder) |
 | **Figures it writes** | `permeability_arrhenius.png`, `permeation_summary.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
@@ -113,7 +113,7 @@ The fit is still performed, as an **independent check**: if the analytic pair
 and the fitted pair disagree, something upstream is inconsistent. Its $R^2$
 appears in the output for that purpose and is not an uncertainty.
 
-### Why $D$ is evaluated, not measured
+### Why D is evaluated, not measured
 
 Step 2 computes $D$ from the fitted $D_0$ and $E_D$ rather than from a
 trajectory at that temperature. The permeation temperatures and the molecular
