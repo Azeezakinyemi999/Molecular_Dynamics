@@ -60,7 +60,39 @@ def generate_diffusivity_scripts(
     metal_table: dict | None = None,
     out_py: str = '',
 ) -> str:
-    """Write diffusivity_run.py with embedded config. Returns the output path."""
+    """Write diffusivity_run.py with embedded config. Returns the output path.
+
+    One script covers every structure in `input_structures`, so it embeds a
+    single temperature grid. That grid cannot be narrowed per material here
+    without the generated loop carrying a per-stem map, so instead any
+    structure that cannot sustain the requested grid is a hard error naming
+    the material and its ceiling. Silently running a slab above its melting
+    point produces an Arrhenius fit that looks entirely normal, which is the
+    one outcome worth refusing outright. Use `write_diffusivity_run_script`,
+    the per-metal counterpart, when materials need different grids.
+    """
+    from models.materials import (max_md_temperature_K, dropped_temperatures,
+                                  stem_of)
+    _unsafe, _unknown = [], []
+    for _sp in input_structures:
+        _cap = max_md_temperature_K(_sp)
+        if _cap is None:
+            _unknown.append(stem_of(_sp))
+            continue
+        _over = dropped_temperatures(_sp, temperatures)
+        if _over:
+            _unsafe.append(f'{stem_of(_sp)} (ceiling {_cap:.0f} K, '
+                           f'cannot run {_over})')
+    if _unknown:
+        print(f'  [temperatures] no melting point recorded, ceiling NOT '
+              f'enforced for: {", ".join(_unknown)}')
+    if _unsafe:
+        raise ValueError(
+            'temperature grid ' + repr(list(temperatures)) + ' is above the '
+            'melting ceiling for:\n    ' + '\n    '.join(_unsafe) +
+            '\n  Lower the grid, drop those structures, or generate per metal '
+            'with write_diffusivity_run_script().')
+
     if metal_table is None:
         metal_table = {}
     if short_gpu_cutoff is None:
@@ -756,7 +788,22 @@ def write_diffusivity_run_script(
     ``permeation_run_{stem}.py``. ``generate_diffusivity_scripts`` itself is
     untouched; this is purely additive and does not change how
     ``pipeline_run.py`` invokes diffusivity today.
+
+    Being per-metal, this one can narrow `temperatures` rather than refuse
+    them: the melting ceiling is applied here and anything dropped is
+    printed. No lattice-parameter filter -- the NPT phase in this very script
+    is what measures a0(T), so filtering on it would mean a temperature could
+    never be run for the first time.
     """
+    from models.materials import narrow_temperatures
+    temperatures, _t_notes = narrow_temperatures(struct_path, temperatures)
+    for _n in _t_notes:
+        print(f'  [temperatures] {_n}')
+    if not temperatures:
+        raise ValueError(
+            f'{stem}: every requested temperature is above the melting '
+            f'ceiling — nothing left to run.')
+    print(f'  [temperatures] {stem}: {list(temperatures)}')
     from models.config import MASSES_7, E2T_7, ELEM_STR_7
     if elem_str is None:
         elem_str = ELEM_STR_7

@@ -867,8 +867,25 @@ def generate_permeation_scripts(
     operating_p_high_pa=1.0e6,
     operating_p_low_pa=0.0,
 ):
-    """Write permeation_run.py with embedded config. Returns the output path."""
+    """Write permeation_run.py with embedded config. Returns the output path.
+
+    `temperatures` is a request, not an instruction: it is narrowed here to
+    what this material can physically sustain and has a measured a0(T) for,
+    so every caller — pipeline.ipynb, the regenerators, anything later —
+    inherits the same guard rather than each having to remember it.
+    """
     from models.config import MASSES_7, E2T_7, ELEM_STR_7
+    from models.materials import narrow_temperatures
+    temperatures, _t_notes = narrow_temperatures(
+        stem, temperatures, results_dir=results_dir)
+    for _n in _t_notes:
+        print(f'  [temperatures] {_n}')
+    if not temperatures:
+        raise ValueError(
+            f'{stem}: no usable temperature left after narrowing. The request '
+            f'was entirely above the melting ceiling, or no NPT lattice '
+            f'parameter has been measured for any of it.')
+    print(f'  [temperatures] {stem}: {list(temperatures)}')
     if elem_str is None:
         elem_str = ELEM_STR_7
     if e2t is None:
