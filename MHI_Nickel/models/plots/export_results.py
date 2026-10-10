@@ -267,30 +267,106 @@ def overall(runs, outdir, notes):
 
 
 # ── figures ──────────────────────────────────────────────────────────────────
+# Three ranked artifacts carry the convergence verdict. A pathway can produce a
+# mep.png and still be absent from its ranking, so there is a third bucket: the
+# figure exists but nothing says whether its band converged, and filing it under
+# either answer would be an assertion we cannot support.
+_RANKED = {
+    'dissociation': ('neb', '{stem}', 'ranked_barriers.json'),
+    'hopa':         ('neb_subsurface', '{stem}', 'hopa', 'hopa_ranked.json'),
+    'hopb':         ('neb_subsurface', '{stem}', 'hopb', 'hopb_ranked.json'),
+}
+_PATHWAY_ROOT = {
+    'dissociation': ('neb', '{stem}', 'neb'),
+    'hopa':         ('neb_subsurface', '{stem}', 'hopa'),
+    'hopb':         ('neb_subsurface', '{stem}', 'hopb'),
+}
+
+
+def _convergence(stem, fam):
+    """{pathway directory name: converged} for one family."""
+    parts = [x.format(stem=stem) for x in _RANKED[fam]]
+    entries = _load(os.path.join(CALC_DIR, *parts))
+    out = {}
+    for e in (entries if isinstance(entries, list) else []):
+        lab = e.get('label')
+        if not lab:
+            continue
+        # a hop is ranked as 'hopa_s_7' but lives in a directory called 's_7'
+        key = lab.split('_', 1)[1] if lab.startswith(('hopa_', 'hopb_')) else lab
+        out[key] = e.get('converged')
+    return out
+
+
 def figures(stem, runs, outdir):
+    """Collect every figure for this material into subfolders.
+
+        figures/material/                       cross-run
+        figures/{n}H/                           one per loading
+        figures/pathways/{fam}/{verdict}/       every pathway, split by band
+
+    Per-run figures live in TWO places -- analysis/, written by the plot
+    scripts, and the run directory itself, written by the workflow (that is
+    where permeation_summary.png lands) -- so both are swept. Missing the
+    second is why the export never collected it.
+
+    Returns ``(manifest, unknown)``: a {subfolder: [filenames]} map, and
+    {family: count} for pathways whose convergence could not be determined.
+    """
     mat = pretty_material(stem).replace(' ', '_')
     figdir = os.path.join(outdir, 'figures')
     os.makedirs(figdir, exist_ok=True)
-    seen, pats = [], [
-        os.path.join(CALC_DIR, 'results', 'plots', '**', f'{mat}_*.png'),
-        os.path.join(CALC_DIR, 'results', 'plots', '**', f'{stem}_*.png'),
-    ] + [os.path.join(r.path, 'analysis', '*.png') for r in runs]
-    for pat in pats:
-        for src in sorted(glob.glob(pat, recursive=True)):
-            base = os.path.basename(src)
-            if os.sep + 'analysis' + os.sep in src:
-                run = os.path.basename(os.path.dirname(os.path.dirname(src)))
-                base = f'{run}__{base}'
-            dst = os.path.join(figdir, base)
-            if dst in seen:
-                continue
-            shutil.copy2(src, dst)
-            seen.append(dst)
-    return [os.path.basename(x) for x in seen]
+    manifest, unknown = {}, {}
+
+    def put(src, sub, newname=None):
+        d = os.path.join(figdir, sub)
+        os.makedirs(d, exist_ok=True)
+        shutil.copy2(src, os.path.join(d, newname or os.path.basename(src)))
+        manifest.setdefault(sub, []).append(newname or os.path.basename(src))
+
+    # 1. material-level
+    mats = set()
+    for pat in (f'{mat}_*.png', f'{stem}_*.png'):
+        mats |= set(glob.glob(os.path.join(CALC_DIR, 'results', 'plots', '**',
+                                           pat), recursive=True))
+    for src in sorted(mats):
+        put(src, 'material')
+
+    # 2. one folder per loading -- analysis/ AND the run directory itself
+    for r in runs:
+        got = set(glob.glob(os.path.join(r.path, 'analysis', '*.png')))
+        got |= set(glob.glob(os.path.join(r.path, '*.png')))
+        for src in sorted(got):
+            put(src, f'{r.n_H}H')
+
+    # 3. every pathway, split by whether its band converged
+    for fam, parts in _PATHWAY_ROOT.items():
+        root = os.path.join(CALC_DIR, *[x.format(stem=stem) for x in parts])
+        found = sorted(glob.glob(os.path.join(root, '*', 'mep.png')))
+        if not found:
+            continue
+        conv = _convergence(stem, fam)
+        n_unknown = 0
+        for src in found:
+            label = os.path.basename(os.path.dirname(src))
+            verdict = conv.get(label)
+            bucket = ('converged' if verdict is True else
+                      'unconverged' if verdict is False else 'unknown')
+            if bucket == 'unknown':
+                n_unknown += 1
+            # every source is called mep.png, so name it for its pathway
+            put(src, os.path.join('pathways', fam, bucket), f'{label}.png')
+        if n_unknown:
+            unknown[fam] = n_unknown
+
+    for k in manifest:
+        manifest[k].sort()
+    return manifest, unknown
 
 
 # ── summary ──────────────────────────────────────────────────────────────────
-def write_summary(stem, outdir, counts, figs, notes, runs, excluded_1h):
+def write_summary(stem, outdir, counts, manifest, unknown, notes, runs,
+                  excluded_1h):
     lines = [f'# {pretty_material(stem)} — exported results', '',
              f'Source: `{CALC_DIR}`  ·  stem: `{stem}`',
              f'Loadings included: ' +
@@ -310,8 +386,22 @@ def write_summary(stem, outdir, counts, figs, notes, runs, excluded_1h):
     ):
         mark = 'x' if os.path.exists(os.path.join(outdir, fn)) else ' '
         lines.append(f'- [{mark}] `{fn}` — {what}')
-    lines += ['', f'## Figures ({len(figs)})', '']
-    lines += [f'- `figures/{f}`' for f in figs]
+    total = sum(len(v) for v in manifest.values())
+    lines += ['', f'## Figures ({total})', '']
+    if manifest:
+        lines += ['| folder | count |', '|---|---|']
+        for sub in sorted(manifest):
+            lines.append(f'| `figures/{sub}/` | {len(manifest[sub])} |')
+    else:
+        lines.append('_none - run the plot scripts first, or '
+                     '`postprocess.py --stem <stem>`_')
+    if unknown:
+        lines += ['', '> [!NOTE]', '> Pathways under `unknown/` produced a '
+                  'minimum-energy-path figure but do not appear in their '
+                  'ranked artifact, so whether their band converged is not '
+                  'recorded: '
+                  + ', '.join(f'{k} {v}' for k, v in sorted(unknown.items()))
+                  + '. They are neither counted as converged nor discarded.']
     if notes:
         lines += ['', '## Read these before quoting any number', '']
         lines += [f'{i}. {n}' for i, n in enumerate(notes, 1)]
@@ -347,15 +437,16 @@ def main(argv=None):
     counts['part2']   = part2(args.stem, outdir, notes)
     counts['part3']   = part3(runs, outdir, notes)
     counts['overall'] = overall(runs, outdir, notes)
-    figs = figures(args.stem, runs, outdir)
-    summary = write_summary(args.stem, outdir, counts, figs, notes, runs,
-                            excluded_1h=not args.include_1h)
+    manifest, unknown = figures(args.stem, runs, outdir)
+    summary = write_summary(args.stem, outdir, counts, manifest, unknown, notes,
+                            runs, excluded_1h=not args.include_1h)
 
     for fn in sorted(os.listdir(outdir)):
         if fn.endswith('.csv'):
             n = sum(1 for _ in open(os.path.join(outdir, fn))) - 1
             print(f'  {fn:<34} {n:>4} row(s)')
-    print(f'  {"figures/":<34} {len(figs):>4} figure(s)')
+    for sub in sorted(manifest):
+        print(f'  {"figures/" + sub + "/":<34} {len(manifest[sub]):>4} figure(s)')
     print(f'\n  summary: {summary}')
     if notes:
         print(f'  {len(notes)} caveat(s) recorded in the summary.')
