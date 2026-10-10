@@ -980,6 +980,9 @@ def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
 
     return dict(nh_dir=nh_dir, diff_file=diff_file, ready=True,
                 D0_m2s=D0, E_D_eV=Ea,
-                D0_err_m2s=diff_fit.get('D0_err_m2s'),
+                # the fit writes 'D0_err'; reading 'D0_err_m2s' here silently
+                # returned None, so sigma_D0 never reached the permeability
+                # prefactor and Phi0_rel_err carried the solubility term alone
+                D0_err_m2s=diff_fit.get('D0_err', diff_fit.get('D0_err_m2s')),
                 E_D_err_eV=diff_fit.get('E_D_err_eV'),
                 dilute_note=dilute_note, message=None)
