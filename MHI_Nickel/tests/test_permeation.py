@@ -667,3 +667,55 @@ class TestPopWeightedRateRatio:
         # empty entry-rate dict = no surface→sub1 channel
         assert pop_weighted_rate_ratio({}, {'E': 1.0}) == 0.0
         assert pop_weighted_rate_ratio({'E': 1.0}, {}) == 0.0
+
+
+class TestDiffusivityErrorReachesPermeability:
+    """sigma_D0 must survive the hop from the diffusivity fit into Phi0.
+
+    The fit writes the key 'D0_err'. resolve_nh_diffusivity once read
+    'D0_err_m2s', got None, and `or 0.0` turned that into a zero error -- so
+    Phi0_rel_err carried the solubility term alone and understated the
+    permeability prefactor uncertainty by a factor of ~2.5. It failed silently:
+    a missing key and a genuinely zero error are indistinguishable downstream.
+    """
+
+    def _fit(self, tmp_path, **over):
+        import json
+        d = {'D0_m2s': 2.85e-07, 'E_D_eV': 0.3780,
+             'D0_err': 4.98e-08, 'E_D_err_eV': 0.0120,
+             'T_K_arr': [400.0, 600.0], 'D_arr': [1e-12, 1e-10]}
+        d.update(over)
+        run = tmp_path / 'results' / 'X_supercell_10H'
+        run.mkdir(parents=True)
+        (run / 'diffusivity_arrhenius.json').write_text(json.dumps(d))
+        return str(tmp_path)
+
+    def test_d0_err_is_read_from_the_key_the_fit_writes(self, tmp_path):
+        from models.permeation import resolve_nh_diffusivity
+        r = resolve_nh_diffusivity(self._fit(tmp_path), 'X_supercell', 10)
+        assert r['ready']
+        assert r['D0_err_m2s'] == pytest.approx(4.98e-08), (
+            "sigma_D0 was dropped: the fit writes 'D0_err'")
+
+    def test_e_d_err_also_survives(self, tmp_path):
+        from models.permeation import resolve_nh_diffusivity
+        r = resolve_nh_diffusivity(self._fit(tmp_path), 'X_supercell', 10)
+        assert r['E_D_err_eV'] == pytest.approx(0.0120)
+
+    def test_both_terms_enter_the_prefactor_error(self):
+        """Phi0_rel_err must exceed either input alone."""
+        import math
+        from models.permeation import permeability_arrhenius
+        d0_rel, s0_rel = 0.1747, 0.0754
+        pa = permeability_arrhenius(2.85e-07, 0.3780, 4.37e04, 0.1392,
+                                    D0_rel_err=d0_rel, S0_rel_err=s0_rel)
+        assert pa['Phi0_rel_err'] == pytest.approx(
+            math.sqrt(d0_rel ** 2 + s0_rel ** 2), rel=1e-9)
+        assert pa['Phi0_rel_err'] > max(d0_rel, s0_rel)
+
+    def test_a_missing_error_does_not_silently_become_zero_variance(self, tmp_path):
+        """Absent is absent; it must not masquerade as a measured zero."""
+        from models.permeation import resolve_nh_diffusivity
+        root = self._fit(tmp_path, D0_err=None)
+        r = resolve_nh_diffusivity(root, 'X_supercell', 10)
+        assert r['D0_err_m2s'] is None
