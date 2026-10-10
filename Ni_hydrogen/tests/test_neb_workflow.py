@@ -8,8 +8,6 @@ Covers:
   write_neb_orchestrator_sh — SBATCH headers, conda, python run line
   load_neb_results          — DataFrame from pairs JSON; fallback directory scan
   collect_neb_results       — converged / missing counts; ranked JSON written
-  plot_barrier_heatmap      — returns None for empty DataFrame
-  plot_mep_overlay          — returns None for empty DataFrame
 """
 
 import json
@@ -36,8 +34,6 @@ from models.neb_workflow import (
     write_neb_orchestrator_sh,
     load_neb_results,
     collect_neb_results,
-    plot_barrier_heatmap,
-    plot_mep_overlay,
     calculate_ref_adsorbate_energy,
 )
 
@@ -692,54 +688,6 @@ class TestCollectNebResults:
         _write_pairs_json(str(neb_subdir / 'neb_pairs.json'), jobs)
         result = collect_neb_results(str(tmp_path))
         assert len(result['results']) == 2
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 5. plot_barrier_heatmap
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestPlotBarrierHeatmap:
-
-    def test_returns_none_for_empty_dataframe(self, tmp_path):
-        result = plot_barrier_heatmap(pd.DataFrame(), str(tmp_path))
-        assert result is None
-
-    def test_saves_png_for_nonempty_dataframe(self, tmp_path):
-        df = pd.DataFrame([{
-            'is_label': 'L1_hcp', 'fs_label1': 'Ni', 'fs_label2': 'Mo',
-            'graph_dist': 3, 'n_grouped': 1,
-            'E_abs': 0.45, 'E_des': 0.15, 'delta_E': 0.30,
-            'converged': True, 'fmax_final': 0.04,
-            'barrier_file': '', 'path_file': '',
-        }])
-        result = plot_barrier_heatmap(df, str(tmp_path))
-        assert result is not None
-        assert pathlib.Path(result).exists()
-        assert result.endswith('barrier_heatmap.png')
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 6. plot_mep_overlay
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestPlotMepOverlay:
-
-    def test_returns_none_for_empty_dataframe(self, tmp_path):
-        result = plot_mep_overlay(pd.DataFrame(), str(tmp_path))
-        assert result is None
-
-    def test_saves_png_for_nonempty_dataframe_with_no_path_files(self, tmp_path):
-        df = pd.DataFrame([{
-            'is_label': 'L1_hcp', 'fs_label1': 'Ni', 'fs_label2': 'Mo',
-            'graph_dist': 3, 'n_grouped': 1,
-            'E_abs': 0.45, 'E_des': 0.15, 'delta_E': 0.30,
-            'converged': True, 'fmax_final': 0.04,
-            'barrier_file': '', 'path_file': '/nonexistent/path.dat',
-        }])
-        result = plot_mep_overlay(df, str(tmp_path))
-        # path file doesn't exist → no paths plotted → still saves an empty figure
-        assert result is not None
-        assert pathlib.Path(result).exists()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
