@@ -24,7 +24,7 @@ stage does, why it is done that way, and the equations behind it.
 | [Part I — Overview](01-overview.md) | what the workflow answers, how to run it, the stage map, assumptions and limits |
 | [Part II — Theory](02-theory.md) | every equation, definition and invariant, with units |
 | [Part II-B — The aggregation ladder](02b-aggregation.md) | how many quantities become one, at each of twelve points |
-| [Part III — Stages](03-stages/) | one section per stage, eleven in all |
+| [Part III — Stages](03-stages/README.md) | one section per stage, eleven in all |
 | [Part IV — Practical](04-practical.md) | troubleshooting, adding a material, re-running, reproducibility, code map |
 | [Appendices](05-appendices.md) | notation, settings, output files, unit conversions, equation checks, glossary, references |
 
@@ -88,10 +88,10 @@ Full notation is [Appendix A](05-appendices.md#a-notation).
 
 | file | purpose |
 |---|---|
-| [`figures/example/toy.py`](figures/example/toy.py) | a fictitious material that runs through every stage in seconds, so nothing here needs a real run |
-| [`figures/check_equations.py`](figures/check_equations.py) | verifies every equation in Part II against the code; prints `PASS`/`FAIL` per check |
-| [`figures/make_figures.py`](figures/make_figures.py) | regenerates all ten drawn figures from that example; the mermaid diagrams live inline in the text |
-| [`CHECKPOINT.md`](CHECKPOINT.md) | working state: decisions taken, archaeology, and what remains |
+| [`figures/example/toy.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/example/toy.py) | a fictitious material that runs through every stage in seconds, so nothing here needs a real run |
+| [`figures/check_equations.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/check_equations.py) | verifies every equation in Part II against the code; prints `PASS`/`FAIL` per check |
+| [`figures/make_figures.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/figures/make_figures.py) | regenerates all ten drawn figures from that example; the mermaid diagrams live inline in the text |
+| [`CHECKPOINT.md`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/docs/CHECKPOINT.md) | working state: decisions taken, archaeology, and what remains |
 
 ## What this supersedes
 
@@ -100,8 +100,8 @@ of October 2026 and are superseded by this one:
 
 | superseded | now in |
 |---|---|
-| the pipeline guide | [Part I](01-overview.md) and [Part III](03-stages/) |
-| the workflow reference | [Part III](03-stages/) |
+| the pipeline guide | [Part I](01-overview.md) and [Part III](03-stages/README.md) |
+| the workflow reference | [Part III](03-stages/README.md) |
 | the error-propagation plan | [Part II §10](02-theory.md#10-uncertainty) and [Appendix A](05-appendices.md#a-notation) |
 
 They remain in place as history. The two graph explainers in

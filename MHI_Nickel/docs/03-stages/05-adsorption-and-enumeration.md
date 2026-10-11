@@ -12,7 +12,7 @@ it: a band is expensive, and the number of bands is set here.
 |---|---|
 | **Inputs** | surface and subsurface sites from Stages [3](03-surface-site-mapping.md) and [4](04-subsurface-site-mapping.md) |
 | **Outputs** | relaxed adsorbed states; a filtered list of pathways, each an initial/final pair |
-| **Code** | [`models/neb_workflow.py`](../../models/neb_workflow.py), [`models/neb_subsurface.py`](../../models/neb_subsurface.py) |
+| **Code** | [`models/neb_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/neb_workflow.py), [`models/neb_subsurface.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/neb_subsurface.py) |
 
 ## Concepts
 

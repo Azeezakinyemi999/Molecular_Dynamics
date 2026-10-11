@@ -12,7 +12,7 @@ downstream chain keys on.
 |---|---|
 | **Inputs** | the relaxed slab from [Stage 2](02-slabs-and-relaxation.md) |
 | **Outputs** | a surface-site list with positions, types and environment labels; a graph of the surface |
-| **Code** | [`models/surface_graph.py`](../../models/surface_graph.py), [`models/site_identifier.py`](../../models/site_identifier.py) |
+| **Code** | [`models/surface_graph.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/surface_graph.py), [`models/site_identifier.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/site_identifier.py) |
 | **Prior art** | adapted from the surface-graph explainer in `Project2_surface_labeling/`, whose algorithm is unchanged |
 | **Figures it writes** | none; the site list is consumed by later stages — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
 

@@ -6,7 +6,7 @@ What the workflow computes, how its stages fit together, and what it assumes.
 > **Scope.** Method only; no numbers from any real run. Equations are in
 > [Part II](02-theory.md); the collapse from many quantities to few is in
 > [the aggregation ladder](02b-aggregation.md); each stage is in
-> [`03-stages/`](03-stages/).
+> [`03-stages/`](03-stages/README.md).
 
 ## Contents
 
@@ -126,17 +126,17 @@ production figure `neb_mep_full_pathway.png` uses this same layout.
 
 | # | stage | main inputs | main outputs | code |
 |---|---|---|---|---|
-| 1 | materials and structures | structure files | classified materials, bulk cells with hydrogen | [`materials.py`](../models/materials.py), [`structure.py`](../models/structure.py) |
-| 2 | slab and relaxation | bulk cell | relaxed slab, freeze cutoff | [`structure.py`](../models/structure.py) |
-| 3 | surface sites | relaxed slab | surface sites with labels | [`surface_graph.py`](../models/surface_graph.py) |
-| 4 | subsurface sites | relaxed slab, surface sites | interstitials, labels, layer connections | [`subsurface_graph.py`](../models/subsurface_graph.py) |
-| 5 | enumeration | sites | filtered pathway list | [`neb_workflow.py`](../models/neb_workflow.py) |
-| 6 | band | pathways | barriers, reaction energies, saddles | [`ase_neb.py`](../models/ase_neb.py) |
-| 7 | vibrations | state geometries | frequency lists | [`vibrations.py`](../models/vibrations.py) |
-| 8 | rate assembly | barriers, frequencies | rates, prefactors, quality census | [`tst_rates.py`](../models/tst_rates.py) |
-| 9 | solubility | reaction energies, lattice parameter | $\Delta H_{\mathrm{sol}}(e)$, $S(T)$ | [`permeation.py`](../models/permeation.py) |
-| 10 | bulk diffusivity | bulk cell, loadings, temperatures | $D_0$, $E_D$, $a_0(T)$ | [`diffusivity_workflow.py`](../models/diffusivity_workflow.py) |
-| 11 | permeability | $S(T)$, $D_0$, $E_D$ | $\Phi_0$, $E_\Phi$, flux | [`permeation.py`](../models/permeation.py) |
+| 1 | materials and structures | structure files | classified materials, bulk cells with hydrogen | [`materials.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/materials.py), [`structure.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/structure.py) |
+| 2 | slab and relaxation | bulk cell | relaxed slab, freeze cutoff | [`structure.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/structure.py) |
+| 3 | surface sites | relaxed slab | surface sites with labels | [`surface_graph.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/surface_graph.py) |
+| 4 | subsurface sites | relaxed slab, surface sites | interstitials, labels, layer connections | [`subsurface_graph.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/subsurface_graph.py) |
+| 5 | enumeration | sites | filtered pathway list | [`neb_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/neb_workflow.py) |
+| 6 | band | pathways | barriers, reaction energies, saddles | [`ase_neb.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/ase_neb.py) |
+| 7 | vibrations | state geometries | frequency lists | [`vibrations.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/vibrations.py) |
+| 8 | rate assembly | barriers, frequencies | rates, prefactors, quality census | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) |
+| 9 | solubility | reaction energies, lattice parameter | $\Delta H_{\mathrm{sol}}(e)$, $S(T)$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) |
+| 10 | bulk diffusivity | bulk cell, loadings, temperatures | $D_0$, $E_D$, $a_0(T)$ | [`diffusivity_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_workflow.py) |
+| 11 | permeability | $S(T)$, $D_0$, $E_D$ | $\Phi_0$, $E_\Phi$, flux | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) |
 
 ## 1.4 Assumptions and limits
 

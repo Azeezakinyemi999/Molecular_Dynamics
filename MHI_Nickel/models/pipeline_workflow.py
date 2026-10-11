@@ -6,6 +6,7 @@ Script generator for the master pipeline orchestrator.
 Generates pipeline_run.py which runs:
   - Part 1 (neb_run.py)          ─┐ in parallel
   - Part 3 (diffusivity_run.py)  ─┘
+
   then Part 2 (permeation_run.py) after both complete.
 """
 

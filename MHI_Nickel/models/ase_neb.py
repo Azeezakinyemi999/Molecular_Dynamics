@@ -11,6 +11,8 @@ This module centralises the repeated inline code across those notebooks.
 
 Typical usage
 -------------
+::
+
     from models.ase_neb import (
         make_mace_calc, make_frozen_calc,
         build_neb_images, run_cineb, extract_mep,

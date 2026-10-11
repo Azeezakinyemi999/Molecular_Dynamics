@@ -319,7 +319,8 @@ def summarise_neb(
 
     Returns
     -------
-    dict with keys
+    dict with keys::
+
         ``Ea``         – forward barrier in eV
         ``E_des``      – desorption barrier (reverse) in eV
         ``delta_E``    – reaction energy (FS − IS) in eV
@@ -333,7 +334,7 @@ def summarise_neb(
     -----
     Source: NB06 cell 28; NB09 cell 19.
     Calls: ``models.parsers.parse_barrier_file``,
-           ``models.parsers.parse_neb_path``.
+    ``models.parsers.parse_neb_path``.
     """
     from models.parsers import parse_barrier_file, parse_neb_path
 

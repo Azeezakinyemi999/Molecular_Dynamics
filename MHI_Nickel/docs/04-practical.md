@@ -165,23 +165,23 @@ present: rate assembly and permeability. The rest check the marker only.
 
 | file | role |
 |---|---|
-| [`config.py`](../models/config.py) | cluster paths, potential, and every numeric default |
-| [`materials.py`](../models/materials.py) | the material list, classification, skip rules |
-| [`structure.py`](../models/structure.py) | bulk cells, slabs, hydrogen insertion, freeze cutoff |
-| [`surface_graph.py`](../models/surface_graph.py) | surface layers, sites, graph, labels |
-| [`subsurface_graph.py`](../models/subsurface_graph.py) | Voronoi interstitials, classification |
-| [`neb_subsurface.py`](../models/neb_subsurface.py) | layer connections, hop final states, environment labels |
-| [`ase_neb.py`](../models/ase_neb.py) | band construction and two-phase relaxation |
-| [`vibrations.py`](../models/vibrations.py) | partial-Hessian scripts, mobile-set selection |
-| [`tst_rates.py`](../models/tst_rates.py) | zero-point, prefactors, rates, quality census |
-| [`energetics.py`](../models/energetics.py) | barriers, reaction energies, ranking |
-| [`permeation.py`](../models/permeation.py) | solubility, permeability, flux, error propagation |
-| [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) | unwrapping, mean-squared displacement, fits |
-| [`*_workflow.py`](../models/) | generate and submit the per-material scripts |
-| [`lammps_script.py`](../models/lammps_script.py) | dynamics and minimisation input decks |
-| [`create_slurm.py`](../models/create_slurm.py) | job scripts, chaining, retries, sentinels |
-| [`parsers.py`](../models/parsers.py) | reading logs, dumps and trajectories |
-| [`plots/`](../models/plots/) | analysis and figures; shared run discovery |
+| [`config.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/config.py) | cluster paths, potential, and every numeric default |
+| [`materials.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/materials.py) | the material list, classification, skip rules |
+| [`structure.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/structure.py) | bulk cells, slabs, hydrogen insertion, freeze cutoff |
+| [`surface_graph.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/surface_graph.py) | surface layers, sites, graph, labels |
+| [`subsurface_graph.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/subsurface_graph.py) | Voronoi interstitials, classification |
+| [`neb_subsurface.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/neb_subsurface.py) | layer connections, hop final states, environment labels |
+| [`ase_neb.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/ase_neb.py) | band construction and two-phase relaxation |
+| [`vibrations.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/vibrations.py) | partial-Hessian scripts, mobile-set selection |
+| [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) | zero-point, prefactors, rates, quality census |
+| [`energetics.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/energetics.py) | barriers, reaction energies, ranking |
+| [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) | solubility, permeability, flux, error propagation |
+| [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) | unwrapping, mean-squared displacement, fits |
+| [`*_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/tree/main/MHI_Nickel/models/) | generate and submit the per-material scripts |
+| [`lammps_script.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/lammps_script.py) | dynamics and minimisation input decks |
+| [`create_slurm.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/create_slurm.py) | job scripts, chaining, retries, sentinels |
+| [`parsers.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/parsers.py) | reading logs, dumps and trajectories |
+| [`plots/`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/tree/main/MHI_Nickel/models/plots/) | analysis and figures; shared run discovery |
 
 > [!IMPORTANT]
 > A module named for a stage usually **generates** that stage rather than

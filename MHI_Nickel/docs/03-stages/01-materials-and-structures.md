@@ -15,7 +15,7 @@ results.
 |---|---|
 | **Inputs** | structure files in the input directory |
 | **Outputs** | absolute paths, a classification per material, and built bulk cells with hydrogen inserted |
-| **Code** | [`models/materials.py`](../../models/materials.py), [`models/structure.py`](../../models/structure.py) |
+| **Code** | [`models/materials.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/materials.py), [`models/structure.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/structure.py) |
 | **Theory** | [Part II §1](../02-theory.md#1-conventions) for naming |
 
 ## Concepts

@@ -12,7 +12,7 @@ everything else is built from.
 |---|---|
 | **Inputs** | initial/final state pairs from [Stage 5](05-adsorption-and-enumeration.md); the frozen-region cutoff from [Stage 2](02-slabs-and-relaxation.md) |
 | **Outputs** | a relaxed band per pathway, its barrier, reaction energy, convergence flag and final force; the saddle geometry |
-| **Code** | [`models/ase_neb.py`](../../models/ase_neb.py), [`models/neb_workflow.py`](../../models/neb_workflow.py) |
+| **Code** | [`models/ase_neb.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/ase_neb.py), [`models/neb_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/neb_workflow.py) |
 | **Theory** | [Part II §3](../02-theory.md#3-energetics) |
 | **Figures it writes** | `mep.png` per pathway; `neb_mep_overlay_*.png`; `neb_mep_full_pathway.png` — see [Appendix C2](../05-appendices.md#c2-figure-catalogue) |
 

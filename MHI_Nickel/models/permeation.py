@@ -7,12 +7,15 @@ Pipeline
 --------
 1. ``fick_flux``            — J = D (C0 − C_low) / L
 2. Richardson-Sieverts permeability:
+
    a. ``arrhenius_diffusivity``   — D(T) = D₀ exp(−E_D / k_B T)
    b. Solubility S₀ via three routes, all consuming the same per-environment
       ΔH_sol and differing only in the prefactor:
-        ``lattice_site_S0``       — S₀ = 4/a₀³/N_A  (geometric site density)
-        ``vibrational_S0``        — S₀ from partition functions
-        ``solubility_from_rates`` — S(T) from TST rates (detailed balance)
+
+      - ``lattice_site_S0``       — S₀ = 4/a₀³/N_A  (geometric site density)
+      - ``vibrational_S0``        — S₀ from partition functions
+      - ``solubility_from_rates`` — S(T) from TST rates (detailed balance)
+
    c. ``sieverts_solubility`` — S(T) = S₀ exp(−ΔH_sol / k_B T)
    d. ``permeability``        — Φ = D × S  [mol·m⁻¹·s⁻¹·Pa^(−½)]
    e. ``richardson_flux``     — J = Φ (√P_high − √P_low) / L
@@ -925,16 +928,17 @@ def resolve_nh_diffusivity(work_dir: str, stem: str, n_h: int) -> dict:
     Returns
     -------
     dict
-        ``nh_dir`` : str — ``results/{stem}_{n_h}H`` directory.
-        ``diff_file`` : str — path to ``diffusivity_arrhenius.json``.
-        ``ready`` : bool — True iff a valid (non-NaN) D0/Ea was found.
-        ``D0_m2s`` : float or None.
-        ``E_D_eV`` : float or None.
-        ``message`` : str or None — human-readable reason, set iff not ready.
-        ``dilute_note`` : str or None — set iff ready and ``n_h > 1``
-            (Sieverts'/Richardson's formulas assume dilute H; n_H > 1 is
-            not the dilute limit, so H-H interactions were present in the
-            MD box that produced this fit).
+
+        - ``nh_dir`` : str — ``results/{stem}_{n_h}H`` directory.
+        - ``diff_file`` : str — path to ``diffusivity_arrhenius.json``.
+        - ``ready`` : bool — True iff a valid (non-NaN) D0/Ea was found.
+        - ``D0_m2s`` : float or None.
+        - ``E_D_eV`` : float or None.
+        - ``message`` : str or None — human-readable reason, set iff not ready.
+        - ``dilute_note`` : str or None — set iff ready and ``n_h > 1``
+          (Sieverts'/Richardson's formulas assume dilute H; n_H > 1 is
+          not the dilute limit, so H-H interactions were present in the
+          MD box that produced this fit).
     """
     nh_dir = os.path.join(work_dir, 'results', f'{stem}_{n_h}H')
     diff_file = os.path.join(nh_dir, 'diffusivity_arrhenius.json')

@@ -17,7 +17,7 @@ shapes what they mean.
 |---|---|
 | **Inputs** | one LAMMPS data file per state (IS, TS, FS) from [Stage 6](06-neb.md); a trained interatomic potential |
 | **Outputs** | `vib_frequencies.json` per state; `vib.done` marker |
-| **Code** | [`models/vibrations.py`](../../models/vibrations.py) |
+| **Code** | [`models/vibrations.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/vibrations.py) |
 | **Runs on** | CPU — the single-point count is too small to saturate a GPU |
 | **Theory** | [Part II §4](../02-theory.md#4-vibrational-analysis) |
 

@@ -7,7 +7,7 @@ stage in between: **how do many things become one?**
 It is collected here rather than spread across the stage sections because the
 same question has twelve different answers, using six different mathematical
 operators, and the differences between them matter more than any single one.
-Each stage section in [`03-stages/`](03-stages/) links to its rung here instead
+Each stage section in [`03-stages/`](03-stages/README.md) links to its rung here instead
 of re-deriving the collapse.
 
 > [!NOTE]
@@ -53,18 +53,18 @@ dashed arrow is a cross-check, not an input.
 
 | # | from → to | operator | weight | code |
 |---|---|---|---|---|
-| A1 | atoms → surface sites | enumeration + graph | — | [`surface_graph.py`](../models/surface_graph.py) |
-| A2 | sites → environment labels | classification by neighbour shell | — | [`neb_subsurface.py`](../models/neb_subsurface.py) |
-| A3 | dissociation pathways → $\Delta H_{\mathrm{diss}}$ | arithmetic mean | uniform | [`permeation_workflow.py`](../models/permeation_workflow.py) |
-| A4 | entry pathways → $\Delta H_{\mathrm{entry}}(e)$ | arithmetic mean **within** $e$ | uniform within $e$ | [`permeation.py`](../models/permeation.py) |
-| A5 | environments → $S(T)$ | **Boltzmann-weighted sum** (T14) | $w_e$ | [`permeation.py`](../models/permeation.py) |
-| A6 | per-site rates → per-environment rates | arithmetic mean of rates | uniform within $e$ | [`tst_rates.py`](../models/tst_rates.py) |
-| A7 | per-environment rates → $\langle k_f/k_r\rangle$ | population-weighted mean of ratios | grid site counts | [`permeation.py`](../models/permeation.py) |
-| A8 | atoms + time origins → $\mathrm{MSD}(\tau)$ | **ensemble + time average** (T19) | uniform | [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) |
-| A9 | $\mathrm{MSD}(t)$ → $D(T)$ | linear regression, $\div 6$ (T20) | — | [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) |
-| A10 | $D(T)$ over $T$ → $D_0, E_D$ | log-space regression (T22a) | optionally $1/\sigma^2$ | [`diffusivity_post_processing.py`](../models/diffusivity_post_processing.py) |
-| A11 | $D \times S$ → $\Phi$ | **product** (T24) | — | [`permeation.py`](../models/permeation.py) |
-| A12 | $\Phi$ over loadings → headline | **selection**, not averaging | — | [`plots/permeability_plot.py`](../models/plots/permeability_plot.py) |
+| A1 | atoms → surface sites | enumeration + graph | — | [`surface_graph.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/surface_graph.py) |
+| A2 | sites → environment labels | classification by neighbour shell | — | [`neb_subsurface.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/neb_subsurface.py) |
+| A3 | dissociation pathways → $\Delta H_{\mathrm{diss}}$ | arithmetic mean | uniform | [`permeation_workflow.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation_workflow.py) |
+| A4 | entry pathways → $\Delta H_{\mathrm{entry}}(e)$ | arithmetic mean **within** $e$ | uniform within $e$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) |
+| A5 | environments → $S(T)$ | **Boltzmann-weighted sum** (T14) | $w_e$ | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) |
+| A6 | per-site rates → per-environment rates | arithmetic mean of rates | uniform within $e$ | [`tst_rates.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/tst_rates.py) |
+| A7 | per-environment rates → $\langle k_f/k_r\rangle$ | population-weighted mean of ratios | grid site counts | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) |
+| A8 | atoms + time origins → $\mathrm{MSD}(\tau)$ | **ensemble + time average** (T19) | uniform | [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) |
+| A9 | $\mathrm{MSD}(t)$ → $D(T)$ | linear regression, $\div 6$ (T20) | — | [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) |
+| A10 | $D(T)$ over $T$ → $D_0, E_D$ | log-space regression (T22a) | optionally $1/\sigma^2$ | [`diffusivity_post_processing.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/diffusivity_post_processing.py) |
+| A11 | $D \times S$ → $\Phi$ | **product** (T24) | — | [`permeation.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/permeation.py) |
+| A12 | $\Phi$ over loadings → headline | **selection**, not averaging | — | [`plots/permeability_plot.py`](https://github.com/Azeezakinyemi999/Molecular_Dynamics/blob/main/MHI_Nickel/models/plots/permeability_plot.py) |
 
 ---
 
