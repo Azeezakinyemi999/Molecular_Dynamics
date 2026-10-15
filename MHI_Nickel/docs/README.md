@@ -24,6 +24,7 @@ stage does, why it is done that way, and the equations behind it.
 | [Part I — Overview](01-overview.md) | what the workflow answers, how to run it, the stage map, assumptions and limits |
 | [Part II — Theory](02-theory.md) | every equation, definition and invariant, with units |
 | [Part II-B — The aggregation ladder](02b-aggregation.md) | how many quantities become one, at each of twelve points |
+| [Part II-C — Error propagation, as built](02c-error-propagation.md) | what the code actually does to every uncertainty, and where it diverges from Part II §10 |
 | [Part III — Stages](03-stages/) | one section per stage, eleven in all |
 | [Part IV — Practical](04-practical.md) | troubleshooting, adding a material, re-running, reproducibility, code map |
 | [Appendices](05-appendices.md) | notation, settings, output files, unit conversions, equation checks, glossary, references |
@@ -52,6 +53,7 @@ stage does, why it is done that way, and the equations behind it.
 | change a setting | [Appendix B](05-appendices.md#b-settings-reference), then the stage's design-choices section |
 | add a material | [Part IV §2](04-practical.md#2-adding-a-new-material) |
 | understand why an average was taken that way | [the aggregation ladder](02b-aggregation.md) |
+| know what a reported σ does and does not mean | [error propagation, as built](02c-error-propagation.md) |
 
 ### The shape of a stage section
 
