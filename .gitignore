@@ -107,3 +107,13 @@ Ni_hydrogen/calculation/pipeline_run.sh
 Ni_hydrogen/calculation/az.txt
 Ni_hydrogen/calculation/yes
 Ni_hydrogen/calculation/test.ipynb
+
+# ── Teaching decks (never commit) ────────────────────────────────────────────
+# docs/slides/ holds the six-season explainer series and everything that makes
+# it: the collect_s*.py data gatherers, the build_s*.py deck builders, the JSON
+# each deck is built from, the rendered .pptx files, and PowerPoint's ~$ lock
+# files. The .pptx are large build artifacts and the JSON is derived, so the
+# whole tree stays out of git and is regenerated on demand:
+#     collect_s<N>_*.py   (mace_env)        -> s<N>_*.json
+#     build_s<N>_*.py     (base anaconda)   -> s<N>_*.pptx
+Ni_hydrogen/docs/slides/
