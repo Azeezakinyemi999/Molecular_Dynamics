@@ -112,42 +112,89 @@ def write_lammps_data(
     return os.path.abspath(out_path)
 
 
+def _parse_lammps_masses_section(path: str) -> dict:
+    """Read a LAMMPS data file's own ``Masses`` section verbatim.
+
+    Returns ``{type_id: (mass, symbol)}`` using the file's *exact* type
+    numbers -- this is the authoritative type-ID assignment for that file,
+    since its ``Atoms`` section is already tagged with these same numbers.
+    Resolves each type's symbol from its trailing ``# <symbol>`` comment
+    (always present in files written by :func:`write_lammps_data`); a file
+    without one falls back to matching its mass against ASE's periodic
+    table -- the same inherently fuzzy fallback :func:`build_element_tables`
+    uses for a wholly new element.
+    """
+    with open(path) as f:
+        lines = f.readlines()
+    try:
+        start = next(i for i, l in enumerate(lines) if l.strip() == 'Masses') + 1
+    except StopIteration:
+        raise ValueError(
+            f'{path!r} has no Masses section -- its type-ID assignment '
+            'cannot be read. Use build_element_tables() with an explicit '
+            'element list instead.')
+
+    masses = {}
+    for line in lines[start:]:
+        stripped = line.strip()
+        if not stripped:
+            if masses:
+                break   # blank line after entries = end of section
+            continue    # blank line before entries = still looking for it
+        body, _, comment = stripped.partition('#')
+        parts = body.split()
+        if len(parts) < 2:
+            break
+        type_id, mass = int(parts[0]), float(parts[1])
+        symbol = comment.strip()
+        if not symbol:
+            from ase.data import atomic_masses, chemical_symbols
+            best_z = min(range(1, len(atomic_masses)),
+                         key=lambda z: abs(atomic_masses[z] - mass))
+            symbol = chemical_symbols[best_z]
+        masses[type_id] = (mass, symbol)
+    if not masses:
+        raise ValueError(f'{path!r}: Masses section is empty or unparsable.')
+    return masses
+
+
 def build_element_tables_from_structure(
     path: str,
     fmt: str | None = None,
     atom_style: str = 'atomic',
+    ensure_h: bool = True,
 ):
     """Derive (E2T, T2E, MASSES, ELEM_STR) directly from a structure file.
 
-    Reads ``path`` with ASE and builds the element tables from whatever
-    chemical symbols are actually present -- there is no element list to
-    type out and keep in sync with the file by hand.
+    Two kinds of input, handled differently, because only one of them
+    already has a type-ID system that must be respected:
 
-    Two kinds of input work:
-
-    * Any ASE-readable structure format (CIF, POSCAR, xyz, extxyz, ...) --
-      these formats carry real element symbols per atom, so detection is
-      exact.
-    * A ``.lammps`` data file with a real ``Masses`` section -- either one
-      written by this project's own :func:`write_lammps_data` (which
-      always records real masses, never a bare file without them), or one
-      written directly by LAMMPS itself (e.g. via ``write_data`` after a
-      relaxation). ASE resolves real element symbols from those mass
-      values on read; image flags, if present, are wrapped away (as every
-      other ``.lammps`` read in this module does) so the returned
-      structure's positions are safe to reuse too.
+    * A ``.lammps``/``.lmp`` data file already assigns each element a
+      specific numeric type, baked into its ``Atoms`` section -- a file
+      declaring Ni as type 7 has every Ni atom tagged ``7``, regardless of
+      whether types 1-6 are ever actually used (this project's bulk cells
+      are historically written against the full original 8/9-element table
+      even when only one or two of those elements are physically present).
+      Re-deriving fresh type numbers from only the elements physically
+      found would silently renumber Ni to type 1 while the file's own atoms
+      stay tagged ``7`` -- a mismatch LAMMPS either rejects outright or,
+      worse, could accept with the wrong species attached. So for this
+      format, the file's own ``Masses`` section is read verbatim via
+      :func:`_parse_lammps_masses_section` and used as-is, type IDs
+      unchanged.
+    * Any other ASE-readable format (CIF, POSCAR, xyz, extxyz, ...) has no
+      such pre-existing numbering -- these formats carry real element
+      symbols per atom but no LAMMPS type concept at all, so there is
+      nothing to preserve. Here, type IDs are assigned fresh: elements
+      alphabetically, H last (matching this project's ``E2T_7`` / ``E2T_10``
+      convention), reproducible across repeated detection on the same set
+      of elements.
 
     A third-party or hand-written LAMMPS data file with no ``Masses``
-    section, or placeholder (non-physical) mass values, can't be
-    detected this way -- ASE then has nothing to resolve symbols from.
-    Use :func:`models.config.build_element_tables` with an explicit
-    element list for a file like that.
-
-    Type IDs are assigned by a fixed rule, not by the order symbols
-    happen to appear in the file: alphabetical, with H always last
-    (matching the project's existing ``E2T_7`` / ``E2T_10`` convention).
-    That keeps type-ID assignment reproducible across re-runs of
-    detection on re-saved copies of the same structure.
+    section, or placeholder (non-physical) mass values and no element
+    comments, can't be read reliably either way -- use
+    :func:`models.config.build_element_tables` with an explicit element
+    list for a file like that.
 
     Parameters
     ----------
@@ -155,11 +202,23 @@ def build_element_tables_from_structure(
         Path to the structure file.
     fmt : str or None, optional
         ASE ``format=`` override. If ``None``, ASE guesses from the file
-        extension (works for CIF/POSCAR/xyz); a bare ``.lammps`` file is
-        detected by extension and read as ``'lammps-data'`` automatically.
+        extension (works for CIF/POSCAR/xyz); a bare ``.lammps`` or ``.lmp``
+        file is detected by extension and read as ``'lammps-data'``
+        automatically.
     atom_style : str, optional
         Passed through to ASE's LAMMPS data reader. Default ``'atomic'``
         (this project never writes any other atom style).
+    ensure_h : bool, optional
+        Reserve a type-ID slot for H even if the file/structure has none
+        yet. Default ``True``, since this project's bulk cells are read
+        *before* :func:`insert_hydrogen` adds any -- without this, a fresh
+        bulk structure would detect no H at all, and the resulting table
+        would have nowhere to put the H atoms inserted later. For the
+        LAMMPS-data path this is a no-op whenever the file already reserves
+        an H type (true for every structure this project has written so
+        far); otherwise H is appended as a new type one past the highest
+        existing one. Set ``False`` only for a structure that will never
+        have H added.
 
     Returns
     -------
@@ -170,9 +229,7 @@ def build_element_tables_from_structure(
         (via ``atoms.get_chemical_symbols()`` / ``get_positions()`` /
         ``cell.lengths()``) without reading the file a second time.
     """
-    from models.config import build_element_tables
-
-    if fmt is None and path.endswith('.lammps'):
+    if fmt is None and path.endswith(('.lammps', '.lmp')):
         fmt = 'lammps-data'
     read_kwargs = {'format': fmt} if fmt else {}
     if fmt == 'lammps-data':
@@ -182,16 +239,25 @@ def build_element_tables_from_structure(
     if fmt == 'lammps-data':
         # LAMMPS data files can carry image flags; ASE unwraps by them on
         # read, which can place atoms outside the box (see the project's
-        # image-flag unwrapping bug -- every other `.lammps` read site in
-        # this module wraps immediately after, for the same reason).
-        # Species/mass detection below is unaffected either way (wrapping
-        # only changes positions), but `atoms` is handed back for its
-        # positions too, so it must be wrapped before that happens.
+        # image-flag unwrapping bug -- every other `.lammps` read in this
+        # module wraps immediately after, for the same reason). `atoms` is
+        # handed back for its positions, so it must be wrapped before that.
         atoms.wrap()
 
+        MASSES = _parse_lammps_masses_section(path)
+        if ensure_h and not any(sym == 'H' for _, sym in MASSES.values()):
+            from models.config import build_element_tables
+            h_mass = build_element_tables(['H'])[2][1][0]
+            MASSES[max(MASSES) + 1] = (h_mass, 'H')
+        T2E = {t: sym for t, (_, sym) in MASSES.items()}
+        E2T = {sym: t for t, sym in T2E.items()}
+        ELEM_STR = ' '.join(T2E[t] for t in sorted(T2E))
+        return E2T, T2E, MASSES, ELEM_STR, atoms
+
+    from models.config import build_element_tables
     symbols_present = set(atoms.get_chemical_symbols())
     elements = sorted(s for s in symbols_present if s != 'H')
-    if 'H' in symbols_present:
+    if 'H' in symbols_present or ensure_h:
         elements.append('H')
     if not elements:
         raise ValueError(f'No atoms found in {path!r} -- nothing to detect.')
