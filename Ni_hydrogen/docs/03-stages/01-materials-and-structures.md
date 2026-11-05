@@ -28,6 +28,16 @@ it.
 It selects which element and mass table the generated scripts embed, and it
 routes slab construction in [Stage 2](02-slabs-and-relaxation.md).
 
+**Auto-detected tables.** Classification only ever chooses between the
+project's two built-in element/mass tables (`E2T_7`, `E2T_10`). A material
+whose elements fall outside both — a new alloy, say — needs
+`build_element_tables_from_structure` (in `structure.py`) instead: it reads
+the structure file with ASE and builds the table from whatever elements are
+actually present, rather than from a built-in set. Type IDs are assigned by a
+fixed rule — elements alphabetically, hydrogen last — not by the order
+elements happen to appear in the file, so re-detecting on a re-saved copy of
+the same structure always reproduces the same IDs.
+
 **Skip rule.** A reason a material is excluded from the **surface** half of the
 workflow. It does not exclude it from bulk diffusivity.
 
@@ -124,6 +134,20 @@ A fixed seed makes the choice reproducible, so re-running a material produces
 the same cell and results can be compared across runs rather than differing by
 placement.
 
+### Why element tables can also be detected from the structure
+
+The two built-in tables (`E2T_7`, `E2T_10`) were hand-typed once, which works
+for a fixed set of nine elements but does not extend to a new alloy the way
+adding a material does: a hand-typed element list for a new composition can
+quietly drift out of sync with the structure file as it is edited, with no
+error — just a mislabeled atom type once the generated scripts run.
+
+`build_element_tables_from_structure` removes that list. It derives the
+element set from the atoms in the file itself, so the table is reproducible
+by construction instead of something to keep correct by hand. It does not
+replace classification, which still decides *pure*/*alloy*/*oxide* slab
+routing — it is for a composition outside `E2T_7`/`E2T_10` altogether.
+
 ## Checks and failure modes
 
 | symptom | meaning | what to do |
@@ -131,6 +155,8 @@ placement.
 | a material has no results at all | it was never in the list, or it is skipped for the surface half | check the list and the skip reason, which is printed |
 | a material has bulk results but no surface ones | a skip rule applies to it | expected; the reason names the issue |
 | generated scripts embed the wrong element table | the classification is wrong for that stem | the classification is substring-based; rename the stem or extend the rule |
+| a new alloy's generated scripts have the wrong masses or species labels | its structure wasn't built with a matching element table | use `build_element_tables_from_structure` (or `build_element_tables` with an explicit list) and pass the result into the relevant generator — the `E2T_7`/`E2T_10` defaults do not cover it |
+| `build_element_tables_from_structure` can't identify an element | the file has no real `Masses` section, or placeholder mass values | use `build_element_tables` with an explicit element list instead |
 | hydrogen placement differs between runs | the seed changed | insertion is seeded for exactly this reason |
 | insertion fails to place the requested count | the separation constraints cannot be satisfied at that loading | lower the loading or the minimum separations |
 
