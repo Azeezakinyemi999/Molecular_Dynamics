@@ -15,6 +15,14 @@ Usage
         SLURM_DEFAULTS,
     )
     slurm_cfg = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
+
+For an element set outside the two built-in variants (E2T_7 / E2T_10),
+build your own with `build_element_tables`:
+
+    from models.config import build_element_tables
+    e2t, t2e, masses, elem_str = build_element_tables(
+        ['Fe', 'Mn', 'Ni', 'Ti', 'Zr', 'H']
+    )
 """
 
 # =============================================================================
@@ -81,48 +89,108 @@ PAIR_SUFFIX = '0'
 # =============================================================================
 # Section 3 — Element / mass tables
 # =============================================================================
-# _MASSES_ALL is the single source of truth for all 9 element types.
-# Slices E2T_7 / E2T_10 are derived from it — do not edit them independently.
+# _MASS_OVERRIDES pins the exact mass values this project has always used
+# for its original 9 elements, so existing LAMMPS data files and validated
+# runs never see so much as a trailing-digit change. Any element NOT in
+# this dict is looked up from ASE's atomic data instead -- MACE-MH-1
+# supports the full periodic table up to Pu, and ASE is already a hard
+# dependency elsewhere in this project (MACE_MODEL_ASE).
 #
-# Format:  type_id -> (atomic_mass_amu, element_symbol)
+# Format:  element_symbol -> atomic_mass_amu
 
-_MASSES_ALL = {
-    1: (26.9815, 'Al'),
-    2: (10.8110, 'B'),
-    3: (12.0110, 'C'),
-    4: (51.9961, 'Cr'),
-    5: (55.8450, 'Fe'),
-    6: (95.9600, 'Mo'),
-    7: (58.6934, 'Ni'),
-    8: (15.9990, 'O'),
-    9: ( 1.0080, 'H'),
+_MASS_OVERRIDES = {
+    'Al': 26.9815,
+    'B':  10.8110,
+    'C':  12.0110,
+    'Cr': 51.9961,
+    'Fe': 55.8450,
+    'Mo': 95.9600,
+    'Ni': 58.6934,
+    'O':  15.9990,
+    'H':   1.0080,
 }
+
+
+def build_element_tables(elements):
+    """Build (E2T, T2E, MASSES, ELEM_STR) for an ordered list of elements.
+
+    Type IDs are assigned by position, starting at 1 -- order matters,
+    since it fixes the LAMMPS atom type IDs embedded in every generated
+    data file, pair_coeff line, and already-written run script for a given
+    system. Reordering `elements` for a system that already has output
+    changes its type IDs and breaks compatibility with that output.
+
+    Mass values come from `_MASS_OVERRIDES` where available (the original
+    9 elements, byte-identical to this project's historical values) and
+    from ASE's atomic data otherwise -- ASE is only imported if a requested
+    element actually needs that fallback, so building the two variants
+    below does not add an ASE dependency to this module.
+
+    Parameters
+    ----------
+    elements : list of str
+        Element symbols in the desired type-ID order, e.g.
+        ``['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H']``.
+
+    Returns
+    -------
+    E2T : dict
+        ``{element_symbol: atom_type}``.
+    T2E : dict
+        ``{atom_type: element_symbol}``.
+    MASSES : dict
+        ``{atom_type: (mass_amu, element_symbol)}``.
+    ELEM_STR : str
+        Space-separated element symbols in type-ID order.
+    """
+    E2T = {sym: i for i, sym in enumerate(elements, start=1)}
+    T2E = {t: sym for sym, t in E2T.items()}
+    MASSES = {}
+    for sym, t in E2T.items():
+        if sym in _MASS_OVERRIDES:
+            mass = _MASS_OVERRIDES[sym]
+        else:
+            from ase.data import atomic_masses, atomic_numbers
+            if sym not in atomic_numbers:
+                raise KeyError(
+                    f"Unknown element symbol '{sym}' -- not in "
+                    "_MASS_OVERRIDES and not recognized by ASE's atomic data."
+                )
+            mass = atomic_masses[atomic_numbers[sym]]
+        MASSES[t] = (mass, sym)
+    ELEM_STR = ' '.join(elements)
+    return E2T, T2E, MASSES, ELEM_STR
+
 
 # --- Variant 7: 8-type system (no O) — surface, adsorption, NEB notebooks ---
-# Al B C Cr Fe Mo Ni H
-E2T_7 = {'Al': 1, 'B': 2, 'C': 3, 'Cr': 4,
-          'Fe': 5, 'Mo': 6, 'Ni': 7, 'H': 8}
-T2E_7 = {v: k for k, v in E2T_7.items()}
-# Remap H from type 9 → type 8 in the mass table
-MASSES_7 = {
-    1: _MASSES_ALL[1],   # Al
-    2: _MASSES_ALL[2],   # B
-    3: _MASSES_ALL[3],   # C
-    4: _MASSES_ALL[4],   # Cr
-    5: _MASSES_ALL[5],   # Fe
-    6: _MASSES_ALL[6],   # Mo
-    7: _MASSES_ALL[7],   # Ni
-    8: _MASSES_ALL[9],   # H  (type 8 in this variant)
-}
-ELEM_STR_7 = 'Al B C Cr Fe Mo Ni H'
+E2T_7, T2E_7, MASSES_7, ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H']
+)
 
 # --- Variant 10: 9-type system (with O) — equilibration + oxide notebooks ---
-# Al B C Cr Fe Mo Ni O H
-E2T_10 = {'Al': 1, 'B': 2, 'C': 3, 'Cr': 4,
-           'Fe': 5, 'Mo': 6, 'Ni': 7, 'O': 8, 'H': 9}
-T2E_10 = {v: k for k, v in E2T_10.items()}
-MASSES_10 = {i: _MASSES_ALL[i] for i in range(1, 10)}  # types 1-9, O at 8
-ELEM_STR_10 = 'Al B C Cr Fe Mo Ni O H'
+E2T_10, T2E_10, MASSES_10, ELEM_STR_10 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'O', 'H']
+)
+
+# Sanity check: the refactor above must reproduce the project's historical
+# hardcoded tables exactly (same type IDs, same mass values to the last
+# digit). If this ever fails, something about the original 9-element
+# tables changed -- fix the mismatch before using either variant.
+assert E2T_7 == {'Al': 1, 'B': 2, 'C': 3, 'Cr': 4,
+                  'Fe': 5, 'Mo': 6, 'Ni': 7, 'H': 8}
+assert MASSES_7 == {
+    1: (26.9815, 'Al'), 2: (10.8110, 'B'), 3: (12.0110, 'C'), 4: (51.9961, 'Cr'),
+    5: (55.8450, 'Fe'), 6: (95.9600, 'Mo'), 7: (58.6934, 'Ni'), 8: (1.0080, 'H'),
+}
+assert ELEM_STR_7 == 'Al B C Cr Fe Mo Ni H'
+assert E2T_10 == {'Al': 1, 'B': 2, 'C': 3, 'Cr': 4,
+                   'Fe': 5, 'Mo': 6, 'Ni': 7, 'O': 8, 'H': 9}
+assert MASSES_10 == {
+    1: (26.9815, 'Al'), 2: (10.8110, 'B'), 3: (12.0110, 'C'), 4: (51.9961, 'Cr'),
+    5: (55.8450, 'Fe'), 6: (95.9600, 'Mo'), 7: (58.6934, 'Ni'), 8: (15.9990, 'O'),
+    9: (1.0080, 'H'),
+}
+assert ELEM_STR_10 == 'Al B C Cr Fe Mo Ni O H'
 
 # =============================================================================
 # Section 4 — SLURM defaults

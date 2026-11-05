@@ -7,6 +7,9 @@ Functions
 ---------
 write_lammps_data
     Write a LAMMPS atomic-style data file from Python arrays.
+build_element_tables_from_structure
+    Derive element/mass tables directly from a structure file (no
+    manually typed element list).
 get_lattice_parameter
     Extract a₀ from a minimized LAMMPS data file.
 build_alloy_bulk
@@ -107,6 +110,94 @@ def write_lammps_data(
             f.write(f'{i}  {e2t[sym]}  {p[0]:.10f}  {p[1]:.10f}  {p[2]:.10f}\n')
 
     return os.path.abspath(out_path)
+
+
+def build_element_tables_from_structure(
+    path: str,
+    fmt: str | None = None,
+    atom_style: str = 'atomic',
+):
+    """Derive (E2T, T2E, MASSES, ELEM_STR) directly from a structure file.
+
+    Reads ``path`` with ASE and builds the element tables from whatever
+    chemical symbols are actually present -- there is no element list to
+    type out and keep in sync with the file by hand.
+
+    Two kinds of input work:
+
+    * Any ASE-readable structure format (CIF, POSCAR, xyz, extxyz, ...) --
+      these formats carry real element symbols per atom, so detection is
+      exact.
+    * A ``.lammps`` data file with a real ``Masses`` section -- either one
+      written by this project's own :func:`write_lammps_data` (which
+      always records real masses, never a bare file without them), or one
+      written directly by LAMMPS itself (e.g. via ``write_data`` after a
+      relaxation). ASE resolves real element symbols from those mass
+      values on read; image flags, if present, are wrapped away (as every
+      other ``.lammps`` read in this module does) so the returned
+      structure's positions are safe to reuse too.
+
+    A third-party or hand-written LAMMPS data file with no ``Masses``
+    section, or placeholder (non-physical) mass values, can't be
+    detected this way -- ASE then has nothing to resolve symbols from.
+    Use :func:`models.config.build_element_tables` with an explicit
+    element list for a file like that.
+
+    Type IDs are assigned by a fixed rule, not by the order symbols
+    happen to appear in the file: alphabetical, with H always last
+    (matching the project's existing ``E2T_7`` / ``E2T_10`` convention).
+    That keeps type-ID assignment reproducible across re-runs of
+    detection on re-saved copies of the same structure.
+
+    Parameters
+    ----------
+    path : str
+        Path to the structure file.
+    fmt : str or None, optional
+        ASE ``format=`` override. If ``None``, ASE guesses from the file
+        extension (works for CIF/POSCAR/xyz); a bare ``.lammps`` file is
+        detected by extension and read as ``'lammps-data'`` automatically.
+    atom_style : str, optional
+        Passed through to ASE's LAMMPS data reader. Default ``'atomic'``
+        (this project never writes any other atom style).
+
+    Returns
+    -------
+    E2T, T2E, MASSES, ELEM_STR
+        See :func:`models.config.build_element_tables`.
+    atoms : ase.Atoms
+        The structure as read, ready to hand to :func:`write_lammps_data`
+        (via ``atoms.get_chemical_symbols()`` / ``get_positions()`` /
+        ``cell.lengths()``) without reading the file a second time.
+    """
+    from models.config import build_element_tables
+
+    if fmt is None and path.endswith('.lammps'):
+        fmt = 'lammps-data'
+    read_kwargs = {'format': fmt} if fmt else {}
+    if fmt == 'lammps-data':
+        read_kwargs['atom_style'] = atom_style
+
+    atoms = read(path, **read_kwargs)
+    if fmt == 'lammps-data':
+        # LAMMPS data files can carry image flags; ASE unwraps by them on
+        # read, which can place atoms outside the box (see the project's
+        # image-flag unwrapping bug -- every other `.lammps` read site in
+        # this module wraps immediately after, for the same reason).
+        # Species/mass detection below is unaffected either way (wrapping
+        # only changes positions), but `atoms` is handed back for its
+        # positions too, so it must be wrapped before that happens.
+        atoms.wrap()
+
+    symbols_present = set(atoms.get_chemical_symbols())
+    elements = sorted(s for s in symbols_present if s != 'H')
+    if 'H' in symbols_present:
+        elements.append('H')
+    if not elements:
+        raise ValueError(f'No atoms found in {path!r} -- nothing to detect.')
+
+    E2T, T2E, MASSES, ELEM_STR = build_element_tables(elements)
+    return E2T, T2E, MASSES, ELEM_STR, atoms
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
