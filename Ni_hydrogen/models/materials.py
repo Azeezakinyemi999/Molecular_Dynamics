@@ -6,15 +6,23 @@ each one is classified.
 
 Why this module exists
 ----------------------
-This list used to be typed out four times -- once in each of the three
-``calculation/tools/regenerate_*_scripts.py`` and once in
+The material list used to be typed out four times -- once in each of the
+three ``calculation/tools/regenerate_*_scripts.py`` and once in
 ``calculation/pipeline.ipynb`` -- along with a copy of ``classify_metal`` and
 the surface-skip rules. Nothing kept the copies in agreement, so adding a
 material meant four correct edits and missing one failed *silently*: the part
 whose list you forgot simply never generated a script for your metal, and you
 would only notice when its results were absent.
 
-Add a material in ONE place: append to :data:`INPUT_STRUCTURE_FILES`.
+Add a material by dropping its ``.lammps``/``.lmp`` file into
+``calculation/input_structure/`` -- :func:`input_structures` scans that
+directory, so there is no list to edit or keep in sync. This trades the old
+failure mode (a forgotten edit silently omits a material) for the opposite
+one (anything left in that directory is silently included), so keep
+``input_structure/`` limited to structures actually meant for this pipeline
+-- not slabs, notebooks, or one-off work files. If that stops being realistic
+for how that folder gets used, scope the scan to a dedicated subfolder (e.g.
+``input_structure/bulk/``) instead of reverting to a maintained list.
 
 Scope note: the skip rules below apply to the SURFACE work (Part 1 surface NEB
 and Part 2 permeation). Part 3 (bulk diffusivity) runs for every structure,
@@ -27,28 +35,17 @@ from __future__ import annotations
 import json
 import os
 
-# ---------------------------------------------------------------------------
-# The materials
-# ---------------------------------------------------------------------------
-# File names as they appear in calculation/input_structure/. Add new materials
-# here and nowhere else.
-INPUT_STRUCTURE_FILES = [
-    'Hastelloy_N_7_supercell.lammps',
-    'Cr_oxide_supercell.lammps',
-    'Hastelloy_N_42_supercell.lammps',
-    'Hastelloy_N_111_supercell.lammps',
-    'Hastelloy_N_1234_supercell.lammps',
-    'Hastelloy_N_12345_supercell.lammps',
-    'Al_supercell.lammps',
-    'Fe_supercell.lammps',
-    'Ni_supercell.lammps',
-    'bestsqs3.lmp',
-    'Ni_oxide_supercell.lammps',
-]
+# Extensions this project writes structure data in. Anything else sitting in
+# input_structure/ (notebooks, .vasp/.xyz reference copies, etc.) is ignored.
+_STRUCTURE_EXTENSIONS = ('.lammps', '.lmp')
 
 
 def input_structures(work_dir: str) -> list:
     """Absolute paths to every input structure, under ``work_dir``.
+
+    Scans ``work_dir/input_structure/`` for files ending in
+    :data:`_STRUCTURE_EXTENSIONS`, sorted for a deterministic, reproducible
+    order run to run.
 
     Parameters
     ----------
@@ -56,8 +53,12 @@ def input_structures(work_dir: str) -> list:
         The ``calculation/`` directory (normally ``os.path.join(BASE_DIR,
         'calculation')``).
     """
-    return [os.path.join(work_dir, 'input_structure', f)
-            for f in INPUT_STRUCTURE_FILES]
+    structure_dir = os.path.join(work_dir, 'input_structure')
+    paths = [
+        os.path.join(structure_dir, f) for f in os.listdir(structure_dir)
+        if f.endswith(_STRUCTURE_EXTENSIONS)
+    ]
+    return sorted(paths)
 
 
 def stem_of(path: str) -> str:
