@@ -608,7 +608,12 @@ for _n_h in N_H_VALUES:
                       f'will be missing from the Arrhenius fit.')
             continue
         _D_T  = arrhenius_diffusivity(_D0_nh, _ED_nh, _T)
-        _a0_T6 = _a0_dict.get(_T, A0_M)
+        if _T in _a0_dict:
+            _a0_T6 = _a0_dict[_T]
+        else:
+            _a0_T6 = A0_M
+            print(f'    WARNING: no measured lattice parameter for T={_T:4.0f} K '
+                  f'in lattice_params_vs_T.json -- using fixed A0_M={A0_M} m')
         _kBT6  = _KB_EV * _T
 
         # per-T rates for the rate-based route (detailed balance),
