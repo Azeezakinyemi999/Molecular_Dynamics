@@ -41,13 +41,16 @@ sys.path.insert(0, _root)
 from models.config import (
     PAIR_STYLE, MACE_MODEL_LAMMPS, PAIR_SUFFIX, LAMMPS_CMD, KOKKOS_FLAGS,
     ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
-    SLURM_DEFAULTS, BASE_DIR, N_REPLICAS, SPRING_CONST, NEB_FTOL,
+    SLURM_DEFAULTS, N_REPLICAS, SPRING_CONST, NEB_FTOL,
 )
 from models.materials import input_structures, classify_metal, skip_surface_reason
 from models.neb_workflow import write_neb_run_script, calculate_ref_adsorbate_energy
 
 # ── cell 5 (Part 1 + metal classification + E_H2_GAS) ───────────────────────
-WORK_DIR = os.path.join(BASE_DIR, 'calculation')
+# Self-locating: this script lives in <work_dir>/tools/, so its own location
+# (not BASE_DIR + a hardcoded name) finds the work directory -- rename or
+# move it freely alongside the script.
+WORK_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MILLER         = (1, 1, 1)
 LAYERS         = 12

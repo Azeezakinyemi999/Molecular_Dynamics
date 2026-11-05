@@ -40,13 +40,16 @@ while _root != os.path.dirname(_root) and not os.path.isdir(os.path.join(_root, 
 sys.path.insert(0, _root)
 
 from models.config import (
-    SLURM_DEFAULTS, BASE_DIR, N_REPLICAS, SPRING_CONST, NEB_FTOL,
+    SLURM_DEFAULTS, N_REPLICAS, SPRING_CONST, NEB_FTOL,
     ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
 )
 from models.materials import input_structures, classify_metal, skip_surface_reason
 from models.permeation_workflow import generate_permeation_scripts
 
-WORK_DIR = os.path.join(BASE_DIR, 'calculation')
+# Self-locating: this script lives in <work_dir>/tools/, so its own location
+# (not BASE_DIR + a hardcoded name) finds the work directory -- rename or
+# move it freely alongside the script.
+WORK_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ── numeric config (mirrors the deployed permeation_run_*.py headers) ────────
 # Candidate grid, not the final one. generate_permeation_scripts narrows it

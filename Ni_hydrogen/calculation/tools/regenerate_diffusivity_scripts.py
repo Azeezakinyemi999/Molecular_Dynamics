@@ -45,14 +45,16 @@ sys.path.insert(0, _root)
 
 from models.config import (
     ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
-    BASE_DIR,
 )
 from models.materials import (input_structures, classify_metal,
                               usable_temperatures, dropped_temperatures,
                               melting_point_K, MAX_HOMOLOGOUS_T)
 from models.diffusivity_workflow import write_diffusivity_run_script
 
-WORK_DIR = os.path.join(BASE_DIR, 'calculation')
+# Self-locating: this script lives in <work_dir>/tools/, so its own location
+# (not BASE_DIR + a hardcoded name) finds the work directory -- rename or
+# move it freely alongside the script.
+WORK_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ── Verbatim from regenerate_diffusivity_script.py ───────────────────────────
 INPUT_STRUCTURES = input_structures(WORK_DIR)
