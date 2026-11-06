@@ -38,6 +38,10 @@ for _m in ('matplotlib', 'matplotlib.pyplot', 'matplotlib.patches',
 from models.ase_neb import write_ase_neb_script, run_neb_pipeline
 from models.diffusivity_workflow import generate_diffusivity_scripts
 from models.permeation_workflow import generate_permeation_scripts
+from models.config import build_element_tables
+
+_E2T_7, _T2E_7, _MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 
 # ─── shared dummy config ──────────────────────────────────────────────────────
@@ -50,6 +54,8 @@ _DUMMY = dict(
     mace_model_path='/cluster/models/mace.model',
     barrier_file='/cluster/neb/neb_barrier.txt',
     path_file='/cluster/neb/neb_path.dat',
+    masses=_MASSES_7,
+    e2t=_E2T_7,
 )
 
 _DIFF_CFG = dict(
@@ -94,6 +100,9 @@ _PERM_CFG = dict(
     n_images=18,
     spring_const=1.0,
     neb_ftol=0.05,
+    elem_str=_ELEM_STR_7,
+    e2t=_E2T_7,
+    masses=_MASSES_7,
 )
 
 
