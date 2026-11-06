@@ -122,12 +122,15 @@ from ase.build import bulk as ase_bulk
 from ase.build import fcc111
 
 from models.config import (
-    E2T_7, MASSES_7, ELEM_STR_7,
+    build_element_tables,
     SLURM_DEFAULTS, LAMMPS_CMD,
     MACE_MODEL_LAMMPS, PAIR_STYLE, PAIR_SUFFIX,
     KOKKOS_FLAGS, ADS_MIN_ETOL, ADS_MIN_FTOL, ADS_MIN_MAXITER, ADS_MIN_MAXEVAL,
     SPRING_CONST,
 )
+
+E2T_7, _T2E_7, MASSES_7, ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 from models.structure import write_lammps_data, compute_z_freeze_cutoff
 from models.lammps_script import write_adsorbate_min_script
 from models.create_slurm import write_slurm_job, submit_slurm_job, wait_for_jobs
@@ -682,6 +685,9 @@ def stage6_diffusivity(work_dir: str) -> dict:
         restart_every=DIFF_RESTART_EVERY,
         npt_heat_steps=DIFF_NPT_HEAT,
         npt_prod_steps=DIFF_NPT_PROD,
+        metal_table={struct_stem: {
+            'elem_str': ELEM_STR_7, 'e2t': E2T_7, 'masses': MASSES_7,
+        }},
         out_py=out_py,
     )
     _check('diffusivity_run_py_written', _exists(out_py), out_py)
