@@ -11,13 +11,14 @@ Usage
 -----
     from models.config import (
         LAMMPS_CMD, MACE_MODEL_LAMMPS, KOKKOS_FLAGS,
-        E2T_7, MASSES_7, ELEM_STR_7,
         SLURM_DEFAULTS,
     )
     slurm_cfg = {**SLURM_DEFAULTS, 'partition': 'multigpu', 'time': '06:00:00'}
 
-For an element set outside the two built-in variants (E2T_7 / E2T_10),
-build your own with `build_element_tables`:
+There is no fixed built-in element table. Build one with `build_element_tables`
+for a synthetic/known list, or -- for anything read from a structure file --
+with `build_element_tables_from_structure` (models/structure.py), which
+preserves whatever type IDs the file's own Masses section already uses:
 
     from models.config import build_element_tables
     e2t, t2e, masses, elem_str = build_element_tables(
@@ -162,35 +163,16 @@ def build_element_tables(elements):
     return E2T, T2E, MASSES, ELEM_STR
 
 
-# --- Variant 7: 8-type system (no O) — surface, adsorption, NEB notebooks ---
-E2T_7, T2E_7, MASSES_7, ELEM_STR_7 = build_element_tables(
-    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H']
-)
-
-# --- Variant 10: 9-type system (with O) — equilibration + oxide notebooks ---
-E2T_10, T2E_10, MASSES_10, ELEM_STR_10 = build_element_tables(
-    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'O', 'H']
-)
-
-# Sanity check: the refactor above must reproduce the project's historical
-# hardcoded tables exactly (same type IDs, same mass values to the last
-# digit). If this ever fails, something about the original 9-element
-# tables changed -- fix the mismatch before using either variant.
-assert E2T_7 == {'Al': 1, 'B': 2, 'C': 3, 'Cr': 4,
-                  'Fe': 5, 'Mo': 6, 'Ni': 7, 'H': 8}
-assert MASSES_7 == {
-    1: (26.9815, 'Al'), 2: (10.8110, 'B'), 3: (12.0110, 'C'), 4: (51.9961, 'Cr'),
-    5: (55.8450, 'Fe'), 6: (95.9600, 'Mo'), 7: (58.6934, 'Ni'), 8: (1.0080, 'H'),
-}
-assert ELEM_STR_7 == 'Al B C Cr Fe Mo Ni H'
-assert E2T_10 == {'Al': 1, 'B': 2, 'C': 3, 'Cr': 4,
-                   'Fe': 5, 'Mo': 6, 'Ni': 7, 'O': 8, 'H': 9}
-assert MASSES_10 == {
-    1: (26.9815, 'Al'), 2: (10.8110, 'B'), 3: (12.0110, 'C'), 4: (51.9961, 'Cr'),
-    5: (55.8450, 'Fe'), 6: (95.9600, 'Mo'), 7: (58.6934, 'Ni'), 8: (15.9990, 'O'),
-    9: (1.0080, 'H'),
-}
-assert ELEM_STR_10 == 'Al B C Cr Fe Mo Ni O H'
+# No fixed built-in table (the old 8-type ELEM_STR_7 / 9-type ELEM_STR_10
+# variants, Al-B-C-Cr-Fe-Mo-Ni(-O)-H, were removed -- every call site now
+# gets its element table from the structure it's actually working with, via
+# build_element_tables_from_structure (models/structure.py) for anything
+# read from a file, or a direct build_element_tables([...]) call for a
+# synthetic system that has no structure file, e.g. the isolated-H2 gas
+# reference. Verified empirically (calculation/tools/verify_padded_species_mace.py)
+# that padding a pair_coeff with species unused by any atom in the box has
+# no effect on MACE-MH-1's computed energy/forces, so a minimal table is
+# always safe to use in place of a historical, often-irrelevant larger one.
 
 # =============================================================================
 # Section 4 — SLURM defaults
