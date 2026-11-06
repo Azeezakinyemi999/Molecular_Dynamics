@@ -24,7 +24,6 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
 from models.materials import (
-    INPUT_STRUCTURE_FILES,
     SKIP_SURFACE_STEMS,
     classify_metal,
     input_structures,
@@ -70,22 +69,49 @@ class TestClassifyMetal:
 
 
 class TestInputStructures:
-    def test_paths_are_under_input_structure(self):
-        for p in input_structures('/w'):
-            assert p.startswith(os.path.join('/w', 'input_structure'))
+    """input_structures() scans work_dir/input_structure/ -- drop a
+    .lammps/.lmp file in and it's picked up, no list to maintain. These tests
+    build a real directory under tmp_path rather than asserting against a
+    maintained list, since there no longer is one."""
 
-    def test_one_path_per_declared_file(self):
-        assert len(input_structures('/w')) == len(INPUT_STRUCTURE_FILES)
+    def _make_structure_dir(self, tmp_path, names):
+        structure_dir = tmp_path / 'input_structure'
+        structure_dir.mkdir()
+        for name in names:
+            (structure_dir / name).write_text('dummy')
+        return str(tmp_path)
 
-    def test_every_declared_file_exists_on_disk(self):
-        """A name in the list with no file behind it would fail far downstream,
-        in a generated script, instead of here."""
+    def test_paths_are_under_input_structure(self, tmp_path):
+        wd = self._make_structure_dir(tmp_path, ['A_supercell.lammps', 'bestsqs3.lmp'])
+        for p in input_structures(wd):
+            assert p.startswith(os.path.join(wd, 'input_structure'))
+
+    def test_one_path_per_structure_file(self, tmp_path):
+        names = ['A_supercell.lammps', 'B_supercell.lammps', 'bestsqs3.lmp']
+        wd = self._make_structure_dir(tmp_path, names)
+        assert len(input_structures(wd)) == len(names)
+
+    def test_non_structure_files_are_ignored(self, tmp_path):
+        """Only .lammps/.lmp are picked up -- a stray notebook or reference
+        copy sitting in the same directory must not be swept in."""
+        wd = self._make_structure_dir(
+            tmp_path, ['A_supercell.lammps', 'notes.txt', 'slab.vasp'])
+        found = input_structures(wd)
+        assert len(found) == 1
+        assert found[0].endswith('A_supercell.lammps')
+
+    def test_sorted_for_a_reproducible_order(self, tmp_path):
+        wd = self._make_structure_dir(
+            tmp_path, ['Z_supercell.lammps', 'A_supercell.lammps'])
+        assert input_structures(wd) == sorted(input_structures(wd))
+
+    def test_every_real_input_structure_exists_on_disk(self):
+        """Every path this project's own input_structure/ scan returns must
+        point at a real file -- a name with no file behind it would fail far
+        downstream, in a generated script, instead of here."""
         wd = os.path.join(PROJECT_ROOT, 'calculation')
         missing = [p for p in input_structures(wd) if not os.path.exists(p)]
-        assert not missing, f'declared but absent: {missing}'
-
-    def test_no_duplicate_entries(self):
-        assert len(INPUT_STRUCTURE_FILES) == len(set(INPUT_STRUCTURE_FILES))
+        assert not missing, f'listed but absent: {missing}'
 
 
 class TestSkipSurfaceReason:
@@ -190,9 +216,9 @@ class TestTemperatureCeiling:
 
     def test_every_input_structure_has_a_melting_point(self):
         """Adding a material without one leaves its grid uncapped, silently."""
-        from models.materials import INPUT_STRUCTURE_FILES, melting_point_K
-        missing = [f for f in INPUT_STRUCTURE_FILES
-                   if melting_point_K(f) is None]
+        from models.materials import melting_point_K
+        wd = os.path.join(PROJECT_ROOT, 'calculation')
+        missing = [f for f in input_structures(wd) if melting_point_K(f) is None]
         assert not missing, (
             'no melting point recorded for: ' + ', '.join(missing) +
             ' — add one to models.materials.MELTING_POINT_K, or its '
