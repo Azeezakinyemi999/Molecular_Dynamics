@@ -117,3 +117,7 @@ Ni_hydrogen/calculation/test.ipynb
 #     collect_s<N>_*.py   (mace_env)        -> s<N>_*.json
 #     build_s<N>_*.py     (base anaconda)   -> s<N>_*.pptx
 Ni_hydrogen/docs/slides/
+
+# Docs build output: the Sphinx HTML and matplotlib's cache for the docs figures
+Ni_hydrogen/docs/_build/
+Ni_hydrogen/docs/.mplcache/
