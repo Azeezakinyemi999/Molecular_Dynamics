@@ -31,6 +31,7 @@ Usage
     python models/plots/postprocess.py --stem Ni_supercell
     python models/plots/postprocess.py --all
     python models/plots/postprocess.py --all --include-1h
+    python models/plots/postprocess.py --stem Ni_supercell --no-report
 """
 from __future__ import annotations
 
@@ -161,12 +162,14 @@ def _argv(kind, stem, outdir, include_1h):
 
 # ── the entry point ─────────────────────────────────────────────────────────
 def postprocess(stem, results_dir=DEFAULT_RESULTS_DIR, outdir=None,
-                include_1h=False, calc_dir=None, verbose=False):
-    """Plot, then export, for one material. Returns a report dict.
+                include_1h=False, calc_dir=None, verbose=False, report=True):
+    """Plot, then export, then build the PDF report, for one material. Returns a
+    report dict.
 
     Ordering is enforced here rather than left to whoever runs it: the export
     COPIES figures, so plotting has to happen first or the export quietly
-    produces a folder with none.
+    produces a folder with none; the report reads only the export, so it comes
+    last. Without LaTeX the report stage writes its .tex and still succeeds.
     """
     outdir = outdir or os.path.join(results_dir, 'plots')
     os.makedirs(outdir, exist_ok=True)
@@ -197,6 +200,14 @@ def postprocess(stem, results_dir=DEFAULT_RESULTS_DIR, outdir=None,
     else:
         rep['skipped'].append(('export_results',
                                'nothing produced yet for this material'))
+
+    # the report, from the export just written
+    if report and 'export_results' in rep['ran']:
+        ok, err = _run('report', ['--export-dir', os.path.join(results_dir, 'export', stem)],
+                       verbose)
+        (rep['ran'] if ok else rep['failed']).append('report' if ok else ('report', err))
+    elif report:
+        rep['skipped'].append(('report', 'no export to build it from'))
     return rep
 
 
@@ -227,6 +238,8 @@ def main(argv=None):
                     help='keep single-H runs, excluded by default')
     ap.add_argument('--verbose', action='store_true',
                     help='show each script output and full tracebacks')
+    ap.add_argument('--no-report', action='store_true',
+                    help='do not build the PDF report after the export')
     a = ap.parse_args(argv)
 
     stems = (discover_stems(a.results_dir) if a.all else [a.stem])
@@ -234,7 +247,7 @@ def main(argv=None):
     reps = []
     for st in stems:
         rep = postprocess(st, a.results_dir, a.outdir, a.include_1h,
-                          verbose=a.verbose)
+                          verbose=a.verbose, report=not a.no_report)
         print_report(rep); print()
         reps.append(rep)
 
