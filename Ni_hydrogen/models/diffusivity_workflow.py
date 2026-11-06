@@ -173,7 +173,6 @@ sys.path.insert(0, os.path.dirname(WORK_DIR))
 from models.config import (
     LAMMPS_CMD, MACE_MODEL_LAMMPS, KOKKOS_FLAGS,
     PAIR_STYLE, PAIR_SUFFIX,
-    E2T_7, MASSES_7, ELEM_STR_7,
     SLURM_DEFAULTS,
 )
 from models.structure import get_lattice_parameter_from_dump, insert_hydrogen
@@ -228,10 +227,6 @@ _FAILURES = []
 # ── main loop ─────────────────────────────────────────────────────────────────
 for struct_path in INPUT_STRUCTURES:
     struct_stem = os.path.splitext(os.path.basename(struct_path))[0]
-    _cfg      = METAL_TABLE.get(struct_stem, {})
-    _ELEM_STR = _cfg.get('elem_str', ELEM_STR_7)
-    _E2T      = _cfg.get('e2t',      E2T_7)
-    _MASSES   = _cfg.get('masses',   MASSES_7)
 
     # ── Shared, n_H-independent: Phase 1a (bare-bulk min) + Phase 1b Step A
     # (NPT) ── Both happen before any H is inserted, so they must run once
@@ -240,6 +235,18 @@ for struct_path in INPUT_STRUCTURES:
     # per H-concentration). min_bare_out reuses pipeline.ipynb's
     # pre-pipeline bulk_min_{stem}.lammps if it already exists.
     try:
+        if struct_stem not in METAL_TABLE:
+            raise KeyError(
+                f'{struct_stem}: no entry in METAL_TABLE -- no default '
+                'element table. Build one from the structure (e.g. '
+                'build_element_tables_from_structure) and include it in '
+                'metal_table.'
+            )
+        _cfg      = METAL_TABLE[struct_stem]
+        _ELEM_STR = _cfg['elem_str']
+        _E2T      = _cfg['e2t']
+        _MASSES   = _cfg['masses']
+
         print(f'\n{"="*60}')
         print(f'  Structure : {struct_stem}   (shared bare-bulk + NPT, all n_H)')
         print(f'{"="*60}')
@@ -804,13 +811,12 @@ def write_diffusivity_run_script(
             f'{stem}: every requested temperature is above the melting '
             f'ceiling — nothing left to run.')
     print(f'  [temperatures] {stem}: {list(temperatures)}')
-    from models.config import MASSES_7, E2T_7, ELEM_STR_7
-    if elem_str is None:
-        elem_str = ELEM_STR_7
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
 
     if short_gpu_cutoff is None:
         _h, _m, _s = map(int, short_gpu_time.split(':'))
