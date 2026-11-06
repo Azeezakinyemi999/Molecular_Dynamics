@@ -635,8 +635,8 @@ def orchestrate_hopa_neb(
         Output of models.subsurface_graph.connect_to_surface.
     outdir : str
         Base output directory; job dirs go to {outdir}/hopa/{sid}/.
-    masses : dict, optional  (defaults to MASSES_7)
-    e2t    : dict, optional  (defaults to E2T_7)
+    masses : dict  — required, no default table.
+    e2t    : dict  — required, no default table.
     slurm_opts     : GPU SLURM config for LAMMPS FS-min. Defaults to multigpu.
     neb_slurm_opts : CPU SLURM config for ASE NEB. Defaults to short, no GPU.
     n_images, spring_const, neb_ftol : NEB parameters.
@@ -654,19 +654,19 @@ def orchestrate_hopa_neb(
     """
     from models.config import (
         SLURM_DEFAULTS, LAMMPS_CMD, MACE_MODEL_LAMMPS, MACE_MODEL_ASE,
-        PAIR_STYLE, PAIR_SUFFIX, ELEM_STR_7, KOKKOS_FLAGS,
-        MASSES_7, E2T_7, Z_FREEZE_CUTOFF, FTOL,
+        PAIR_STYLE, PAIR_SUFFIX, KOKKOS_FLAGS,
+        Z_FREEZE_CUTOFF, FTOL,
     )
     from models.lammps_script import write_adsorbate_min_script
     from models.ase_neb import run_neb_pipeline
     from models.create_slurm import write_slurm_job, write_chained_slurm_job
 
-    if masses is None:
-        masses = MASSES_7
-    if e2t is None:
-        e2t = E2T_7
-    if elem_str is None:
-        elem_str = ELEM_STR_7
+    if masses is None or e2t is None or elem_str is None:
+        raise ValueError(
+            'masses/e2t/elem_str are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
     if neb_slurm_opts is None:
@@ -973,20 +973,20 @@ def orchestrate_hopb_neb(
     """
     from models.config import (
         SLURM_DEFAULTS, LAMMPS_CMD, MACE_MODEL_LAMMPS, MACE_MODEL_ASE,
-        PAIR_STYLE, PAIR_SUFFIX, ELEM_STR_7, KOKKOS_FLAGS,
-        MASSES_7, E2T_7, Z_FREEZE_CUTOFF, FTOL,
+        PAIR_STYLE, PAIR_SUFFIX, KOKKOS_FLAGS,
+        Z_FREEZE_CUTOFF, FTOL,
     )
     from models.lammps_script import write_adsorbate_min_script
     from models.ase_neb import run_neb_pipeline
     from models.create_slurm import write_slurm_job, write_chained_slurm_job
     from models.parsers import parse_energy_log
 
-    if masses is None:
-        masses = MASSES_7
-    if e2t is None:
-        e2t = E2T_7
-    if elem_str is None:
-        elem_str = ELEM_STR_7
+    if masses is None or e2t is None or elem_str is None:
+        raise ValueError(
+            'masses/e2t/elem_str are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
     if neb_slurm_opts is None:
