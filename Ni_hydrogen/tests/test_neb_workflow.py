@@ -36,6 +36,10 @@ from models.neb_workflow import (
     collect_neb_results,
     calculate_ref_adsorbate_energy,
 )
+from models.config import build_element_tables
+
+_E2T_7, _T2E_7, _MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 
 # ── shared config ────────────────────────────────────────────────────────────
@@ -59,6 +63,9 @@ _NEB_CFG = dict(
     spring_const=1.0,
     neb_ftol=0.05,
     h_height=1.5,
+    elem_str=_ELEM_STR_7,
+    e2t=_E2T_7,
+    masses=_MASSES_7,
     gpu_slurm_cfg={'partition': 'multigpu', 'time': '24:00:00'},
     neb_slurm_cfg={'partition': 'short', 'time': '12:00:00'},
 )
@@ -317,6 +324,7 @@ class TestWriteNebRunScript:
 
         orchestrate_full_neb_workflow(
             bulk_min_path='/x/bulk_min.lammps',
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
             e_h2_gas=-6.77,
             slab_dir='/x/slabs', ads_dir='/x/ads', neb_dir='/x/neb',
             gpu_slurm_cfg=_GPU, neb_slurm_cfg=_NEB, min_slurm_cfg=_MIN,
@@ -380,6 +388,7 @@ class TestOrchestrateSlabPrepSubmissionHandling:
         with pytest.raises(RuntimeError, match='submission failed'):
             orchestrate_slab_prep(
                 bulk_min_path='/x/bulk_min.lammps',
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
                 outdir=str(tmp_path),
                 z_freeze_cutoff=22.0,
                 dry_run=False,
@@ -408,6 +417,7 @@ class TestOrchestrateSlabPrepSubmissionHandling:
         with pytest.raises(RuntimeError, match='dry_run=True'):
             orchestrate_slab_prep(
                 bulk_min_path='/x/bulk_min.lammps',
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
                 outdir=str(tmp_path),
                 z_freeze_cutoff=22.0,
                 dry_run=True,
@@ -438,6 +448,7 @@ class TestOrchestrateSlabPrepSubmissionHandling:
         with pytest.raises(RuntimeError, match='was not written'):
             orchestrate_slab_prep(
                 bulk_min_path='/x/bulk_min.lammps',
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
                 outdir=str(tmp_path),
                 z_freeze_cutoff=22.0,
                 dry_run=False,
@@ -479,6 +490,7 @@ class TestOrchestrateSlabPrepSubmissionHandling:
 
         result = orchestrate_slab_prep(
             bulk_min_path='/x/bulk_min.lammps',
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
             outdir=str(tmp_path),
             z_freeze_cutoff=22.0,
             dry_run=False,
@@ -854,7 +866,9 @@ class TestOrchestrateNebFsMinSkip:
              pre_create_neb_barrier=False, pre_create_fsmin_marker=False,
              pre_create_neb_marker=False):
         from models.neb_workflow import orchestrate_neb
-        from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
+        from models.config import SLURM_DEFAULTS, build_element_tables
+        E2T_7, _, MASSES_7, ELEM_STR_7 = build_element_tables(
+            ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
         pools, combo = self._pools_and_combo(tmp_path)
         neb_outdir = tmp_path / 'neb_out'
@@ -1010,7 +1024,9 @@ class TestOrchestrateNebFsMinSkip:
         -- not just "any done combo empties the list". Combo 0 (fs0) is
         already FS-min'd and NEB-converged; combo 1 (fs1) is untouched."""
         from models.neb_workflow import orchestrate_neb
-        from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
+        from models.config import SLURM_DEFAULTS, build_element_tables
+        E2T_7, _, MASSES_7, ELEM_STR_7 = build_element_tables(
+            ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
         from ase import Atoms
         from ase.io import write as ase_write
 
@@ -1154,7 +1170,9 @@ class TestOrchestrateNebDeviceParallel:
 
     def _run(self, tmp_path, monkeypatch, *, neb_slurm_opts):
         from models.neb_workflow import orchestrate_neb
-        from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
+        from models.config import SLURM_DEFAULTS, build_element_tables
+        E2T_7, _, MASSES_7, ELEM_STR_7 = build_element_tables(
+            ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
         pools, combo = self._pools_and_combo(tmp_path)
         neb_outdir = tmp_path / 'neb_out'
@@ -1263,6 +1281,7 @@ class TestSectionBAdsorptionDoneMarkers:
             e_clean=-50.3, e_h2_gas=-6.77,
             outdir=str(outdir), dry_run=True,
             z_freeze_cutoff=10.0,
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
         )
         site_call = next(c for c in write_slurm_calls if c['job_name'] == 'H2ads_s_0')
         assert any('skip' in c.lower() for c in site_call['commands'])
@@ -1283,6 +1302,7 @@ class TestSectionBAdsorptionDoneMarkers:
             e_clean=-50.3, e_h2_gas=-6.77,
             outdir=str(outdir), dry_run=True,
             z_freeze_cutoff=10.0,
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
         )
         site_call = next(c for c in write_slurm_calls if c['job_name'] == 'H2ads_s_0')
         assert not any('skip' in c.lower() for c in site_call['commands'])
@@ -1312,6 +1332,7 @@ class TestSectionBAdsorptionDoneMarkers:
             e_clean=-50.3, e_h2_gas=-6.77,
             outdir=str(outdir), dry_run=True,
             z_freeze_cutoff=10.0,
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
         )
         site_call = next(c for c in write_slurm_calls if c['job_name'] == 'H2ads_s_0')
         assert any('skip' in c.lower() for c in site_call['commands'])
@@ -1330,6 +1351,7 @@ class TestSectionBAdsorptionDoneMarkers:
             e_clean=-50.3, e_h2_gas=-6.77,
             outdir=str(outdir), dry_run=True,
             z_freeze_cutoff=10.0,
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
         )
         site_call = next(c for c in write_slurm_calls if c['job_name'] == 'Hads_s_0')
         joined = ' '.join(site_call['commands'])
@@ -1371,6 +1393,7 @@ class TestSectionBAdsorptionDoneMarkers:
             e_clean=-50.3, e_h2_gas=-6.77,
             outdir=str(outdir), dry_run=False,
             z_freeze_cutoff=10.0,
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
         )
 
         assert len(auto_submit_calls) == 1
@@ -1399,6 +1422,7 @@ class TestSectionBAdsorptionDoneMarkers:
             e_clean=-50.3, e_h2_gas=-6.77,
             outdir=str(outdir), dry_run=False,
             z_freeze_cutoff=10.0,
+            elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
         )
 
         assert len(auto_submit_calls) == 1
