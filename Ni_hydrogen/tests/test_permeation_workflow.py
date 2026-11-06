@@ -33,12 +33,19 @@ from models.permeation_workflow import (
     load_permeability_results,
     plot_permeation_summary,
 )
+from models.config import build_element_tables
+
+_E2T_7, _T2E_7, _MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 
 # ── shared config ────────────────────────────────────────────────────────────
 
 _PERM_CFG = dict(
     work_dir='/work',
+    elem_str=_ELEM_STR_7,
+    e2t=_E2T_7,
+    masses=_MASSES_7,
     stem='test_metal',
     relaxed_slab_path='/work/slab/relaxed.lammps',
     surface_sites_json='/work/slab/surface_sites.json',
