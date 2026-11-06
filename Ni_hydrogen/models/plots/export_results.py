@@ -412,6 +412,26 @@ def write_summary(stem, outdir, counts, manifest, unknown, notes, runs,
     return p
 
 
+def write_manifest(stem, outdir, manifest, unknown, notes, runs, excluded_1h):
+    """The facts of SUMMARY.md as JSON, for report.py: manifest.json (where the
+    export came from, what it holds) and notes.json (the caveats, in order)."""
+    import datetime
+    facts = {
+        'stem': stem,
+        'material': pretty_material(stem),
+        'source_calculation_dir': CALC_DIR,
+        'exported_at': datetime.datetime.now().isoformat(timespec='seconds'),
+        'loadings': [r.n_H for r in runs],
+        'single_h_excluded': bool(excluded_1h),
+        'figures': {sub: list(files) for sub, files in sorted(manifest.items())},
+        'unknown_pathways': dict(sorted(unknown.items())),
+    }
+    with open(os.path.join(outdir, 'manifest.json'), 'w') as fh:
+        json.dump(facts, fh, indent=2)
+    with open(os.path.join(outdir, 'notes.json'), 'w') as fh:
+        json.dump(list(notes), fh, indent=2, ensure_ascii=False)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -440,6 +460,8 @@ def main(argv=None):
     manifest, unknown = figures(args.stem, runs, outdir)
     summary = write_summary(args.stem, outdir, counts, manifest, unknown, notes,
                             runs, excluded_1h=not args.include_1h)
+    write_manifest(args.stem, outdir, manifest, unknown, notes, runs,
+                   excluded_1h=not args.include_1h)
 
     for fn in sorted(os.listdir(outdir)):
         if fn.endswith('.csv'):
