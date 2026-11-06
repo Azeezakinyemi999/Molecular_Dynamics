@@ -41,10 +41,10 @@ sys.path.insert(0, _root)
 
 from models.config import (
     SLURM_DEFAULTS, N_REPLICAS, SPRING_CONST, NEB_FTOL,
-    ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
 )
 from models.materials import input_structures, classify_metal, skip_surface_reason
 from models.permeation_workflow import generate_permeation_scripts
+from models.structure import build_element_tables_from_structure
 
 # Self-locating: this script lives in <work_dir>/tools/, so its own location
 # (not BASE_DIR + a hardcoded name) finds the work directory -- rename or
@@ -89,6 +89,7 @@ for _struct_path in INPUT_STRUCTURES:
         print(f'  [SKIP] {stem}: {skip_reason}')
         continue
 
+    _e2t, _t2e, _masses, _elem_str, _ = build_element_tables_from_structure(_struct_path)
     _out = os.path.join(WORK_DIR, f'permeation_run_{stem}.py')
     generate_permeation_scripts(
         work_dir          = WORK_DIR,
@@ -114,9 +115,9 @@ for _struct_path in INPUT_STRUCTURES:
         spring_const      = SPRING_K,
         neb_ftol          = NEB_FTOL_VAL,
         out_py            = _out,
-        elem_str          = ELEM_STR_10 if mtype == 'oxide' else ELEM_STR_7,
-        e2t               = E2T_10      if mtype == 'oxide' else E2T_7,
-        masses            = MASSES_10   if mtype == 'oxide' else MASSES_7,
+        elem_str          = _elem_str,
+        e2t               = _e2t,
+        masses            = _masses,
         metal_type        = mtype,
     )
     perm_scripts[stem] = _out
