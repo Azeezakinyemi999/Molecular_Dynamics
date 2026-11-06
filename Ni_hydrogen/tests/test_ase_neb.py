@@ -19,7 +19,10 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from models.ase_neb import run_neb_pipeline, build_neb_images
-from models.config import MASSES_7, E2T_7
+from models.config import build_element_tables
+
+E2T_7, _T2E_7, MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 
 def _generate(tmp_path, **overrides):
@@ -40,6 +43,8 @@ def _generate(tmp_path, **overrides):
         device='cpu',
         label_is='IS',
         label_fs='FS',
+        masses=MASSES_7,
+        e2t=E2T_7,
     )
     kwargs.update(overrides)
     out_py = run_neb_pipeline(**kwargs)
@@ -76,12 +81,11 @@ class TestRunNebPipeline:
         assert "'Ni': 7" in content
         assert "'H': 8" in content
 
-    def test_masses_and_e2t_default_when_not_provided(self, tmp_path):
-        # Callers that don't pass masses/e2t must still get a valid,
-        # non-empty mapping (MASSES_7/E2T_7), not an empty/None embed.
-        _, content = _generate(tmp_path)
-        assert 'MASSES          = {' in content
-        assert 'E2T             = {' in content
+    def test_masses_and_e2t_required(self, tmp_path):
+        # No default element table -- a caller that omits masses/e2t must
+        # get a loud, explicit error, not a silent generic-table embed.
+        with pytest.raises(ValueError, match='requires explicit masses/e2t'):
+            _generate(tmp_path, masses=None, e2t=None)
 
     def test_generated_script_can_import_models_package(self, tmp_path):
         """The generated script runs standalone on a cluster node --
