@@ -29,6 +29,10 @@ for _m in ('matplotlib', 'matplotlib.pyplot', 'matplotlib.patches',
     sys.modules.setdefault(_m, MagicMock())
 
 from models.permeation_workflow import generate_permeation_scripts
+from models.config import build_element_tables
+
+_E2T_7, _T2E_7, _MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 _SLURM = dict(partition='sharing', time='00:20:00')
 
@@ -45,6 +49,7 @@ def _generate(tmp_path, name, **kwargs):
         a0_m=3.52e-10, l_m=1e-3, dh_diss_ev=None, dh_entry_ev=None,
         gpu_slurm_cfg=_SLURM, neb_slurm_cfg=_SLURM, vib_slurm_cfg=_SLURM,
         n_images=6, spring_const=1.0, neb_ftol=0.1, out_py=out,
+        elem_str=_ELEM_STR_7, e2t=_E2T_7, masses=_MASSES_7,
         **kwargs,
     )
     return open(out).read()
