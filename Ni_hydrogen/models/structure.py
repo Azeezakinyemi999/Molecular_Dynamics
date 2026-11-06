@@ -186,7 +186,7 @@ def build_element_tables_from_structure(
       such pre-existing numbering -- these formats carry real element
       symbols per atom but no LAMMPS type concept at all, so there is
       nothing to preserve. Here, type IDs are assigned fresh: elements
-      alphabetically, H last (matching this project's ``E2T_7`` / ``E2T_10``
+      alphabetically, H last (``build_element_tables``'s ordering
       convention), reproducible across repeated detection on the same set
       of elements.
 
