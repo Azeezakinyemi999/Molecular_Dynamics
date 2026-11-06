@@ -16,7 +16,10 @@ import sys
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, PROJECT_ROOT)
 
-from models.config import SLURM_DEFAULTS, ELEM_STR_7, E2T_7, MASSES_7
+from models.config import SLURM_DEFAULTS, build_element_tables
+
+E2T_7, _T2E_7, MASSES_7, ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 
 def _is_lammps(tmp_path, name='is.lammps'):
