@@ -32,6 +32,15 @@ from models.diffusivity_workflow import (
     qc_nvt_thermo,
 )
 from models.diffusivity_post_processing import save_diffusivity_table
+from models.config import build_element_tables
+
+_E2T_7, _T2E_7, _MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
+
+
+def _metal_table(*stems):
+    return {s: {'elem_str': _ELEM_STR_7, 'e2t': _E2T_7, 'masses': _MASSES_7}
+            for s in stems}
 
 
 # ── shared config ────────────────────────────────────────────────────────────
@@ -250,6 +259,9 @@ _PERMETAL_CFG = dict(
     dump_every=1000,
     velocity_seed=12345,
     restart_every=10000,
+    elem_str=_ELEM_STR_7,
+    e2t=_E2T_7,
+    masses=_MASSES_7,
 )
 
 
@@ -290,8 +302,8 @@ class TestWriteDiffusivityRunScript:
     def test_elem_str_e2t_masses_embedded_directly(self, tmp_path):
         out_py = str(tmp_path / 'run.py')
         write_diffusivity_run_script(
-            **_PERMETAL_CFG, elem_str='Ni Mo H',
-            e2t={'Ni': 1, 'Mo': 2, 'H': 3}, out_py=out_py)
+            **{**_PERMETAL_CFG, 'elem_str': 'Ni Mo H',
+               'e2t': {'Ni': 1, 'Mo': 2, 'H': 3}}, out_py=out_py)
         content = pathlib.Path(out_py).read_text()
         assert "ELEM_STR         = 'Ni Mo H'" in content
         assert "E2T              = {'Ni': 1, 'Mo': 2, 'H': 3}" in content
@@ -367,14 +379,15 @@ class TestWriteDiffusivityRunScript:
         assert 'sys.exit(1)' in block
         assert '\n    continue' not in block
 
-    def test_default_elem_str_e2t_masses_fall_back_to_7_type_tables(self, gen_result):
-        """Omitting elem_str/e2t/masses must still produce a runnable script
-        using the standard 7-type (non-oxide) tables, same fallback
-        generate_diffusivity_scripts' METAL_TABLE.get(..., default) used."""
-        _, _, content = gen_result
-        assert 'ELEM_STR         =' in content
-        assert 'E2T              =' in content
-        assert 'MASSES           =' in content
+    def test_elem_str_e2t_masses_required(self, tmp_path):
+        """No default element table -- omitting elem_str/e2t/masses must
+        raise a loud, explicit error, not silently fall back to a generic
+        table."""
+        out_py = str(tmp_path / 'run.py')
+        with pytest.raises(ValueError, match='are required'):
+            write_diffusivity_run_script(
+                **{**_PERMETAL_CFG, 'elem_str': None, 'e2t': None, 'masses': None},
+                out_py=out_py)
 
 
 class TestDiffusivityFailureIsolation:
@@ -412,6 +425,7 @@ class TestDiffusivityFailureIsolation:
             dump_every=10,
             velocity_seed=42,
             restart_every=100,
+            metal_table=_metal_table('A_supercell', 'B_supercell'),
             out_py=out_py,
         )
 
@@ -558,6 +572,7 @@ class TestSharedBareBulkAndNpt:
             dump_every=10,
             velocity_seed=42,
             restart_every=100,
+            metal_table=_metal_table('A_supercell'),
             out_py=out_py,
         )
 
@@ -643,6 +658,7 @@ class TestSharedBareBulkAndNpt:
             dump_every=10,
             velocity_seed=42,
             restart_every=100,
+            metal_table=_metal_table(*stems),
             out_py=out_py,
         )
 
@@ -773,6 +789,7 @@ class TestSharedBareBulkAndNpt:
             dump_every=10,
             velocity_seed=42,
             restart_every=100,
+            metal_table=_metal_table('A_supercell'),
             out_py=out_py,
         )
 
