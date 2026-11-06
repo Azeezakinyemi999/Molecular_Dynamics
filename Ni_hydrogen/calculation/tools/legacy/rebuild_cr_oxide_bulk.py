@@ -57,8 +57,11 @@ import numpy as np
 from ase.spacegroup import crystal
 from ase.calculators.lammps.coordinatetransform import Prism
 
-from models.config import E2T_10, MASSES_10
+from models.config import build_element_tables
 from models.structure import write_lammps_data
+
+E2T_10, _T2E_10, MASSES_10, _ELEM_STR_10 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'O', 'H'])
 
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_PATH = os.path.join(WORK_DIR, 'input_structure', 'Cr_oxide_supercell.lammps')
