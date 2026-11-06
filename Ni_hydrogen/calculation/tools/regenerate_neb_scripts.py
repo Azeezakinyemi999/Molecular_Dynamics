@@ -40,11 +40,12 @@ sys.path.insert(0, _root)
 
 from models.config import (
     PAIR_STYLE, MACE_MODEL_LAMMPS, PAIR_SUFFIX, LAMMPS_CMD, KOKKOS_FLAGS,
-    ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
+    build_element_tables,
     SLURM_DEFAULTS, N_REPLICAS, SPRING_CONST, NEB_FTOL,
 )
 from models.materials import input_structures, classify_metal, skip_surface_reason
 from models.neb_workflow import write_neb_run_script, calculate_ref_adsorbate_energy
+from models.structure import build_element_tables_from_structure
 
 # ── cell 5 (Part 1 + metal classification + E_H2_GAS) ───────────────────────
 # Self-locating: this script lives in <work_dir>/tools/, so its own location
@@ -81,19 +82,28 @@ METAL_CONFIGS = []
 for _struct_path in INPUT_STRUCTURES:
     _stem  = os.path.splitext(os.path.basename(_struct_path))[0]
     _mtype = classify_metal(_struct_path)
+    _e2t, _t2e, _masses, _elem_str, _ = build_element_tables_from_structure(_struct_path)
     METAL_CONFIGS.append({
         'struct_path': _struct_path,
         'stem':        _stem,
         'type':        _mtype,
-        'elem_str':    ELEM_STR_10 if _mtype == 'oxide' else ELEM_STR_7,
-        'e2t':         E2T_10      if _mtype == 'oxide' else E2T_7,
-        'masses':      MASSES_10   if _mtype == 'oxide' else MASSES_7,
+        'elem_str':    _elem_str,
+        'e2t':         _e2t,
+        'masses':      _masses,
     })
 
 for _cfg in METAL_CONFIGS:
     _skip_reason = skip_surface_reason(_cfg['struct_path'])
     _cfg['skip_surface'] = _skip_reason is not None
     _cfg['skip_reason']  = _skip_reason
+
+# H2 is a synthetic vacuum-box molecule, not read from any input_structure/
+# file -- there's nothing to auto-detect a table from, so this builds the
+# minimal table directly from what's physically present (2 H atoms). Padding
+# with extra, unused elements (the old ELEM_STR_7) was verified to make no
+# difference to MACE-MH-1's computed energy/forces -- see
+# calculation/tools/verify_padded_species_mace.py.
+_E2T_H, _T2E_H, _MASSES_H, _ELEM_STR_H = build_element_tables(['H'])
 
 # dry_run=True here only means "don't submit if the cache is missing" --
 # production has been running for days, so this must read the existing
@@ -103,7 +113,7 @@ for _cfg in METAL_CONFIGS:
 E_H2_GAS = calculate_ref_adsorbate_energy(
     adsorbate='H2', outdir=os.path.join(WORK_DIR, 'adsorption', 'ref_energies'),
     pair_style=PAIR_STYLE, mace_model=MACE_MODEL_LAMMPS, pair_suffix=PAIR_SUFFIX,
-    elem_str=ELEM_STR_7, e2t=E2T_7, masses=MASSES_7,
+    elem_str=_ELEM_STR_H, e2t=_E2T_H, masses=_MASSES_H,
     lammps_cmd=LAMMPS_CMD, kokkos_flags=KOKKOS_FLAGS,
     slurm_opts=MIN_SLURM, dry_run=True,
 )
