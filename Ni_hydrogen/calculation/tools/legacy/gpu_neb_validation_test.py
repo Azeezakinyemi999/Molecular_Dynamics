@@ -66,11 +66,14 @@ while _root != os.path.dirname(_root) and not os.path.isdir(os.path.join(_root, 
 sys.path.insert(0, _root)
 
 from models.config import (
-    BASE_DIR, MACE_MODEL_ASE, E2T_7, MASSES_7,
+    BASE_DIR, MACE_MODEL_ASE, build_element_tables,
     N_REPLICAS, SPRING_CONST, NEB_FTOL, SLURM_DEFAULTS,
 )
 from models.ase_neb import run_neb_pipeline
 from models.create_slurm import write_chained_slurm_job
+
+E2T_7, _T2E_7, MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 WORK_DIR = os.path.join(BASE_DIR, 'calculation')
 
