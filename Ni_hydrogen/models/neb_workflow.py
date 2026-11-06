@@ -38,7 +38,6 @@ import json
 import os
 from pathlib import Path
 
-from models.config import E2T_7, MASSES_7, ELEM_STR_7
 from models.structure import build_slab
 from models.checkpoint import is_done, mark_done
 
@@ -52,8 +51,8 @@ def build_phase1_slab(
     lateral_repeat: tuple[int, int] = (5, 6),
     supercell_reps: tuple[int, int, int] = (5, 5, 5),
     seed: int = 7,
-    masses: dict = MASSES_7,
-    e2t: dict = E2T_7,
+    masses: dict | None = None,
+    e2t: dict | None = None,
     metal_type: str = 'alloy',
 ) -> tuple[str, float]:
     """
@@ -84,9 +83,10 @@ def build_phase1_slab(
     seed : int
         Random seed for composition shuffle (alloy path only). Default 7.
     masses : dict
-        Atom type → (mass, element) mapping. Default MASSES_7.
+        Atom type → (mass, element) mapping. Required -- no default table;
+        pass the structure's own (e.g. from build_element_tables_from_structure).
     e2t : dict
-        Element → type mapping. Default E2T_7.
+        Element → type mapping. Required -- no default table.
     metal_type : str
         One of ``'alloy'``, ``'pure'``, ``'oxide'``. Default ``'alloy'``.
 
@@ -95,6 +95,12 @@ def build_phase1_slab(
     tuple of (str, float)
         (slab_path, a0) — absolute path to slab file and lattice parameter in Å.
     """
+    if masses is None or e2t is None:
+        raise ValueError(
+            'build_phase1_slab() requires explicit masses/e2t -- no default '
+            'element table. Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     slab_path, a0 = build_slab(
         bulk_min_path=bulk_min_path,
         miller=miller,
@@ -129,7 +135,7 @@ def run_phase2_surface_relaxation(
     slurm_opts: dict | None = None,
     restart_every: int = 10000,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
 ) -> dict:
     """
     Section A Phase 2: Relax the slab surface via four-phase LAMMPS MD.
@@ -393,7 +399,7 @@ def orchestrate_slab_prep(
     z_freeze_cutoff: float | None = None,
     slurm_opts: dict | None = None,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     slab_seed: int = 7,
@@ -441,10 +447,12 @@ def orchestrate_slab_prep(
             'status': overall completion status,
         }
     """
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
 
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
@@ -644,7 +652,7 @@ from models.energetics import calc_binding_energy, rank_sites
 from models.parsers import parse_energy_log
 from models.config import (
     LAMMPS_CMD, MACE_MODEL_LAMMPS, PAIR_STYLE, PAIR_SUFFIX,
-    KOKKOS_FLAGS, ELEM_STR_7, MASSES_7, E2T_7,
+    KOKKOS_FLAGS,
     H2_HEIGHT, H2_BOND, FTOL, Z_FREEZE_CUTOFF,
     ADS_MIN_ETOL, ADS_MIN_FTOL, ADS_MIN_MAXITER, ADS_MIN_MAXEVAL,
 )
@@ -703,7 +711,7 @@ def run_phase1_h2_adsorption(
     outdir: str,
     slurm_opts: dict | None = None,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     z_freeze_cutoff: float | None = None,
@@ -752,10 +760,12 @@ def run_phase1_h2_adsorption(
     """
     from models.config import SLURM_DEFAULTS
 
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
 
@@ -959,7 +969,7 @@ def run_phase2_h_adsorption(
     outdir: str,
     slurm_opts: dict | None = None,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     z_freeze_cutoff: float | None = None,
@@ -1007,10 +1017,12 @@ def run_phase2_h_adsorption(
     """
     from models.config import SLURM_DEFAULTS
 
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
 
@@ -1210,7 +1222,7 @@ def orchestrate_adsorption_energies(
     outdir: str = 'calculation/adsorption',
     slurm_opts: dict | None = None,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     z_freeze_cutoff: float | None = None,
@@ -1251,10 +1263,12 @@ def orchestrate_adsorption_energies(
           'status': str,
         }
     """
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
 
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
@@ -1831,7 +1845,7 @@ def orchestrate_neb(
     neb_ftol: float = 0.1,
     h_height: float = 1.5,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     z_freeze_cutoff: float | None = None,
@@ -1895,10 +1909,12 @@ def orchestrate_neb(
         ADS_MIN_ETOL, ADS_MIN_FTOL, ADS_MIN_MAXITER, ADS_MIN_MAXEVAL,
     )
 
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     if slurm_opts is None:
         slurm_opts = {**SLURM_DEFAULTS, 'partition': 'sharing', 'time': '01:00:00'}
 
@@ -2312,7 +2328,7 @@ def orchestrate_neb_pipeline(
     neb_ftol: float = 0.1,
     h_height: float = 1.5,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     z_freeze_cutoff: float | None = None,
@@ -2480,7 +2496,7 @@ def orchestrate_full_neb_workflow(
     neb_slurm_cfg: dict | None = None,
     min_slurm_cfg: dict | None = None,
     dry_run: bool = True,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     slab_seed: int = 7,
@@ -2627,7 +2643,7 @@ def write_neb_run_script(
     surf_timestep: float   = 0.0005,
     vib_slurm_cfg=None,
     min_slurm_cfg=None,
-    elem_str: str = ELEM_STR_7,
+    elem_str: str | None = None,
     e2t: dict = None,
     masses: dict = None,
     slab_seed: int = 7,
@@ -2641,10 +2657,12 @@ def write_neb_run_script(
     FS-min before NEB); defaults to ``gpu_slurm_cfg`` if not given.
     """
 
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     _vib_cfg = vib_slurm_cfg if vib_slurm_cfg is not None else neb_slurm_cfg
     _min_cfg = min_slurm_cfg if min_slurm_cfg is not None else gpu_slurm_cfg
 
