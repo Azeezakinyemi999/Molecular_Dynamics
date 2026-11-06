@@ -576,22 +576,23 @@ def write_ase_neb_script(
         per-image structure with :func:`models.structure.write_lammps_data`
         (the same canonical writer used everywhere else in this codebase),
         so the files carry a real ``Masses`` section and round-trip
-        correctly when read later (e.g. by the vibration scripts). Default
-        ``None`` resolves to ``MASSES_7``.
+        correctly when read later (e.g. by the vibration scripts). Required
+        -- no default table.
     e2t : dict, optional
-        ``{element_symbol: atom_type}`` paired with ``masses``. Default
-        ``None`` resolves to ``E2T_7``.
+        ``{element_symbol: atom_type}`` paired with ``masses``. Required --
+        no default table.
 
     Returns
     -------
     str
         Path to the written script (``out_path``).
     """
-    from models.config import MASSES_7, E2T_7
-    if masses is None:
-        masses = MASSES_7
-    if e2t is None:
-        e2t = E2T_7
+    if masses is None or e2t is None:
+        raise ValueError(
+            'write_ase_neb_script() requires explicit masses/e2t -- no '
+            'default element table. Pass the structure\'s own table (e.g. '
+            'from build_element_tables_from_structure).'
+        )
 
     if e_fs is None and fs_log_file is None:
         raise ValueError(
@@ -968,10 +969,10 @@ def write_ase_neb_script(
         # ase.io.write with no masses does not, and a later ase.io.read of
         # such a file, with no explicit type-to-element override, then
         # falls back to treating the raw atom type id as the atomic
-        # number -- with this project's E2T_7 mapping (Ni=7, H=8) that
-        # silently collides with real elements (N=7, O=8) instead of
-        # erroring, and vib_run.py found "0 H atoms" on a structure that
-        # actually has exactly one.
+        # number -- with this project's historical 8-type table (Ni=7,
+        # H=8) that silently collided with real elements (N=7, O=8)
+        # instead of erroring, and vib_run.py found "0 H atoms" on a
+        # structure that actually has exactly one.
         os.makedirs(IMAGES_DIR, exist_ok=True)
         _n = len(images)
         for _i, _img in enumerate(images):
@@ -1091,11 +1092,12 @@ def run_neb_pipeline(
     masses : dict, optional
         ``{atom_type: (mass_amu, element_symbol)}`` passed through to
         :func:`write_ase_neb_script` for writing per-image structures with
-        :func:`models.structure.write_lammps_data`. Default ``None``
-        resolves to ``MASSES_7``.
+        :func:`models.structure.write_lammps_data`. Required -- no default
+        table; forwarded to :func:`write_ase_neb_script`, which raises if
+        still ``None``.
     e2t : dict, optional
-        ``{element_symbol: atom_type}`` paired with ``masses``. Default
-        ``None`` resolves to ``E2T_7``.
+        ``{element_symbol: atom_type}`` paired with ``masses``. Required --
+        no default table.
 
     Returns
     -------
