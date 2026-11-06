@@ -41,7 +41,10 @@ from ase.build import fcc111
 from ase.io import write as ase_write
 
 from models.neb_workflow import run_phase1_h2_adsorption, run_phase2_h_adsorption
-from models.config import E2T_7, MASSES_7, ELEM_STR_7
+from models.config import build_element_tables
+
+E2T_7, _T2E_7, MASSES_7, ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 
 # ─── shared slab + sites fixture ─────────────────────────────────────────────
