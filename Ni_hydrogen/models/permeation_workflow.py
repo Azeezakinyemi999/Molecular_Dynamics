@@ -879,7 +879,6 @@ def generate_permeation_scripts(
     so every caller — pipeline.ipynb, the regenerators, anything later —
     inherits the same guard rather than each having to remember it.
     """
-    from models.config import MASSES_7, E2T_7, ELEM_STR_7
     from models.materials import narrow_temperatures
     temperatures, _t_notes = narrow_temperatures(
         stem, temperatures, results_dir=results_dir)
@@ -891,12 +890,12 @@ def generate_permeation_scripts(
             f'was entirely above the melting ceiling, or no NPT lattice '
             f'parameter has been measured for any of it.')
     print(f'  [temperatures] {stem}: {list(temperatures)}')
-    if elem_str is None:
-        elem_str = ELEM_STR_7
-    if e2t is None:
-        e2t = E2T_7
-    if masses is None:
-        masses = MASSES_7
+    if elem_str is None or e2t is None or masses is None:
+        raise ValueError(
+            'elem_str/e2t/masses are required -- no default element table. '
+            'Pass the structure\'s own table (e.g. from '
+            'build_element_tables_from_structure).'
+        )
     # Coerce to plain floats so the generated header embeds `1000000.0`, not
     # `np.float64(1000000.0)` — the header's constant block runs before numpy is
     # imported in the script.
