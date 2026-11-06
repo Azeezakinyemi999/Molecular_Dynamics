@@ -1,8 +1,7 @@
 # from models.config import (
 #     LAMMPS_CMD, MACE_MODEL_LAMMPS, MACE_MODEL_ASE, BASE_DIR,
 #     KOKKOS_FLAGS, PAIR_STYLE, PAIR_SUFFIX,
-#     E2T_7, T2E_7, MASSES_7, ELEM_STR_7,
-#     E2T_10, T2E_10, MASSES_10, ELEM_STR_10,
+#     build_element_tables,
 #     SLURM_DEFAULTS,
 #     TIMESTEP, Z_FREEZE_CUTOFF,
 #     H2_HEIGHT, H2_BOND, FTOL,
