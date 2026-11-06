@@ -45,10 +45,17 @@ while _root != os.path.dirname(_root) and not os.path.isdir(os.path.join(_root, 
 sys.path.insert(0, _root)
 
 from models.config import (
-    ELEM_STR_7, E2T_7, MASSES_7, ELEM_STR_10, E2T_10, MASSES_10,
+    build_element_tables,
     BASE_DIR,
 )
 from models.diffusivity_workflow import generate_diffusivity_scripts
+
+# Verbatim historical tables (this script's whole purpose is reproducing the
+# exact deployed script, so these stay fixed rather than auto-detected).
+E2T_7, _T2E_7, MASSES_7, ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
+E2T_10, _T2E_10, MASSES_10, ELEM_STR_10 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'O', 'H'])
 
 WORK_DIR = os.path.join(BASE_DIR, 'calculation')
 
