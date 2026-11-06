@@ -341,11 +341,30 @@ Writes to `calculation/results/export/{stem}/`:
 | `overall_permeability.csv` | Φ₀, E_Φ per loading per route, each marked `headline` or `diagnostic` |
 | `figures/` | every figure belonging to that material |
 | `SUMMARY.md` | the above, plus caveats generated from the data |
+| `manifest.json`, `notes.json` | the same facts and caveats as JSON, read by the report |
+| `report/{stem}_report.pdf` | the PDF report (below) |
 
 Read `SUMMARY.md` first. Its caveats are derived, not written by hand, so they
 catch things that are easy to miss by eye — how many dissociation pathways have
 both a relaxed initial state and a resolved saddle, which hop lost sites to an
 unconverged band, and whether any loading sits in the dilute limit.
+
+**The PDF report.** `postprocess.py` ends by building one PDF per material from
+the export folder (`--no-report` skips it). It reads only that folder, so it can
+be rebuilt at any time, on the cluster or on a laptop with the folder copied:
+
+```bash
+$PY models/plots/report.py --stem Ni_supercell                # -> export/Ni_supercell/report/Ni_supercell_report.pdf
+$PY models/plots/report.py --stem Ni_supercell --tex-only     # no LaTeX on this machine: keep the .tex
+```
+
+It has a run summary (what each loading has, the caveats above, whether the
+generated run scripts are older than `models/`), then one section per part in
+the order of `docs/03-stages/`, each with its goal, **where in `docs/` to read
+more**, key numbers, tables and figures with how to read them; and appendices
+with every pathway's band, the exported files and a map of the documentation
+pages used. Its wording is in `models/plots/report_text.py`; a renamed page or
+heading there fails `tests/test_report.py`. Needs LaTeX (`latexmk`, `pdflatex`).
 
 ### 5d. Before quoting any number
 
