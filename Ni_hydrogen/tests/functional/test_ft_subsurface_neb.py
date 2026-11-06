@@ -43,7 +43,10 @@ import networkx as nx
 from ase.build import fcc111
 from ase.io import write as ase_write
 
-from models.config import E2T_7, MASSES_7, ELEM_STR_7
+from models.config import build_element_tables
+
+E2T_7, _T2E_7, MASSES_7, ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 from models.structure import add_adsorbate
 from models.subsurface_graph import connect_to_surface
 from models.neb_subsurface import orchestrate_hopa_neb
