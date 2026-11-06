@@ -82,8 +82,11 @@ from models.ase_neb import run_neb_pipeline
 from models.create_slurm import write_chained_slurm_job
 from models.structure import write_lammps_data
 from models.config import (
-    MASSES_7, E2T_7, MACE_MODEL_ASE, MACE_HEAD, SLURM_DEFAULTS, BASE_DIR,
+    build_element_tables, MACE_MODEL_ASE, MACE_HEAD, SLURM_DEFAULTS, BASE_DIR,
 )
+
+E2T_7, _T2E_7, MASSES_7, _ELEM_STR_7 = build_element_tables(
+    ['Al', 'B', 'C', 'Cr', 'Fe', 'Mo', 'Ni', 'H'])
 
 OUTDIR = os.path.join(BASE_DIR, 'calculation', 'neb_fix_verification')
 os.makedirs(OUTDIR, exist_ok=True)
