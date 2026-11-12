@@ -54,14 +54,18 @@ from diffusivity_plot import DEFAULT_RESULTS_DIR, discover_runs  # noqa: E402
 # Each stage: (label, module, pattern kind, dir flag it reads results from).
 # 'run'      -> pattern is <stem>_*H     (one figure set per H loading)
 # 'material' -> pattern is <stem>        (loading-independent quantities)
-# 'none'     -> no pattern at all
+# 'all'      -> pattern is '*' -- sweeps every material in results_dir, not
+#               just stem (thermal_expansion plots all of them on one figure).
+#               Its own --pattern default is '*_supercell', which misses any
+#               oxide/alloy material living in a dedicated results_dir, so
+#               this is passed explicitly rather than left to that default.
 # Every script takes --results-dir except neb_mep_plot, which walks
 # calc_dir/neb and calc_dir/neb_subsurface instead and so takes --calc-dir.
 DIFFUSIVITY_STAGES = [
     ('diffusivity_plot',      'run',      '--results-dir'),
     ('msd_plot',              'run',      '--results-dir'),
     ('arrhenius_params_plot', 'run',      '--results-dir'),
-    ('thermal_expansion',     'none',     '--results-dir'),
+    ('thermal_expansion',     'all',      '--results-dir'),
 ]
 PERMEATION_STAGES = [
     ('permeability_plot', 'runH',     '--results-dir'),
@@ -156,6 +160,8 @@ def _argv(kind, stem, outdir, dir_flag, dir_value, include_1h):
         a += ['--pattern', f'{stem}_*H']
     elif kind == 'material':
         a += ['--pattern', stem]
+    elif kind == 'all':
+        a += ['--pattern', '*']
     a += ['--outdir', outdir]
     if include_1h and kind in ('run', 'runH'):
         a += ['--include-1h']
