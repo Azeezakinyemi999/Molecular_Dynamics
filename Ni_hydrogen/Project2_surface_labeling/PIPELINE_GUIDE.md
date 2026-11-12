@@ -313,11 +313,11 @@ Each part can be run independently from its own notebook:
 
 | Notebook | Generates | Run when |
 |---|---|---|
-| `calculation/neb_calculation.ipynb` | `neb_run.py` | Surface NEB only |
-| `calculation/diffusivity.ipynb` | `diffusivity_run.py` | Bulk diffusivity only |
-| `calculation/permeation.ipynb` | `permeation_run.py` | After Parts 1 + 3 |
-| `calculation/tst_calculation.ipynb` | TST rates inline | Debug/check rates |
-| `calculation/subsurface_neb_calculation.ipynb` | Subsurface NEB inline | Debug Hop A/B |
+| `calculation/tools/notebooks/neb_calculation.ipynb` | `neb_run.py` | Surface NEB only |
+| `calculation/tools/notebooks/diffusivity.ipynb` | `diffusivity_run.py` | Bulk diffusivity only |
+| `calculation/tools/notebooks/permeation.ipynb` | `permeation_run.py` | After Parts 1 + 3 |
+| `calculation/tools/notebooks/tst_calculation.ipynb` | TST rates inline | Debug/check rates |
+| `calculation/tools/notebooks/subsurface_neb_calculation.ipynb` | Subsurface NEB inline | Debug Hop A/B |
 
 ---
 
