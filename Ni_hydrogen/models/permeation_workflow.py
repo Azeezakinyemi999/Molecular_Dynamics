@@ -13,8 +13,7 @@ Section A — Script generation
     generate_permeation_sh(...)       →  permeation_run.sh
 
 Section B — Local analysis (Phase 4 cells in permeation.ipynb)
-    load_barrier_summary, load_rate_summary, load_permeability_results,
-    plot_permeability_vs_T
+    load_barrier_summary, load_rate_summary, load_permeability_results
 """
 
 import os
@@ -1079,53 +1078,6 @@ def load_permeability_results(results_dir, temperatures):
             with open(p) as f:
                 out[T] = json.load(f)
     return out
-
-
-def plot_permeability_vs_T(results_dir, temperatures):
-    """Φ(T) linear + Arrhenius plot for all available routes. Saves permeability_vs_T.png."""
-    perms = load_permeability_results(results_dir, temperatures)
-    if not perms:
-        print('[plot_permeability_vs_T] No permeability data found — skipping.')
-        return None
-
-    T_arr   = sorted(perms.keys())
-    Phi1    = [perms[T]['option1']['Phi'] for T in T_arr]
-    # vibrational (option2) may be None when no FS vibrations were run;
-    # substitute NaN so matplotlib leaves a gap instead of raising.
-    Phi2    = [perms[T].get('option2', {}).get('Phi') for T in T_arr]
-    Phi2    = [float(v) if v is not None else float('nan') for v in Phi2]
-    # detailed_balance is a diagnostic route and may be absent; NaN leaves a gap.
-    Phi3    = [perms[T].get('detailed_balance', {}).get('Phi') for T in T_arr]
-    Phi3    = [float(v) if v is not None else float('nan') for v in Phi3]
-    inv_T   = [1000.0 / T for T in T_arr]
-
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
-
-    ax0 = axes[0]
-    ax0.plot(T_arr, Phi1, 'o-', color='steelblue', lw=1.6, label='Option 1 (geometric S₀)')
-    ax0.plot(T_arr, Phi2, 's-', color='coral',     lw=1.6, label='Option 2 (vibrational S₀)')
-    ax0.plot(T_arr, Phi3, '^-', color='seagreen',  lw=1.6, label='Detailed balance (diagnostic)')
-    ax0.set_xlabel('Temperature  [K]')
-    ax0.set_ylabel('$\\Phi$  [mol m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
-    ax0.set_title('Permeability $\\Phi(T)$')
-    ax0.legend(fontsize=8)
-
-    ax1 = axes[1]
-    ax1.plot(inv_T, np.log10(Phi1), 'o-', color='steelblue', lw=1.6, label='Option 1')
-    ax1.plot(inv_T, np.log10(Phi2), 's-', color='coral',     lw=1.6, label='Option 2')
-    ax1.plot(inv_T, np.log10(Phi3), '^-', color='seagreen',  lw=1.6, label='Detailed balance')
-    ax1.set_xlabel('1000 / T  [K$^{-1}$]')
-    ax1.set_ylabel('$\\log_{10}(\\Phi)$')
-    ax1.set_title('Arrhenius plot of $\\Phi(T)$')
-    ax1.invert_xaxis()
-    ax1.legend(fontsize=8)
-
-    plt.tight_layout()
-    out_png = os.path.join(results_dir, 'permeability_vs_T.png')
-    plt.savefig(out_png, dpi=150)
-    plt.show()
-    print(f'Saved: {out_png}')
-    return out_png
 
 
 def plot_permeation_summary(results_dir, temperatures):
