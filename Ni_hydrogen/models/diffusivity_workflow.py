@@ -724,6 +724,18 @@ for struct_path in INPUT_STRUCTURES:
             _FAILURES.append({'run_name': run_name, 'struct': struct_stem, 'n_h': n_h, 'error': str(_exc)})
             continue
 
+    # Post-process this structure now that every n_H has been attempted, so a
+    # standalone diffusivity run also produces the MSD/Arrhenius plots and PDF
+    # report (previously only generated when Part 2 permeation_run.py ran).
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(WORK_DIR), 'models', 'plots'))
+        from postprocess import postprocess, print_report
+        print('\n--- post-processing ---')
+        print_report(postprocess(struct_stem, results_dir=os.path.join(WORK_DIR, 'results')))
+    except Exception as _pp_exc:
+        print(f'  WARNING: post-processing failed ({_pp_exc}); results are '
+              f'intact - run models/plots/postprocess.py --stem {struct_stem} by hand')
+
 _failures_path = os.path.join(WORK_DIR, 'diffusivity_failures.json')
 with open(_failures_path, 'w') as _f:
     _json_lat.dump(_FAILURES, _f, indent=2)
@@ -1445,6 +1457,18 @@ for n_h in N_H_VALUES:
         print(f'  Skipping remaining phases for {run_name}; continuing with next (structure, n_H).')
         _FAILURES.append({'run_name': run_name, 'struct': struct_stem, 'n_h': n_h, 'error': str(_exc)})
         continue
+
+# Post-process this metal now that every n_H has been attempted, so a
+# standalone diffusivity run also produces the MSD/Arrhenius plots and PDF
+# report (previously only generated when Part 2 permeation_run.py ran).
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(WORK_DIR), 'models', 'plots'))
+    from postprocess import postprocess, print_report
+    print('\n--- post-processing ---')
+    print_report(postprocess(struct_stem, results_dir=os.path.join(WORK_DIR, 'results')))
+except Exception as _pp_exc:
+    print(f'  WARNING: post-processing failed ({_pp_exc}); results are '
+          f'intact - run models/plots/postprocess.py --stem {struct_stem} by hand')
 
 _failures_path = os.path.join(WORK_DIR, f'diffusivity_failures_{struct_stem}.json')
 with open(_failures_path, 'w') as _f:
