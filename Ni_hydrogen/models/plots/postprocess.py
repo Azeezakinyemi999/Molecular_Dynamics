@@ -51,21 +51,23 @@ for _p in (_ROOT, _HERE):
 
 from diffusivity_plot import DEFAULT_RESULTS_DIR, discover_runs  # noqa: E402
 
-# Each stage: (label, module, pattern kind, what it needs).
+# Each stage: (label, module, pattern kind, dir flag it reads results from).
 # 'run'      -> pattern is <stem>_*H     (one figure set per H loading)
 # 'material' -> pattern is <stem>        (loading-independent quantities)
 # 'none'     -> no pattern at all
+# Every script takes --results-dir except neb_mep_plot, which walks
+# calc_dir/neb and calc_dir/neb_subsurface instead and so takes --calc-dir.
 DIFFUSIVITY_STAGES = [
-    ('diffusivity_plot',      'run',      '--outdir'),
-    ('msd_plot',              'run',      '--outdir'),
-    ('arrhenius_params_plot', 'run',      '--outdir'),
-    ('thermal_expansion',     'none',     '--outdir'),
+    ('diffusivity_plot',      'run',      '--results-dir'),
+    ('msd_plot',              'run',      '--results-dir'),
+    ('arrhenius_params_plot', 'run',      '--results-dir'),
+    ('thermal_expansion',     'none',     '--results-dir'),
 ]
 PERMEATION_STAGES = [
-    ('permeability_plot', 'runH',     '--outdir'),
-    ('solubility_plot',   'runH',     '--outdir'),
-    ('environment_plot',  'material', '--outdir'),
-    ('neb_mep_plot',      'material', '--outdir'),
+    ('permeability_plot', 'runH',     '--results-dir'),
+    ('solubility_plot',   'runH',     '--results-dir'),
+    ('environment_plot',  'material', '--results-dir'),
+    ('neb_mep_plot',      'material', '--calc-dir'),
 ]
 
 
@@ -146,8 +148,8 @@ def _run(module_name, argv, verbose):
     return (rc in (0, None)), ('' if rc in (0, None) else f'exit {rc}')
 
 
-def _argv(kind, stem, outdir, include_1h):
-    a = []
+def _argv(kind, stem, outdir, dir_flag, dir_value, include_1h):
+    a = [dir_flag, dir_value]
     if kind == 'run':
         a += ['--pattern', f'{stem}_*']
     elif kind == 'runH':
@@ -173,14 +175,16 @@ def postprocess(stem, results_dir=DEFAULT_RESULTS_DIR, outdir=None,
     """
     outdir = outdir or os.path.join(results_dir, 'plots')
     os.makedirs(outdir, exist_ok=True)
+    calc_dir = calc_dir or os.path.dirname(results_dir.rstrip('/'))
     rep = {'stem': stem, 'ran': [], 'skipped': [], 'failed': [],
            'ready': readiness(stem, results_dir, calc_dir, include_1h)}
 
     def do(stages, gate, why):
-        for name, kind, _ in stages:
+        for name, kind, dir_flag in stages:
             if not gate:
                 rep['skipped'].append((name, why)); continue
-            ok, err = _run(name, _argv(kind, stem, outdir, include_1h), verbose)
+            dir_value = calc_dir if dir_flag == '--calc-dir' else results_dir
+            ok, err = _run(name, _argv(kind, stem, outdir, dir_flag, dir_value, include_1h), verbose)
             (rep['ran'] if ok else rep['failed']).append(
                 name if ok else (name, err))
 
