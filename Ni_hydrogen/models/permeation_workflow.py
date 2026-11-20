@@ -569,7 +569,6 @@ for _n_h in N_H_VALUES:
     # per-route S(T) accumulators for the multi-T Arrhenius fits after the loop
     _S_geo_arr, _S_vib_arr, _T_arr6 = [], [], []
     _S_db_arr = []                            # detailed-balance (analytic θ)
-    _S_geo_err_arr, _S_vib_err_arr = [], []   # absolute σ_S per T (for the weighted fit)
 
     for _T in TEMPERATURES:
         _perm_done_marker = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.done')
@@ -595,12 +594,6 @@ for _n_h in N_H_VALUES:
                 _S_geo_arr.append(_S1_d)
                 _S_vib_arr.append(_S2_d)
                 _S_db_arr.append(_db.get('S'))
-                _r1 = _o1.get('S_rel_err')
-                _r2 = _o2.get('S_rel_err')
-                _S_geo_err_arr.append(_S1_d * _r1 if _r1 is not None else None)
-                _S_vib_err_arr.append(_S2_d * _r2
-                                      if (_S2_d is not None and _r2 is not None)
-                                      else None)
             except (OSError, ValueError, KeyError, TypeError) as _re:
                 print(f'    WARNING: could not reload T={_T:4.0f} K from '
                       f'{os.path.basename(_perm_f_check)} ({_re}); its point '
@@ -689,9 +682,6 @@ for _n_h in N_H_VALUES:
         # accumulate per-route S(T) for the multi-T Arrhenius fits below
         _S_geo_arr.append(_S1);  _S_vib_arr.append(_S2)
         _S_db_arr.append(_Sdb);  _T_arr6.append(float(_T))
-        # absolute σ_S = S · (σ_S/S), for the inverse-variance-weighted fit below
-        _S_geo_err_arr.append(_S1 * _S1_rel)
-        _S_vib_err_arr.append(_S2 * _S2_rel if (_S2 is not None and _S2_rel is not None) else None)
 
         _perm_f = os.path.join(_nh_dir, f'permeability_T{int(_T)}K.json')
         _perm_payload = {
@@ -733,28 +723,24 @@ for _n_h in N_H_VALUES:
 
     # ── Multi-T Arrhenius fits for this n_H ──────────────────────────────────
     # Fit each solubility route (geometric, vibrational, detailed-balance) as
-    # ln S vs 1/T -> (S0, ΔH_sol, R²), then derive permeability Arrhenius params
+    # ln S vs 1/T by ordinary least squares -> (S0, ΔH_sol, R²), then derive permeability Arrhenius params
     # Φ0 = D0·S0, E_Φ = E_D + ΔH_sol. R² is the curvature flag (per-env S(T) is a
     # sum of Arrhenius terms; R² < 1 is physical, not error). SOLUBILITY HEADLINE
     # = geometric + vibrational (energy-based); detailed_balance is a rate-based
     # cross-check carrying a dissociation-rate-averaging artifact, NOT the
     # reported solubility.
     _sol_routes = {}
-    for _route, _S_list, _Serr_list in (('geometric', _S_geo_arr, _S_geo_err_arr),
-                                        ('vibrational', _S_vib_arr, _S_vib_err_arr),
-                                        ('detailed_balance', _S_db_arr, None)):
-        _err_list = _Serr_list if _Serr_list is not None else [None] * len(_S_list)
-        _pts = [(t, s, e) for t, s, e in zip(_T_arr6, _S_list, _err_list)
+    for _route, _S_list in (('geometric', _S_geo_arr),
+                            ('vibrational', _S_vib_arr),
+                            ('detailed_balance', _S_db_arr)):
+        _pts = [(t, s) for t, s in zip(_T_arr6, _S_list)
                 if s is not None and s == s and s > 0.0]
         if len(_pts) < 2:
             _sol_routes[_route] = {'available': False, 'n_points': len(_pts)}
             continue
         _tt = [p[0] for p in _pts]
         _ss = [p[1] for p in _pts]
-        _se = [p[2] for p in _pts]
-        # inverse-variance-weighted fit only when every point has a valid σ_S
-        _yerr = _se if all(x is not None and x == x and x > 0.0 for x in _se) else None
-        _fit = fit_arrhenius(_tt, _ss, _yerr)
+        _fit = fit_arrhenius(_tt, _ss)
         _sol_routes[_route] = {
             'available':     True,
             'T_K_arr':       _tt,
