@@ -515,6 +515,12 @@ concentrations rather than pressures:
 
 $$J = D\,\frac{C_{\mathrm{high}} - C_{\mathrm{low}}}{L} \tag{T27}$$
 
+> [!NOTE]
+> **To check.** (T27) is implemented as `fick_flux` in
+> [`permeation.py`](../models/permeation.py) and is unit-tested, but no
+> workflow calls it: every flux the pipeline reports is (T26). (T27) is
+> therefore not part of any result.
+
 ### 9.4 Validity
 
 (T24)–(T26) assume dilute dissolved hydrogen: non-interacting atoms on
@@ -629,7 +635,7 @@ Each equation, the function implementing it, and the check that verifies it.
 | T24 | $\Phi = DS$ | [`permeation.py`](../models/permeation.py) | `Phi = D * S` |
 | T25 | $\Phi_0$, $E_\Phi$ | [`permeation.py`](../models/permeation.py) | `Phi0 = D0 * S0`, `E_Phi = E_D + dH_sol` |
 | T26 | Richardson flux | [`permeation.py`](../models/permeation.py) | `J = (Phi / L) ...` |
-| T27 | Fick flux | [`permeation.py`](../models/permeation.py) | — |
+| T27 | Fick flux | [`permeation.py`](../models/permeation.py) | unit tests only; not called by any workflow (§9.3) |
 | T28–T30 | error propagation | [`permeation.py`](../models/permeation.py) | `... add in quadrature` |
 
 > [!IMPORTANT]
