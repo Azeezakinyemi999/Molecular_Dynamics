@@ -193,14 +193,11 @@ check_true('the two Arrhenius helpers agree exactly when each is called its own 
                         P.arrhenius_diffusivity(T.d0_m2s, T.e_d_ev, T_MID),
                         rel_tol=1e-12))
 # An Arrhenius fit of a series generated from known parameters must return them.
-# fit_arrhenius takes per-point sigmas and weights by inverse variance,
-# w_i = (D_i / sigma_i)^2; equal fractional errors therefore weight equally.
+# fit_arrhenius is ordinary least squares of ln D vs 1/T.
 Ts  = list(T.temperatures_K)
 Ds  = [T.d_at(x) for x in Ts]
-Des = [0.01 * d for d in Ds]                       # 1% on every point
-import numpy as _np                               # ndarray-only signature
 Ea_f, Ea_err_f, D0_f, D0_err_f, R2_f = DPP.fit_arrhenius(
-    _np.asarray(Ts, float), _np.asarray(Ds, float), _np.asarray(Des, float))
+    np.asarray(Ts, float), np.asarray(Ds, float))
 check('Arrhenius fit recovers D0', D0_f, T.d0_m2s, rtol=1e-6)
 check('Arrhenius fit recovers E_a', Ea_f, T.e_d_ev, rtol=1e-6)
 check_true('Arrhenius fit of exact data gives R^2 = 1', abs(R2_f - 1.0) < 1e-9)
