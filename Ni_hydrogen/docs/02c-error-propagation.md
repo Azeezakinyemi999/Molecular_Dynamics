@@ -25,7 +25,7 @@ Part II.
 | [5](#5-stage-d--averaging-over-environments) | D | $\sigma_S/S$ at a single $T$ |
 | [6](#6-stage-e--st--s_0-δh_sol) | E | $\sigma_{S_0}$, $\sigma_{\Delta H_\text{sol}}$ |
 | [7](#7-stage-f--φ--d·s) | F | $\sigma_{\Phi_0}$, $\sigma_{E_\Phi}$, $\sigma_J(T)$ |
-| [8](#8-the-scale-invariance-property) | — | **the single most consequential fact** |
+| [8](#8-what-the-reported-uncertainties-measure) | — | **the single most consequential fact** |
 | [9](#9-zeros-nans-and-silent-substitutions) | — | where a $\sigma$ becomes 0 |
 | [10](#10-realised-magnitudes-ni) | — | what actually dominates |
 | [11](#11-two-fitters-two-behaviours) | — | an inconsistency between stages B and E |
@@ -45,7 +45,8 @@ NEB energies ──► ΔE per pathway ──C──► ΔH_env, σ_env        �
 ```
 
 Two independent branches meet once, at F. Each branch ends in a regression
-(B and E), and **both regressions share the property described in §8**.
+(B and E). Both are unweighted least squares, so **both report the kind of
+$\sigma$ described in §8**.
 
 ---
 
@@ -90,48 +91,56 @@ only**. It never enters any $\sigma$; its sole consumer is run exclusion.
 
 ## 3. Stage B — $D(T) \to D_0,\ E_D$
 
-`fit_arrhenius` → `_weighted_linregress` —
-[`diffusivity_post_processing.py:336-430`](../models/diffusivity_post_processing.py#L336-L430)
+`fit_arrhenius` —
+[`diffusivity_post_processing.py:336-389`](../models/diffusivity_post_processing.py#L336-L389)
 
-Weighted least squares of $\ln D$ against $1/T$, with inverse-variance weights
-in log space:
+Ordinary (unweighted) least squares of $\ln D$ against $x = 1/T$, through
+`scipy.stats.linregress`:
 
-$$w_i = \left(\frac{D_i}{\sigma_{D_i}}\right)^2 = \frac{1}{\sigma_{\ln D_i}^2} \tag{E2}$$
+$$\ln D_i = \ln D_0 - \frac{E_D}{k_B}\,x_i, \qquad
+  \text{minimising} \ \sum_i \left(\ln D_i - \ln D_0 + \frac{E_D}{k_B}\,x_i\right)^2 \tag{E2}$$
 
-which is the correct weight, since $\sigma_{\ln D} = \sigma_D / D$. Parameter
-errors come from a $\chi^2$-rescaled covariance:
+Every temperature counts equally. $\sigma_D$ from stage A is **not** a weight;
+it only draws the error bars on `arrhenius.png`. Until #18 the fit was
+inverse-variance weighted, $w_i = (D_i/\sigma_{D_i})^2$, but (E1) understates
+the uncertainty by a different factor at each temperature, so one temperature
+carried most of the weight and set $E_D$ and $D_0$. Parameter errors are the
+ordinary least-squares standard errors:
 
-$$s^2 = \frac{\text{ss}_\text{res}}{\max(n-2,\,1)}, \qquad
-  \sigma_{E_D} = k_B \sqrt{\frac{s^2 \sum w}{\Delta}}, \qquad
-  \sigma_{D_0} = D_0 \sqrt{\frac{s^2 \sum w x^2}{\Delta}} \tag{E3}$$
+$$s^2 = \frac{\text{ss}_\text{res}}{n-2}, \qquad
+  \sigma_{E_D} = k_B \sqrt{\frac{s^2\, n}{\Delta}}, \qquad
+  \sigma_{D_0} = D_0 \sqrt{\frac{s^2 \sum x^2}{\Delta}} \tag{E3}$$
 
-with $\Delta = \sum w \sum w x^2 - (\sum w x)^2$.
+with $\Delta = n \sum x^2 - (\sum x)^2$.
 
 Three properties of (E3) worth recording:
 
 - $\sigma_{D_0} = D_0\,\sigma_{\ln D_0}$ is a **first-order symmetric**
-  approximation to a log-normal quantity. For Ni 1H this gives
-  $\sigma_{D_0} \approx 3 D_0$, so the lower error bar is clipped
+  approximation to a log-normal quantity. A poorly constrained fit can give
+  $\sigma_{D_0} > D_0$, so the lower error bar is clipped
   (`LOG_ERR_FLOOR = 0.99`,
   [`arrhenius_params_plot.py:54`](../models/plots/arrhenius_params_plot.py#L54)).
   Stage F does report a proper multiplicative band; this stage does not.
 - The **slope–intercept correlation is discarded.** $\sigma_{D_0}$ and
   $\sigma_{E_D}$ are propagated as if independent, though a least-squares line
   always correlates them.
-- Degrees of freedom are $n-2$ **clamped to a floor of 1**, so a two-point fit
-  returns a finite, meaningless $\sigma$ rather than infinity. The fit is
-  admitted for $n \ge 2$.
+- Degrees of freedom are $n-2$. A two-point fit passes exactly through both
+  points and returns $\sigma = 0$ and $R^2 = 1$: no degrees of freedom, not an
+  exact result. The fit is admitted for $n \ge 2$.
 
-A temperature whose $\sigma_D = 0$ is silently dropped from the fit
-([`:610-611`](../models/diffusivity_post_processing.py#L610-L611)).
+A temperature is dropped from the fit only when its $D$ is non-positive or
+non-finite, with a printed warning
+([`:569`](../models/diffusivity_post_processing.py#L569)). A zero or missing
+$\sigma_D$ no longer drops it.
 
-$R^2$ is weighted and computed about the weighted mean.
+$R^2$ is the ordinary $r^2$ of $\ln D$ against $1/T$.
 
 > [!NOTE]
 > $\sigma_{D_0}$ is stored **absolute**, in m²/s, under the key `D0_err`.
-> Two legacy converters write the same absolute value under `D0_err_m2s`
-> instead. Only one reader in the codebase tries both spellings
-> ([`permeation.py:986`](../models/permeation.py#L986)); it carries an in-code
+> The `results/*_01H` files, written by two legacy converters since deleted,
+> carry the same absolute value under `D0_err_m2s` instead. Only one reader in
+> the codebase tries both spellings
+> ([`permeation.py:980`](../models/permeation.py#L980)); it carries an in-code
 > postmortem, because reading only `D0_err_m2s` once silently returned `None`
 > and kept $\sigma_{D_0}$ out of $\Phi_0$ entirely.
 
@@ -154,7 +163,7 @@ $$\Delta H_\text{sol} = \tfrac12 \Delta H_\text{diss} + \overline{\Delta H}_\tex
 
 Absolute, in eV. $\sigma_\text{diss}$ is itself the standard error of the mean
 over converged dissociation pathways
-([`permeation_workflow.py:504`](../models/permeation_workflow.py#L504)).
+([`permeation_workflow.py:503`](../models/permeation_workflow.py#L503)).
 
 The weight $w_\text{env}$ is a **pathway-count fraction**
 ($n_\text{env}/n_\text{total}$) and carries no uncertainty of its own.
@@ -195,35 +204,30 @@ pinned by unit tests.
 
 > [!WARNING]
 > (E7) is computed correctly and then **functionally discarded**. Its only
-> consumers are the per-temperature JSON field `S_rel_err` and the fit weights
-> at stage E — and by §8 those weights cannot affect the reported magnitude.
-> The environment spread therefore contributes **no absolute information** to
-> $\Phi$.
+> consumer is the per-temperature JSON field `S_rel_err`; the stage-E fit does
+> not use it (§6). The environment spread therefore contributes **no absolute
+> information** to $\Phi$.
 
 ---
 
 ## 6. Stage E — $S(T) \to S_0,\ \Delta H_\text{sol}$
 
-`fit_arrhenius` — [`permeation.py:746-813`](../models/permeation.py#L746-L813)
+`fit_arrhenius` — [`permeation.py:746-807`](../models/permeation.py#L746-L807)
 
-Structurally the same weighted least squares as stage B, with the same
-inverse-variance weights (E2) and the same $\chi^2$ rescaling:
+The same ordinary least squares as stage B (E2), for all three routes:
 
 $$s^2 = \frac{\text{ss}_\text{res}}{n-2}, \qquad
-  \sigma_{\Delta H} = k_B\sqrt{\frac{s^2\sum w}{\Delta}}, \qquad
-  \frac{\sigma_{S_0}}{S_0} = \sqrt{\frac{s^2 \sum w x^2}{\Delta}} \tag{E9}$$
+  \sigma_{\Delta H} = k_B\sqrt{\frac{s^2\, n}{\Delta}}, \qquad
+  \frac{\sigma_{S_0}}{S_0} = \sqrt{\frac{s^2 \sum x^2}{\Delta}} \tag{E9}$$
 
 Outputs: `dH_sol_err_eV` (absolute, eV) and `S0_rel_err` (fractional).
 
-Two behaviours specific to this stage:
-
-- **Weighting is all-or-nothing.** `_yerr` is used only if *every* temperature
-  has a finite positive $\sigma_S$
-  ([`permeation_workflow.py:752`](../models/permeation_workflow.py#L752)); one
-  missing value silently demotes the whole route to unweighted.
-- **`detailed_balance` is permanently unweighted** — its $\sigma$ list is
-  structurally `None` ([`:741`](../models/permeation_workflow.py#L741)), and its
-  per-temperature payload carries no `S_rel_err` key at all.
+$\sigma_S$ from (E8) is **not** a weight. It is the spread over the same
+environments at every temperature, so it is systematic and correlated across
+temperatures rather than independent noise. Until #18 the geometric and
+vibrational routes were weighted by it and `detailed_balance` was not, so the
+three routes were fitted by different methods. The `detailed_balance`
+per-temperature payload carries no `S_rel_err` key at all.
 
 The three routes supply $\sigma_{S_0}$ at the per-temperature stage very
 differently:
@@ -244,7 +248,7 @@ where it is measured. `lattice_params_vs_T.json` carries two keys,
 
 ## 7. Stage F — $\Phi = D\cdot S$
 
-`permeability_arrhenius` — [`permeation.py:816-863`](../models/permeation.py#L816-L863)
+`permeability_arrhenius` — [`permeation.py:810-857`](../models/permeation.py#L810-L857)
 
 $$\Phi_0 = D_0 S_0, \qquad E_\Phi = E_D + \Delta H_\text{sol} \tag{E10}$$
 
@@ -259,7 +263,7 @@ $$f = \exp\!\left(\frac{\sigma_{\Phi_0}}{\Phi_0}\right), \qquad
   \Phi_0 \in \left[\Phi_0/f,\ \Phi_0 f\right] \tag{E12}$$
 
 never as a symmetric $\pm$. Per-temperature flux error
-([`permeation_workflow.py:787-789`](../models/permeation_workflow.py#L787-L789)):
+([`permeation_workflow.py:777-778`](../models/permeation_workflow.py#L777-L778)):
 
 $$\frac{\sigma_J}{J}(T) = \sqrt{\left(\frac{\sigma_{\Phi_0}}{\Phi_0}\right)^2 + \left(\frac{\sigma_{E_\Phi}}{k_BT}\right)^2} \tag{E13}$$
 
@@ -269,7 +273,7 @@ No operating-condition uncertainty exists anywhere in the pipeline.
 
 Input conversion at the boundary: $\sigma_{D_0}$ arrives **absolute** (m²/s) and
 is divided by $D_0$ to become fractional
-([`permeation_workflow.py:556`](../models/permeation_workflow.py#L556));
+([`permeation_workflow.py:555`](../models/permeation_workflow.py#L555));
 $\sigma_{E_D}$ and $\sigma_{\Delta H}$ stay absolute in eV.
 
 > [!NOTE]
@@ -279,60 +283,45 @@ $\sigma_{E_D}$ and $\sigma_{\Delta H}$ stay absolute in eV.
 
 ---
 
-## 8. The scale-invariance property
+## 8. What the reported uncertainties measure
 
 This is the single fact that most changes how the reported numbers should be
 read, and it applies to **both** regressions (B and E).
 
-Let every input uncertainty be scaled, $\sigma_y \to c\,\sigma_y$. Then
-$w \to w/c^2$, so each weighted sum scales by $1/c^2$, $\Delta \to \Delta/c^4$,
-and $\text{ss}_\text{res} \to \text{ss}_\text{res}/c^2$, hence
-$s^2 \to s^2/c^2$. The products that appear in (E3) and (E9) are therefore
-
-$$\frac{s^2 \sum w}{\Delta} \ \longrightarrow\ \frac{(s^2/c^2)(\sum w/c^2)}{\Delta/c^4} = \frac{s^2\sum w}{\Delta}$$
-
-**exactly unchanged.** The same holds for the intercept term.
+Both fits are unweighted, so the per-temperature uncertainties from stages A,
+C and D do not enter them at all. (E3) and (E9) are built from the residuals
+alone.
 
 > [!IMPORTANT]
-> The per-temperature $\sigma$ set only the **relative weighting** between
-> temperatures. Their magnitude cancels identically. What the reported
-> $\sigma_{D_0}$, $\sigma_{E_D}$, $\sigma_{S_0}$ and $\sigma_{\Delta H}$ actually
-> measure is **scatter of the points about the Arrhenius line** — not sampling
-> quality, not MSD statistics, not environment spread.
+> What the reported $\sigma_{D_0}$, $\sigma_{E_D}$, $\sigma_{S_0}$ and
+> $\sigma_{\Delta H}$ actually measure is **scatter of the points about the
+> Arrhenius line** — not sampling quality, not MSD statistics, not environment
+> spread.
 >
-> This is `curve_fit(..., absolute_sigma=False)` semantics. It is a defensible
-> choice, but it means the careful work at stages A, C and D affects the
-> answer only through point weighting, and a quantity with no uncertainty
-> input at all can still be assigned a small $\sigma$.
+> This is `curve_fit(..., absolute_sigma=False)` semantics with unit weights.
+> It is a defensible choice, but it means the careful work at stages A, C and
+> D does not reach these numbers, and a quantity with no uncertainty input at
+> all can still be assigned a small $\sigma$.
 
 The clearest demonstration is in §10: `detailed_balance`, which has no
 uncertainty input at any stage, reports the **tightest** $\sigma_{\Delta H}$ of
 the three routes, because its $S(T)$ happens to be the most log-linear.
 
-### Reproducing this
+### Before #18
 
-Measured on Ni 10H data, scaling every input $\sigma$ by $10^{-2}$ and $10^{2}$:
+Both fits used to be inverse-variance weighted, with a $\chi^2$-rescaled
+covariance. That made the *magnitude* of the input $\sigma$ cancel exactly:
+scaling every $\sigma$ by $c$ scales each weighted sum by $1/c^2$ and leaves
+$s^2 \sum w / \Delta$ unchanged. Only the *relative* pattern of $\sigma$ across
+temperatures reached the answer, and it did move it: on Ni 10H, inflating only
+the 400 K uncertainty twentyfold took $E_D$ from 0.397 to 0.356 eV. That
+pattern came from (E1), which understates by a different factor at each
+temperature, so the weights shifted the central values for no physical reason.
 
-```
-Stage B (diffusivity)                         Stage E (permeation)
-sigma x0.01  E_D=0.39729659  s_E_D=0.01418294   dH=0.14523906  s_dH=0.00448445
-sigma x1     E_D=0.39729659  s_E_D=0.01418294   dH=0.14523906  s_dH=0.00448445
-sigma x100   E_D=0.39729659  s_E_D=0.01418294   dH=0.14523906  s_dH=0.00448445
-```
-
-Bit-identical across four orders of magnitude. Changing the *relative* pattern
-instead — inflating only the 400 K uncertainty twentyfold — does move the
-answer, from $E_D = 0.397297$ to $0.356452$ eV. Both fitters behave the same
-way.
-
-```python
-from models.diffusivity_post_processing import fit_arrhenius
-import numpy as np
-T = np.array([400., 600., 800., 1000., 1200.])
-D = np.array([2.870e-12, 1.977e-10, 1.115e-09, 3.604e-09, 5.713e-09])
-for c in (0.01, 1.0, 100.0):
-    print(fit_arrhenius(T, D, D * 0.05 * c)[:2])   # (E_D, sigma_E_D)
-```
+`test_fit_ignores_sigma_D`
+([`tests/test_diffusivity_post_processing.py`](../tests/test_diffusivity_post_processing.py))
+now pins that changing $\sigma_D$, even to 0 or NaN, leaves the stage-B fit
+unchanged.
 
 ---
 
@@ -342,15 +331,15 @@ Every place an uncertainty becomes zero or is invented, as built.
 
 | # | where | behaviour |
 |---|---|---|
-| 1 | [`permeation_workflow.py:781-782`](../models/permeation_workflow.py#L781-L782) | `fit_arrhenius` returns **NaN** for $\sigma$ when $n \le 2$, meaning "cannot estimate". These lines convert NaN → **0.0**, meaning "exact". Nothing records the substitution. |
-| 2 | [`permeation_workflow.py:644`](../models/permeation_workflow.py#L644) | geometric $\sigma_{S_0}$ hard-zeroed; root cause is $\sigma_{a_0}$ discarded in `structure.py:200` |
-| 3 | [`permeation_workflow.py:482`](../models/permeation_workflow.py#L482) | `_DH_DISS_ERR = 0.0`, overwritten **only** on the auto-extract path. A hand-set `DH_DISS_EV` — a path the code advertises — leaves it 0.0 and deletes the $\tfrac12\sigma_\text{diss}$ term from every environment. |
+| 1 | [`permeation_workflow.py:771-772`](../models/permeation_workflow.py#L771-L772) | `fit_arrhenius` returns **NaN** for $\sigma$ when $n \le 2$, meaning "cannot estimate". These lines convert NaN → **0.0**, meaning "exact". Nothing records the substitution. |
+| 2 | [`permeation_workflow.py:641`](../models/permeation_workflow.py#L641) | geometric $\sigma_{S_0}$ hard-zeroed; root cause is $\sigma_{a_0}$ discarded in `structure.py:200` |
+| 3 | [`permeation_workflow.py:481`](../models/permeation_workflow.py#L481) | `_DH_DISS_ERR = 0.0`, overwritten **only** on the auto-extract path. A hand-set `DH_DISS_EV` — a path the code advertises — leaves it 0.0 and deletes the $\tfrac12\sigma_\text{diss}$ term from every environment. |
 | 4 | [`permeation.py:684`](../models/permeation.py#L684) | `d.get('dH_sol_err_eV', 0.0)` — an environment missing its $\sigma$ contributes zero variance while keeping full weight in $B$ |
-| 5 | [`permeation.py:443`](../models/permeation.py#L443), [`:818-819`](../models/permeation.py#L818-L819) | API defaults are `0.0` for every error argument; a caller that omits them gets a zero-error answer indistinguishable from an exact one |
-| 6 | [`permeation_workflow.py:554-556`](../models/permeation_workflow.py#L554-L556) | `or 0.0` on $\sigma_{D_0}$, $\sigma_{E_D}$. No `isfinite` guard, so a NaN survives and poisons the quadrature instead |
-| 7 | [`permeation_workflow.py:752`](../models/permeation_workflow.py#L752) | one missing $\sigma_S$ discards weighting for **all** temperatures of that route |
-| 8 | [`permeation_workflow.py:1190-1191`](../models/permeation_workflow.py#L1190-L1191) | missing/NaN errors plot a **zero-width** band — visually identical to a perfectly determined permeability |
-| 9 | [`permeation_workflow.py:488,499`](../models/permeation_workflow.py#L488), [`tst_rates.py:494`](../models/tst_rates.py#L494), [`neb_workflow.py:2943-2945`](../models/neb_workflow.py#L2943-L2945) | a missing reaction energy enters a mean as **0.0 eV** rather than being skipped, biasing both the mean and the SEM |
+| 5 | [`permeation.py:443`](../models/permeation.py#L443), [`:812-813`](../models/permeation.py#L812-L813) | API defaults are `0.0` for every error argument; a caller that omits them gets a zero-error answer indistinguishable from an exact one |
+| 6 | [`permeation_workflow.py:553-555`](../models/permeation_workflow.py#L553-L555) | `or 0.0` on $\sigma_{D_0}$, $\sigma_{E_D}$. No `isfinite` guard, so a NaN survives and poisons the quadrature instead |
+| 7 | — | *Removed in #18.* The $S(T)$ fits are unweighted, so a missing $\sigma_S$ no longer changes them. |
+| 8 | [`permeation_workflow.py:1132-1133`](../models/permeation_workflow.py#L1132-L1133) | missing/NaN errors plot a **zero-width** band — visually identical to a perfectly determined permeability |
+| 9 | [`permeation_workflow.py:487,498`](../models/permeation_workflow.py#L487), [`tst_rates.py:494`](../models/tst_rates.py#L494), [`neb_workflow.py:2943-2945`](../models/neb_workflow.py#L2943-L2945) | a missing reaction energy enters a mean as **0.0 eV** rather than being skipped, biasing both the mean and the SEM |
 | 10 | [`environment_plot.py:158-184`](../models/plots/environment_plot.py#L158-L184) | `dH_sol_err_eV` is present in the JSON being read and is never drawn — the bars have no `xerr` |
 | 11 | [`solubility_plot.py:277-278`](../models/plots/solubility_plot.py#L277-L278) | a falsy `S0_rel_err` prints no `±` at all, so a hard-zeroed route renders like an exactly known one. Note the asymmetry: the very next line tests `if fit.dH_err is not None`, so a zero *enthalpy* error prints `±0.0000` while a zero *prefactor* error prints nothing |
 
@@ -361,6 +350,12 @@ missing errors export as **blank cells**.
 ---
 
 ## 10. Realised magnitudes (Ni)
+
+> [!NOTE]
+> Measured before #18, when both fits were inverse-variance weighted. $E_D$,
+> $D_0$, their $\sigma$ and everything built on them change under the
+> unweighted fit; these tables need re-measuring once the results on disk are
+> refit.
 
 Geometric route, the three analysed loadings (1H excluded):
 
@@ -408,20 +403,21 @@ Stages B and E implement the same algebra in two places, and they differ:
 
 | | stage B (`diffusivity_post_processing`) | stage E (`permeation`) |
 |---|---|---|
-| dof | $\max(n-2,\,1)$ — **clamped** | $n-2$, and **NaN** if $n \le 2$ |
-| $n = 2$ | finite, meaningless $\sigma$ | $\sigma = $ NaN (honest) |
+| weighting | none | none |
+| dof | $n-2$ | $n-2$, and **NaN** if $n \le 2$ |
+| $n = 2$ | $\sigma = 0$ (no degrees of freedom) | $\sigma = $ NaN (honest) |
 | prefactor $\sigma$ | absolute, $D_0\sigma_{\ln D_0}$ | fractional, $\sigma_{\ln S_0}$ |
-| $r^2$ when $\text{ss}_\text{tot}=0$ | NaN | 1.0 |
+| $r^2$ when $\text{ss}_\text{tot}=0$ | 0.0 | 1.0 |
 
 Stage E's NaN is then converted to 0.0 downstream (§9 item 1), so the honest
-behaviour is discarded at the boundary.
+behaviour is discarded at the boundary. Issue #19 tracks merging the two
+fitters.
 
-A related inconsistency in reporting: the CSV exporter emits an explicit
+A related gap in reporting: the CSV exporter emits an explicit
 degrees-of-freedom warning for diffusivity fits — "a $n$-point Arrhenius fit
 has $\max(0, n-2)$ degrees of freedom, so its $R^2$ is arithmetic, not
-evidence" — using the *unclamped* convention, which contradicts the clamp
-actually applied in (E3). **No equivalent warning exists for the solubility
-fits.**
+evidence" — which matches (E3). **No equivalent warning exists for the
+solubility fits.**
 
 ---
 
@@ -432,18 +428,18 @@ Each item is independent. Mark each **keep** or **change**.
 | # | item | as built | if left alone |
 |---|---|---|---|
 | D1 | $\sigma_D$ source | OLS stderr of one MSD slope; no ensemble statistics | $\sigma_D$ understates, because MSD lags are autocorrelated |
-| D2 | Regression $\sigma$ semantics (§8) | `absolute_sigma=False`; input $\sigma$ magnitudes cancel | reported $\sigma$ means "scatter about the line", not sampling quality |
-| D3 | dof clamp in stage B | $\max(n-2,1)$ | 2-point fits report a finite $\sigma$ that means nothing |
+| D2 | Regression $\sigma$ semantics (§8) | unweighted; input $\sigma$ not used (#18) | reported $\sigma$ means "scatter about the line", not sampling quality |
+| D3 | Two-point $\sigma$ in stage B | $n-2 = 0$ dof; $\sigma = 0$ | a 2-point fit reports $\sigma = 0$, which reads as exact |
 | D4 | Slope–intercept correlation | discarded | $\sigma_{\Phi_0}$ and $\sigma_{E_\Phi}$ are not independent, but are combined as if they were |
 | D5 | $\sigma_{a_0}$ | discarded in `structure.py:200`; geometric $\sigma_{S_0}$ hard-zeroed | a measurable thermal uncertainty is reported as exact |
 | D6 | NaN → 0.0 at the permeability boundary | converts "cannot estimate" to "exact" | a 2-point route publishes a confident $\Phi$ and a zero-width band |
 | D7 | `detailed_balance` $\sigma$ | no input, tightest output | the diagnostic route looks like the best-determined result |
 | D8 | Per-pathway NEB $\sigma$ | does not exist | environment $\sigma$ can only ever be between-pathway scatter |
-| D9 | All-or-nothing fit weighting | one missing $\sigma_S$ unweights the route | silent, and unrecorded in the output |
+| D9 | All-or-nothing fit weighting | *resolved in #18*: the $S(T)$ fits are unweighted | — |
 | D10 | Zero-substitution for missing energies | missing $\Delta E$ enters means as 0.0 eV | biases both the mean and its SEM toward zero |
 | D11 | Error bars not drawn | env plot has no `xerr`; zeroed routes print no `±` | the figures look more certain than the JSON is |
 | D12 | Operating conditions | $P$ and $L$ exact | no pressure/thickness uncertainty in $\sigma_J$ |
-| D13 | Two fitters (§11) | divergent dof and $r^2$ conventions | the same fit behaves differently on the two branches |
+| D13 | Two fitters (§11) | divergent $n = 2$ and $r^2$ conventions | the same fit behaves differently on the two branches (#19) |
 
 ---
 
