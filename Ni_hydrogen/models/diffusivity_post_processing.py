@@ -37,7 +37,7 @@ NB12::
     from models.parsers import parse_diffusivity_file
 
     T, D, Derr, R2 = parse_diffusivity_file('results/notebook11/N_7/diffusivity.txt')
-    Ea, Ea_err, D0, D0_err, R2_fit = fit_arrhenius(T, D, Derr)
+    Ea, Ea_err, D0, D0_err, R2_fit = fit_arrhenius(T, D)
     fig = plot_arrhenius(T, D, Derr, Ea, D0, outfile='results/notebook12/N_7/arrhenius.png')
 """
 
@@ -333,55 +333,11 @@ def run_diffusivity_pipeline(
 # Section 7 — Arrhenius fit
 # ---------------------------------------------------------------------------
 
-def _weighted_linregress(
-    x: np.ndarray,
-    y: np.ndarray,
-    weights: np.ndarray,
-) -> tuple[float, float, float, float, float]:
-    """Weighted least-squares linear regression: minimise Σ wᵢ(yᵢ - (ax+b))².
-
-    Parameters
-    ----------
-    x, y : ndarray
-        Data arrays.
-    weights : ndarray
-        Per-point weights (larger = more influence).
-
-    Returns
-    -------
-    slope, intercept, slope_err, intercept_err, R2 : float
-    """
-    w  = weights
-    sw = w.sum()
-    sx = (w * x).sum()
-    sy = (w * y).sum()
-    sxx = (w * x * x).sum()
-    sxy = (w * x * y).sum()
-    syy = (w * y * y).sum()
-
-    denom     = sw * sxx - sx ** 2
-    slope     = (sw * sxy - sx * sy) / denom
-    intercept = (sy - slope * sx) / sw
-
-    y_pred = slope * x + intercept
-    ss_res = (w * (y - y_pred) ** 2).sum()
-    ss_tot = (w * (y - sy / sw) ** 2).sum()
-    R2     = 1.0 - ss_res / ss_tot if ss_tot > 0 else float('nan')
-
-    # Variance of coefficients (assuming uniform residual variance)
-    sigma2    = ss_res / max(len(x) - 2, 1)
-    slope_err     = np.sqrt(sigma2 * sw / denom)
-    intercept_err = np.sqrt(sigma2 * sxx / denom)
-
-    return float(slope), float(intercept), float(slope_err), float(intercept_err), float(R2)
-
-
 def fit_arrhenius(
     T_arr: np.ndarray,
     D_arr: np.ndarray,
-    D_err_arr: np.ndarray,
 ) -> tuple[float, float, float, float, float]:
-    """Fit Arrhenius parameters from D(T) data using weighted linear regression.
+    """Fit Arrhenius parameters from D(T) data by ordinary least squares.
 
     Linearises :math:`D = D_0 \\exp(-E_a / k_B T)` as:
 
@@ -389,45 +345,48 @@ def fit_arrhenius(
 
         \\ln D = \\ln D_0 - \\frac{E_a}{k_B} \\cdot \\frac{1}{T}
 
-    Weights are set to inverse-variance: :math:`w_i = (D_i / \\sigma_{D_i})^2`.
+    and fits it unweighted, so every temperature counts equally. The per-T
+    σ_D from :func:`fit_diffusivity` are not used as weights: they come from
+    a regression on autocorrelated MSD lags, underestimate the real
+    uncertainty by a different factor at each temperature, and would let one
+    temperature dominate the fit (docs/02c-error-propagation.md §2). The
+    returned uncertainties are the least-squares standard errors, set by the
+    scatter of ln D about the line.
 
     Parameters
     ----------
     T_arr : ndarray
         Temperatures in K.
     D_arr : ndarray
-        Diffusivities in m²/s.
-    D_err_arr : ndarray
-        Standard errors of D in m²/s.
+        Diffusivities in m²/s (all > 0).
 
     Returns
     -------
     Ea : float
         Activation energy in eV.
     Ea_err : float
-        Uncertainty in Ea in eV.
+        Standard error of Ea in eV (0 for two points: no degrees of freedom).
     D0 : float
         Pre-exponential factor in m²/s.
     D0_err : float
-        Uncertainty in D0 in m²/s.
+        Uncertainty in D0 in m²/s, first order: σ_D0 = D0 · σ_ln(D0).
     R2 : float
-        R² of the weighted fit.
+        R² of the ln D vs 1/T fit.
     """
-    x = 1.0 / T_arr
-    y = np.log(D_arr)
-    w = (D_arr / D_err_arr) ** 2   # inverse-variance weights
+    from scipy.stats import linregress
 
-    slope, intercept, slope_err, intercept_err, R2 = _weighted_linregress(x, y, w)
+    res = linregress(1.0 / np.asarray(T_arr, dtype=float),
+                     np.log(np.asarray(D_arr, dtype=float)))
 
     # slope = -Ea / kB
-    Ea     = -slope      * KB_EV
-    Ea_err =  slope_err  * KB_EV
+    Ea     = float(-res.slope  * KB_EV)
+    Ea_err = float(res.stderr  * KB_EV)
 
     # intercept = ln(D0)
-    D0     = float(np.exp(intercept))
-    D0_err = D0 * intercept_err    # error propagation: σ_D0 = D0 * σ_ln(D0)
+    D0     = float(np.exp(res.intercept))
+    D0_err = float(D0 * res.intercept_stderr)   # σ_D0 = D0 · σ_ln(D0)
 
-    return Ea, Ea_err, D0, D0_err, R2
+    return Ea, Ea_err, D0, D0_err, float(res.rvalue ** 2)
 
 
 # ---------------------------------------------------------------------------
@@ -607,8 +566,7 @@ def run_arrhenius_pipeline(
 
     # ln(D) requires D > 0; short/noisy MD runs can yield a negative MSD
     # slope, and one bad temperature must not kill the whole pipeline.
-    valid = (np.isfinite(D_arr) & (D_arr > 0)
-             & np.isfinite(D_err_arr) & (D_err_arr > 0))
+    valid = np.isfinite(D_arr) & (D_arr > 0)
     if not valid.all():
         bad = ', '.join(f'{t:.0f}K (D={d:.3e})'
                         for t, d in zip(T_arr[~valid], D_arr[~valid]))
@@ -627,7 +585,7 @@ def run_arrhenius_pipeline(
 
     T_fit, D_fit, D_err_fit = T_arr[valid], D_arr[valid], D_err_arr[valid]
 
-    Ea, Ea_err, D0, D0_err, R2 = fit_arrhenius(T_fit, D_fit, D_err_fit)
+    Ea, Ea_err, D0, D0_err, R2 = fit_arrhenius(T_fit, D_fit)
 
     print(f'Arrhenius fit:  Ea = {Ea:.4f} ± {Ea_err:.4f} eV  |  '
           f'D0 = {D0:.4e} ± {D0_err:.2e} m²/s  |  R² = {R2:.4f}')
