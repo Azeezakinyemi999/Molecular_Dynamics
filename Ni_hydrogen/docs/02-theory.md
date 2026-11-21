@@ -448,7 +448,10 @@ fitted as a straight line in $\ln D$ against $1/T$:
 
 $$\ln D = \ln D_0 - \frac{E_D}{k_B}\cdot\frac1T \tag{T22a}$$
 
-optionally weighted by inverse variance, $w_i = (D_i/\sigma_{D_i})^2$.
+by ordinary (unweighted) least squares. The per-temperature $\sigma_D$ is not
+used as a weight: (T20)'s error understates the true uncertainty by a
+different factor at each temperature, so weighting by it would let one
+temperature dominate ([Part II-C §3](02c-error-propagation.md)).
 
 > [!IMPORTANT]
 > (T22a) has $n-2$ degrees of freedom for $n$ temperatures. With two

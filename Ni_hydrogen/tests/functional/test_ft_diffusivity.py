@@ -57,7 +57,7 @@ def _make_synthetic_D(T_K, D0, Ea_eV):
 
 class TestArrheniusFitKnownAnswer:
     """
-    fit_arrhenius(T, D, D_err) must recover D0 and Ea within 2% on perfect
+    fit_arrhenius(T, D) must recover D0 and Ea within 2% on perfect
     synthetic data.  Tests also verify error/R2 contract and edge behaviour.
     """
 
@@ -67,8 +67,7 @@ class TestArrheniusFitKnownAnswer:
         Ea_true = 0.4     # eV   — typical H-in-Ni activation energy
         T = np.array([400., 500., 600., 700., 800., 900., 1000.])
         D = _make_synthetic_D(T, D0_true, Ea_true)
-        D_err = 0.01 * D  # 1% relative errors → well-conditioned weights
-        Ea, Ea_err, D0, D0_err, R2 = fit_arrhenius(T, D, D_err)
+        Ea, Ea_err, D0, D0_err, R2 = fit_arrhenius(T, D)
         return dict(Ea=Ea, Ea_err=Ea_err, D0=D0, D0_err=D0_err, R2=R2,
                     Ea_true=Ea_true, D0_true=D0_true)
 
@@ -87,11 +86,12 @@ class TestArrheniusFitKnownAnswer:
             f"R2={perfect_fit['R2']:.6f} should be >0.9999 for exact Arrhenius data"
         )
 
-    def test_Ea_err_is_positive_float(self, perfect_fit):
-        assert perfect_fit['Ea_err'] > 0
+    def test_Ea_err_zero_for_exact_data(self, perfect_fit):
+        # exact Arrhenius data leaves no scatter about the line
+        assert perfect_fit['Ea_err'] == pytest.approx(0.0, abs=1e-12)
 
-    def test_D0_err_is_positive_float(self, perfect_fit):
-        assert perfect_fit['D0_err'] > 0
+    def test_D0_err_zero_for_exact_data(self, perfect_fit):
+        assert perfect_fit['D0_err'] <= 1e-9 * perfect_fit['D0']
 
     def test_Ea_positive(self, perfect_fit):
         assert perfect_fit['Ea'] > 0
@@ -103,19 +103,16 @@ class TestArrheniusFitKnownAnswer:
         T = np.array([500., 700., 900.])
         D_low_Ea  = _make_synthetic_D(T, 1e-7, 0.2)
         D_high_Ea = _make_synthetic_D(T, 1e-7, 0.8)
-        err = 0.01 * D_low_Ea
-        Ea_low,  *_ = fit_arrhenius(T, D_low_Ea,  err)
-        Ea_high, *_ = fit_arrhenius(T, D_high_Ea, 0.01 * D_high_Ea)
+        Ea_low,  *_ = fit_arrhenius(T, D_low_Ea)
+        Ea_high, *_ = fit_arrhenius(T, D_high_Ea)
         assert Ea_high > Ea_low, "Higher true Ea must produce higher fitted Ea"
 
     def test_D0_scales_correctly(self):
         T   = np.array([600., 700., 800., 900.])
         D1  = _make_synthetic_D(T, 1e-7, 0.4)
         D2  = _make_synthetic_D(T, 1e-6, 0.4)   # 10× larger D0, same Ea
-        err1 = 0.01 * D1
-        err2 = 0.01 * D2
-        _, _, D0_fit1, _, _ = fit_arrhenius(T, D1, err1)
-        _, _, D0_fit2, _, _ = fit_arrhenius(T, D2, err2)
+        _, _, D0_fit1, _, _ = fit_arrhenius(T, D1)
+        _, _, D0_fit2, _, _ = fit_arrhenius(T, D2)
         assert math.isclose(D0_fit2 / D0_fit1, 10.0, rel_tol=0.02), (
             "10× D0 scaling must be recovered within 2%"
         )
@@ -124,8 +121,8 @@ class TestArrheniusFitKnownAnswer:
         T    = np.array([500., 700., 900.])
         D1   = _make_synthetic_D(T, 1e-7, 0.4)
         D100 = _make_synthetic_D(T, 1e-5, 0.4)   # 100× D0
-        Ea1,  *_ = fit_arrhenius(T, D1,   0.01 * D1)
-        Ea100,*_ = fit_arrhenius(T, D100, 0.01 * D100)
+        Ea1,  *_ = fit_arrhenius(T, D1)
+        Ea100,*_ = fit_arrhenius(T, D100)
         assert math.isclose(Ea1, Ea100, rel_tol=1e-6), (
             "Ea must not depend on the D0 prefactor"
         )

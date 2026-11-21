@@ -22,7 +22,6 @@ from models.diffusivity_post_processing import (
     compute_msd,
     fit_diffusivity,
     save_diffusivity_table,
-    _weighted_linregress,
     fit_arrhenius,
     arrhenius_D,
     run_diffusivity_pipeline,
@@ -329,63 +328,7 @@ class TestSaveDiffusivityTable:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 6. _weighted_linregress
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestWeightedLinregress:
-
-    def test_returns_five_values(self):
-        x = np.arange(5, dtype=float)
-        y = 2.0 * x + 1.0
-        w = np.ones(5)
-        result = _weighted_linregress(x, y, w)
-        assert len(result) == 5
-
-    def test_perfect_line_slope_and_intercept(self):
-        x = np.array([1., 2., 3., 4., 5.])
-        y = 3.0 * x - 2.0
-        w = np.ones(5)
-        slope, intercept, *_ = _weighted_linregress(x, y, w)
-        assert slope == pytest.approx(3.0, rel=1e-8)
-        assert intercept == pytest.approx(-2.0, rel=1e-8)
-
-    def test_perfect_line_r2_is_one(self):
-        x = np.linspace(0, 10, 20)
-        y = 1.5 * x + 0.5
-        w = np.ones(20)
-        *_, R2 = _weighted_linregress(x, y, w)
-        assert R2 == pytest.approx(1.0, abs=1e-10)
-
-    def test_slope_error_nonnegative(self):
-        rng = np.random.default_rng(7)
-        x = np.arange(10, dtype=float)
-        y = 2.0 * x + rng.normal(scale=0.1, size=10)
-        w = np.ones(10)
-        _, _, slope_err, _, _ = _weighted_linregress(x, y, w)
-        assert slope_err >= 0.0
-
-    def test_higher_weight_biases_fit(self):
-        # data: mostly slope=1, one outlier at slope~10 but zero weight
-        x = np.array([0., 1., 2., 3., 10.])
-        y = np.array([0., 1., 2., 3., 100.])   # last point is outlier
-        w_uniform = np.ones(5)
-        w_suppress = np.array([1., 1., 1., 1., 0.001])
-        s_u, *_ = _weighted_linregress(x, y, w_uniform)
-        s_s, *_ = _weighted_linregress(x, y, w_suppress)
-        # suppressing outlier should give slope closer to 1
-        assert abs(s_s - 1.0) < abs(s_u - 1.0)
-
-    def test_r2_bounded_above_by_one(self):
-        rng = np.random.default_rng(99)
-        x = np.linspace(0, 5, 30)
-        y = 2.0 * x + rng.normal(scale=0.2, size=30)
-        w = np.ones(30)
-        *_, R2 = _weighted_linregress(x, y, w)
-        assert R2 <= 1.0 + 1e-12
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 7. fit_arrhenius
+# 6. fit_arrhenius
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestFitArrhenius:
@@ -396,52 +339,85 @@ class TestFitArrhenius:
         D0_true = 5e-7   # m²/s
         T = np.array([300., 400., 500., 600., 800., 1000.])
         D = D0_true * np.exp(-Ea_true / (KB_EV * T))
-        Derr = D * 0.01  # 1% uniform error
-        return T, D, Derr, Ea_true, D0_true
+        return T, D, Ea_true, D0_true
+
+    @pytest.fixture()
+    def noisy_data(self):
+        rng = np.random.default_rng(3)
+        T = np.array([400., 600., 800., 1000., 1200.])
+        D = 1e-7 * np.exp(-0.45 / (KB_EV * T)) * np.exp(rng.normal(0, 0.2, T.size))
+        return T, D
 
     def test_returns_five_values(self, arrhenius_data):
-        T, D, Derr, _, _ = arrhenius_data
-        result = fit_arrhenius(T, D, Derr)
+        T, D, _, _ = arrhenius_data
+        result = fit_arrhenius(T, D)
         assert len(result) == 5
 
     def test_recovers_activation_energy(self, arrhenius_data):
-        T, D, Derr, Ea_true, _ = arrhenius_data
-        Ea, *_ = fit_arrhenius(T, D, Derr)
+        T, D, Ea_true, _ = arrhenius_data
+        Ea, *_ = fit_arrhenius(T, D)
         assert Ea == pytest.approx(Ea_true, rel=0.01)
 
     def test_recovers_prefactor(self, arrhenius_data):
-        T, D, Derr, _, D0_true = arrhenius_data
-        _, _, D0, _, _ = fit_arrhenius(T, D, Derr)
+        T, D, _, D0_true = arrhenius_data
+        _, _, D0, _, _ = fit_arrhenius(T, D)
         assert D0 == pytest.approx(D0_true, rel=0.01)
 
     def test_ea_positive_for_thermally_activated(self, arrhenius_data):
-        T, D, Derr, _, _ = arrhenius_data
-        Ea, *_ = fit_arrhenius(T, D, Derr)
+        T, D, _, _ = arrhenius_data
+        Ea, *_ = fit_arrhenius(T, D)
         assert Ea > 0.0
 
     def test_d0_positive(self, arrhenius_data):
-        T, D, Derr, _, _ = arrhenius_data
-        _, _, D0, _, _ = fit_arrhenius(T, D, Derr)
+        T, D, _, _ = arrhenius_data
+        _, _, D0, _, _ = fit_arrhenius(T, D)
         assert D0 > 0.0
 
     def test_r2_near_one_for_ideal_data(self, arrhenius_data):
-        T, D, Derr, _, _ = arrhenius_data
-        _, _, _, _, R2 = fit_arrhenius(T, D, Derr)
+        T, D, _, _ = arrhenius_data
+        _, _, _, _, R2 = fit_arrhenius(T, D)
         assert R2 == pytest.approx(1.0, abs=1e-4)
 
     def test_ea_err_nonnegative(self, arrhenius_data):
-        T, D, Derr, _, _ = arrhenius_data
-        _, Ea_err, _, _, _ = fit_arrhenius(T, D, Derr)
+        T, D, _, _ = arrhenius_data
+        _, Ea_err, _, _, _ = fit_arrhenius(T, D)
         assert Ea_err >= 0.0
 
     def test_d0_err_nonnegative(self, arrhenius_data):
-        T, D, Derr, _, _ = arrhenius_data
-        _, _, _, D0_err, _ = fit_arrhenius(T, D, Derr)
+        T, D, _, _ = arrhenius_data
+        _, _, _, D0_err, _ = fit_arrhenius(T, D)
         assert D0_err >= 0.0
+
+    def test_matches_numpy_polyfit_on_noisy_data(self, noisy_data):
+        T, D = noisy_data
+        Ea, _, D0, _, _ = fit_arrhenius(T, D)
+        slope, intercept = np.polyfit(1.0 / T, np.log(D), 1)
+        assert Ea == pytest.approx(-slope * KB_EV, rel=1e-10)
+        assert D0 == pytest.approx(np.exp(intercept), rel=1e-10)
+
+    def test_errors_are_least_squares_standard_errors(self, noisy_data):
+        # σ_slope² = [SSR/(n−2)] / Σ(x−x̄)²,   σ_intercept = σ_slope·√(Σx²/n)
+        T, D = noisy_data
+        _, Ea_err, D0, D0_err, _ = fit_arrhenius(T, D)
+        x, y = 1.0 / T, np.log(D)
+        slope, intercept = np.polyfit(x, y, 1)
+        s2 = ((y - (slope * x + intercept)) ** 2).sum() / (len(x) - 2)
+        sig_slope = np.sqrt(s2 / ((x - x.mean()) ** 2).sum())
+        sig_int = sig_slope * np.sqrt((x ** 2).mean())
+        assert Ea_err == pytest.approx(sig_slope * KB_EV, rel=1e-8)
+        assert D0_err == pytest.approx(D0 * sig_int, rel=1e-8)
+
+    def test_two_points_give_zero_uncertainty(self):
+        # two points fit exactly: no degrees of freedom left for an error estimate
+        T = np.array([500., 900.])
+        D = np.array([3e-11, 4e-9])
+        _, Ea_err, _, D0_err, R2 = fit_arrhenius(T, D)
+        assert Ea_err == 0.0 and D0_err == 0.0
+        assert R2 == pytest.approx(1.0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 8. arrhenius_D
+# 7. arrhenius_D
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestArrheniusD:
@@ -476,7 +452,7 @@ class TestArrheniusD:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 9. run_diffusivity_pipeline (uses synthetic LAMMPS dump)
+# 8. run_diffusivity_pipeline (uses synthetic LAMMPS dump)
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestRunDiffusivityPipeline:
@@ -537,7 +513,7 @@ class TestRunDiffusivityPipeline:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 10. run_arrhenius_pipeline (uses synthetic diffusivity.txt)
+# 9. run_arrhenius_pipeline (uses synthetic diffusivity.txt)
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestRunArrheniusPipeline:
@@ -579,3 +555,19 @@ class TestRunArrheniusPipeline:
         diff_file, tmp_path, _, _ = arrhenius_setup
         result = run_arrhenius_pipeline(diff_file, outdir=str(tmp_path))
         assert pathlib.Path(result['plot_file']).exists()
+
+    def test_fit_ignores_sigma_D(self, tmp_path, monkeypatch):
+        """σ_D only draws error bars: changing it, even to 0 or NaN, leaves
+        the fit unchanged and drops no temperature."""
+        import models.diffusivity_post_processing as dpp
+        monkeypatch.setattr(dpp, 'plot_arrhenius', lambda *a, **k: None)
+        T = np.array([400., 600., 800., 1000.])
+        rng = np.random.default_rng(5)
+        D = 2e-7 * np.exp(-0.40 / (KB_EV * T)) * np.exp(rng.normal(0, 0.2, T.size))
+        fits = []
+        for name, Derr in (('a', 0.01 * D), ('b', np.array([1e-3, 10., 0., np.nan]) * D)):
+            f = str(tmp_path / f'diff_{name}.txt')
+            save_diffusivity_table(T.tolist(), D.tolist(), Derr.tolist(), [0.99] * 4, f)
+            fits.append(run_arrhenius_pipeline(f, outdir=str(tmp_path)))
+        for k in ('Ea', 'Ea_err', 'D0', 'D0_err', 'R2'):
+            assert fits[1][k] == pytest.approx(fits[0][k], rel=1e-12)

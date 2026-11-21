@@ -743,12 +743,15 @@ def permeability(D_m2s: float, S_m3_pasqrt: float) -> float:
     return _Phi
 
 
-def fit_arrhenius(T_K_arr, y_arr, y_err_arr=None) -> dict:
-    """Fit ``y(T) = A·exp(−Ea / kB T)`` by (optionally weighted) regression of ln y vs 1/T.
+def fit_arrhenius(T_K_arr, y_arr) -> dict:
+    """Fit ``y(T) = A·exp(−Ea / kB T)`` by ordinary least squares of ln y vs 1/T.
 
     Reusable for the solubility (Ea = ΔH_sol) and permeability (Ea = E_Φ)
-    Arrhenius outputs. Points with non-positive T or y are dropped. The R² of
-    the ln-linear fit is the curvature/fit-quality flag the plan calls for: a
+    Arrhenius outputs. Points with non-positive T or y are dropped. The fit is
+    unweighted: the per-T σ_S available upstream is the spread over the same
+    environments at every T, i.e. systematic and correlated across
+    temperatures, so it is not a valid inverse-variance weight. The R² of the
+    ln-linear fit is the curvature/fit-quality flag the plan calls for: a
     per-environment S(T) is a *sum* of Arrhenius terms, so R² < 1 flags the
     physically-real curvature (the dominant environment shifting with T) rather
     than hiding it behind a forced straight line.
@@ -764,52 +767,43 @@ def fit_arrhenius(T_K_arr, y_arr, y_err_arr=None) -> dict:
     -------
     dict
         ``{'prefactor', 'Ea_eV', 'r2', 'n_points', 'Ea_err_eV',
-        'prefactor_rel_err'}``. When per-point absolute errors ``y_err_arr`` are
-        supplied the fit is inverse-variance weighted in log space
-        (wᵢ = (yᵢ/σ_yᵢ)²) and ``Ea_err_eV`` (absolute σ on Ea) and
-        ``prefactor_rel_err`` (σ_ln of the prefactor) are propagated; otherwise
-        those two are NaN. ``prefactor``/``Ea_eV`` are NaN with < 2 valid points.
+        'prefactor_rel_err'}``. ``Ea_err_eV`` (absolute σ on Ea) and
+        ``prefactor_rel_err`` (σ_ln of the prefactor) are the least-squares
+        standard errors, set by the scatter about the line; they are NaN with
+        ≤ 2 points (no degrees of freedom). ``prefactor``/``Ea_eV`` are NaN
+        with < 2 valid points.
     """
     T = np.asarray(list(T_K_arr), dtype=float)
     y = np.asarray(list(y_arr),   dtype=float)
-    ye = np.asarray(list(y_err_arr), dtype=float) if y_err_arr is not None else None
     mask = (T > 0) & (y > 0)
-    if ye is not None:
-        mask = mask & np.isfinite(ye)
     T, y = T[mask], y[mask]
-    if ye is not None:
-        ye = ye[mask]
     _nan = float('nan')
-    if len(T) < 2:
+    n = len(T)
+    if n < 2:
         return {'prefactor': _nan, 'Ea_eV': _nan, 'r2': _nan,
-                'n_points': int(len(T)), 'Ea_err_eV': _nan, 'prefactor_rel_err': _nan}
+                'n_points': int(n), 'Ea_err_eV': _nan, 'prefactor_rel_err': _nan}
     x  = 1.0 / T
     ly = np.log(y)
-    # inverse-variance weights in log space: wᵢ = 1/σ_(ln y)² = (y/σ_y)²
-    if ye is not None and np.all(ye > 0):
-        w = (y / ye) ** 2
-    else:
-        w = np.ones_like(x)
-    sw  = w.sum(); sx = (w * x).sum(); sy = (w * ly).sum()
-    sxx = (w * x * x).sum(); sxy = (w * x * ly).sum()
-    denom = sw * sxx - sx ** 2
-    slope = (sw * sxy - sx * sy) / denom
-    inter = (sy - slope * sx) / sw
+    sx  = x.sum(); sy = ly.sum()
+    sxx = (x * x).sum(); sxy = (x * ly).sum()
+    denom = n * sxx - sx ** 2
+    slope = (n * sxy - sx * sy) / denom
+    inter = (sy - slope * sx) / n
     pred   = slope * x + inter
-    ss_res = float((w * (ly - pred) ** 2).sum())
-    ss_tot = float((w * (ly - sy / sw) ** 2).sum())
+    ss_res = float(((ly - pred) ** 2).sum())
+    ss_tot = float(((ly - sy / n) ** 2).sum())
     r2     = 1.0 - ss_res / ss_tot if ss_tot > 0.0 else 1.0
     Ea = -float(slope) * _KB_EV
     A  = float(np.exp(inter))
     # parameter standard errors (need >2 points for a residual-variance estimate)
-    if len(T) > 2:
-        sigma2    = ss_res / (len(T) - 2)
-        Ea_err    = _KB_EV * float(np.sqrt(sigma2 * sw / denom))    # absolute σ on Ea
-        A_rel_err = float(np.sqrt(sigma2 * sxx / denom))            # σ_ln A (fractional)
+    if n > 2:
+        sigma2    = ss_res / (n - 2)
+        Ea_err    = _KB_EV * float(np.sqrt(sigma2 * n / denom))    # absolute σ on Ea
+        A_rel_err = float(np.sqrt(sigma2 * sxx / denom))           # σ_ln A (fractional)
     else:
         Ea_err = A_rel_err = _nan
-    print(f'[Arrhenius fit] A={A:.3e}  Ea={Ea:.4f}±{Ea_err:.4f} eV  R²={r2:.4f}  (n={len(T)})')
-    return {'prefactor': A, 'Ea_eV': Ea, 'r2': float(r2), 'n_points': int(len(T)),
+    print(f'[Arrhenius fit] A={A:.3e}  Ea={Ea:.4f}±{Ea_err:.4f} eV  R²={r2:.4f}  (n={n})')
+    return {'prefactor': A, 'Ea_eV': Ea, 'r2': float(r2), 'n_points': int(n),
             'Ea_err_eV': Ea_err, 'prefactor_rel_err': A_rel_err}
 
 
