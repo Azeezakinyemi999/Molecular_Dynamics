@@ -581,10 +581,17 @@ class TestErrorPropagation:
         assert pa['Phi0_rel_err'] == pytest.approx(np.hypot(0.5, 0.2))      # product -> fractional
         assert pa['Phi0_factor'] == pytest.approx(np.exp(np.hypot(0.5, 0.2)))
 
-    def test_fit_arrhenius_weighted_returns_finite_errors(self):
-        f = fit_arrhenius([400, 600, 800], [5e23, 2e23, 1e23], [5e22, 2e22, 1e22])
-        assert np.isfinite(f['Ea_err_eV']) and f['Ea_err_eV'] > 0
-        assert np.isfinite(f['prefactor_rel_err']) and f['prefactor_rel_err'] > 0
+    def test_fit_arrhenius_errors_from_scatter(self):
+        # non-collinear points: σ is the least-squares standard error from the scatter
+        T = np.array([400.0, 600.0, 800.0])
+        y = np.array([5e23, 2e23, 1e23])
+        f = fit_arrhenius(T, y)
+        x, ly = 1.0 / T, np.log(y)
+        slope, intercept = np.polyfit(x, ly, 1)
+        s2 = ((ly - (slope * x + intercept)) ** 2).sum() / (len(x) - 2)
+        sig_slope = np.sqrt(s2 / ((x - x.mean()) ** 2).sum())
+        assert f['Ea_err_eV'] == pytest.approx(sig_slope * _KB_EV, rel=1e-8)
+        assert f['prefactor_rel_err'] == pytest.approx(sig_slope * np.sqrt((x ** 2).mean()), rel=1e-8)
 
     def test_fit_arrhenius_two_points_no_error_estimate(self):
         f = fit_arrhenius([400, 800], [4e23, 1e23])   # 0 dof -> NaN errors

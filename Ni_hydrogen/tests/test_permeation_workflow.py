@@ -389,9 +389,9 @@ class TestPermeationSuccessTracking:
             'solubility_from_rates': lambda kd, kds, ke, kx, a0, T: 1e-3,
             'vibrational_S0': lambda a0, T, freqs: 1e23,
             'build_dh_sol_by_env': lambda *a, **kw: {},
-            # error-propagation-current return schemas (signatures accept the
-            # y_err / *_err kwargs the body now passes)
-            'fit_arrhenius': lambda T, y, yerr=None: {
+            # error-propagation-current return schemas; fit_arrhenius takes
+            # (T, y) only, so a weighted call left in the body fails here
+            'fit_arrhenius': lambda T, y: {
                 'prefactor': 1e28, 'Ea_eV': 0.25, 'r2': 0.99,
                 'n_points': len(list(T)),
                 'prefactor_rel_err': 0.1, 'Ea_err_eV': 0.02},

@@ -64,7 +64,7 @@ Four phases, the first three on the scheduler.
       origins and all mobile atoms.
    3. **Fit the slope** over the interior fit window and divide by six (T20).
    4. **Fit the Arrhenius law** across temperatures in log space (T22a),
-      weighted by inverse variance.
+      unweighted: every temperature counts equally.
 
 ```mermaid
 flowchart LR

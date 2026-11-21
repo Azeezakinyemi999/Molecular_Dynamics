@@ -448,7 +448,10 @@ fitted as a straight line in $\ln D$ against $1/T$:
 
 $$\ln D = \ln D_0 - \frac{E_D}{k_B}\cdot\frac1T \tag{T22a}$$
 
-optionally weighted by inverse variance, $w_i = (D_i/\sigma_{D_i})^2$.
+by ordinary (unweighted) least squares. The per-temperature $\sigma_D$ is not
+used as a weight: (T20)'s error understates the true uncertainty by a
+different factor at each temperature, so weighting by it would let one
+temperature dominate ([Part II-C §3](02c-error-propagation.md)).
 
 > [!IMPORTANT]
 > (T22a) has $n-2$ degrees of freedom for $n$ temperatures. With two
@@ -514,6 +517,12 @@ The ordinary Fickian form is also available for comparison, in terms of
 concentrations rather than pressures:
 
 $$J = D\,\frac{C_{\mathrm{high}} - C_{\mathrm{low}}}{L} \tag{T27}$$
+
+> [!NOTE]
+> **To check.** (T27) is implemented as `fick_flux` in
+> [`permeation.py`](../models/permeation.py) and is unit-tested, but no
+> workflow calls it: every flux the pipeline reports is (T26). (T27) is
+> therefore not part of any result.
 
 ### 9.4 Validity
 
@@ -629,7 +638,7 @@ Each equation, the function implementing it, and the check that verifies it.
 | T24 | $\Phi = DS$ | [`permeation.py`](../models/permeation.py) | `Phi = D * S` |
 | T25 | $\Phi_0$, $E_\Phi$ | [`permeation.py`](../models/permeation.py) | `Phi0 = D0 * S0`, `E_Phi = E_D + dH_sol` |
 | T26 | Richardson flux | [`permeation.py`](../models/permeation.py) | `J = (Phi / L) ...` |
-| T27 | Fick flux | [`permeation.py`](../models/permeation.py) | — |
+| T27 | Fick flux | [`permeation.py`](../models/permeation.py) | unit tests only; not called by any workflow (§9.3) |
 | T28–T30 | error propagation | [`permeation.py`](../models/permeation.py) | `... add in quadrature` |
 
 > [!IMPORTANT]
