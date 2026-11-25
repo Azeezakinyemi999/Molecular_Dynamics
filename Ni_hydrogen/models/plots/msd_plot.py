@@ -241,63 +241,82 @@ def _shade_fit_window(ax, curves: list[MSDCurve]) -> bool:
 
 
 def plot_msd_run(run: Run, curves: list[MSDCurve], outfile: str):
-    """Two-panel MSD diagnostic for a single H concentration."""
-    import matplotlib.pyplot as plt
-
-    # plasma, not coolwarm: a diverging map puts white at its midpoint, which
-    # makes the middle temperature vanish against the shaded fit window.
-    colors = plt.cm.plasma(np.linspace(0.05, 0.72, len(curves)))
-    fig, (ax_lin, ax_log) = plt.subplots(1, 2, figsize=(12, 5))
-
-    uniform = _shade_fit_window(ax_lin, curves)
-
-    for c, color in zip(curves, colors):
-        ax_lin.plot(c.t, c.msd, '-', color=color, lw=1.4, label=f'{c.T:.0f} K')
-        tw = np.array(c.t_win)
-        ax_lin.plot(tw, c.slope * tw + c.intercept, '--', color='k', lw=1.3,
-                    alpha=0.85, zorder=5)
-        ax_log.loglog(c.t, c.msd, '-', color=color, lw=1.4, label=f'{c.T:.0f} K')
-
-    # Slope-1 reference: Fickian diffusion runs parallel to this. Anchored
-    # below the data cloud so it reads as a guide, not as another dataset.
-    all_t = np.concatenate([c.t for c in curves])
-    all_m = np.concatenate([c.msd for c in curves])
-    good  = (all_t > 0) & (all_m > 0)
-    if good.any():
-        amp = float(np.median(all_m[good] / all_t[good])) * 0.12
-        t_g = np.array([all_t[good].min(), all_t[good].max()])
-        ax_log.plot(t_g, amp * t_g, ':', color='0.35', lw=1.6)
-        ax_log.annotate('slope 1 (Fickian)', xy=(t_g[1], amp * t_g[1]),
-                        xytext=(-4, 6), textcoords='offset points',
-                        ha='right', fontsize=8, color='0.35')
-
-    note = '\n'.join(
-        f'{c.T:.0f} K:  D = {c.D_fit:.2e} m² s⁻¹' +
-        (f',  $R^2$ = {c.R2_table:.4f}' if c.R2_table is not None else '') +
-        f',  ratio = {c.ratio:.2f}' + ('' if c.converged else '  (!)')
-        for c in curves)
-    ax_lin.text(0.03, 0.97, note, transform=ax_lin.transAxes, fontsize=7.5,
-                va='top', ha='left', family='monospace',
-                bbox=dict(boxstyle='round', fc='white', ec='0.7', alpha=0.85))
-
-    ax_lin.set_xlabel('t  (ps)')
-    ax_lin.set_ylabel('MSD  (Å²)')
-    ax_lin.set_title('MSD vs time' if uniform
-                     else 'MSD vs time  (fit windows differ between T)')
-    ax_lin.legend(fontsize=8, loc='lower right')
-    ax_lin.grid(True, alpha=0.3)
-
-    ax_log.set_xlabel('t  (ps)')
-    ax_log.set_ylabel('MSD  (Å²)')
-    ax_log.set_title('log–log — diffusive regime check')
-    ax_log.legend(fontsize=8, loc='upper left')
-    ax_log.grid(True, alpha=0.3, which='both')
-
-    fig.suptitle(f'H MSD in {pretty_material(run.stem)} — {run.label}',
-                 fontsize=13)
-    fig.tight_layout()
-    _save(fig, outfile)
-    return fig
+    """MSD against time for one H loading, every temperature: two figures, linear with the fit
+    window and fitted lines (<outfile>_linear.*) and log-log with a slope-1 guide for the diffusive
+    regime (<outfile>_loglog.*), each as PDF, PNG and caption. Returns None."""
+    import figstyle as fs
+    from matplotlib.lines import Line2D
+    from diffusivity_plot import _loading_label
+    if not curves:
+        return None
+    temps = [c.T for c in curves]
+    colours = fs.temp_styles(temps)
+    mat = fs.material_styles([run.stem], pretty_material)[run.stem][0]
+    handles = [Line2D([], [], color=colours[c.T], lw=fs.CURVE_PT) for c in curves]
+    labels = [f'{c.T:.0f} K\n$D$ = {fs.sci(c.D_table if c.D_table else c.D_fit)} m$^2$ s$^{{-1}}$, ratio {c.ratio:.2f}'
+              + ('' if c.converged else ', not converged') for c in curves]
+    words = '; '.join(f'{c.T:.0f}~K $D$ = {fs.tex_num(c.D_table if c.D_table else c.D_fit, 3)}~m$^2$~s$^{{-1}}$'
+                      + (f' ($R^2$ = {c.R2_table:.4f})' if c.R2_table is not None else '')
+                      + f', slope ratio {c.ratio:.2f}' for c in curves)
+    notconv = [f'{c.T:.0f}' for c in curves if not c.converged]
+    conv_txt = (f' The {fs.tex_join(notconv)}~K trace{"s have" if len(notconv) > 1 else " has"} not converged (slope ratio '
+                f'outside {CONVERGED_BAND[0]}--{CONVERGED_BAND[1]}).' if notconv else
+                f' Every trace has converged (slope ratio within {CONVERGED_BAND[0]}--{CONVERGED_BAND[1]}).')
+    label = _loading_label(run).replace('%', r'\%')
+    for mode in ('linear', 'loglog'):
+        fig, ax = fs.new_figure()
+        xs, ys = [], []
+        if mode == 'linear':
+            lo = max(c.t_win[0] for c in curves)
+            hi = min(c.t_win[1] for c in curves)
+            if hi > lo:
+                ax.axvspan(lo, hi, color='#EDEDED', zorder=0, lw=0)
+        for c in curves:
+            col = colours[c.T]
+            if mode == 'linear':
+                ax.plot(c.t, c.msd, color=col, lw=fs.CURVE_PT, zorder=3)
+                tw = np.array(c.t_win)
+                ax.plot(tw, c.slope * tw + c.intercept, color='black', lw=2.4, ls=(0, (5, 3)), zorder=5)
+                xs.append(c.t)
+                ys.append(c.msd)
+            else:
+                ok = (c.t > 0) & (c.msd > 0)
+                ax.plot(c.t[ok], c.msd[ok], color=col, lw=fs.CURVE_PT, zorder=3)
+                xs.append(c.t[ok])
+                ys.append(c.msd[ok])
+        extra_h, extra_l = [], []
+        if mode == 'linear':
+            ax.set_xlim(0, max(c.t[-1] for c in curves) * 1.02)
+            fs.set_linear_y(ax, np.concatenate(ys), include=[0.0])
+            extra_h = [Line2D([], [], color='black', lw=2.4, ls=(0, (5, 3)))]
+            extra_l = ['Fit over the window']
+        else:
+            all_t, all_m = np.concatenate(xs), np.concatenate(ys)
+            amp = float(np.median(all_m / all_t)) * 0.12
+            t_g = np.array([all_t.min(), all_t.max()])
+            ax.plot(t_g, amp * t_g, zorder=2, **fs.REF_LINE)
+            ax.set_xscale('log')
+            lo_t, hi_t = all_t.min() / 1.3, all_t.max() * 1.3
+            ax.set_xlim(lo_t, hi_t)
+            fs.log_ticks(ax.xaxis, lo_t, hi_t)
+            fs.set_log_y(ax, np.r_[all_m, amp * t_g])
+            extra_h = [Line2D([], [], **fs.REF_LINE)]
+            extra_l = ['Slope 1 (Fickian)']
+        ax.set_xlabel('Time (ps)')
+        ax.set_ylabel(r'MSD ($\mathrm{\AA}^2$)')
+        fs.key_below(fig, handles + extra_h, labels + extra_l, ncol=1,
+                     colours=[colours[c.T] for c in curves] + ['black'] * len(extra_l))
+        if mode == 'linear':
+            text = (rf'Mean-squared displacement of H in bulk {mat} against time for the {label} loading, one line per '
+                    rf'temperature. The shaded band is the common fit window and the dashed lines the least-squares fits '
+                    rf'over each window, $D$ = slope/6: {words}.{conv_txt}')
+        else:
+            text = (rf'The same mean-squared displacement of H in bulk {mat} ({label}) on log--log axes: a diffusive '
+                    r'(Fickian) trace runs parallel to the dashed slope-1 guide; a flatter early part is the ballistic '
+                    rf'and caged regime before diffusion sets in.{conv_txt}')
+        fs.finish(fig, ax, fs.panel_stem(outfile, mode), 'plots/msd_plot.py', text,
+                  np.concatenate(xs), np.concatenate(ys), keyed=True)
+    return None
 
 
 # ---------------------------------------------------------------------------

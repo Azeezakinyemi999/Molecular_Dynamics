@@ -395,56 +395,61 @@ def _mark_barriers(ax, run: NEBRun, y: np.ndarray, colour) -> None:
 # ---------------------------------------------------------------------------
 
 def plot_single_run(run: NEBRun, colour, outfile: str):
-    """ΔE along one NEB path, with both barrier measures annotated."""
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(figsize=(6.4, 4.6))
-
-    ax.plot(run.frac, run.dE, '-o', color=colour, lw=1.6, ms=4.5, zorder=4)
-    ax.axhline(0.0, color='k', lw=0.8, ls='--', zorder=2)
-
+    """ΔE along one NEB path, with both barrier measures marked: one figure, PDF, PNG and caption.
+    The reported maximum is an open circle; where the largest uphill climb differs from it (a path that
+    first drops below its initial state), that climb is a double arrow. colour is kept for callers."""
+    import figstyle as fs
+    from matplotlib.lines import Line2D
+    fig, ax = fs.new_figure()
+    ax.plot(run.frac, run.dE, color='black', lw=fs.OUTLINE_PT, marker='o', ms=9, zorder=4)
+    ax.axhline(0.0, zorder=1, **fs.REF_LINE)
     top = int(np.argmax(run.dE))
-    ax.plot(run.frac[top], run.dE[top], 'o', color='k', ms=7, mfc='none',
-            mew=1.4, zorder=6, label=f'reported $E_a$ = {run.Ea_reported:.3f} eV')
-
+    ax.plot([run.frac[top]], [run.dE[top]], ls='none', marker='o', ms=18, mfc='none', mec=fs.OKABE['vermilion'],
+            mew=3.0, zorder=6)
+    handles = [Line2D([], [], ls='none', marker='o', ms=15, mfc='none', mec=fs.OKABE['vermilion'], mew=3.0)]
+    labels = [f'Reported maximum, $E_a$ = {fs.energy(run.Ea_reported)}']
+    colours = [fs.OKABE['vermilion']]
     asc, i, j = max_ascent(run.dE)
     if asc > run.Ea_reported + 1e-6:
-        ax.annotate('', xy=(run.frac[j], run.dE[j]),
-                    xytext=(run.frac[i], run.dE[i]),
-                    arrowprops=dict(arrowstyle='<->', color='tab:red', lw=1.4),
-                    zorder=6)
-        ax.plot([], [], '-', color='tab:red', lw=1.4,
-                label=f'max ascent = {asc:.3f} eV')
-
-    note = [f'{run.transition}']
-    if run.n_H is not None:
-        note.append(f'cell: {run.n_H} H')
-    note.append(f'ΔE = {run.delta_E:+.3f} eV')
+        ax.annotate('', xy=(run.frac[j], run.dE[j]), xytext=(run.frac[i], run.dE[i]),
+                    arrowprops=dict(arrowstyle='<->', color=fs.OKABE['blue'], lw=3.0, shrinkA=0, shrinkB=0), zorder=6)
+        handles.append(Line2D([], [], color=fs.OKABE['blue'], lw=3.0))
+        labels.append(f'Largest uphill climb, {fs.energy(asc)}')
+        colours.append(fs.OKABE['blue'])
+    path_facts = [f'$\\Delta E$ = {fs.energy(run.delta_E)}']
     if run.meta.get('E_des') is not None:
-        note.append(f'$E_{{des}}$ = {run.meta["E_des"]:.3f} eV')
-    if run.meta.get('fmax_final') is not None:
-        note.append(f'$f_{{max}}$ = {run.meta["fmax_final"]:.4f} eV/Å')
+        path_facts.append(f'$E_\\mathrm{{des}}$ = {fs.energy(run.meta["E_des"])}')
     if run.converged is not None:
-        note.append('converged' if run.converged else 'NOT CONVERGED')
-    # Keep the note and the legend out of the curve: a net-downhill path leaves
-    # the top-left free, a net-uphill one leaves the bottom-right free.
-    downhill = run.dE[-1] < run.dE[0]
-    nx, ny, va, ha = (0.02, 0.98, 'top', 'left') if downhill else \
-                     (0.98, 0.02, 'bottom', 'right')
-    ax.text(nx, ny, '\n'.join(note), transform=ax.transAxes, fontsize=7.5,
-            va=va, ha=ha, family='monospace',
-            bbox=dict(boxstyle='round', fc='white', ec='0.7', alpha=0.9))
-
+        path_facts.append('converged' if run.converged else 'not converged')
+    handles.append(Line2D([], [], ls='none'))
+    labels.append(', '.join(path_facts))
+    colours.append('black')
+    ax.set_xlim(-0.03, 1.03)
+    ax.set_xticks(np.linspace(0, 1, 6))
+    fs.set_linear_y(ax, run.dE, include=[0.0], frac=0.12)
     ax.set_xlabel('Reaction coordinate')
-    ax.set_ylabel('ΔE from initial state  (eV)')
-    ax.set_title(f'{pretty_material(run.material)} — {run.stage}  '
-                 f'({STAGES[run.stage]})\n{run.label}', fontsize=10)
-    ax.legend(fontsize=7.5, loc='upper right' if downhill else 'upper left')
-    ax.grid(True, alpha=0.3)
-
-    fig.tight_layout()
-    _save(fig, outfile)
-    plt.close(fig)
+    ax.set_ylabel('ΔE from initial state (eV)')
+    fs.key_below(fig, handles, labels, ncol=1, colours=colours)
+    mat = fs.material_styles([run.material], pretty_material)[run.material][0]
+    esc = lambda t: str(t).replace('_', r'\_').replace('→', r'$\rightarrow$')     # noqa: E731
+    facts = []
+    if run.n_H is not None:
+        facts.append(f'{run.n_H}-H cell')
+    facts.append(f'$\\Delta E$ = {fs.ev(run.delta_E)}~eV')
+    if run.meta.get('E_des') is not None:
+        facts.append(f'$E_\\mathrm{{des}}$ = {fs.ev(run.meta["E_des"])}~eV')
+    if run.meta.get('fmax_final') is not None:
+        facts.append(f'final $f_\\mathrm{{max}}$ = {run.meta["fmax_final"]:.4f}~eV/\\AA')
+    conv = ('' if run.converged is None else (' The band converged.' if run.converged else
+                                              ' The band did not converge: treat the barrier as provisional.'))
+    text = (rf'Nudged-elastic-band minimum-energy path on {mat}, {STAGES[run.stage].replace("H₂", "H$_2$")} '
+            rf'({esc(run.transition)}; run {esc(run.label)}), energy from the initial state against the reaction '
+            rf'coordinate, {len(run.frac)} images. The open circle marks the reported barrier, the highest point above '
+            rf'the initial state, {fs.ev(run.Ea_reported)}~eV'
+            + (rf'; the arrow the largest uphill climb, {fs.ev(asc)}~eV, the barrier that governs the rate when the path '
+               r'first drops below its initial state' if asc > run.Ea_reported + 1e-6 else '')
+            + f'. {"; ".join(facts)}.{conv}').replace('→', r'$\rightarrow$')
+    fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, run.frac, run.dE, keyed=True)
 
 
 # ---------------------------------------------------------------------------

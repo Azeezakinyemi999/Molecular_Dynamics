@@ -573,40 +573,21 @@ def _save(fig, outfile: str) -> None:
 # ---------------------------------------------------------------------------
 
 def plot_single(run: Run, outfile: str):
-    """log₁₀(D) vs 1000/T for one H concentration, with its Arrhenius fit."""
-    import matplotlib.pyplot as plt
-
-    d = run.data
-    T, D = d['T'], d['D']
-
-    fig, ax = plt.subplots(figsize=(6, 5))
-
-    ax.errorbar(1000.0 / T, np.log10(D), yerr=_log10_yerr(D, d['D_err']),
-                fmt='o', color='tab:blue', capsize=4, zorder=5, label='MD data')
-
-    if d['E_D'] is not None and d['D0'] is not None:
-        x_fine, y_fine = _fit_curve(T.min(), T.max(), d['E_D'], d['D0'])
-        ax.plot(x_fine, y_fine, 'k-', lw=1.5, label='Arrhenius fit')
-
-        err = f' ± {d["E_D_err"]:.3f}' if d['E_D_err'] is not None else ''
-        note = (f'$E_a$ = {d["E_D"]:.3f}{err} eV\n'
-                f'$D_0$ = {d["D0"]:.2e} m² s⁻¹')
-        if d['R2'] is not None:
-            note += f'\n$R^2$ = {d["R2"]:.3f}'
-        ax.text(0.03, 0.03, note, transform=ax.transAxes, fontsize=8,
-                va='bottom', ha='left',
-                bbox=dict(boxstyle='round', fc='white', ec='0.7', alpha=0.85))
-
-    _add_temperature_axis(ax)
-
-    ax.set_xlabel('1000 / T  (K⁻¹)')
-    ax.set_ylabel('log₁₀( D / m² s⁻¹ )')
-    ax.set_title(f'H Diffusivity in {pretty_material(run.stem)} — {run.label}')
-    ax.legend(fontsize=8, loc='upper right')
-    ax.grid(True, alpha=0.3)
-
-    fig.tight_layout()
-    _save(fig, outfile)
+    """D against 1000/T for one H loading, with its Arrhenius fit: one figure, PDF, PNG and caption."""
+    styles = fs.loading_styles([run.n_H])
+    fig, ax = fs.new_figure()
+    xs, ys, _items, handles = _draw_loadings(ax, [run], styles)
+    fs.inverse_temperature_axis(ax, run.data['T'])
+    fs.set_log_y(ax, np.concatenate(ys))
+    ax.set_ylabel(r'$D$ (m$^2$ s$^{-1}$)')
+    fs.key_below(fig, handles, _key_labels([run]), ncol=1, colours=[styles[run.n_H][0]])
+    mat = fs.material_styles([run.stem], pretty_material)[run.stem][0]
+    T = run.data['T']
+    text = (rf'Hydrogen diffusivity in bulk {mat} for the {_loading_label(run).replace("%", chr(92) + "%")} loading, from '
+            rf'the mean-squared displacement in NVT molecular dynamics, against inverse temperature ({T.min():.0f} to '
+            rf'{T.max():.0f}~K, {len(T)} points). Error bars are the fit uncertainty of each $D$; the line is the ordinary '
+            rf'least-squares Arrhenius fit, $D = D_0\,e^{{-E_a/k_BT}}$: {_fit_words([run]) or "no fit"}.')
+    fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, np.concatenate(xs), run.data['D'], keyed=True)
     return fig
 
 

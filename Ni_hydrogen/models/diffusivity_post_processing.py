@@ -425,6 +425,17 @@ def arrhenius_D(
 # Section 9 — Arrhenius plot
 # ---------------------------------------------------------------------------
 
+
+def _figstyle():
+    """The house plotting style (models/plots/figstyle.py), importable from models/."""
+    import sys as _sys
+    _plots = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots')
+    if _plots not in _sys.path:
+        _sys.path.insert(0, _plots)
+    import figstyle
+    return figstyle
+
+
 def plot_arrhenius(
     T_arr: np.ndarray,
     D_arr: np.ndarray,
@@ -435,81 +446,67 @@ def plot_arrhenius(
     lit_Ea: float | None = None,
     lit_D0: float | None = None,
     lit_label: str = 'Pure Ni (lit.)',
+    Ea_err: float | None = None,
+    R2: float | None = None,
 ) -> 'matplotlib.figure.Figure':
-    """Plot log₁₀(D) vs 1000/T with error bars and fitted Arrhenius line.
+    """D against 1000/T on a log axis with error bars and the fitted Arrhenius line (over the data's
+    temperature range), in the house style; with lit_Ea and lit_D0, a literature law as a black dashed
+    line. With outfile, writes <outfile>.pdf, .png and _caption.tex.
 
     Parameters
     ----------
-    T_arr : ndarray
-        MD temperatures in K.
-    D_arr : ndarray
-        MD diffusivities in m²/s.
-    D_err_arr : ndarray
-        Standard errors of D in m²/s.
-    Ea : float
-        Fitted activation energy in eV.
-    D0 : float
-        Fitted pre-exponential in m²/s.
+    T_arr, D_arr, D_err_arr : ndarray
+        MD temperatures (K), diffusivities and their standard errors (m^2/s).
+    Ea, D0 : float
+        Fitted activation energy (eV) and pre-exponential (m^2/s).
     outfile : str, optional
-        If given, save figure to this path.
-    lit_Ea : float, optional
-        Literature activation energy in eV for comparison overlay.
-    lit_D0 : float, optional
-        Literature pre-exponential in m²/s for comparison overlay.
-    lit_label : str
-        Legend label for the literature line.
+        If given, save the figure there (PDF, PNG and caption beside it).
+    lit_Ea, lit_D0, lit_label : optional
+        A literature law to compare with.
+    Ea_err, R2 : float, optional
+        The fit's standard error on Ea and its R^2, for the key and caption.
 
     Returns
     -------
     matplotlib.figure.Figure
     """
-    import matplotlib.pyplot as plt
-
-    # x-axis: 1000/T for readability
-    x_data = 1000.0 / T_arr
-    y_data = np.log10(D_arr)
-    y_err  = np.abs(D_err_arr / (D_arr * np.log(10)))   # σ in log10 units
-
-    # Smooth fit line over extended range
-    T_fine  = np.linspace(T_arr.min() * 0.9, T_arr.max() * 1.1, 200)
-    x_fine  = 1000.0 / T_fine
-    y_fine  = np.log10(arrhenius_D(T_fine, Ea, D0))
-
-    fig, ax = plt.subplots(figsize=(6, 5))
-
-    ax.errorbar(x_data, y_data, yerr=y_err,
-                fmt='o', color='tab:blue', capsize=4, zorder=5,
-                label='MD data')
-    ax.plot(x_fine, y_fine, 'k-', lw=1.5,
-            label=f'Fit: $E_a$={Ea:.3f} eV,  $D_0$={D0:.2e} m²/s')
-
+    from matplotlib.lines import Line2D
+    fs = _figstyle()
+    T_arr, D_arr, D_err_arr = (np.asarray(v, float) for v in (T_arr, D_arr, D_err_arr))
+    fig, ax = fs.new_figure()
+    e = np.abs(D_err_arr / (D_arr * np.log(10.0)))
+    yerr = np.vstack([D_arr * (1 - 10 ** -e), D_arr * (10 ** e - 1)]) if np.any(D_err_arr > 0) else None
+    T_fit = np.linspace(T_arr.min(), T_arr.max(), 120)
+    col = fs.OKABE['blue']
+    ax.plot(1000.0 / T_fit, arrhenius_D(T_fit, Ea, D0), color='black', lw=fs.CURVE_PT, zorder=4)
+    ax.errorbar(1000.0 / T_arr, D_arr, yerr=yerr, ls='none', marker='o', ms=11, color=col, mec=col, capsize=5,
+                elinewidth=2.2, capthick=2.2, zorder=5)
+    handles = [Line2D([], [], ls='none', marker='o', ms=10, color=col),
+               Line2D([], [], color='black', lw=fs.CURVE_PT)]
+    labels = ['MD data', f'Arrhenius fit\n$E_a$ = {fs.energy(Ea, Ea_err)}, $D_0$ = {fs.sci(D0)}']
+    colours = [col, 'black']
+    ys = [D_arr if yerr is None else np.r_[D_arr - yerr[0], D_arr + yerr[1]], arrhenius_D(T_fit, Ea, D0)]
     if lit_Ea is not None and lit_D0 is not None:
-        y_lit = np.log10(arrhenius_D(T_fine, lit_Ea, lit_D0))
-        ax.plot(x_fine, y_lit, '--', color='tab:orange', lw=1.5,
-                label=f'{lit_label}: $E_a$={lit_Ea:.3f} eV')
-
-    # Secondary x-axis: temperature in K
-    ax2 = ax.twiny()
-    ax2.set_xlim(ax.get_xlim())
-    t_ticks = np.array([300, 400, 500, 600, 700, 800])
-    t_ticks = t_ticks[(t_ticks >= T_arr.min() * 0.9) & (t_ticks <= T_arr.max() * 1.1)]
-    ax2.set_xticks(1000.0 / t_ticks)
-    ax2.set_xticklabels([str(t) for t in t_ticks])
-    ax2.set_xlabel('Temperature (K)')
-
-    ax.set_xlabel('1000 / T  (K⁻¹)')
-    ax.set_ylabel('log₁₀( D / m² s⁻¹ )')
-    ax.set_title('Arrhenius Plot — H Diffusivity in Hastelloy N')
-    ax.legend(fontsize=8)
-    ax.grid(True, alpha=0.3)
-
-    fig.tight_layout()
-
+        ax.plot(1000.0 / T_fit, arrhenius_D(T_fit, lit_Ea, lit_D0), color='black', lw=fs.CURVE_PT, ls=(0, (5, 3)), zorder=3)
+        ys.append(arrhenius_D(T_fit, lit_Ea, lit_D0))
+        handles.append(Line2D([], [], color='black', lw=fs.CURVE_PT, ls=(0, (5, 3))))
+        labels.append(f'{lit_label}\n$E_a$ = {fs.energy(lit_Ea)}, $D_0$ = {fs.sci(lit_D0)}')
+        colours.append('black')
+    fs.inverse_temperature_axis(ax, T_arr)
+    fs.set_log_y(ax, np.concatenate(ys))
+    ax.set_ylabel(r'$D$ (m$^2$ s$^{-1}$)')
+    fs.key_below(fig, handles, labels, ncol=1, colours=colours)
     if outfile:
-        os.makedirs(os.path.dirname(outfile) or '.', exist_ok=True)
-        fig.savefig(outfile, dpi=150, bbox_inches='tight')
+        text = (rf'Hydrogen diffusivity from the mean-squared displacement in NVT molecular dynamics against inverse '
+                rf'temperature ({T_arr.min():.0f} to {T_arr.max():.0f}~K, {len(T_arr)} points), with standard errors. The '
+                rf'line is the ordinary least-squares Arrhenius fit, $D = D_0\,e^{{-E_a/k_BT}}$: $E_a$ = {fs.ev(Ea)}'
+                + (f' $\\pm$ {Ea_err:.3f}' if Ea_err is not None else '')
+                + rf'~eV, $D_0$ = {fs.tex_num(D0, 3)}~m$^2$~s$^{{-1}}$' + (f' ($R^2$ = {R2:.3f})' if R2 is not None else '') + '.'
+                + (rf' Dashed: {lit_label}, $E_a$ = {fs.ev(lit_Ea)}~eV, $D_0$ = {fs.tex_num(lit_D0, 3)}~m$^2$~s$^{{-1}}$.'
+                   if lit_Ea is not None and lit_D0 is not None else ''))
+        fs.finish(fig, ax, fs.panel_stem(outfile, ''), 'diffusivity_post_processing.py', text, 1000.0 / T_arr, D_arr,
+                  keyed=True)
         print(f'Saved: {outfile}')
-
     return fig
 
 
@@ -597,6 +594,7 @@ def run_arrhenius_pipeline(
         T_fit, D_fit, D_err_fit, Ea, D0,
         outfile=plot_file,
         lit_Ea=lit_Ea, lit_D0=lit_D0, lit_label=lit_label,
+        Ea_err=Ea_err, R2=R2,
     )
 
     return {

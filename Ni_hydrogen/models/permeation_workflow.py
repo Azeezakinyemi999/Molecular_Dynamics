@@ -1066,88 +1066,104 @@ def load_permeability_results(results_dir, temperatures):
     return out
 
 
+def _figstyle():
+    """The house plotting style (models/plots/figstyle.py), importable from models/."""
+    import sys as _sys
+    _plots = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots')
+    if _plots not in _sys.path:
+        _sys.path.insert(0, _plots)
+    import figstyle
+    return figstyle
+
+
 def plot_permeation_summary(results_dir, temperatures):
-    """Schema-current permeation summary (auto-generated headless in Phase 6).
+    """Schema-current permeation summary (auto-generated headless in Phase 6), in the house style.
 
-    Saves ``results_dir/permeation_summary.png`` with two panels (all per mol H):
+    Two figures in ``results_dir`` (all per mol H), each as PDF, PNG and caption:
 
-    A. Solubility Arrhenius  log10 S vs 1000/T — geometric & vibrational
-       (headline, solid) plus detailed_balance (diagnostic, dashed). Legend
-       carries ΔH_sol ± σ per route.
-    B. Permeability Arrhenius  log10 Φ vs 1000/T, with a shaded ×/÷ band on the
-       headline routes from the propagated σ_lnΦ(T)=√(Φ0_rel² + (E_Φ_err/kT)²).
+    permeation_summary_solubility    S against 1000/T, every route (detailed balance dashed: a diagnostic);
+                                     the key carries Delta H_sol and S0 per route.
+    permeation_summary_permeability  Phi against 1000/T with a shaded x/÷ band on the headline routes from
+                                     the propagated sigma_lnPhi(T) = sqrt(Phi0_rel^2 + (E_Phi_err/kT)^2); the
+                                     key carries E_Phi and Phi0.
 
-    Returns the PNG path, or None if the Arrhenius fits are absent. Headless-safe
-    (savefig + close; no plt.show()).
+    Returns the permeability PNG path, or None if the Arrhenius fits are absent. Headless-safe.
     """
+    from matplotlib.lines import Line2D
+    fs = _figstyle()
     _KB = 8.617333262e-5
-    sol_f  = os.path.join(results_dir, 'solubility_arrhenius.json')
+    sol_f = os.path.join(results_dir, 'solubility_arrhenius.json')
     perm_f = os.path.join(results_dir, 'permeability_arrhenius.json')
     if not (os.path.exists(sol_f) and os.path.exists(perm_f)):
         print(f'[plot_permeation_summary] Arrhenius JSON not found in {results_dir} — skipping.')
         return None
-    with open(sol_f) as _f:  sol  = json.load(_f)
-    with open(perm_f) as _f: perm = json.load(_f)
-
-    # marker, linestyle, colour, is_headline (headline = energy-based routes)
-    style = {'geometric':       ('o', '-',  'steelblue', True),
-             'vibrational':     ('s', '-',  'coral',     True),
-             'detailed_balance':('^', '--', 'seagreen',  False)}
-    T_lo = min(temperatures) * 0.95
-    T_hi = max(temperatures) * 1.05
-    Tg   = np.linspace(T_lo, T_hi, 120)
-
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5.2))
-
-    # ── Panel A: solubility Arrhenius ────────────────────────────────────────
-    axA = axes[0]
-    for route, (mk, ls, col, head) in style.items():
-        info = sol.get('routes', {}).get(route, {})
-        if not info.get('available'):
+    with open(sol_f) as _f:
+        sol = json.load(_f)
+    with open(perm_f) as _f:
+        perm = json.load(_f)
+    T_lo, T_hi = min(temperatures), max(temperatures)
+    Tg = np.linspace(T_lo, T_hi, 120)
+    headline = {'geometric': True, 'vibrational': True, 'detailed_balance': False}
+    out = {}
+    for which in ('solubility', 'permeability'):
+        fig, ax = fs.new_figure()
+        ys, xs, handles, labels, colours, words = [], [], [], [], [], []
+        src = sol if which == 'solubility' else perm
+        for route, (name, col, mk, filled, ls) in fs.ROUTE_STYLE.items():
+            info = src.get('routes', {}).get(route, {})
+            if not info.get('available'):
+                continue
+            if which == 'solubility':
+                S0, dH = info['S0'], info['dH_sol_eV']
+                dHe = info.get('dH_sol_err_eV')
+                dHe = dHe if (dHe is not None and dHe == dHe) else None
+                curve = S0 * np.exp(-dH / (_KB * Tg))
+                Tp, yp = np.array(info['T_K_arr'], float), np.array(info['S_arr'], float)
+                ok = yp > 0
+                ax.plot(1000.0 / Tp[ok], yp[ok], ls='none', marker=mk, ms=11, mfc=col if filled else 'white', mec=col,
+                        mew=2.2, zorder=5)
+                xs.append(1000.0 / Tp[ok]); ys.append(yp[ok])
+                labels.append(f'{name}\n$\\Delta H_\\mathrm{{sol}}$ = {fs.energy(dH, dHe)}, $S_0$ = {fs.sci(S0)}')
+                words.append(f"{name.lower()}: $\\Delta H_\\mathrm{{sol}}$ = {fs.ev(dH)}"
+                             + (f' $\\pm$ {dHe:.3f}' if dHe is not None else '') + f'~eV, $S_0$ = {fs.tex_num(S0, 3)}')
+            else:
+                Phi0, Eph = info['Phi0'], info['E_phi_eV']
+                Ephe = info.get('E_phi_err_eV', 0.0) or 0.0
+                p0re = info.get('Phi0_rel_err', 0.0) or 0.0
+                curve = Phi0 * np.exp(-Eph / (_KB * Tg))
+                if headline[route]:
+                    sig = np.sqrt(p0re ** 2 + (Ephe / (_KB * Tg)) ** 2)
+                    ax.fill_between(1000.0 / Tg, curve * np.exp(-sig), curve * np.exp(sig), color=col, alpha=0.15, lw=0,
+                                    zorder=1)
+                    ys += [curve * np.exp(-sig), curve * np.exp(sig)]
+                labels.append(f'{name}\n$E_\\Phi$ = {fs.energy(Eph, Ephe or None)}, $\\Phi_0$ = {fs.sci(Phi0)}')
+                words.append(f'{name.lower()}: $E_\\Phi$ = {fs.ev(Eph)}' + (f' $\\pm$ {Ephe:.3f}' if Ephe else '')
+                             + f'~eV, $\\Phi_0$ = {fs.tex_num(Phi0, 3)}')
+            ax.plot(1000.0 / Tg, curve, color=col, ls=ls, lw=fs.CURVE_PT, zorder=4)
+            ys.append(curve)
+            handles.append(Line2D([], [], color=col, ls=ls, lw=fs.CURVE_PT, marker=mk if which == 'solubility' else None,
+                                  ms=10, mfc=col if filled else 'white', mec=col))
+            colours.append(col)
+        if not handles:
+            import matplotlib.pyplot as plt
+            plt.close(fig)
             continue
-        Tp = np.array(info['T_K_arr']); Sp = np.array(info['S_arr'])
-        S0 = info['S0']; dH = info['dH_sol_eV']; dHe = info.get('dH_sol_err_eV')
-        axA.plot(1000.0 / Tg, np.log10(S0 * np.exp(-dH / (_KB * Tg))),
-                 ls, color=col, lw=(2.0 if head else 1.2), alpha=(1.0 if head else 0.7))
-        _has_err = (dHe is not None and dHe == dHe)  # finite (NaN fails self-eq)
-        # 4 dp, not 2: a σ of ~1e-3 eV is real but renders as "±0.00" at 2 dp,
-        # which reads as an exact value. Matches plots/solubility_plot.py.
-        _lbl = f'{route} (ΔH={dH:+.4f}' + (f'±{dHe:.4f}' if _has_err else '') + ' eV)'
-        axA.scatter(1000.0 / Tp, np.log10(Sp), marker=mk, color=col,
-                    s=(45 if head else 20), zorder=5, label=_lbl)
-    axA.set_xlabel('1000 / T  [K$^{-1}$]')
-    axA.set_ylabel('$\\log_{10} S$  [mol H m$^{-3}$ Pa$^{-1/2}$]')
-    axA.set_title('Solubility Arrhenius (headline = geometric, vibrational)')
-    axA.invert_xaxis()
-    if axA.get_legend_handles_labels()[1]:
-        axA.legend(fontsize=7)
-
-    # ── Panel B: permeability Arrhenius with ×/÷ uncertainty band ────────────
-    axB = axes[1]
-    for route, (mk, ls, col, head) in style.items():
-        info = perm.get('routes', {}).get(route, {})
-        if not info.get('available'):
-            continue
-        Phi0 = info['Phi0']; Eph = info['E_phi_eV']
-        Ephe = info.get('E_phi_err_eV', 0.0) or 0.0
-        p0re = info.get('Phi0_rel_err', 0.0) or 0.0
-        logPhi = np.log10(Phi0 * np.exp(-Eph / (_KB * Tg)))
-        axB.plot(1000.0 / Tg, logPhi, ls, color=col,
-                 lw=(2.0 if head else 1.2), alpha=(1.0 if head else 0.7),
-                 label=f'{route} (E$_\\Phi$={Eph:+.4f}±{Ephe:.4f} eV)')
-        if head:  # shaded propagated band  σ_lnΦ(T)=√(Φ0_rel² + (E_Φ_err/kT)²)
-            sig = np.sqrt(p0re ** 2 + (Ephe / (_KB * Tg)) ** 2) / np.log(10.0)
-            axB.fill_between(1000.0 / Tg, logPhi - sig, logPhi + sig, color=col, alpha=0.15)
-    axB.set_xlabel('1000 / T  [K$^{-1}$]')
-    axB.set_ylabel('$\\log_{10}\\Phi$  [mol H m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$]')
-    axB.set_title('Permeability Arrhenius (band = ×/÷ 1σ, E$_D$-dominated)')
-    axB.invert_xaxis()
-    if axB.get_legend_handles_labels()[1]:
-        axB.legend(fontsize=7)
-
-    plt.tight_layout()
-    out_png = os.path.join(results_dir, 'permeation_summary.png')
-    plt.savefig(out_png, dpi=150)
-    plt.close(fig)          # headless: free the figure, no interactive show
+        fs.inverse_temperature_axis(ax, [T_lo, T_hi] + list(temperatures))
+        fs.set_log_y(ax, np.concatenate(ys))
+        ax.set_ylabel(r'$S$ (mol H m$^{-3}$ Pa$^{-1/2}$)' if which == 'solubility'
+                      else r'$\Phi$ (mol H m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$)')
+        fs.key_below(fig, handles, labels, ncol=1, colours=colours)
+        if which == 'solubility':
+            text = (rf'Hydrogen solubility (Sieverts) against inverse temperature, {T_lo:.0f} to {T_hi:.0f}~K: points are '
+                    r'the per-temperature results, lines the Arrhenius fits $S = S_0\,e^{-\Delta H_\mathrm{sol}/k_BT}$ '
+                    r'(detailed balance dashed: a diagnostic): ' + '; '.join(words) + '.')
+        else:
+            text = (rf'Hydrogen permeability $\Phi = D\,S$ against inverse temperature, {T_lo:.0f} to {T_hi:.0f}~K, from the '
+                    r'Arrhenius fits $\Phi = \Phi_0\,e^{-E_\Phi/k_BT}$; the shaded bands on the geometric and vibrational '
+                    r'routes are the propagated $\times/\div$ one-sigma range, '
+                    r'$\sigma_{\ln\Phi} = \sqrt{(\delta\Phi_0/\Phi_0)^2 + (\sigma_{E_\Phi}/k_BT)^2}$: ' + '; '.join(words) + '.')
+        out[which] = fs.finish(fig, ax, os.path.join(results_dir, f'permeation_summary_{which}'), 'permeation_workflow.py',
+                               text, keyed=True)
+    out_png = out.get('permeability') or out.get('solubility')
     print(f'Saved: {out_png}')
     return out_png

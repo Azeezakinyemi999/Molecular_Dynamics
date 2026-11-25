@@ -54,13 +54,13 @@ SECTION_OUTPUTS = {
     'rates': ['part2_tst_rates.csv', 'figures/material/*site_barriers_*.png', 'figures/material/*site_rates_*.png'],
     'solubility': ['part2_solubility_by_env.csv', 'figures/material/*env_dH_sol.png',
                    'figures/material/*solubility_arrhenius.png'],
-    'diffusivity': ['part3_diffusivity_fits.csv', 'part3_diffusivity_vs_T.csv', 'figures/*H/msd_vs_time.png',
+    'diffusivity': ['part3_diffusivity_fits.csv', 'part3_diffusivity_vs_T.csv', 'figures/*H/msd_vs_time*.png',
                     'figures/*H/diffusivity_vs_invT.png', 'figures/*H/arrhenius.png',
                     'figures/material/*msd_all_concentrations_*.png', 'figures/material/*diffusivity_all_concentrations.png',
                     'figures/material/*arrhenius_params_vs_concentration_*.png',
                     'figures/material/*diffusivity_vs_literature*.png', 'figures/material/*thermal_expansion*.png'],
     'permeability': ['overall_permeability.csv', 'figures/material/*permeability_arrhenius.png',
-                     'figures/*H/permeation_summary.png'],
+                     'figures/*H/permeation_summary*.png'],
 }
 ROUTE_ORDER = {'geometric': 0, 'vibrational': 1, 'detailed_balance': 2}
 PREFACTOR_RANGE = (1e12, 1e14)        # s-1, the sound range of docs/03-stages/08 "Checks and failure modes"
@@ -248,6 +248,17 @@ class MaterialReport(L.LatexReport):
             return ('figure', key, panels[0][1] if panels else None)
         return ('grid', key, [f for _, f in panels], [L.tex_escape(lab) if '$' not in lab else lab for lab, _ in panels],
                 per_row)
+
+    def loading_panels(self, named):
+        """[(label, file)] of a per-loading figure drawn one figure per panel: named is
+        [(file name, panel label)], e.g. [('msd_vs_time_linear.png', 'linear'), ...]; an old single file
+        ('msd_vs_time.png', '') is still found. Ordered by loading, then by the order of named."""
+        found = []
+        for k, (name, panel) in enumerate(named):
+            for sub, f in self.loading_figs(name):
+                m = re.match(r'0*(\d+)H$', sub)
+                found.append((int(m.group(1)) if m else 0, k, f'{sub}, {panel}' if panel else sub, f))
+        return [(lab, f) for _, _, lab, f in sorted(found)]
 
     def loading_figs(self, name):
         """[(loading label, file)] of one per-loading figure, by loading."""
@@ -579,9 +590,11 @@ def section_diffusivity(rep):
                       ('n_H', '$n$H', 'r', None), ('T_K', '$T$ (K)', 'r', None), ('_D', r'$D \pm \sigma_D$\\(m$^2$/s)', 'r', lambda s: s),
                       ('_rel', r'relative\\error', 'r', pct)],
                       '$D(T)$ for each loading.', 'part3_diffusivity_vs_T.csv', group_by='n_H'))]
-    for key, name, per_row in (('msd_vs_time', 'msd_vs_time.png', 1),      # one panel per temperature: full width
-                               ('diffusivity_vs_invT', 'diffusivity_vs_invT.png', 3), ('arrhenius', 'arrhenius.png', 3)):
-        figs = rep.loading_figs(name)
+    for key, named, per_row in (('msd_vs_time', [('msd_vs_time.png', ''), ('msd_vs_time_linear.png', 'linear'),
+                                                 ('msd_vs_time_loglog.png', 'log-log')], 2),
+                                ('diffusivity_vs_invT', [('diffusivity_vs_invT.png', '')], 3),
+                                ('arrhenius', [('arrhenius.png', '')], 3)):
+        figs = rep.loading_panels(named)
         if figs:
             parts.append(('grid', key, [f for _, f in figs], [L.tex_escape(s) for s, _ in figs], per_row))
     for key in ('msd_all_concentrations', 'diffusivity_all_concentrations', 'arrhenius_params_vs_concentration',
@@ -626,9 +639,10 @@ def section_permeability(rep):
                       ('_E', r'$E_\Phi$\\(eV)', 'r', lambda s: s), ('r2_S', r'$R^2_S$', 'r', lambda v: L.tex_num(v, 4))],
                       'Permeability per loading and route; headline routes first.', 'overall_permeability.csv', group_by='n_H'))]
     parts.append(rep.figure_part('permeability_arrhenius', 'permeability_arrhenius'))
-    figs = rep.loading_figs('permeation_summary.png')
+    figs = rep.loading_panels([('permeation_summary.png', ''), ('permeation_summary_solubility.png', 'solubility'),
+                               ('permeation_summary_permeability.png', 'permeability')])
     if figs:
-        parts.append(('grid', 'permeation_summary', [f for _, f in figs], [L.tex_escape(s) for s, _ in figs], 1))
+        parts.append(('grid', 'permeation_summary', [f for _, f in figs], [L.tex_escape(s) for s, _ in figs], 2))
     return rep.section('permeability', RT.SECTIONS['permeability'], parts)
 
 

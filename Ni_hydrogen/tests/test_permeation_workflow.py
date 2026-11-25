@@ -640,7 +640,8 @@ class TestPlotPermeationSummary:
         out = plot_permeation_summary(str(tmp_path), [600, 800])
         assert out is not None
         assert pathlib.Path(out).exists()
-        assert out.endswith('permeation_summary.png')
+        assert out.endswith('permeation_summary_permeability.png')
+        assert pathlib.Path(out.replace('_permeability.png', '_solubility.png')).exists()
 
     def test_back_compat_without_error_fields(self, tmp_path):
         # pre-schema data: no *_err_eV, no Phi0_rel_err.
