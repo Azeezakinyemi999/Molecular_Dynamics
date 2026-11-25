@@ -451,87 +451,80 @@ def plot_single_run(run: NEBRun, colour, outfile: str):
 # Section 7 — Figure set 2: per-stage overlay, two referencing schemes
 # ---------------------------------------------------------------------------
 
+STAGE_WORDS = {'surface': r'dissociation of H$_2$ on the surface',
+               'hopa': 'the hop of H from the surface to the first subsurface site (hop A)',
+               'hopb': 'the hop of H from the first to the second subsurface site (hop B)'}
+MODULE = 'plots/neb_mep_plot.py'
+GREY_LW = 2.4
+
+
+def _site_name(run: NEBRun) -> str:
+    """'s_14 → s_0 + s_72' for a surface path, 's_72' for a hop."""
+    if run.fs_sites:
+        return f"{run.is_site} → {' + '.join(run.fs_sites)}"
+    return run.is_site
+
+
+def _tex_site(text: str) -> str:
+    """Site names for LaTeX text: underscores escaped, arrows as math."""
+    return text.replace('_', r'\_').replace('→', r'$\rightarrow$')
+
+
 def plot_stage_overlay(material: str, stage: str, runs: list[NEBRun],
                        colours: dict[str, tuple], outfile: str,
                        refs: tuple[float | None, float | None] = (None, None),
                        max_distinct: int = MAX_DISTINCT_DEFAULT,
                        n_highlight: int = HIGHLIGHT_DEFAULT,
                        backlog: int | None = None):
-    """(a) one common zero, preserving IS differences; (b) each curve on its own."""
-    import matplotlib.pyplot as plt
-    from matplotlib.lines import Line2D
-
-    crowded = len(runs) > max_distinct
-    keep    = ({r.label for r in sorted(runs, key=lambda r: r.Ea_ascent)[:n_highlight]}
-               if crowded else {r.label for r in runs})
-
-    E_ref = min(r.E_abs[0] for r in runs)      # lowest initial state in the stage
-    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(11.4, 4.9))
-
-    handles: dict[str, Line2D] = {}
-    for run in runs:
-        colour = colours[run.key_site]
-        faint  = run.label not in keep
-        style  = dict(color='0.8', lw=0.6, alpha=0.5, zorder=1) if faint else \
-                 dict(color=colour, lw=1.5, zorder=4)
-
-        ax_a.plot(run.frac, run.E_abs - E_ref, '-', **style)
-        ax_b.plot(run.frac, run.dE, '-', **style)
-        if not faint:
-            _mark_barriers(ax_a, run, run.E_abs - E_ref, colour)
-            _mark_barriers(ax_b, run, run.dE, colour)
-            handles.setdefault(run.key_site,
-                               Line2D([], [], color=colour, lw=1.5, marker='o',
-                                      ms=4))
-
-    for ax in (ax_a, ax_b):
-        ax.axhline(0.0, color='k', lw=0.8, ls='--', zorder=2)
-        ax.set_xlabel('Reaction coordinate')
-        ax.grid(True, alpha=0.3)
-
-    ax_a.set_ylabel('E − E(lowest initial state)  (eV)')
-    ax_a.set_title('(a) common zero — initial-state differences preserved',
-                   fontsize=9.5)
-    ax_b.set_ylabel('ΔE from own initial state  (eV)')
-    ax_b.set_title('(b) each curve zeroed on its own IS — barriers comparable',
-                   fontsize=9.5)
-
-    # Panel (a) is a constant offset from formation energy within a stage, so a
-    # second axis gives it a physical zero for free.
+    """Every path of one stage, twice: from one common zero, the stage's lowest initial state, so
+    differences between initial states stay visible (<outfile>_common_zero.*), and from each path's
+    own initial state, so barriers compare directly (<outfile>_own_zero.*). Every path is grey; the
+    lowest-barrier path (the largest uphill climb, as report() ranks them) is black and named.
+    colours, max_distinct and n_highlight are kept for callers; the house style needs no per-site colour."""
+    import figstyle as fs
+    best = min(runs, key=lambda r: r.Ea_ascent)
+    E_ref = min(r.E_abs[0] for r in runs)
+    asc = np.array([r.Ea_ascent for r in runs])
+    n_conv = sum(1 for r in runs if r.converged)
+    mat = fs.material_styles([material], pretty_material)[material][0]
     e_clean, e_h2 = refs
     n_H = runs[0].n_H if runs[0].n_H is not None else STAGE_NH.get(stage)
-    if e_clean is not None and e_h2 is not None and n_H:
-        shift = formation_energy(E_ref, n_H, e_clean, e_h2)
-        ax2 = ax_a.twinx()
-        lo, hi = ax_a.get_ylim()
-        ax2.set_ylim(lo + shift, hi + shift)
-        ax2.set_ylabel(f'$E_{{form}}$ ({n_H} H, rel. H₂ gas + clean slab)  (eV)',
-                       fontsize=8.5)
-
-    order = sorted(handles, key=_site_order)
-    rows  = (len(order) + 5) // 6
-    title = (f'NEB MEP overlay — {pretty_material(material)}, {stage}  '
-             f'({STAGES[stage]}) — {len(runs)} path(s)')
-    if crowded:
-        title += f', {n_highlight} lowest highlighted'
-    if backlog:
-        title += f'\n{backlog} further ranked transition(s) not downloaded'
-
-    fig_h    = 4.9 + 0.75 + rows * 0.16
-    fig.set_size_inches(11.4, fig_h)
-    reserved = min(0.36, (0.5 + rows * 0.16) / fig_h)
-    fig.suptitle(title, fontsize=11)
-    fig.tight_layout(rect=(0, reserved, 1, 0.93))
-    fig.legend([handles[s] for s in order], order, title='Site',
-               loc='upper center', bbox_to_anchor=(0.5, reserved),
-               ncol=min(len(order), 6), fontsize=8, title_fontsize=8.5,
-               frameon=True, borderaxespad=0.0)
-    fig.text(0.5, 0.008,
-             'Circles mark max(ΔE from IS); a red/coloured arrow marks the '
-             'largest uphill excursion where the two differ.',
-             ha='center', fontsize=7.5, color='0.4')
-    _save(fig, outfile)
-    plt.close(fig)
+    for mode in ('common', 'own'):
+        fig, ax = fs.new_figure()
+        ys = []
+        for run in runs:
+            y = run.E_abs - E_ref if mode == 'common' else run.dE
+            ys.append(y)
+            if run is not best:
+                ax.plot(run.frac, y, color=fs.GREY, lw=GREY_LW, zorder=2)
+        yb = best.E_abs - E_ref if mode == 'common' else best.dE
+        ax.plot(best.frac, yb, color='black', lw=fs.OUTLINE_PT, zorder=5)
+        _, _i, j = max_ascent(best.dE)
+        ax.plot([best.frac[j]], [yb[j]], ls='none', marker='o', ms=13, color='black', zorder=6)
+        ax.axhline(0.0, zorder=1, **fs.REF_LINE)
+        ax.set_xlim(-0.03, 1.03)
+        ax.set_xticks(np.linspace(0, 1, 6))
+        fs.set_linear_y(ax, np.concatenate(ys), include=[0.0], frac=0.1)
+        ax.set_xlabel('Reaction coordinate')
+        ax.set_ylabel('E − E(lowest initial state) (eV)' if mode == 'common' else 'ΔE from own initial state (eV)')
+        ha = 'left' if best.frac[j] < 0.6 else 'right'
+        fs.text_label(ax, best.frac[j] + (0.03 if ha == 'left' else -0.03), yb[j],
+                      f'{_site_name(best)}\n{best.Ea_ascent:.2f} eV', ha=ha, va='bottom')
+        form_txt = ''
+        if mode == 'common' and e_clean is not None and e_h2 is not None and n_H:
+            shift = formation_energy(E_ref, n_H, e_clean, e_h2)
+            form_txt = (rf' The zero, the lowest initial state, has a formation energy of {fs.ev(shift, 2)}~eV for the '
+                        rf'{n_H}-H cell relative to H$_2$ gas and the clean slab; add it to read formation energies.')
+        zero = ('one common zero, the lowest initial state of the stage, so differences between initial states stay '
+                'visible' if mode == 'common' else 'each path from its own initial state, so the barriers compare directly')
+        text = (rf'Nudged-elastic-band minimum-energy paths for {STAGE_WORDS[stage]} on {mat}, {len(runs)} paths, plotted '
+                rf'from {zero}. The barrier of a path is the largest uphill climb along it (a path that first drops below '
+                rf'its initial state must climb out again): {asc.min():.2f} to {asc.max():.2f}~eV over the {len(runs)} '
+                rf'paths. The black path has the lowest, {best.Ea_ascent:.2f}~eV ({_tex_site(_site_name(best))}; circle at '
+                rf'its top); all others are grey. {n_conv} of {len(runs)} bands converged'
+                + (f'; the barriers of the other {len(runs) - n_conv} are provisional.' if n_conv < len(runs) else '.')
+                + form_txt + (f' A further {backlog} ranked transitions have no path on disk yet.' if backlog else ''))
+        fs.finish(fig, ax, fs.panel_stem(outfile, f'{mode}_zero'), MODULE, text)
 
 
 # ---------------------------------------------------------------------------
@@ -656,154 +649,95 @@ def interaction_residual(surf: NEBRun, hopa: dict[str, NEBRun],
     return float(pair - iso)
 
 
+def _chain_barrier(c: Chain) -> float:
+    """The highest single-stage barrier along a chain: the one that limits its rate."""
+    parts = [c.surface.Ea_ascent, c.hopa.Ea_reported] + ([c.hopb.Ea_reported] if c.hopb is not None else [])
+    return max(parts)
+
+
+def _mev(v: float) -> str:
+    m = round(1000 * v)
+    return '0' if m == 0 else f'{m:+d}'.replace('-', '$-$')
+
+
 def plot_full_pathway(material: str, stages: dict[str, list[NEBRun]],
                       colours: dict[str, tuple], outfile: str,
                       refs: tuple[float | None, float | None] = (None, None),
                       reference: str = 'chained'):
-    """Dissociation → hopa → hopb on one axis.
-
-    ``reference`` selects how the stages are placed against each other:
-
-    ``'chained'``
-        Each stage shifted so its first point meets the previous stage's last.
-        The curve is continuous by construction, which assumes the H–H
-        interaction at the seam is zero.
-    ``'formation'``
-        Each stage at its true formation energy, nothing shifted. Where two
-        stages do not meet, the gap is drawn and labelled — it is the H–H
-        interaction. Needs ``refs``; falls back to ``'chained'`` with a note
-        on the figure if they are unavailable.
-    ``'formation-per-h'``
-        As above, divided by the cell H count. Comparable stage depths, at the
-        cost of averaging two H that sit on different sites.
-    """
-    import matplotlib.pyplot as plt
-    from matplotlib.lines import Line2D
-
+    """Dissociation -> hop A -> hop B on one axis, one curve per H followed: one figure, PDF, PNG and
+    caption. Every chain is grey; the chain whose highest single-stage barrier is lowest is black and
+    named. reference: 'chained' (each stage starts where the previous ended, assuming no H-H
+    interaction at the seam), 'formation' (each stage at its true formation energy, seams drawn as
+    dotted risers) or 'formation-per-h' (the same per H); the formation modes fall back to chained
+    without E_clean and E(H2), or for a chain whose spectator H has no hop A run."""
+    import figstyle as fs
     chains = build_chains(stages)
     if not chains:
         return None
-
-    fig, ax = plt.subplots(figsize=(9.0, 5.4))
-    handles, labels = [], []
-
-    # Colour says which H is followed; linestyle says which dissociation event
-    # produced it. Two chains can otherwise share a colour — the same H reached
-    # from two different surface runs — and become indistinguishable.
-    surf_order = sorted({c.surface.label for c in chains})
-    dashes = ('-', '--', '-.', ':')
-
+    best = min(chains, key=_chain_barrier)
     e_clean, e_h2 = refs
     hopa_map = {r.key_site: r for r in stages.get('hopa', [])}
     want_form = reference in ('formation', 'formation-per-h')
-    fell_back = want_form and (e_clean is None or e_h2 is None)
-    use_form  = want_form and not fell_back
-    all_gaps: list[float] = []
-    n_form = 0          # chains actually drawn at true formation energy
-
-    for chain in chains:
-        colour = colours[chain.hop_site]
-        style  = dashes[surf_order.index(chain.surface.label) % len(dashes)]
-
+    use_form = want_form and e_clean is not None and e_h2 is not None
+    fig, ax = fs.new_figure()
+    ys, gaps_all, n_form = [], [], 0
+    for c in chains:
+        colour, lw, z = ('black', fs.OUTLINE_PT, 5) if c is best else (fs.GREY, GREY_LW, 2)
         segs = None
         if use_form:
-            segs, gaps = chain.profile_formation(
-                e_clean, e_h2, hopa_map,
-                per_h=(reference == 'formation-per-h'))
+            segs, gaps = c.profile_formation(e_clean, e_h2, hopa_map, per_h=(reference == 'formation-per-h'))
             if segs is not None:
-                all_gaps.extend(gaps)
+                gaps_all.extend(gaps)
                 n_form += 1
-
         if segs is None:
-            # chained, or formation declined for this chain (no spectator run)
-            x, y = chain.profile()
-            ax.plot(x, y, style, color=colour, lw=1.6, zorder=4)
-            n = 0
-            for run in (chain.surface, chain.hopa, chain.hopb):
-                if run is None:
-                    continue
-                sl = slice(n, n + len(run.frac))
-                top = n + int(np.argmax(y[sl]))
-                ax.plot(x[top], y[top], 'o', color=colour, ms=5, zorder=6)
-                n += len(run.frac)
+            x, y = c.profile()
+            ax.plot(x, y, color=colour, lw=lw, zorder=z)
+            ys.append(y)
         else:
-            # each stage where it really sits; seams drawn, never closed
-            for xs, ys in segs:
-                ax.plot(xs, ys, style, color=colour, lw=1.6, zorder=4)
-                ax.plot(xs[int(np.argmax(ys))], float(np.max(ys)), 'o',
-                        color=colour, ms=5, zorder=6)
-            for i in range(len(segs) - 1):
-                y0, y1 = segs[i][1][-1], segs[i + 1][1][0]
-                xv = float(segs[i + 1][0][0])
-                ax.plot([xv, xv], [y0, y1], ':', color=colour, lw=1.3, zorder=5)
-
-        handles.append(Line2D([], [], color=colour, lw=1.6, ls=style,
-                              marker='o', ms=5))
-        labels.append(chain.label)
-
-    ax.axhline(0.0, color='k', lw=0.8, ls='--', zorder=2)
+            for k, (xs_, ys_) in enumerate(segs):
+                ax.plot(xs_, ys_, color=colour, lw=lw, zorder=z)
+                ys.append(ys_)
+                if k + 1 < len(segs):
+                    xv = float(segs[k + 1][0][0])
+                    ax.plot([xv, xv], [ys_[-1], segs[k + 1][1][0]], color=colour, lw=2.4, ls=(0, (1, 1.5)), zorder=z)
     for xv in (1.0, 2.0):
-        ax.axvline(xv, color='0.55', lw=1.0, ls=':', zorder=2)
-
-    ax.set_xticks([0.0, 1.0, 2.0, 3.0])
-    # The band's first image is H2 bound to the slab, not H2 in the gas phase:
-    # measured at 0.887 A H-H with both atoms at the top surface for Ni. The
-    # old label 'H2 + slab' read as the gas-phase reference, which it is not.
-    ax.set_xticklabels(['H₂ adsorbed', '2H adsorbed', 'sub1', 'sub2'])
-    ax.set_xlabel('Reaction coordinate   (dissociation → hopA → hopB)')
+        ax.axvline(xv, color='black', lw=2.4, ls=(0, (1, 2)), zorder=1)
+    ax.axhline(0.0, zorder=1, **fs.REF_LINE)
+    ax.set_xlim(-0.05, 3.05)
+    ax.set_xticks([0, 1, 2, 3], [r'H$_2$ ads.', '2H ads.', 'sub1', 'sub2'])
+    ax.set_xlabel('Reaction coordinate')
+    fs.set_linear_y(ax, np.concatenate(ys), include=[0.0], frac=0.1)
+    per = ' per H' if reference == 'formation-per-h' else ''
+    ax.set_ylabel(f'$E_\\mathrm{{form}}${per} of the 2-H system (eV)' if (use_form and n_form) else 'Chained ΔE (eV)')
+    fs.text_label(ax, 0.03, 0.05, f'{_site_name(best.surface)}, then {best.hop_site}', ha='left', va='bottom',
+                  coords='axes')
+    parts = [f'dissociation {best.surface.Ea_ascent:.2f}', f'hop A {best.hopa.Ea_reported:.2f}']
+    if best.hopb is not None:
+        parts.append(f'hop B {best.hopb.Ea_reported:.2f}')
+    mat = fs.material_styles([material], pretty_material)[material][0]
     if use_form and n_form:
-        per = ' per H' if reference == 'formation-per-h' else ''
-        ax.set_ylabel(f'$E_{{form}}${per} of the 2-H system  (eV)')
+        how = (r'each stage at its true formation energy, nothing shifted to meet; dotted risers are the gaps between '
+               r'stages, the H--H interaction' + (f' (largest {_mev(max(gaps_all, key=abs))}~meV)' if gaps_all else '')
+               + (f'; {len(chains) - n_form} of {len(chains)} chains have no hop A run for the spectator H and are '
+                  'chained instead' if n_form < len(chains) else ''))
     else:
-        ax.set_ylabel('E relative to the first state of each stage  (eV)')
-    ax.set_title(f'H entry pathway for one H — {pretty_material(material)}')
-    ax.grid(True, alpha=0.3)
-
-    if use_form and n_form:
-        caption = ('Each stage at its true formation energy — nothing is '
-                   'shifted to make the stages meet. Dotted risers are real '
-                   'gaps: the H–H interaction.')
-        if all_gaps:
-            w = max(all_gaps, key=abs)
-            caption += f' Largest gap {w * 1000:+.0f} meV.'
-        if n_form < len(chains):
-            caption += (f' {len(chains) - n_form} of {len(chains)} chains '
-                        'lack a Hop A run for the spectator H and are drawn '
-                        'CHAINED instead.')
-    elif use_form:
-        caption = ('Formation reference requested, but no chain has a Hop A '
-                   'run for its spectator H, so the spectator energy is '
-                   'unknown and every curve here is CHAINED.')
-    else:
-        caption = ('Chained from relative energies; each curve follows ONE of '
-                   'the two dissociated H atoms.')
-        if fell_back:
-            caption = ('Requested formation reference but E_clean/E(H₂) were '
-                       'unavailable, so this is the CHAINED profile. '
-                       + caption)
-    if e_clean is not None and e_h2 is not None and not use_form:
-        residuals = [r for surf in stages.get('surface', [])
-                     if (r := interaction_residual(surf, hopa_map, e_clean,
-                                                   e_h2)) is not None]
-        if residuals:
-            worst = max(residuals, key=abs)
-            caption += (f'\nSplicing a 2-H stage onto a 1-H stage assumes '
-                        f'H–H non-interaction; measured here at '
-                        f'{worst * 1000:+.0f} meV.')
-
-    rows     = len(labels) + 1
-    fig_h    = 5.4 + max(0, rows - 4) * 0.19
-    fig.set_size_inches(9.0, fig_h)
-    reserved = min(0.5, (rows * 0.185 + 0.42) / fig_h)
-    fig.tight_layout(rect=(0, reserved, 1, 1))
-    fig.legend(handles, labels, title='Dissociation → which H is followed',
-               loc='upper center', bbox_to_anchor=(0.5, reserved),
-               ncol=1 if len(labels) <= 5 else 2, fontsize=7.5,
-               title_fontsize=8.5, frameon=True, borderaxespad=0.0)
-    fig.text(0.5, 0.008, caption, ha='center', fontsize=7.5, color='0.4')
-
-    _save(fig, outfile)
-    plt.close(fig)
+        how = 'chaining the energies of each stage relative to its own initial state'
+        if want_form:
+            how += ' (the formation reference was asked for, but the reference energies are not available)'
+    res_txt = ''
+    if e_clean is not None and e_h2 is not None and not (use_form and n_form):
+        res = [r for sf in stages.get('surface', []) if (r := interaction_residual(sf, hopa_map, e_clean, e_h2)) is not None]
+        if res:
+            res_txt = (r' Chaining a two-H stage onto one-H stages assumes the two H do not interact; the measured H--H '
+                       rf'interaction is {_mev(min(res))} to {_mev(max(res))}~meV (largest magnitude '
+                       rf'{_mev(max(res, key=abs))}~meV).')
+    text = (rf'Entry path of one H into {mat}: H$_2$ adsorbed $\rightarrow$ dissociated (2H adsorbed) $\rightarrow$ first '
+            rf'subsurface site (sub1) $\rightarrow$ second (sub2), {how}. Each of the {len(chains)} curves follows one of '
+            rf"the two dissociated H atoms from one of {len(stages.get('surface', []))} dissociation paths into the hops "
+            rf'starting at its site. The black curve has the lowest highest barrier of any chain '
+            rf'({_tex_site(_site_name(best.surface))}, then {_tex_site(best.hop_site)}: {", ".join(parts)}~eV); all others '
+            rf'are grey.{res_txt}')
+    fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text)
     return outfile
 
 

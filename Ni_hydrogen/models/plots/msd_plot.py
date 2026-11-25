@@ -306,54 +306,61 @@ def plot_msd_run(run: Run, curves: list[MSDCurve], outfile: str):
 
 def plot_msd_material(stem: str, runs: list[Run],
                       curves_by_run: dict[str, list[MSDCurve]], outfile: str):
-    """One panel per temperature, every H concentration overlaid.
-
-    Panels keep independent y-scales on purpose: MSD at 800 K is an order of
-    magnitude above 400 K, and a shared scale would flatten the cold panel
-    into a line. The comparison that matters here is between concentrations
-    within a temperature.
-    """
-    import matplotlib.pyplot as plt
-
-    runs   = sorted(runs, key=lambda r: r.n_H)
-    temps  = sorted({c.T for r in runs for c in curves_by_run.get(r.name, [])})
-    colors = plt.cm.viridis(np.linspace(0.0, 0.85, len(runs)))
-
-    fig, axes = plt.subplots(1, len(temps), figsize=(4.6 * len(temps), 4.6),
-                             squeeze=False)
-    axes = axes[0]
-
-    handles, labels = [], []
-    for ax, T in zip(axes, temps):
-        for run, color in zip(runs, colors):
-            curve = next((c for c in curves_by_run.get(run.name, [])
-                          if c.T == T), None)
-            if curve is None:
+    """MSD against time, every H loading overlaid: one figure per temperature (written as
+    <outfile>_<T>K.pdf, .png and _caption.tex). Each figure keeps its own y-scale, since MSD grows by
+    an order of magnitude from the coldest temperature to the hottest; the comparison that matters is
+    between loadings at one temperature."""
+    import figstyle as fs
+    from matplotlib.lines import Line2D
+    from diffusivity_plot import _loading_label
+    runs = sorted(runs, key=lambda r: r.n_H)
+    styles = fs.loading_styles([r.n_H for r in runs])
+    temps = sorted({c.T for r in runs for c in curves_by_run.get(r.name, [])})
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    for T in temps:
+        fig, ax = fs.new_figure()
+        items, handles, xs, ys, notconv, words, shown, keylabels, keycols = [], [], [], [], [], [], [], [], []
+        for run in runs:
+            c = next((c for c in curves_by_run.get(run.name, []) if c.T == T), None)
+            if c is None:
                 continue
-            line, = ax.plot(curve.t, curve.msd, '-', color=color, lw=1.5)
-            if run.label not in labels:
-                handles.append(line)
-                labels.append(run.label)
-            if not curve.converged:
-                # Mark the tail of a trace whose slope has not settled.
-                ax.plot(curve.t[-1], curve.msd[-1], marker='x', ms=9, mew=2,
-                        color=color, zorder=6)
-
-        ax.set_title(f'{T:.0f} K')
-        ax.set_xlabel('t  (ps)')
-        ax.grid(True, alpha=0.3)
-
-    axes[0].set_ylabel('MSD  (Å²)')
-
-    fig.suptitle(f'H MSD in {pretty_material(stem)} — all H concentrations'
-                 '     (× marks a trace whose slope has not converged)',
-                 fontsize=12)
-    fig.legend(handles, labels, title='H loading', loc='lower center',
-               ncol=min(len(labels), 4), fontsize=8.5, title_fontsize=9,
-               bbox_to_anchor=(0.5, -0.02))
-    fig.tight_layout(rect=(0, 0.06, 1, 1))
-    _save(fig, outfile)
-    return fig
+            col = styles[run.n_H][0]
+            ax.plot(c.t, c.msd, color=col, lw=fs.CURVE_PT, zorder=4)
+            if not c.converged:
+                ax.plot([c.t[-1]], [c.msd[-1]], ls='none', marker='X', ms=15, color=col, mec='black', mew=1.2, zorder=6)
+                notconv.append(f'{run.n_H}H')
+            shown.append(c)
+            xs.append(c.t)
+            ys.append(c.msd)
+            items.append((c.t[-1], c.msd[-1], _loading_label(run), col))
+            handles.append(Line2D([], [], color=col, lw=fs.CURVE_PT))
+            keylabels.append(f'{_loading_label(run)}\n$D$ = {fs.sci(c.D_table if c.D_table else c.D_fit)} m$^2$ s$^{{-1}}$'
+                             + ('' if c.converged else ', not converged'))
+            keycols.append(col)
+            words.append(f'{run.n_H}H $D$ = {fs.tex_num(c.D_table if c.D_table else c.D_fit, 3)}~m$^2$~s$^{{-1}}$, '
+                         f'slope ratio {c.ratio:.2f}')
+        lo = max(c.t_win[0] for c in shown)
+        hi = min(c.t_win[1] for c in shown)
+        if hi > lo:
+            ax.axvspan(lo, hi, color='#EDEDED', zorder=0, lw=0)
+        ax.set_xlim(0, max(c.t[-1] for c in shown) * 1.02)
+        fs.set_linear_y(ax, np.concatenate(ys), include=[0.0])
+        ax.set_xlabel('Time (ps)')
+        ax.set_ylabel(r'MSD ($\mathrm{\AA}^2$)')
+        fs.key_below(fig, handles, keylabels, ncol=1, colours=keycols)
+        keyed = True
+        win = shown[0].t_win
+        span = shown[0].t[-1] - shown[0].t[0]
+        f0, f1 = (win[0] - shown[0].t[0]) / span, (win[1] - shown[0].t[0]) / span
+        text = (rf'Mean-squared displacement of H in bulk {mat} against time at {T:.0f}~K, one line per H loading of '
+                rf'the supercell. The shaded band is the fit window ({100 * f0:.0f}--{100 * f1:.0f}\% of each trajectory) '
+                rf'over which $D$ = slope/6 is taken: {"; ".join(words)}. The slope ratio compares the second and first '
+                rf'halves of the window; a trace is taken as converged between {CONVERGED_BAND[0]} and {CONVERGED_BAND[1]}'
+                + (f', so the {fs.tex_join(notconv)} trace{"s" if len(notconv) > 1 else ""} (crossed end) '
+                   f'{"have" if len(notconv) > 1 else "has"} not converged.' if notconv else ', which every trace here meets.'))
+        fs.finish(fig, ax, fs.panel_stem(outfile, f'{T:.0f}K'), 'plots/msd_plot.py', text,
+                  np.concatenate(xs), np.concatenate(ys), keyed=keyed)
+    return None
 
 
 # ---------------------------------------------------------------------------

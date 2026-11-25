@@ -54,8 +54,8 @@ import numpy as np
 
 from diffusivity_plot import (            # noqa: E402
     DEFAULT_RESULTS_DIR, Run, discover_runs, pretty_material,
-    _add_temperature_axis, _save,
 )
+import figstyle as fs                     # noqa: E402
 from models.diffusivity_post_processing import KB_EV      # noqa: E402
 from solubility_plot import (             # noqa: E402
     ROUTES, ROUTE_STYLE, breaches, load_solubility, site_density,
@@ -202,64 +202,89 @@ def group_by_material(runs: list[Run]) -> dict[str, tuple[Run, dict[str, PhiFit]
 # Section 4 — Per-material figure
 # ---------------------------------------------------------------------------
 
-def _label(fit: PhiFit) -> str:
-    txt = f'{ROUTE_LABEL[fit.name]}\n     $\\Phi_0$={fit.Phi0:.3e}'
-    if fit.Phi0_factor:
-        txt += f' ×/÷{fit.Phi0_factor:.3f}'
-    txt += f',  $E_\\Phi$={fit.E_phi:+.4f}'
-    if fit.E_phi_err is not None:
-        txt += f'±{fit.E_phi_err:.4f}'
-    txt += ' eV'
-    if fit.inverted:
-        txt += '   ⚠ inverted'
-    return txt
+ROUTE_WORDS = {'geometric': r'geometric ($S_0 = 4/a_0^3 N_A$)',
+               'vibrational': r'vibrational ($S_0$ from partition functions)',
+               'detailed_balance': r'detailed balance ($k_\mathrm{entry}/k_\mathrm{exit}$, a diagnostic)'}
+MODULE = 'plots/permeability_plot.py'
+
+
+def _route_line(ax, name, T, y, T_fit, y_fit):
+    """Points and fit of one route in its house style; returns the key handle."""
+    from matplotlib.lines import Line2D
+    _label_, colour, marker, filled, ls = fs.ROUTE_STYLE[name]
+    ax.plot(1000.0 / T_fit, y_fit, color=colour, ls=ls, lw=fs.CURVE_PT, zorder=4)
+    if np.size(T):
+        ax.plot(1000.0 / T, y, ls='none', marker=marker, ms=11, mfc=colour if filled else 'white',
+                mec=colour, mew=2.2, zorder=5)
+    return Line2D([], [], color=colour, ls=ls, lw=fs.CURVE_PT, marker=marker, ms=10,
+                  mfc=colour if filled else 'white', mec=colour, mew=2.0)
+
+
+def _loading_words(run) -> str:
+    if run is None:
+        return ''
+    from diffusivity_plot import resolve_host_atoms
+    if not run.n_host:
+        resolve_host_atoms([run], None)
+    pct = f', {run.at_pct:.2f} at.\\%' if run.at_pct else ''
+    return f' from the run with {run.n_H} H in the supercell{pct}'
 
 
 def plot_material(stem: str, fits: dict[str, PhiFit], outfile: str,
-                  sol_flags: dict[str, float | None] | None = None):
-    """log₁₀(Φ) vs 1000/T for all routes of one material."""
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(figsize=(7.6, 5.4))
-
-    T_all = np.concatenate([f.T for f in fits.values() if f.T.size]) \
-        if any(f.T.size for f in fits.values()) else np.array([400.0, 800.0])
-    T_fine = np.linspace(T_all.min() * 0.95, T_all.max() * 1.05, 200)
-
-    warned: list[str] = []
-    for name in ROUTE_STYLE:
+                  sol_flags: dict[str, float | None] | None = None, run=None):
+    """Φ against 1000/T for every route of one material: one figure, written as PDF, PNG and caption."""
+    fig, ax = fs.new_figure()
+    ys, xs, items, handles = [], [], [], []
+    T_all = np.concatenate([f.T for f in fits.values() if f.T.size]) if any(f.T.size for f in fits.values()) \
+        else np.array([400.0, 800.0])
+    for name in fs.ROUTE_STYLE:
         fit = fits.get(name)
         if fit is None:
             continue
-        marker, ls, colour, headline = ROUTE_STYLE[name]
+        T = fit.T if fit.T.size else T_all
+        T_fit = np.linspace(T.min(), T.max(), 120)
+        handles.append(_route_line(ax, name, fit.T, fit.Phi, T_fit, fit.curve(T_fit)))
+        ys += [fit.Phi, fit.curve(T_fit)]
         if fit.T.size:
-            ax.plot(1000.0 / fit.T, np.log10(fit.Phi), marker, color=colour,
-                    ms=7, mfc=colour if headline else 'none', mew=1.5, zorder=5)
-        ax.plot(1000.0 / T_fine, np.log10(fit.curve(T_fine)), ls, color=colour,
-                lw=1.6, alpha=0.9, zorder=4, label=_label(fit))
-        if fit.inverted:
-            warned.append(f'{name}: E_Φ<0')
-        if sol_flags and sol_flags.get(name):
-            warned.append(f'{name}: S over saturation')
-
-    _add_temperature_axis(ax)
-    ax.set_xlabel('1000 / T  (K⁻¹)')
-    ax.set_ylabel(f'log₁₀( Φ / {PHI_UNITS} )')
-    title = f'H permeability (Richardson–Sieverts) — {pretty_material(stem)}'
-    if warned:
-        title += '\n⚠ ' + '; '.join(sorted(set(warned)))
-    ax.set_title(title, fontsize=10.5)
-    ax.grid(True, alpha=0.3)
-
-    rows     = 2 * len(fits)
-    fig_h    = 5.4 + rows * 0.21
-    fig.set_size_inches(7.6, fig_h)
-    reserved = min(0.42, (rows * 0.22 + 0.3) / fig_h)
-    fig.tight_layout(rect=(0, reserved, 1, 1))
-    fig.legend(loc='upper center', bbox_to_anchor=(0.5, reserved), fontsize=8,
-               frameon=True, borderaxespad=0.0, labelspacing=0.7)
-    _save(fig, outfile)
-    plt.close(fig)
+            xs.append(1000.0 / fit.T)
+            i = int(np.argmin(fit.T))
+            items.append((1000.0 / fit.T[i], fit.Phi[i], fs.ROUTE_STYLE[name][0], fs.ROUTE_STYLE[name][1]))
+        else:
+            items.append((1000.0 / T_fit[0], fit.curve(T_fit[:1])[0], fs.ROUTE_STYLE[name][0], fs.ROUTE_STYLE[name][1]))
+    fs.inverse_temperature_axis(ax, T_all)
+    fs.set_log_y(ax, np.concatenate([np.asarray(v, float) for v in ys]))
+    ax.set_ylabel(r'$\Phi$ (mol H m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$)')
+    names = [n for n in fs.ROUTE_STYLE if n in fits]
+    fs.key_below(fig, handles, [f"{fs.ROUTE_STYLE[n][0]}\n$E_\\Phi$ = {fs.energy(fits[n].E_phi, fits[n].E_phi_err)}, "
+                                f"$\\Phi_0$ = {fs.sci(fits[n].Phi0)}" for n in names],
+                 ncol=1, colours=[fs.ROUTE_STYLE[n][1] for n in names])
+    keyed = True
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    parts = []
+    for name in fs.ROUTE_STYLE:
+        fit = fits.get(name)
+        if fit is None:
+            continue
+        txt = f'{ROUTE_WORDS[name]}: $\\Phi_0$ = {fs.tex_num(fit.Phi0, 3)}'
+        if fit.Phi0_factor:
+            txt += f' ($\\times/\\div$ {fit.Phi0_factor:.2f})'
+        txt += f', $E_\\Phi$ = {fs.ev(fit.E_phi)}'
+        if fit.E_phi_err is not None:
+            txt += f' $\\pm$ {fit.E_phi_err:.3f}'
+        txt += '~eV' + (' (negative: $\\Phi$ rises as the metal cools, not possible for diffusion-limited '
+                        'permeation)' if fit.inverted else '')
+        parts.append(txt)
+    over = [f"{ROUTE_WORDS[n].split(' (')[0]} (up to {v:.3g} times)" for n, v in (sol_flags or {}).items() if v]
+    warn = (f' The solubility of the {fs.tex_join(over)} route exceeds octahedral-site saturation, so its '
+            r'$\Phi_0$ is not a usable permeability.' if over else '')
+    name_ = os.path.basename(fs.panel_stem(outfile, ''))
+    text = (rf'Hydrogen permeability of {mat}, $\Phi = D\,S$ (Richardson--Sieverts), against inverse temperature, '
+            rf'{T_all.min():.0f} to {T_all.max():.0f}~K{_loading_words(run)}. Points are the per-temperature results; '
+            r'lines are Arrhenius fits, $\Phi = \Phi_0\,e^{-E_\Phi/k_BT}$, for each solubility route: '
+            + '; '.join(parts) + '.' + warn)
+    fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text,
+              np.concatenate(xs) if xs else None,
+              np.concatenate([fits[n].Phi for n in fits if fits[n].T.size]) if xs else None, keyed=keyed)
 
 
 # ---------------------------------------------------------------------------
@@ -267,46 +292,43 @@ def plot_material(stem: str, fits: dict[str, PhiFit], outfile: str,
 # ---------------------------------------------------------------------------
 
 def plot_all_materials(chosen: dict, outfile: str):
-    """One panel per route, every material overlaid."""
-    import matplotlib.pyplot as plt
-
-    present = [r for r in ROUTES
-               if any(r in f for _run, f, _g in chosen.values())]
+    """One figure per route, every material overlaid (written as <outfile>_<route>.*)."""
+    from matplotlib.lines import Line2D
+    present = [r for r in ROUTES if any(r in f for _run, f, _g in chosen.values())]
     if not present or len(chosen) < 2:
         return None
-
-    stems   = sorted(chosen)
-    colours = plt.cm.tab10(np.linspace(0, 0.9, len(stems)))
-    fig, axes = plt.subplots(1, len(present), figsize=(5.2 * len(present), 4.9),
-                             sharey=True, squeeze=False)
-    axes = axes[0]
-
-    for ax, route in zip(axes, present):
-        for stem, colour in zip(stems, colours):
+    styles = fs.material_styles(sorted(chosen), pretty_material)
+    for route in present:
+        fig, ax = fs.new_figure()
+        ys, xs, items, handles, words, temps, keylabels, keycols = [], [], [], [], [], [], [], []
+        for stem, (label, colour, marker, ls) in styles.items():
             fit = chosen[stem][1].get(route)
             if fit is None:
                 continue
             T = fit.T if fit.T.size else np.array([400.0, 800.0])
-            T_fine = np.linspace(T.min() * 0.95, T.max() * 1.05, 200)
+            T_fit = np.linspace(T.min(), T.max(), 120)
+            ax.plot(1000.0 / T_fit, fit.curve(T_fit), color=colour, ls=ls, lw=fs.CURVE_PT, zorder=4)
             if fit.T.size:
-                ax.plot(1000.0 / fit.T, np.log10(fit.Phi), 'o', color=colour,
-                        ms=6, zorder=5)
-            flag = '  ⚠' if fit.inverted else ''
-            ax.plot(1000.0 / T_fine, np.log10(fit.curve(T_fine)), '-',
-                    color=colour, lw=1.5, zorder=4,
-                    label=f'{pretty_material(stem)}  $E_\\Phi$='
-                          f'{fit.E_phi:+.3f} eV{flag}')
-        ax.set_title(route, fontsize=10)
-        ax.set_xlabel('1000 / T  (K⁻¹)')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=7.5, loc='best')
-
-    axes[0].set_ylabel(f'log₁₀( Φ / {PHI_UNITS} )')
-    fig.suptitle('H permeability by route and material — '
-                 '⚠ marks E_Φ < 0 (Φ rises on cooling)', fontsize=11)
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
-    _save(fig, outfile)
-    plt.close(fig)
+                ax.plot(1000.0 / fit.T, fit.Phi, ls='none', marker=marker, ms=10, color=colour, zorder=5)
+                xs.append(1000.0 / fit.T)
+            ys += [fit.curve(T_fit)] + ([fit.Phi] if fit.T.size else [])
+            temps.append(T)
+            i = int(np.argmin(T_fit))
+            items.append((1000.0 / T_fit[i], fit.curve(T_fit[i:i + 1])[0], label, colour))
+            handles.append(Line2D([], [], color=colour, ls=ls, lw=fs.CURVE_PT, marker=marker, ms=9))
+            words.append(f'{label} {fs.ev(fit.E_phi)}' + (' (negative)' if fit.inverted else ''))
+            keylabels.append(f"{label}\n$E_\\Phi$ = {fs.energy(fit.E_phi, fit.E_phi_err)}, $\\Phi_0$ = {fs.sci(fit.Phi0)}")
+            keycols.append(colour)
+        fs.inverse_temperature_axis(ax, np.concatenate(temps))
+        fs.set_log_y(ax, np.concatenate([np.asarray(v, float) for v in ys]))
+        ax.set_ylabel(r'$\Phi$ (mol H m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$)')
+        fs.key_below(fig, handles, keylabels, ncol=1, colours=keycols)
+        keyed = True
+        stem_out = fs.panel_stem(outfile, route)
+        text = (rf'Hydrogen permeability of each material by the {ROUTE_WORDS[route]} route against inverse temperature; '
+                "points are the per-temperature results of each material's best-sampled H loading and lines its "
+                rf'Arrhenius fit. $E_\Phi$ (eV): {"; ".join(words)}.')
+        fs.finish(fig, ax, stem_out, MODULE, text, keyed=keyed)
     return outfile
 
 
@@ -402,12 +424,12 @@ def main(argv: list[str] | None = None) -> int:
     problems = report(chosen, sol_flags)
 
     print('\nPer-material plots:')
-    for stem, (_run, fits, _reg) in sorted(chosen.items()):
+    for stem, (run, fits, _reg) in sorted(chosen.items()):
         material = pretty_material(stem).replace(' ', '_')
         plot_material(stem, fits,
                       os.path.join(outdir,
                                    f'{material}_permeability_arrhenius.png'),
-                      sol_flags=sol_flags.get(stem))
+                      sol_flags=sol_flags.get(stem), run=run)
 
     print('\nCross-material plot:')
     if plot_all_materials(chosen,

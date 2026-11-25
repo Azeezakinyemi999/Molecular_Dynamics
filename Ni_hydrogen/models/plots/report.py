@@ -48,17 +48,17 @@ SECTION_ORDER = ['dissociation', 'subsurface', 'rates', 'solubility', 'diffusivi
 # The files of each section (glob patterns in the export folder): a section is
 # written for every one with at least one of them.
 SECTION_OUTPUTS = {
-    'dissociation': ['part1_dissociation.csv', 'figures/material/*neb_mep_overlay_surface.png'],
-    'subsurface': ['part2_hop_barriers.csv', 'figures/material/*neb_mep_overlay_hop[ab].png',
+    'dissociation': ['part1_dissociation.csv', 'figures/material/*neb_mep_overlay_surface_*.png'],
+    'subsurface': ['part2_hop_barriers.csv', 'figures/material/*neb_mep_overlay_hop[ab]_*.png',
                    'figures/material/*neb_mep_full_pathway.png'],
-    'rates': ['part2_tst_rates.csv', 'figures/material/*site_barriers.png', 'figures/material/*site_rates.png'],
+    'rates': ['part2_tst_rates.csv', 'figures/material/*site_barriers_*.png', 'figures/material/*site_rates_*.png'],
     'solubility': ['part2_solubility_by_env.csv', 'figures/material/*env_dH_sol.png',
                    'figures/material/*solubility_arrhenius.png'],
     'diffusivity': ['part3_diffusivity_fits.csv', 'part3_diffusivity_vs_T.csv', 'figures/*H/msd_vs_time.png',
                     'figures/*H/diffusivity_vs_invT.png', 'figures/*H/arrhenius.png',
-                    'figures/material/*msd_all_concentrations.png', 'figures/material/*diffusivity_all_concentrations.png',
-                    'figures/material/*arrhenius_params_vs_concentration.png',
-                    'figures/material/*diffusivity_vs_literature*.png', 'figures/material/*thermal_expansion.png'],
+                    'figures/material/*msd_all_concentrations_*.png', 'figures/material/*diffusivity_all_concentrations.png',
+                    'figures/material/*arrhenius_params_vs_concentration_*.png',
+                    'figures/material/*diffusivity_vs_literature*.png', 'figures/material/*thermal_expansion*.png'],
     'permeability': ['overall_permeability.csv', 'figures/material/*permeability_arrhenius.png',
                      'figures/*H/permeation_summary.png'],
 }
@@ -204,6 +204,50 @@ class MaterialReport(L.LatexReport):
         found = [f for f in self.find('figures/material/*' + suffix)
                  if not os.path.basename(f).endswith('_all_materials.png')]
         return found[0] if found else None
+
+    PANEL_ORDER = ['common_zero', 'own_zero', 'Ea', 'D0', 'hopa', 'hopb', 'lattice_constant', 'fractional', 'share']
+    PANEL_LABEL = {'common_zero': 'common zero', 'own_zero': 'own initial state', 'Ea': '$E_D$', 'D0': '$D_0$',
+                   'hopa': 'hop A', 'hopb': 'hop B', 'lattice_constant': 'lattice constant',
+                   'fractional': 'fractional expansion', 'share': 'share of $S$'}
+
+    def material_panels(self, base):
+        """[(label, file)] of one material figure drawn one figure per panel (<mat>_<base>_<panel>.png,
+        plus <mat>_<base>.png when the first panel keeps the plain name), in reading order."""
+        found = {}
+        one = self.material_fig(base + '.png')
+        if one:
+            found[''] = one
+        for f in self.find('figures/material/*' + base + '_*.png'):
+            name = os.path.basename(f)
+            if '_all_materials' in name:
+                continue
+            panel = name[:-4].split(base + '_', 1)[1]
+            found[panel] = f
+
+        def order(panel):
+            m = re.fullmatch(r'(\d+(?:\.\d+)?)K', panel)
+            if m:
+                return (1, float(m.group(1)), panel)
+            if panel in self.PANEL_ORDER:
+                return (0, self.PANEL_ORDER.index(panel), panel)
+            return (2, 0.0, panel) if panel else (-1, 0.0, panel)
+        out = []
+        for panel in sorted(found, key=order):
+            if panel == '':
+                label = {'env_dH_sol': 'enthalpy'}.get(base, '')
+            else:
+                m = re.fullmatch(r'(\d+(?:\.\d+)?)K', panel)
+                label = f'{float(m.group(1)):.0f} K' if m else self.PANEL_LABEL.get(panel, panel.replace('_', ' '))
+            out.append((label, found[panel]))
+        return out
+
+    def figure_part(self, key, base, per_row=2):
+        """A ('figure', ...) part for a single-panel figure, a ('grid', ...) part for one drawn per panel."""
+        panels = self.material_panels(base)
+        if len(panels) <= 1:
+            return ('figure', key, panels[0][1] if panels else None)
+        return ('grid', key, [f for _, f in panels], [L.tex_escape(lab) if '$' not in lab else lab for lab, _ in panels],
+                per_row)
 
     def loading_figs(self, name):
         """[(loading label, file)] of one per-loading figure, by loading."""
@@ -378,7 +422,7 @@ def section_dissociation(rep):
                       ('nu_rev_s-1', r'$\nu_\mathrm{rev}$\\(s$^{-1}$)', 'r', None), ('is_minimum', r'IS\\min.', 'l', L.tex_flag),
                       ('ts_saddle', r'TS\\saddle', 'l', L.tex_flag), ('zpe_source', r'ZPE\\source', 'l', L.tex_escape)],
                       'Surface dissociation pathways, lowest barrier first.', 'part1_dissociation.csv'))]
-    parts.append(('figure', 'mep_overlay_surface', rep.material_fig('neb_mep_overlay_surface.png')))
+    parts.append(rep.figure_part('mep_overlay_surface', 'neb_mep_overlay_surface'))
     if rep.find('figures/pathways/dissociation/*/*.png'):
         parts.append((None, r'The band of each pathway on its own is in Appendix~\ref{app:pathways}.'))
     return rep.section('dissociation', RT.SECTIONS['dissociation'], parts)
@@ -417,9 +461,9 @@ def section_subsurface(rep):
                       ('nu_rev_s-1', r'$\nu_\mathrm{rev}$\\(s$^{-1}$)', 'r', None), ('zpe_source', r'ZPE\\source', 'l', L.tex_escape)],
                       'Hop A and Hop B pathways, lowest corrected barrier first within each hop.', 'part2_hop_barriers.csv',
                       group_by='hop'))]
-    parts += [('figure', 'mep_full_pathway', rep.material_fig('neb_mep_full_pathway.png')),
-              ('figure', 'mep_overlay_hopa', rep.material_fig('neb_mep_overlay_hopa.png')),
-              ('figure', 'mep_overlay_hopb', rep.material_fig('neb_mep_overlay_hopb.png'))]
+    parts += [rep.figure_part('mep_full_pathway', 'neb_mep_full_pathway'),
+              rep.figure_part('mep_overlay_hopa', 'neb_mep_overlay_hopa'),
+              rep.figure_part('mep_overlay_hopb', 'neb_mep_overlay_hopb')]
     return rep.section('subsurface', RT.SECTIONS['subsurface'], parts)
 
 
@@ -454,8 +498,8 @@ def section_rates(rep):
                   ('Reverse rate constants', rep.pivot(rows, 'site', 'T_K', 'k_reverse_s-1',
                                                        r'Reverse rate constant $k_\mathrm{rev}$ (s$^{-1}$).', 'pathway',
                                                        'part2_tst_rates.csv', col_head=head))]
-    parts += [('figure', 'site_barriers', rep.material_fig('site_barriers.png')),
-              ('figure', 'site_rates', rep.material_fig('site_rates.png'))]
+    parts += [rep.figure_part('site_barriers', 'site_barriers'),
+              rep.figure_part('site_rates', 'site_rates')]
     return rep.section('rates', RT.SECTIONS['rates'], parts)
 
 
@@ -488,8 +532,8 @@ def section_solubility(rep):
                       ('_hop', r'$\Delta H_\mathrm{hopA}$\\(eV)', 'r', lambda s: s), ('weight', 'weight', 'r', None),
                       ('n_sites', 'sites', 'r', None)],
                       'Subsurface environments, lowest solution enthalpy first.', 'part2_solubility_by_env.csv'))]
-    parts += [('figure', 'env_dH_sol', rep.material_fig('env_dH_sol.png')),
-              ('figure', 'solubility_arrhenius', rep.material_fig('solubility_arrhenius.png'))]
+    parts += [rep.figure_part('env_dH_sol', 'env_dH_sol'),
+              rep.figure_part('solubility_arrhenius', 'solubility_arrhenius')]
     return rep.section('solubility', RT.SECTIONS['solubility'], parts)
 
 
@@ -542,7 +586,7 @@ def section_diffusivity(rep):
             parts.append(('grid', key, [f for _, f in figs], [L.tex_escape(s) for s, _ in figs], per_row))
     for key in ('msd_all_concentrations', 'diffusivity_all_concentrations', 'arrhenius_params_vs_concentration',
                 'diffusivity_vs_literature', 'thermal_expansion'):
-        parts.append(('figure', key, rep.material_fig(key + '.png')))
+        parts.append(rep.figure_part(key, key, per_row=3 if key == 'msd_all_concentrations' else 2))
     return rep.section('diffusivity', RT.SECTIONS['diffusivity'], parts)
 
 
@@ -581,7 +625,7 @@ def section_permeability(rep):
                       ('Phi0_rel_err', r'$\Phi_0$\\rel.\ error', 'r', lambda v: pct(num(v))),
                       ('_E', r'$E_\Phi$\\(eV)', 'r', lambda s: s), ('r2_S', r'$R^2_S$', 'r', lambda v: L.tex_num(v, 4))],
                       'Permeability per loading and route; headline routes first.', 'overall_permeability.csv', group_by='n_H'))]
-    parts.append(('figure', 'permeability_arrhenius', rep.material_fig('permeability_arrhenius.png')))
+    parts.append(rep.figure_part('permeability_arrhenius', 'permeability_arrhenius'))
     figs = rep.loading_figs('permeation_summary.png')
     if figs:
         parts.append(('grid', 'permeation_summary', [f for _, f in figs], [L.tex_escape(s) for s, _ in figs], 1))

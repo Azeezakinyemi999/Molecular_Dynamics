@@ -50,6 +50,10 @@ import numpy as np
 _HERE         = os.path.dirname(os.path.abspath(__file__))       # …/models/plots
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_HERE))          # …/Ni_hydrogen
 sys.path.insert(0, _PROJECT_ROOT)
+if _HERE not in sys.path:                                        # the house style, figstyle.py
+    sys.path.insert(0, _HERE)
+
+import figstyle as fs                                        # noqa: E402
 
 from models.diffusivity_post_processing import arrhenius_D   # noqa: E402
 
@@ -610,175 +614,153 @@ def plot_single(run: Run, outfile: str):
 # Section 8 — Combined all-concentrations plot
 # ---------------------------------------------------------------------------
 
-def _fit_legend_label(run: Run) -> str:
-    """'0.20 at.% H — E_a = 0.210 eV, D_0 = 1.21e-06 m² s⁻¹'."""
-    d = run.data
-    if d['E_D'] is None or d['D0'] is None:
-        return run.label
-    return (f'{run.label}   —   $E_a$ = {d["E_D"]:.3f} eV,   '
-            f'$D_0$ = {d["D0"]:.2e} m² s⁻¹')
+MODULE = 'plots/diffusivity_plot.py'
+
+
+def _loading_label(run: Run) -> str:
+    """'3H, 0.60 at.%' (or '3H' when the host size is unknown)."""
+    pct = f', {run.at_pct:.2f} at.%' if run.at_pct else ''
+    return f'{run.n_H}H{pct}'
+
+
+def _log_errorbars(D: np.ndarray, D_err: np.ndarray):
+    """Asymmetric bars on a log axis equal to symmetric log10 bars, or None without errors."""
+    e = _log10_yerr(D, D_err)
+    if e is None:
+        return None
+    return np.vstack([D * (1 - 10 ** -e), D * (10 ** e - 1)])
+
+
+def _draw_loadings(ax, runs: list[Run], styles: dict):
+    """Points (with error bars) and Arrhenius fit of every loading; returns (x, y, items, handles)."""
+    from matplotlib.lines import Line2D
+    xs, ys, items, handles = [], [], [], []
+    for run in runs:
+        d, (c, m) = run.data, styles[run.n_H]
+        T, D = d['T'], d['D']
+        err = _log_errorbars(D, d['D_err'])
+        if d['E_D'] is not None and d['D0'] is not None:
+            T_fit = np.linspace(T.min(), T.max(), 120)
+            ax.plot(1000.0 / T_fit, arrhenius_D(T_fit, d['E_D'], d['D0']), color=c, lw=fs.CURVE_PT, zorder=4)
+        ax.errorbar(1000.0 / T, D, yerr=err, ls='none', marker=m, ms=11, color=c, mec=c, mew=1.5, capsize=5,
+                    elinewidth=2.2, capthick=2.2, zorder=5)
+        xs.append(1000.0 / T)
+        ys.append(D if err is None else np.r_[D - err[0], D + err[1]])
+        i = int(np.argmin(T))
+        items.append((1000.0 / T[i], D[i], _loading_label(run), c))
+        handles.append(Line2D([], [], color=c, lw=fs.CURVE_PT, marker=m, ms=10))
+    return xs, ys, items, handles
+
+
+def _key_labels(runs: list[Run]) -> list[str]:
+    """Key entries: the loading, then its Arrhenius fit (D_0 shares the figure's y-axis units)."""
+    out = []
+    for r in runs:
+        d = r.data
+        if d['E_D'] is None or d['D0'] is None:
+            out.append(_loading_label(r))
+            continue
+        out.append(f"{_loading_label(r)}\n$E_a$ = {fs.energy(d['E_D'], d['E_D_err'])}, $D_0$ = {fs.sci(d['D0'])}")
+    return out
+
+
+def _fit_words(runs: list[Run]) -> str:
+    out = []
+    for r in runs:
+        d = r.data
+        if d['E_D'] is None:
+            continue
+        txt = f"{_loading_label(r).replace('%', chr(92) + '%')}: $E_a$ = {fs.ev(d['E_D'])}"
+        if d['E_D_err']:
+            txt += f" $\\pm$ {d['E_D_err']:.3f}"
+        txt += f"~eV, $D_0$ = {fs.tex_num(d['D0'], 3)}~m$^2$~s$^{{-1}}$"
+        if d['R2'] is not None:
+            txt += f" ($R^2$ = {d['R2']:.3f})"
+        out.append(txt)
+    return '; '.join(out)
 
 
 def plot_combined(stem: str, runs: list[Run], outfile: str):
-    """Overlay every H concentration of one material on a single axis."""
-    import matplotlib.pyplot as plt
-
+    """D against 1000/T for every H loading of one material: one figure written as PDF, PNG and caption."""
     runs = sorted(runs, key=lambda r: r.n_H)
-    colors = plt.cm.viridis(np.linspace(0.0, 0.85, len(runs)))
-
-    T_lo = min(r.data['T'].min() for r in runs)
-    T_hi = max(r.data['T'].max() for r in runs)
-
-    fig, ax = plt.subplots(figsize=(7, 5.5))
-
-    for run, color in zip(runs, colors):
-        d = run.data
-        T, D = d['T'], d['D']
-
-        ax.errorbar(1000.0 / T, np.log10(D), yerr=_log10_yerr(D, d['D_err']),
-                    fmt='o', color=color, capsize=3, ms=6, zorder=5,
-                    label=_fit_legend_label(run))
-
-        if d['E_D'] is not None and d['D0'] is not None:
-            x_fine, y_fine = _fit_curve(T_lo, T_hi, d['E_D'], d['D0'])
-            ax.plot(x_fine, y_fine, '-', color=color, lw=1.4, alpha=0.9,
-                    zorder=4)
-
-    _add_temperature_axis(ax)
-
-    ax.set_xlabel('1000 / T  (K⁻¹)')
-    ax.set_ylabel('log₁₀( D / m² s⁻¹ )')
-    ax.set_title(f'H Diffusivity in {pretty_material(stem)} — all H concentrations')
-    ax.grid(True, alpha=0.3)
-
-    # Legend below the axes: the E_a / D_0 entries are far too wide to sit
-    # inside the frame without covering the data.
-    ax.legend(fontsize=8, title='H loading — Arrhenius fit parameters',
-              title_fontsize=9, loc='upper center',
-              bbox_to_anchor=(0.5, -0.13), ncol=1 if len(runs) <= 3 else 2,
-              frameon=True, borderaxespad=0.0, handletextpad=0.6,
-              columnspacing=1.6)
-
-    fig.tight_layout()
-    _save(fig, outfile)
-    return fig
+    styles = fs.loading_styles([r.n_H for r in runs])
+    fig, ax = fs.new_figure()
+    xs, ys, items, handles = _draw_loadings(ax, runs, styles)
+    T_all = np.concatenate([r.data['T'] for r in runs])
+    fs.inverse_temperature_axis(ax, T_all)
+    fs.set_log_y(ax, np.concatenate(ys))
+    ax.set_ylabel(r'$D$ (m$^2$ s$^{-1}$)')
+    fs.key_below(fig, handles, _key_labels(runs), ncol=1, colours=[styles[r.n_H][0] for r in runs])
+    keyed = True
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    text = (rf'Hydrogen diffusivity in bulk {mat} from the mean-squared displacement in NVT molecular dynamics, against '
+            rf'inverse temperature ({T_all.min():.0f} to {T_all.max():.0f}~K), for each H loading of the supercell. '
+            r'Error bars are the fit uncertainty of each $D$; lines are ordinary least-squares Arrhenius fits, '
+            rf'$D = D_0\,e^{{-E_a/k_BT}}$: {_fit_words(runs)}. Single-H runs are not shown unless asked for: one H is '
+            r'one random walker with no ensemble average.')
+    fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, np.concatenate(xs),
+              np.concatenate([r.data['D'] for r in runs]), keyed=keyed)
 
 
 # ---------------------------------------------------------------------------
 # Section 9 — This work vs literature
 # ---------------------------------------------------------------------------
 
+LIT_LINE = dict(color=fs.GREY, lw=2.4, ls=(0, (5, 3)))
+
+
 def plot_vs_literature(stem: str, runs: list[Run], lit: list[LitEntry],
                        outfile: str, max_decades: float = 10.0):
-    """Overlay this work's MD data on published Arrhenius laws.
-
-    Each literature line is drawn strictly across its own stated validity
-    window — a study measured over 300–600 °C is never extrapolated to meet
-    the MD points. The axis spans the union of everything plotted, so where a
-    source does and does not overlap this work is visible directly.
-    """
-    import matplotlib.pyplot as plt
+    """This work's MD data against published Arrhenius laws. Every law is a grey dashed line, drawn
+    only across its own validity window, behind this work's points; the sources are listed, with
+    their parameters, in the caption. A source outside the max_decades window is not drawn and is
+    named there too. One figure, PDF, PNG and caption."""
     from matplotlib.lines import Line2D
-
-    runs   = sorted(runs, key=lambda r: r.n_H)
-    colors = plt.cm.viridis(np.linspace(0.0, 0.85, len(runs)))
-
-    T_md_lo = min(r.data['T'].min() for r in runs)
-    T_md_hi = max(r.data['T'].max() for r in runs)
-
-    fig, ax = plt.subplots(figsize=(7.5, 5.5))
-
-    # ── this work ────────────────────────────────────────────────────────────
-    md_handles, md_labels, md_y = [], [], []
-    for run, color in zip(runs, colors):
-        d = run.data
-        T, D = d['T'], d['D']
-
-        ax.errorbar(1000.0 / T, np.log10(D), yerr=_log10_yerr(D, d['D_err']),
-                    fmt='o', color=color, capsize=3, ms=6, zorder=6)
-        md_y.append(np.log10(D))
-
-        if d['E_D'] is not None and d['D0'] is not None:
-            x_fine, y_fine = _fit_curve(T_md_lo, T_md_hi, d['E_D'], d['D0'])
-            ax.plot(x_fine, y_fine, '-', color=color, lw=1.4, alpha=0.9, zorder=5)
-            md_y.append(y_fine)
-            label = f'{run.label}   —   $E_a$ = {d["E_D"]:.3f} eV'
-        else:
-            label = run.label
-
-        md_handles.append(Line2D([], [], color=color, marker='o', ls='-',
-                                 lw=1.4, ms=6))
-        md_labels.append(label)
-
-    # ── literature ───────────────────────────────────────────────────────────
-    # Curves are built before anything is drawn so the y-window can be fixed
-    # first; a source lying entirely outside it is left off the canvas rather
-    # than stretching the axes, but still appears in the legend as off scale.
+    runs = sorted(runs, key=lambda r: r.n_H)
+    styles = fs.loading_styles([r.n_H for r in runs])
+    fig, ax = fs.new_figure()
+    xs, ys, items, handles = _draw_loadings(ax, runs, styles)
+    labels = _key_labels(runs)
+    keycols = [styles[r.n_H][0] for r in runs]
     curves = []
     for entry in lit:
         T_fine = np.linspace(entry.T_K[0], entry.T_K[1], 200)
-        curves.append((entry, 1000.0 / T_fine,
-                       np.log10(arrhenius_D(T_fine, entry.Ea_eV, entry.D0_m2s))))
-
-    y_lo, y_hi = _y_limits(np.concatenate(md_y), [c[2] for c in curves],
-                           max_decades)
-
-    lit_handles, lit_labels, off_scale = [], [], []
-    for i, (entry, x, y) in enumerate(curves):
-        color = LIT_COLORS[i % len(LIT_COLORS)]
-        style = LIT_LINESTYLES[i % len(LIT_LINESTYLES)]
-        label = entry.legend
-
-        if np.any((y >= y_lo) & (y <= y_hi)):
-            ax.plot(x, y, ls=style, color=color, lw=1.8, alpha=0.95, zorder=3)
-            alpha = 1.0
-        else:
+        curves.append((entry, T_fine, arrhenius_D(T_fine, entry.Ea_eV, entry.D0_m2s)))
+    y_lo, y_hi = _y_limits(np.log10(np.concatenate(ys)), [np.log10(c[2]) for c in curves], max_decades)
+    off_scale, drawn, temps = [], [], [np.concatenate([r.data['T'] for r in runs])]
+    for entry, T, D in curves:
+        y = np.log10(D)
+        if not np.any((y >= y_lo) & (y <= y_hi)):
             off_scale.append(entry.label)
-            label += '   (off scale)'
-            alpha = 0.35
-
-        lit_handles.append(Line2D([], [], color=color, ls=style, lw=1.8,
-                                  alpha=alpha))
-        lit_labels.append(label)
-
+            continue
+        ax.plot(1000.0 / T, D, zorder=2, **LIT_LINE)
+        drawn.append(entry)
+        temps.append(T)
     if off_scale:
-        print(f'  ! {pretty_material(stem)}: {len(off_scale)} source(s) fall '
-              f'outside a {max_decades:.0f}-decade window and are not drawn: '
-              f'{", ".join(off_scale)}')
-        print('    (raise --max-decades to include them, or check their units)')
+        print(f'  ! {pretty_material(stem)}: {len(off_scale)} source(s) fall outside a {max_decades:.0f}-decade window '
+              f'and are not drawn: {", ".join(off_scale)}')
+    if drawn:
+        handles.append(Line2D([], [], **LIT_LINE))
+        labels.append(f'Literature ({len(drawn)})')
+        keycols.append('black')
+    fs.inverse_temperature_axis(ax, np.concatenate(temps), min_gap=0.1)
+    ax.set_yscale('log')
+    ax.set_ylim(10 ** y_lo, 10 ** y_hi)
+    fs.log_ticks(ax.yaxis, 10 ** y_lo, 10 ** y_hi)
+    ax.set_ylabel(r'$D$ (m$^2$ s$^{-1}$)')
+    fs.key_below(fig, handles, labels, ncol=1, colours=keycols)
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
 
-    ax.set_ylim(y_lo, y_hi)
-    _add_temperature_axis(ax)
-
-    ax.set_xlabel('1000 / T  (K⁻¹)')
-    ax.set_ylabel('log₁₀( D / m² s⁻¹ )')
-    ax.set_title(f'H Diffusivity in {pretty_material(stem)} — '
-                 f'this work vs literature')
-    ax.grid(True, alpha=0.3)
-
-    # Two legends side by side beneath the plot: this work on the left,
-    # literature on the right. They are anchored to the *figure* and given
-    # reserved space, rather than offset in axes fractions — an axes-relative
-    # offset scales with axes height while the x-label's offset is fixed in
-    # points, so a long literature list slides the legend up over the label.
-    rows   = max(len(md_labels), len(lit_labels)) + 1        # + title row
-    fig_h  = 5.5 + max(0, rows - 5) * 0.19
-    fig.set_size_inches(7.5, fig_h)
-    reserved = min(0.55, (rows * 0.185 + 0.25) / fig_h)
-    fig.tight_layout(rect=(0, reserved, 1, 1))
-
-    # Anchored to the top of the reserved band so the two boxes align there
-    # regardless of how many rows each one carries.
-    fig.legend(md_handles, md_labels, title='This work (MD)',
-               loc='upper left', bbox_to_anchor=(0.01, reserved),
-               fontsize=7.5, title_fontsize=8.5, frameon=True,
-               borderaxespad=0.0, handletextpad=0.6)
-    fig.legend(lit_handles, lit_labels, title='Literature',
-               loc='upper right', bbox_to_anchor=(0.99, reserved),
-               fontsize=7.5, title_fontsize=8.5, frameon=True,
-               borderaxespad=0.0, handletextpad=0.6)
-
-    _save(fig, outfile)
+    def tex(t):
+        return t.replace('&', r'\&').replace('%', r'\%').replace('_', r'\_').replace('#', r'\#')
+    lit_words = '; '.join(f'{tex(e.label)}: $E_a$ = {fs.ev(e.Ea_eV)}~eV, $D_0$ = {fs.tex_num(e.D0_m2s, 3)}~m$^2$~s$^{{-1}}$, '
+                          f'{e.T_K[0]:.0f}--{e.T_K[1]:.0f}~K' for e in drawn)
+    text = (rf'Hydrogen diffusivity in bulk {mat} from this work (points and solid lines, one colour per H loading; '
+            rf'{_fit_words(runs)}) against {len(drawn)} published Arrhenius laws (grey dashed lines, each drawn only '
+            rf'over its own temperature range): {lit_words}.'
+            + (f' Not drawn, outside a {max_decades:.0f}-decade window: {fs.tex_join([tex(o) for o in off_scale])}.'
+               if off_scale else ''))
+    fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, keyed=True)
     return fig
 
 

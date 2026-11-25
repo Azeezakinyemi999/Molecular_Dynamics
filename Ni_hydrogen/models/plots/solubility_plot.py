@@ -54,6 +54,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+import figstyle as fs                     # noqa: E402
 from diffusivity_plot import (            # noqa: E402
     DEFAULT_RESULTS_DIR, Run, discover_runs, pretty_material,
     _add_temperature_axis, _save,
@@ -263,96 +264,91 @@ def group_by_material(runs: list[Run], routes: tuple[str, ...]
 # Section 4 — Per-material figure
 # ---------------------------------------------------------------------------
 
-def _legend_label(fit: RouteFit, headline: bool) -> str:
-    """Route name plus its fitted parameters, all in the legend.
-
-    Kept in the legend rather than a separate caption: a caption block sized
-    from the row count collides with the legend as soon as three routes are
-    present, and the legend already reserves space for itself.
-    """
-    txt = f'{ROUTE_LABEL[fit.name]}'
-    if not headline:
-        txt += '  [diagnostic]'
-    txt += f'\n     $S_0$={fit.S0:.3e}'
-    if fit.S0_rel_err:
-        txt += f' ±{fit.S0_rel_err * 100:.1f}%'
-    txt += f',  Δ$H$={fit.dH:+.4f}'
-    if fit.dH_err is not None:
-        txt += f'±{fit.dH_err:.4f}'
-    txt += ' eV'
-    if fit.r2 is not None:
-        txt += f',  $r^2$={fit.r2:.5f}'
-    return txt
+ROUTE_WORDS = {'geometric': r'geometric ($S_0 = 4/a_0^3 N_A$)',
+               'vibrational': r'vibrational ($S_0$ from partition functions)',
+               'detailed_balance': r'detailed balance ($k_\mathrm{entry}/k_\mathrm{exit}$, a diagnostic)'}
+MODULE = 'plots/solubility_plot.py'
+SAT_LINE = dict(color='black', lw=2.4, ls=(0, (6, 2, 1, 2)))
 
 
 def plot_material(stem: str, fits: dict[str, RouteFit],
                   ceiling: tuple[np.ndarray, np.ndarray] | None,
-                  outfile: str, env: dict | None = None):
-    """log₁₀(S) vs 1000/T for every route of one material."""
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(figsize=(7.6, 5.4))
-
-    T_lo = min(f.T.min() for f in fits.values())
-    T_hi = max(f.T.max() for f in fits.values())
-    T_fine = np.linspace(T_lo * 0.95, T_hi * 1.05, 200)
-
-    flagged: list[str] = []
-    saturating_shown = False
-    for name, fit in sorted(fits.items(), key=lambda kv: list(ROUTE_STYLE).index(kv[0])):
-        marker, ls, colour, headline = ROUTE_STYLE[name]
-        ax.plot(1000.0 / fit.T, np.log10(fit.S), marker, color=colour, ms=7,
-                mfc=colour if headline else 'none', mew=1.5, zorder=5)
-        ax.plot(1000.0 / T_fine, np.log10(fit.curve(T_fine)), ls, color=colour,
-                lw=1.6, alpha=0.9, zorder=4,
-                label=_legend_label(fit, headline))
-        if breaches(fit, ceiling):
-            flagged.append(name)
-
-        # Occupancy-limited counterpart, recomputed from ΔH per environment.
-        # Drawn only once θ leaves the dilute window — comparing curves
-        # numerically would always differ slightly, because the plotted line is
-        # the fitted Arrhenius law while this is the per-environment sum.
-        sat = saturating_curve(fit, env, ceiling, T_fine)
+                  outfile: str, env: dict | None = None, run=None):
+    """S against 1000/T for every route of one material, with octahedral-site saturation: one figure
+    written as PDF, PNG and caption."""
+    from matplotlib.lines import Line2D
+    from permeability_plot import _route_line, _loading_words
+    fig, ax = fs.new_figure()
+    ys, xs, items, handles, dotted = [], [], [], [], []
+    order = sorted(fits, key=lambda n: list(fs.ROUTE_STYLE).index(n))
+    for name in order:
+        fit = fits[name]
+        T_fit = np.linspace(fit.T.min(), fit.T.max(), 120)
+        handles.append(_route_line(ax, name, fit.T, fit.S, T_fit, fit.curve(T_fit)))
+        ys += [fit.S, fit.curve(T_fit)]
+        xs.append(1000.0 / fit.T)
+        i = int(np.argmin(fit.T))
+        items.append((1000.0 / fit.T[i], fit.S[i], fs.ROUTE_STYLE[name][0], fs.ROUTE_STYLE[name][1]))
+        sat = saturating_curve(fit, env, ceiling, T_fit)
         if sat is not None:
             S_sat, theta = sat
             ok = (S_sat > 0) & (theta >= DILUTE_THETA_MAX)
             if ok.any():
-                ax.plot(1000.0 / T_fine[ok], np.log10(S_sat[ok]), ':',
-                        color=colour, lw=2.0, alpha=0.95, zorder=6)
-                saturating_shown = True
-
+                ax.plot(1000.0 / T_fit[ok], S_sat[ok], color=fs.ROUTE_STYLE[name][1], ls=(0, (1, 1.5)),
+                        lw=fs.CURVE_PT, zorder=6)
+                dotted.append(name)
+                ys.append(S_sat[ok])
     if ceiling is not None:
         T_c, n_c = ceiling
-        ax.plot(1000.0 / T_c, np.log10(n_c), 'k--', lw=1.4, zorder=3,
-                label='oct-site saturation  ($4/a_0^3/N_A$)')
-        ax.fill_between(1000.0 / T_c, np.log10(n_c), ax.get_ylim()[1],
-                        color='red', alpha=0.06, zorder=0)
-    if saturating_shown:
-        ax.plot([], [], ':', color='0.35', lw=2.0,
-                label='dotted: occupancy-limited (Langmuir θ, same colour)')
-
-    _add_temperature_axis(ax)
-    ax.set_xlabel('1000 / T  (K⁻¹)')
-    ax.set_ylabel(f'log₁₀( S / {S_UNITS} )')
-    title = f'H solubility (Sieverts) — {pretty_material(stem)}'
-    if flagged:
-        title += '\n⚠ ' + ', '.join(flagged) + ' exceed site saturation'
-    ax.set_title(title, fontsize=11)
-    ax.grid(True, alpha=0.3)
-
-    # Each route contributes two legend lines (name, then its parameters), plus
-    # one for the saturation line.
-    rows     = 2 * len(fits) + (1 if ceiling is not None else 0) \
-               + (1 if saturating_shown else 0)
-    fig_h    = 5.4 + rows * 0.21
-    fig.set_size_inches(7.6, fig_h)
-    reserved = min(0.45, (rows * 0.22 + 0.35) / fig_h)
-    fig.tight_layout(rect=(0, reserved, 1, 1))
-    fig.legend(loc='upper center', bbox_to_anchor=(0.5, reserved), fontsize=8,
-               frameon=True, borderaxespad=0.0, labelspacing=0.7)
-    _save(fig, outfile)
-    plt.close(fig)
+        ax.plot(1000.0 / T_c, n_c, zorder=3, **SAT_LINE)
+        ys.append(n_c)
+        i = int(np.argmin(T_c))
+        items.append((1000.0 / T_c[i], n_c[i], 'Site saturation', 'black'))
+        handles.append(Line2D([], [], **SAT_LINE))
+    T_all = np.concatenate([fits[n].T for n in fits])
+    fs.inverse_temperature_axis(ax, T_all)
+    fs.set_log_y(ax, np.concatenate([np.asarray(v, float) for v in ys]))
+    if ceiling is not None:
+        ax.fill_between(1000.0 / T_c, n_c, ax.get_ylim()[1], color='#EDEDED', zorder=0, lw=0)
+    ax.set_ylabel(r'$S$ (mol H m$^{-3}$ Pa$^{-1/2}$)')
+    keylabels = [f"{fs.ROUTE_STYLE[n][0]}\n$\\Delta H_\\mathrm{{sol}}$ = {fs.energy(fits[n].dH, fits[n].dH_err)}, "
+                 f"$S_0$ = {fs.sci(fits[n].S0)}" for n in order]
+    keycols = [fs.ROUTE_STYLE[n][1] for n in order]
+    if ceiling is not None:
+        keylabels.append('Octahedral-site saturation')
+        keycols.append('black')
+    fs.key_below(fig, handles, keylabels, ncol=1, colours=keycols)
+    keyed = True
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    parts = []
+    for name in order:
+        fit = fits[name]
+        txt = f'{ROUTE_WORDS[name]}: $S_0$ = {fs.tex_num(fit.S0, 3)}'
+        if fit.S0_rel_err:
+            txt += f' ($\\pm${100 * fit.S0_rel_err:.0f}\\%)'
+        txt += f', $\\Delta H_\\mathrm{{sol}}$ = {fs.ev(fit.dH)}'
+        if fit.dH_err is not None:
+            txt += f' $\\pm$ {fit.dH_err:.3f}'
+        txt += '~eV'
+        if fit.r2 is not None:
+            txt += f' ($R^2$ = {fit.r2:.4f})'
+        parts.append(txt)
+    sat_txt = ''
+    if ceiling is not None:
+        over = [f"{ROUTE_WORDS[n].split(' (')[0]} (up to {v:.3g} times)" for n, f in fits.items()
+                if (v := breaches(f, ceiling))]
+        sat_txt = (r' The dash-dot line is octahedral-site saturation, $4/a_0^3 N_A$ from the lattice constant at each '
+                   rf'temperature ({fs.tex_num(n_c.max(), 3)} to {fs.tex_num(n_c.min(), 3)}~mol~m$^{{-3}}$); a solubility '
+                   r'in the shaded region above it would put more than one H on every octahedral site at 1~Pa. '
+                   + (f'The {fs.tex_join(over)} route exceeds it.' if over else 'No route exceeds it.'))
+    dot_txt = (f" Dotted lines are the occupancy-limited solubility of the "
+               f"{fs.tex_join(ROUTE_WORDS[n].split(' (')[0] for n in dotted)} route, drawn where the site occupancy "
+               f"reaches {DILUTE_THETA_MAX}." if dotted else '')
+    text = (rf'Hydrogen solubility of {mat} (Sieverts) against inverse temperature, {T_all.min():.0f} to '
+            rf'{T_all.max():.0f}~K{_loading_words(run)}. Points are the per-temperature results; lines are Arrhenius '
+            r'fits, $S = S_0\,e^{-\Delta H_\mathrm{sol}/k_BT}$, for each route: ' + '; '.join(parts) + '.' + sat_txt + dot_txt)
+    fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, np.concatenate(xs),
+              np.concatenate([fits[n].S for n in fits]), keyed=keyed)
 
 
 # ---------------------------------------------------------------------------
@@ -362,48 +358,46 @@ def plot_material(stem: str, fits: dict[str, RouteFit],
 def plot_all_materials(chosen: dict[str, tuple[Run, dict[str, RouteFit]]],
                        ceilings: dict[str, tuple[np.ndarray, np.ndarray] | None],
                        routes: tuple[str, ...], outfile: str):
-    """One panel per route, every material overlaid."""
-    import matplotlib.pyplot as plt
-
-    present = [r for r in routes
-               if any(r in fits for _run, fits in chosen.values())]
+    """One figure per route, every material overlaid with its own saturation line (dash-dot, same
+    colour); written as <outfile>_<route>.*."""
+    from matplotlib.lines import Line2D
+    present = [r for r in routes if any(r in fits for _run, fits in chosen.values())]
     if not present or len(chosen) < 2:
         return None
-
-    stems  = sorted(chosen)
-    colours = plt.cm.tab10(np.linspace(0, 0.9, len(stems)))
-    fig, axes = plt.subplots(1, len(present), figsize=(5.2 * len(present), 4.9),
-                             sharey=True, squeeze=False)
-    axes = axes[0]
-
-    for ax, route in zip(axes, present):
-        for stem, colour in zip(stems, colours):
+    styles = fs.material_styles(sorted(chosen), pretty_material)
+    for route in present:
+        fig, ax = fs.new_figure()
+        ys, items, handles, words, temps, keylabels, keycols = [], [], [], [], [], [], []
+        for stem, (label, colour, marker, ls) in styles.items():
             fits = chosen[stem][1]
             if route not in fits:
                 continue
             fit = fits[route]
-            T_fine = np.linspace(fit.T.min() * 0.95, fit.T.max() * 1.05, 200)
-            ax.plot(1000.0 / fit.T, np.log10(fit.S), 'o', color=colour, ms=6,
-                    zorder=5)
-            ax.plot(1000.0 / T_fine, np.log10(fit.curve(T_fine)), '-',
-                    color=colour, lw=1.5, zorder=4,
-                    label=f'{pretty_material(stem)}  Δ$H$={fit.dH:+.3f} eV')
+            T_fit = np.linspace(fit.T.min(), fit.T.max(), 120)
+            ax.plot(1000.0 / T_fit, fit.curve(T_fit), color=colour, ls=ls, lw=fs.CURVE_PT, zorder=4)
+            ax.plot(1000.0 / fit.T, fit.S, ls='none', marker=marker, ms=10, color=colour, zorder=5)
+            ys += [fit.S, fit.curve(T_fit)]
+            temps.append(fit.T)
             ceil = ceilings.get(stem)
             if ceil is not None:
-                ax.plot(1000.0 / ceil[0], np.log10(ceil[1]), '--',
-                        color=colour, lw=1.0, alpha=0.55, zorder=3)
-        ax.set_title(f'{route}\n(dashed = that material’s site saturation)',
-                     fontsize=9.5)
-        ax.set_xlabel('1000 / T  (K⁻¹)')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=7.5, loc='best')
-
-    axes[0].set_ylabel(f'log₁₀( S / {S_UNITS} )')
-    fig.suptitle('H solubility by route and material — '
-                 'all solubility routes', fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
-    _save(fig, outfile)
-    plt.close(fig)
+                ax.plot(1000.0 / ceil[0], ceil[1], color=colour, lw=2.4, ls=(0, (6, 2, 1, 2)), zorder=3)
+                ys.append(ceil[1])
+            i = int(np.argmin(fit.T))
+            items.append((1000.0 / fit.T[i], fit.S[i], label, colour))
+            handles.append(Line2D([], [], color=colour, ls=ls, lw=fs.CURVE_PT, marker=marker, ms=9))
+            words.append(f'{label} {fs.ev(fit.dH)}')
+            keylabels.append(f"{label}\n$\\Delta H_\\mathrm{{sol}}$ = {fs.energy(fit.dH, fit.dH_err)}, $S_0$ = {fs.sci(fit.S0)}")
+            keycols.append(colour)
+        fs.inverse_temperature_axis(ax, np.concatenate(temps))
+        fs.set_log_y(ax, np.concatenate([np.asarray(v, float) for v in ys]))
+        ax.set_ylabel(r'$S$ (mol H m$^{-3}$ Pa$^{-1/2}$)')
+        fs.key_below(fig, handles, keylabels, ncol=1, colours=keycols)
+        keyed = True
+        text = (rf'Hydrogen solubility of each material by the {ROUTE_WORDS[route]} route against inverse temperature; '
+                r'points are the per-temperature results and lines the Arrhenius fits. Dash-dot lines in the same '
+                r'colours are each material\'s octahedral-site saturation. $\Delta H_\mathrm{sol}$ (eV): '
+                + '; '.join(words) + '.').replace("\\'", "'")
+        fs.finish(fig, ax, fs.panel_stem(outfile, route), MODULE, text, keyed=keyed)
     return outfile
 
 
@@ -504,7 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         material = pretty_material(stem).replace(' ', '_')
         plot_material(stem, fits, ceilings.get(stem),
                       os.path.join(outdir, f'{material}_solubility_arrhenius.png'),
-                      env=envs.get(stem))
+                      env=envs.get(stem), run=_run)
 
     print('\nCross-material plot:')
     if plot_all_materials(chosen, ceilings, routes,

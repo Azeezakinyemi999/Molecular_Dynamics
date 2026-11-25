@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 
 import numpy as np
 
@@ -156,64 +157,72 @@ def _row_limits(values: np.ndarray, log: bool,
     return (10 ** lo, 10 ** hi) if log else (lo, hi)
 
 
+def _slug(title: str) -> str:
+    """'Excluding 1H, 3H' -> 'excluding_1H_3H'; the first column ('All concentrations') -> ''."""
+    if title.lower().startswith('all'):
+        return ''
+    words = re.findall(r'[A-Za-z0-9]+', title)
+    return '_'.join([words[0].lower()] + words[1:])
+
+
 def plot_params(stem: str, columns: list[tuple[str, list[Run]]],
                 outfile: str, full_errorbars: bool = False):
-    """Two rows (E_a, D₀) × one column per run selection, shared y per row."""
-    import matplotlib.pyplot as plt
-
-    n_col = len(columns)
-    fig, axes = plt.subplots(2, n_col, figsize=(5.4 * n_col, 7.6),
-                             sharey='row', squeeze=False)
-
-    clipped = False
-    rows: list[list[np.ndarray]] = [[], []]
-    for col, (title, runs) in enumerate(columns):
+    """E_a and D_0 against H concentration, one figure each per run selection (all loadings, and the
+    loadings left after cutting unconverged runs): <outfile>_Ea[_excluding_..], <outfile>_D0[...],
+    each as PDF, PNG and caption. Points are coloured by loading; the dashed line is the unweighted
+    least-squares trend, its slope in the caption."""
+    import figstyle as fs
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    for title, runs in columns:
         s = series(runs)
-        rows[0].append(s['Ea'])
-        rows[1].append(s['D0'])
-
-        clipped |= _panel(axes[0][col], s['x'], s['Ea'], s['Ea_err'], s['n_H'],
-                          log=False, color='tab:blue',
-                          trend_units='eV / at.%')
-        clipped |= _panel(axes[1][col], s['x'], s['D0'], s['D0_err'], s['n_H'],
-                          log=True, color='tab:red',
-                          trend_units='dec / at.%')
-
-        axes[0][col].set_xlabel('')
-        axes[1][col].set_xlabel('H concentration  (at.%)')
-        axes[0][col].text(0.5, 1.13, f'{title}  (n = {len(runs)})',
-                          transform=axes[0][col].transAxes, ha='center',
-                          fontsize=11, fontweight='bold')
-
-    overflow = False
-    if not full_errorbars:
-        for row, (values, is_log) in enumerate(zip(rows, (False, True))):
-            lo, hi = _row_limits(np.concatenate(values), is_log)
-            axes[row][0].set_ylim(lo, hi)       # sharey propagates across the row
-            for col, (_title, runs) in enumerate(columns):
-                s = series(runs)
-                key, err = ('Ea', 'Ea_err') if row == 0 else ('D0', 'D0_err')
-                if np.any(s[key] + s[err] > hi) or np.any(s[key] - s[err] < lo):
-                    overflow = True
-
-    axes[0][0].set_ylabel('$E_a$  (eV)')
-    axes[1][0].set_ylabel('$D_0$  (m² s⁻¹)')
-
-    caption = ('Dashed grey: unweighted least-squares trend. '
-               'Point labels give the H count per supercell.')
-    if overflow:
-        caption += ('\nAxes are scaled to the fitted values; error bars larger '
-                    'than the panel run off it — see the printed table for σ.')
-    if clipped:
-        caption += ('\nA lower error bar exceeded its own value and was '
-                    'clipped to stay on the log axis.')
-    fig.text(0.5, 0.012, caption, ha='center', fontsize=8, color='0.35')
-
-    fig.suptitle(f'Arrhenius parameters vs H concentration — '
-                 f'{pretty_material(stem)}', fontsize=13)
-    fig.tight_layout(rect=(0, 0.045, 1, 0.96))
-    _save(fig, outfile)
-    return fig
+        x, n_h = s['x'], s['n_H']
+        styles = fs.loading_styles(n_h)
+        cut = _slug(title)
+        pct = all(r.at_pct is not None for r in runs)
+        for which in ('Ea', 'D0'):
+            y, err = s[which], s[which + '_err']
+            log = which == 'D0'
+            fig, ax = fs.new_figure()
+            lower = np.minimum(err, y * LOG_ERR_FLOOR) if log else err
+            clipped = bool(log and np.any(err > y * LOG_ERR_FLOOR))
+            tr = _trend(x, np.log10(y) if log else y)
+            if tr is not None:
+                fy = np.log10(y) if log else y
+                xt = np.linspace(x.min(), x.max(), 50)
+                yt = tr[0] * xt + (np.mean(fy) - tr[0] * np.mean(x))
+                ax.plot(xt, 10 ** yt if log else yt, zorder=2, **fs.REF_LINE)
+            for xi, yi, lo, hi, n in zip(x, y, lower, err, n_h):
+                c, m = styles[int(n)]
+                ax.errorbar([xi], [yi], yerr=[[lo], [hi]], ls='none', marker=m, ms=13, color=c, mec=c,
+                            capsize=6, elinewidth=2.4, capthick=2.4, zorder=5)
+                fs.text_label(ax, xi, yi, f'  {n}H', color=c, ha='left', va='bottom', backing=False)
+            span = (x.max() - x.min()) or max(abs(x.max()), 1.0)
+            ax.set_xlim(x.min() - 0.1 * span, x.max() + 0.18 * span)
+            ax.set_xlabel('H concentration (at.%)' if pct else 'H atoms per supercell')
+            if log:
+                fs.set_log_y(ax, np.r_[y - lower, y + err], pad_decades=0.15)
+                ax.set_ylabel(r'$D_0$ (m$^2$ s$^{-1}$)')
+            else:
+                fs.set_linear_y(ax, np.r_[y - err, y + err])
+                ax.set_ylabel(r'$E_a$ (eV)')
+            vals = '; '.join((f'{n}H ({xi:.2f} at.\\%) ' if pct else f'{n}H ') + (fs.ev(yi) if not log else fs.tex_num(yi, 3))
+                             + (f' $\\pm$ {fs.ev(ei) if not log else fs.tex_num(ei, 2)}' if ei else '')
+                             for n, xi, yi, ei in zip(n_h, x, y, err))
+            unit = '~m$^2$~s$^{-1}$' if log else '~eV'
+            trend_txt = ''
+            if tr is not None:
+                u = 'decades per at.\\%' if log else 'eV per at.\\%'
+                d = 2 if log else 3
+                trend_txt = (rf' The dashed line is an unweighted least-squares trend, slope {fs.ev(tr[0], d)} $\pm$ '
+                             rf'{tr[1]:.{d}f}~{u}' + (', smaller than its standard error.' if abs(tr[0]) < tr[1] else '.'))
+            sel = f' ({title.lower()})' if cut else ''
+            text = (rf"Arrhenius {'pre-factor $D_0$' if log else 'activation energy $E_a$'} of H diffusion in {mat} "
+                    rf"against the H concentration of the supercell{sel}: {vals}{unit}. Error bars are the fit standard "
+                    rf"errors.{trend_txt}"
+                    + (r' A lower error bar larger than its value is cut to stay on the log axis.' if clipped else ''))
+            name = f'{which}_{cut}' if cut else which
+            fs.finish(fig, ax, fs.panel_stem(outfile, name), 'plots/arrhenius_params_plot.py', text, x, y)
+    return None
 
 
 # ---------------------------------------------------------------------------

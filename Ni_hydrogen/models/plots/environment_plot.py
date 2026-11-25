@@ -155,162 +155,182 @@ def load_rates(results_dir: str, stem: str) -> list[SiteRate]:
 # Section 3 — Figure 1: ΔH_sol per environment + share of S
 # ---------------------------------------------------------------------------
 
+MODULE = 'plots/environment_plot.py'
+STAGE_WORDS = {'hopa': 'hop A (surface to the first subsurface site)',
+               'hopb': 'hop B (first to second subsurface site)'}
+
+
+def _env_name(key: str) -> str:
+    """'Ni4_tet' -> 'Ni$_4$ tetrahedral'."""
+    comp, _, kind = key.rpartition('_')
+    kind = {'tet': 'tetrahedral', 'oct': 'octahedral'}.get(kind, kind)
+    if not comp:
+        return key
+    comp = re.sub(r'(\d+)', r'$_{\1}$', comp)
+    return f'{comp} {kind}'
+
+
 def plot_env_dH(stem: str, env: dict, T_K: float, outfile: str):
-    """ΔH_sol per environment beside each environment's share of S."""
-    import matplotlib.pyplot as plt
-
+    """Two figures: the solution enthalpy of each environment (<outfile>.*) and each environment's
+    share of the solubility at T_K (<outfile>_share.*), each as PDF, PNG and caption."""
+    import figstyle as fs
     names = sorted(env, key=lambda k: env[k]['dH_sol_eV'])
-    dH    = np.array([env[k]['dH_sol_eV'] for k in names])
-    w     = np.array([env[k]['w_env'] for k in names])
-
+    dH = np.array([env[k]['dH_sol_eV'] for k in names])
+    dH_err = np.array([env[k].get('dH_sol_err_eV') or 0.0 for k in names])
+    w = np.array([env[k]['w_env'] for k in names])
     boltz = w * np.exp(-dH / (KB_EV * T_K))
     share = boltz / boltz.sum() * 100.0 if boltz.sum() > 0 else np.zeros_like(w)
-
-    h = max(3.2, 0.26 * len(names) + 1.6)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.6, h), sharey=True)
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    rows = '; '.join(f"{_env_name(k)}: {env[k].get('n_sites', '?')} sites, weight $w$ = {env[k]['w_env']:.3f}, "
+                     f"$\\Delta H_\\mathrm{{sol}}$ = {fs.ev(env[k]['dH_sol_eV'])}"
+                     + (f" $\\pm$ {env[k]['dH_sol_err_eV']:.3f}" if env[k].get('dH_sol_err_eV') else '')
+                     + f'~eV, {share[i]:.1f}\\% of $S$' for i, k in enumerate(names))
     y = np.arange(len(names))
+    height = max(128.0, 40.0 + 22.0 * len(names))          # mm: room for many environments
+    for which in ('dH', 'share'):
+        fig, ax = fs.new_figure()
+        fig.set_figheight(height * fs.MM)
+        if which == 'dH':
+            colours = [fs.OKABE['vermilion'] if v < 0 else fs.OKABE['blue'] for v in dH]
+            ax.barh(y, dH, height=0.6, color=colours, edgecolor='black', linewidth=1.5, zorder=3)
+            ax.errorbar(dH, y, xerr=dH_err, ls='none', color='black', capsize=6, elinewidth=2.2, capthick=2.2, zorder=4)
+            for yi, v, e in zip(y, dH, dH_err):
+                fs.text_label(ax, v + (e if v >= 0 else -e), yi, f'  {v:.3f} eV  ', ha='left' if v >= 0 else 'right',
+                              va='center', backing=False)
+            lo, hi = min(0.0, (dH - dH_err).min()), max(0.0, (dH + dH_err).max())
+            rng = (hi - lo) or 1.0
+            ax.set_xlim(lo - 0.08 * rng - (0.35 * rng if lo < 0 else 0), hi + 0.45 * rng)
+            ax.axvline(0.0, color='black', lw=2.2, zorder=2)
+            ax.set_xlabel(r'$\Delta H_\mathrm{sol}$ (eV)')
+            text = (rf'Solution enthalpy of H in each interstitial environment of {mat}, from the subsurface NEB end states; '
+                    r'error bars are the standard errors over the sites of each environment. Blue bars are endothermic, '
+                    rf'vermillion exothermic. {rows}.')
+            stem_out = fs.panel_stem(outfile, '')
+        else:
+            ax.barh(y, share, height=0.6, color=fs.OKABE['green'], edgecolor='black', linewidth=1.5, zorder=3)
+            for yi, sv, wi in zip(y, share, w):
+                fs.text_label(ax, sv, yi, f'  {sv:.1f}% (w = {wi:.3f})', ha='left', va='center', backing=False)
+            ax.set_xlim(0, 160)
+            ax.set_xticks([0, 20, 40, 60, 80, 100])
+            ax.set_xlabel(f'Share of the solubility at {T_K:.0f} K (%)')
+            text = (rf'Share of the H solubility of {mat} carried by each interstitial environment at {T_K:.0f}~K, '
+                    r'$w\,e^{-\Delta H_\mathrm{sol}/k_BT}$ normalised over the environments, where $w$ is the fraction of '
+                    rf'interstitial sites in the environment. {rows}.')
+            stem_out = fs.panel_stem(outfile, 'share')
+        ax.set_yticks(y, [_env_name(k) for k in names])
+        ax.set_ylim(-0.6, len(names) - 0.4)
+        ax.tick_params(axis='y', which='both', left=False, right=False)
+        fs.finish(fig, ax, stem_out, MODULE, text)
 
-    ax1.barh(y, dH, color=np.where(dH < 0, 'tab:red', 'tab:blue'), alpha=0.85)
-    ax1.axvline(0.0, color='k', lw=0.9)
-    ax1.set_yticks(y)
-    ax1.set_yticklabels(names, fontsize=7.5)
-    ax1.set_xlabel('$\\Delta H_{sol}$  (eV)')
-    ax1.set_title('per-environment solution enthalpy\n'
-                  '(red = exothermic, drives the Boltzmann sum)', fontsize=9.5)
-    ax1.grid(True, axis='x', alpha=0.3)
 
-    ax2.barh(y, share, color='tab:green', alpha=0.85)
-    ax2.set_xlabel(f'share of total S at {T_K:.0f} K  (%)')
-    ax2.set_title('contribution to solubility\n'
-                  '$w_{env}\\,e^{-\\Delta H/kT}$, normalised', fontsize=9.5)
-    ax2.grid(True, axis='x', alpha=0.3)
+def _by_site(rates: list[SiteRate], stage: str) -> list[SiteRate]:
+    out: dict[str, SiteRate] = {}
+    for r in rates:
+        if r.stage == stage and r.Ea_zpe is not None:
+            out.setdefault(r.site, r)                   # barriers do not depend on T: one entry per site
+    return sorted(out.values(), key=lambda r: r.Ea_zpe)
 
-    # Population weight alongside the share makes the mismatch legible.
-    for yi, (wi, si) in enumerate(zip(w, share)):
-        if si >= 1.0:
-            ax2.text(si, yi, f'  w={wi:.3f}', va='center', fontsize=7,
-                     color='0.3')
-
-    top = np.argsort(share)[::-1][:3]
-    note = ',  '.join(f'{names[i]}: {share[i]:.1f}% of S from w={w[i]:.3f}'
-                      for i in top if share[i] > 0)
-    fig.suptitle(f'H interstitial environments — {pretty_material(stem)}  '
-                 f'({len(names)} environments)', fontsize=12)
-    fig.tight_layout(rect=(0, 0.05, 1, 0.94))
-    fig.text(0.5, 0.012, note, ha='center', fontsize=8, color='0.3')
-    _save(fig, outfile)
-    plt.close(fig)
-
-
-# ---------------------------------------------------------------------------
-# Section 4 — Figure 2: per-site barriers
-# ---------------------------------------------------------------------------
 
 def plot_site_barriers(stem: str, rates: list[SiteRate], outfile: str):
-    """hopA / hopB barriers per site, raw vs ZPE-corrected, sorted."""
-    import matplotlib.pyplot as plt
-
-    stages = [s for s in ('hopa', 'hopb')
-              if any(r.stage == s and r.Ea_zpe is not None for r in rates)]
+    """Hop A and hop B barrier per site, with and without ZPE, sorted: one figure per hop
+    (<outfile>_hopa.*, <outfile>_hopb.*), each as PDF, PNG and caption."""
+    import figstyle as fs
+    from matplotlib.lines import Line2D
+    stages = [s for s in ('hopa', 'hopb') if any(r.stage == s and r.Ea_zpe is not None for r in rates)]
     if not stages:
         return None
-
-    fig, axes = plt.subplots(1, len(stages), figsize=(5.6 * len(stages), 4.6),
-                             squeeze=False)
-    axes = axes[0]
-
-    for ax, stage in zip(axes, stages):
-        # Barriers are T-independent; take one entry per site.
-        by_site: dict[str, SiteRate] = {}
-        for r in rates:
-            if r.stage == stage and r.Ea_zpe is not None:
-                by_site.setdefault(r.site, r)
-        items = sorted(by_site.values(), key=lambda r: r.Ea_zpe)
-        x     = np.arange(len(items))
-        zpe   = np.array([r.Ea_zpe for r in items])
-        raw   = np.array([r.Ea_raw if r.Ea_raw is not None else np.nan
-                          for r in items])
-
-        ax.plot(x, zpe, 'o-', color=STAGE_COLOUR[stage], ms=4, lw=1.2,
-                label='$E_a$ with ZPE')
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    for stage in stages:
+        items = _by_site(rates, stage)
+        x = np.arange(len(items))
+        zpe = np.array([r.Ea_zpe for r in items])
+        raw = np.array([r.Ea_raw if r.Ea_raw is not None else np.nan for r in items])
+        fig, ax = fs.new_figure()
+        ax.axhline(zpe.mean(), zorder=1, **fs.REF_LINE)
         if np.isfinite(raw).any():
-            ax.plot(x, raw, 's', color='0.45', ms=3.5, alpha=0.8,
-                    label='$E_a$ raw')
-        ax.axhline(zpe.mean(), color=STAGE_COLOUR[stage], ls='--', lw=1.0,
-                   alpha=0.7, label=f'mean {zpe.mean():.3f} eV')
-
-        ax.set_title(f'{STAGE_LABEL[stage]}\n{len(items)} sites, '
-                     f'spread {zpe.max() - zpe.min():.3f} eV', fontsize=9.5)
-        ax.set_xlabel('site, sorted by barrier')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=7.5, loc='upper left')
-        if len(items) <= 14:
-            ax.set_xticks(x)
-            ax.set_xticklabels([r.site for r in items], rotation=60,
-                               fontsize=7, ha='right')
-
-    axes[0].set_ylabel('barrier  (eV)')
-    fig.suptitle(f'Per-site hop barriers — {pretty_material(stem)}', fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
-    _save(fig, outfile)
-    plt.close(fig)
+            ax.plot(x, raw, ls='none', marker='s', ms=11, mfc='white', mec='black', mew=2.0, zorder=4)
+        ax.plot(x, zpe, ls='none', marker='o', ms=12, color='black', zorder=5)
+        ax.set_xlim(-0.6, len(items) - 0.4)
+        if len(items) <= 20:
+            ax.set_xticks(x, [r.site for r in items], rotation=45, ha='right', rotation_mode='anchor')
+        else:
+            ax.set_xlabel('Site, sorted by barrier')
+        ax.tick_params(axis='x', which='both', bottom=False, top=False)
+        fs.set_linear_y(ax, np.r_[zpe, raw[np.isfinite(raw)]], frac=0.12)
+        ax.set_ylabel(r'$E_a$ (eV)')
+        handles = [Line2D([], [], ls='none', marker='o', ms=11, color='black'),
+                   Line2D([], [], ls='none', marker='s', ms=10, mfc='white', mec='black', mew=2.0),
+                   Line2D([], [], **fs.REF_LINE)]
+        fs.key_below(fig, handles, ['With ZPE', 'Without ZPE', f'Mean, {zpe.mean():.3f} eV'], ncol=3)
+        d = raw - zpe
+        esc = lambda t: t.replace('_', r'\_')                                   # noqa: E731
+        text = (rf'Barrier of {STAGE_WORDS[stage]} in {mat} at each of the {len(items)} sites, sorted, with the zero-point '
+                rf'energy correction (filled circles) and without it (open squares). With ZPE the barriers run from '
+                rf'{zpe.min():.3f} ({esc(items[0].site)}) to {zpe.max():.3f}~eV ({esc(items[-1].site)}), a spread of '
+                rf'{zpe.max() - zpe.min():.3f}~eV; the dashed line is their mean, {zpe.mean():.3f}~eV.'
+                + (rf' The ZPE correction changes them by {np.nanmin(d):+.3f} to {np.nanmax(d):+.3f}~eV.'.replace('-', '$-$')
+                   if np.isfinite(d).any() else ''))
+        fs.finish(fig, ax, fs.panel_stem(outfile, stage), MODULE, text, x, zpe, keyed=True)
     return outfile
 
 
-# ---------------------------------------------------------------------------
-# Section 5 — Figure 3: per-site rates
-# ---------------------------------------------------------------------------
-
 def plot_site_rates(stem: str, rates: list[SiteRate], outfile: str):
-    """Forward and reverse TST rates per site, one series per temperature."""
-    import matplotlib.pyplot as plt
-
+    """Forward and reverse TST rate per site, one line per temperature: one figure per hop
+    (<outfile>_hopa.*, <outfile>_hopb.*), each as PDF, PNG and caption."""
+    import figstyle as fs
+    from matplotlib.lines import Line2D
     stages = [s for s in ('hopa', 'hopb') if any(r.stage == s for r in rates)]
     if not stages:
         return None
-    temps = sorted({r.T for r in rates})
-
-    fig, axes = plt.subplots(1, len(stages), figsize=(5.9 * len(stages), 4.7),
-                             squeeze=False, sharey=True)
-    axes = axes[0]
-    colours = plt.cm.plasma(np.linspace(0.05, 0.72, len(temps)))
-
-    for ax, stage in zip(axes, stages):
-        # Sort sites once, by barrier, so the x-order is comparable across T.
-        order = sorted({r.site for r in rates if r.stage == stage},
-                       key=lambda s: next((x.Ea_zpe or np.inf) for x in rates
-                                          if x.stage == stage and x.site == s))
+    mat = fs.material_styles([stem], pretty_material)[stem][0]
+    for stage in stages:
+        order = [r.site for r in _by_site(rates, stage)] or sorted({r.site for r in rates if r.stage == stage})
         idx = {s: i for i, s in enumerate(order)}
-
-        for T, colour in zip(temps, colours):
-            pts = [(idx[r.site], r.k_fwd, r.k_rev) for r in rates
-                   if r.stage == stage and r.T == T and r.site in idx]
-            if not pts:
-                continue
-            pts.sort()
-            xs = [p[0] for p in pts]
-            fw = [p[1] for p in pts if p[1] and p[1] > 0]
-            xf = [p[0] for p in pts if p[1] and p[1] > 0]
-            rv = [p[2] for p in pts if p[2] and p[2] > 0]
-            xr = [p[0] for p in pts if p[2] and p[2] > 0]
+        temps = sorted({r.T for r in rates if r.stage == stage})
+        colours = fs.temp_styles(temps)
+        fig, ax = fs.new_figure()
+        ys, xs = [], []
+        for T in temps:
+            c = colours[T]
+            pts = sorted((idx[r.site], r.k_fwd, r.k_rev) for r in rates if r.stage == stage and r.T == T and r.site in idx)
+            xf = [q[0] for q in pts if q[1] and q[1] > 0]
+            fw = [q[1] for q in pts if q[1] and q[1] > 0]
+            xr = [q[0] for q in pts if q[2] and q[2] > 0]
+            rv = [q[2] for q in pts if q[2] and q[2] > 0]
             if xf:
-                ax.plot(xf, np.log10(fw), 'o-', color=colour, ms=4, lw=1.1,
-                        label=f'{T:.0f} K forward')
+                ax.plot(xf, fw, color=c, lw=fs.CURVE_PT, marker='o', ms=10, zorder=4)
             if xr:
-                ax.plot(xr, np.log10(rv), 's--', color=colour, ms=3.5, lw=1.0,
-                        alpha=0.65, label=f'{T:.0f} K reverse')
+                ax.plot(xr, rv, color=c, lw=fs.CURVE_PT, ls=(0, (4, 2)), marker='s', ms=9, mfc='white', mec=c, mew=2.0,
+                        zorder=3)
+            ys += [fw, rv]
+            xs += [xf, xr]
+        ax.set_xlim(-0.6, len(order) - 0.4)
+        if len(order) <= 20:
+            ax.set_xticks(range(len(order)), order, rotation=45, ha='right', rotation_mode='anchor')
+        else:
+            ax.set_xlabel('Site, sorted by barrier')
+        ax.tick_params(axis='x', which='both', bottom=False, top=False)
+        ally = np.concatenate([np.asarray(v, float) for v in ys if len(v)])
+        fs.set_log_y(ax, ally)
+        ax.set_ylabel(r'$k$ (s$^{-1}$)')
+        handles = [Line2D([], [], color=colours[T], lw=fs.CURVE_PT) for T in temps]
+        labels = [f'{T:.0f} K' for T in temps]
+        handles += [Line2D([], [], color='black', lw=fs.CURVE_PT, marker='o', ms=9),
+                    Line2D([], [], color='black', lw=fs.CURVE_PT, ls=(0, (4, 2)), marker='s', ms=8, mfc='white', mew=2.0)]
+        labels += ['Forward', 'Reverse']
+        fs.key_below(fig, handles, labels, ncol=4)
 
-        ax.set_title(f'{STAGE_LABEL[stage]} — {len(order)} sites', fontsize=9.5)
-        ax.set_xlabel('site, sorted by barrier')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=7, ncol=2, loc='best')
-
-    axes[0].set_ylabel('log₁₀( k / s⁻¹ )')
-    fig.suptitle(f'Per-site TST rates — {pretty_material(stem)}  '
-                 '(reverse dashed; forward solid)', fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
-    _save(fig, outfile)
-    plt.close(fig)
+        def span(T, attr):
+            v = [getattr(r, attr) for r in rates if r.stage == stage and r.T == T and getattr(r, attr)
+                 and getattr(r, attr) > 0]
+            return f'{fs.tex_num(min(v))} to {fs.tex_num(max(v))}~s$^{{-1}}$' if v else 'not available'
+        text = (rf'Transition-state-theory rate of {STAGE_WORDS[stage]} in {mat} at each site, sites sorted by barrier, at '
+                rf"{fs.tex_join([f'{T:.0f}' for T in temps])}~K: forward (solid, filled circles) and reverse (dashed, "
+                rf"open squares). Forward rates run {span(temps[0], 'k_fwd')} at {temps[0]:.0f}~K and "
+                rf"{span(temps[-1], 'k_fwd')} at {temps[-1]:.0f}~K; reverse rates {span(temps[0], 'k_rev')} and "
+                rf"{span(temps[-1], 'k_rev')}.")
+        fs.finish(fig, ax, fs.panel_stem(outfile, stage), MODULE, text,
+                  np.concatenate([np.asarray(v, float) for v in xs if len(v)]), ally, keyed=True)
     return outfile
 
 

@@ -97,64 +97,72 @@ def expansion_coefficient(T: np.ndarray, a0: np.ndarray) -> tuple[float, float]:
 # Section 3 — Figures
 # ---------------------------------------------------------------------------
 
+def _lattice_figure(data, which, outstem):
+    import figstyle as fs
+    from matplotlib.lines import Line2D
+    styles = fs.material_styles(sorted(data), pretty_material)
+    fig, ax = fs.new_figure()
+    xs, ys, items, handles, words, keylabels, keycols = [], [], [], [], [], [], []
+    for stem, (label, c, m, ls) in styles.items():
+        T, a0 = data[stem]
+        if which == 'a0':
+            y = a0 * 1e10
+            alpha, err = expansion_coefficient(T, a0)
+            words.append(f'{label} {alpha * 1e6:.1f} $\\pm$ {err * 1e6:.1f}')
+            keylabels.append(f'{label}\n' + r'$\alpha$ = ' + f'{alpha * 1e6:.1f} \u00b1 {err * 1e6:.1f}' + r' $\times10^{-6}$ K$^{-1}$')
+        elif which == 'frac':
+            y = a0 / a0[0]
+            words.append(f'{label} {100 * (y[-1] - 1):.2f}\\% at {T[-1]:.0f}~K')
+        else:
+            y = 4.0 / a0 ** 3 / N_A
+            words.append(f'{label} {fs.tex_num(y[0], 4)} to {fs.tex_num(y[-1], 4)}')
+        ax.plot(T, y, color=c, ls=ls, lw=fs.CURVE_PT, marker=m, ms=10, zorder=4)
+        xs.append(T)
+        ys.append(y)
+        items.append((T[-1], y[-1], label, c))
+        handles.append(Line2D([], [], color=c, ls=ls, lw=fs.CURVE_PT, marker=m, ms=9))
+        keycols.append(c)
+    T_all = np.concatenate(xs)
+    fs.temperature_axis(ax, T_all)
+    fs.set_linear_y(ax, np.concatenate(ys), include=[1.0] if which == 'frac' else [])
+    if which == 'frac':
+        ax.axhline(1.0, zorder=1, **fs.REF_LINE)
+    if which == 'rho':
+        from matplotlib.ticker import FuncFormatter
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f'{v:,.0f}'))
+    ax.set_ylabel({'a0': r'$a_0$ ($\mathrm{\AA}$)', 'frac': r'$a_0(T)\,/\,a_0(T_\mathrm{min})$',
+                   'rho': r'Octahedral sites (mol m$^{-3}$)'}[which])
+    if which == 'a0':
+        fs.key_below(fig, handles, keylabels, ncol=1 if len(keylabels) < 3 else 2, colours=keycols)
+        keyed = True
+    else:
+        keyed = fs.label_or_key(fig, ax, items, handles, ncol=2)
+    if which == 'a0':
+        text = (r'Lattice constant $a_0$ of each host against temperature, from NPT equilibration of the supercell. '
+                r'Linear thermal expansion coefficients $\alpha = (1/a_0)\,\mathrm{d}a_0/\mathrm{d}T$, from a straight-line '
+                rf"fit referenced to the lowest temperature, in $10^{{-6}}$~K$^{{-1}}$: {'; '.join(words)}.")
+    elif which == 'frac':
+        text = (r'Fractional thermal expansion of each host, $a_0(T)/a_0(T_\mathrm{min})$, comparable across materials '
+                rf"whatever their lattice constant: {'; '.join(words)}.")
+    else:
+        text = (r'Density of octahedral interstitial sites, $4/a_0^3 N_A$, of each host against temperature: the '
+                r'geometric solubility pre-factor $S_0$ and the ceiling every solubility route is checked against '
+                rf"(mol~m$^{{-3}}$, lowest to highest temperature): {'; '.join(words)}.")
+    fs.finish(fig, ax, outstem, 'plots/thermal_expansion.py', text, T_all, np.concatenate(ys), keyed=keyed)
+
+
 def plot_expansion(data: dict[str, tuple[np.ndarray, np.ndarray]], outfile: str):
-    """a₀ vs T (absolute) beside the fractional expansion (normalised)."""
-    import matplotlib.pyplot as plt
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.4, 4.8))
-    colours = plt.cm.tab10(np.linspace(0, 0.9, len(data)))
-
-    for (stem, (T, a0)), colour in zip(sorted(data.items()), colours):
-        alpha, err = expansion_coefficient(T, a0)
-        ax1.plot(T, a0 * 1e10, 'o-', color=colour, ms=5, lw=1.4,
-                 label=f'{pretty_material(stem)}  '
-                       f'α={alpha * 1e6:.1f}±{err * 1e6:.1f}×10⁻⁶ K⁻¹')
-        ax2.plot(T, a0 / a0[0], 'o-', color=colour, ms=5, lw=1.4,
-                 label=pretty_material(stem))
-
-    ax1.set_xlabel('Temperature  (K)')
-    ax1.set_ylabel('$a_0$  (Å)')
-    ax1.set_title('lattice constant from NPT equilibration', fontsize=10)
-    ax1.grid(True, alpha=0.3)
-    ax1.legend(fontsize=8, loc='best')
-
-    ax2.axhline(1.0, color='k', lw=0.8, ls='--')
-    ax2.set_xlabel('Temperature  (K)')
-    ax2.set_ylabel('$a_0(T)\\,/\\,a_0(T_{min})$')
-    ax2.set_title('fractional expansion — comparable across materials',
-                  fontsize=10)
-    ax2.grid(True, alpha=0.3)
-    ax2.legend(fontsize=8, loc='best')
-
-    fig.suptitle('Thermal expansion of the host lattice', fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
-    _save(fig, outfile)
-    plt.close(fig)
+    """Two figures: a0 against T (<outfile>_lattice_constant.*) and the fractional expansion
+    (<outfile>_fractional.*), each as PDF, PNG and caption."""
+    import figstyle as fs
+    _lattice_figure(data, 'a0', fs.panel_stem(outfile, 'lattice_constant'))
+    _lattice_figure(data, 'frac', fs.panel_stem(outfile, 'fractional'))
 
 
 def plot_site_density(data: dict[str, tuple[np.ndarray, np.ndarray]], outfile: str):
-    """The derived oct-site density — the saturation ceiling used elsewhere."""
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(figsize=(7.2, 4.8))
-    colours = plt.cm.tab10(np.linspace(0, 0.9, len(data)))
-
-    for (stem, (T, a0)), colour in zip(sorted(data.items()), colours):
-        rho = 4.0 / a0 ** 3 / N_A
-        ax.plot(T, rho, 'o-', color=colour, ms=5, lw=1.4,
-                label=f'{pretty_material(stem)}  '
-                      f'{rho[0]:.3e} → {rho[-1]:.3e}')
-
-    ax.set_xlabel('Temperature  (K)')
-    ax.set_ylabel('oct-site density  (mol H m⁻³)')
-    ax.set_title('Octahedral-site density $4/a_0^3/N_A$\n'
-                 'the geometric $S_0$, and the saturation ceiling every '
-                 'solubility route is judged against', fontsize=10)
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=8, loc='best', title='low T → high T')
-    fig.tight_layout()
-    _save(fig, outfile)
-    plt.close(fig)
+    """The octahedral-site density, the saturation ceiling used elsewhere: one figure, PDF, PNG and caption."""
+    import figstyle as fs
+    _lattice_figure(data, 'rho', fs.panel_stem(outfile, ''))
 
 
 # ---------------------------------------------------------------------------
