@@ -17,17 +17,32 @@
     "a material.",
     "",
     "Each entry is valid ONLY across its own T_C window - a study measured over",
-    "300-600 C is never extrapolated to meet the MD points."
+    "300-600 C is never extrapolated to meet the MD points.",
+    "",
+    "Isotopes: every entry is drawn. A deuterium (D2) law carries a dagger (†) at",
+    "the end of its label and a tritium (T2) law an asterisk (*); hydrogen is",
+    "unmarked. The 'isotope' field says the same.",
+    "",
+    "Laws read off a published figure (digitised) rather than printed carry",
+    "'digitised_from' with the figure, and their note gives the line's ends.",
+    "",
+    "Units are the same for every entry: energies in kJ/mol, and Phi0 in the",
+    "units its schema names. A value printed in other units is converted and the",
+    "printed value kept in 'as_printed'; a law read off a figure is converted from",
+    "the reading."
   ],
 
   "_SCHEMA": {
     "label":     "REQUIRED. Citation as it should appear in the legend, e.g. 'Zhang et al. 2026'.",
+    "isotope":   "OPTIONAL. 'H2' (default), 'D2' or 'T2'. The label marks a D2 law with a dagger (†) and a T2 law with an asterisk (*).",
     "Phi0":      "REQUIRED. Pre-exponential factor of the permeability, as printed in the source.",
     "Phi0_units": "Units of Phi0: 'mol/(m s Pa^0.5)' (default) | 'mol/(m s MPa^0.5)' | 'cm3(STP)/(cm s atm^0.5)'.",
     "Ep":        "REQUIRED. Activation energy of permeation, as printed in the source.",
-    "Ep_units":  "Units of Ep: 'eV' (default) | 'meV' | 'kJ/mol' | 'J/mol' | 'kcal/mol'.",
-    "T_C":       "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius.",
+    "Ep_units":  "Units of Ep: always 'kJ/mol' in this file. A value printed in other units is converted, and the printed value is kept in 'as_printed'.",
+    "T_C":       "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius; null when no range is known: the law is stored but not drawn.",
     "T_K":       "Alternative to T_C: validity range [low, high] in Kelvin.",
+    "digitised_from": "OPTIONAL. Set when the law was read off a published figure instead of printed: the figure it came from. Such laws are named as read off a figure in the plot caption.",
+    "as_printed":     "Set when a printed value was converted to this file's units: the value and unit as printed in the source.",
     "note":      "OPTIONAL. Free-text provenance - method, purity, DOI. Not plotted."
   },
 
@@ -47,27 +62,842 @@
     "Ni_oxide":         "NiO"
   },
 
-  "Al": [],
+  "Al": [
+    {
+      "label": "Song et al., 1997 (Tanabe 2026)",
+      "isotope": "H2",
+      "Phi0": 1.00e-6,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 52.5,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 500],
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: W. Song, J. Du, Y. Xu, B. Long, A study of hydrogen permeation in aluminum alloy treated by various oxidation processes, J. Nucl. Mater. 246 (1997) 139-143. Remark in the table: Naturally oxidized Al alloy. Range 400-500 C from the paper's abstract."
+    }
+  ],
 
-  "Ni": [],
+  "Ni": [
+    {
+      "label": "Altunoglu et al., 1991 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 3.4e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 54,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [32]; values as printed. Original source: A.K. Altunoglu, D.A. Blackburn, N.S.J. Braithwaite, D.M. Grant, Permeation of hydrogen through nickel foils: surface reaction rates at low temperatures, J. Less-Common Met. 172-174 (1991) 718-726, doi:10.1016/0022-5088(91)90195-A. No range found (the title says low temperatures); stored, not drawn."
+    },
+    {
+      "label": "Steward, 1983 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 4.1e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 55,
+      "Ep_units": "kJ/mol",
+      "T_C": [207, 417],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward's Table 5 row matching this law is Ebisuzaki et al. (1967), 480-690 K."
+    },
+    {
+      "label": "Shiraishi et al., 1998 (Tanabe 2026)",
+      "isotope": "H2",
+      "Phi0": 4.44e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 54.8,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: T. Shiraishi, M. Nishikawa, T. Fukumatsu, Permeation of multi-component hydrogen isotopes through nickel, J. Nucl. Mater. 254 (1998) 205-214. No range found for this paper; stored, not drawn."
+    },
+    {
+      "label": "Robertson, 1973 (Tanabe 2026)",
+      "isotope": "H2",
+      "Phi0": 3.22e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 54.77,
+      "Ep_units": "kJ/mol",
+      "T_C": [27, 502],
+      "as_printed": "Phi0 = (2.30 +/- 0.07), Ep = 13.09 (Table 7.2 heads mol(H2) m-1 s-1 Pa-1/2 and kJ/mol)",
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7. Original source: W.M. Robertson, Hydrogen permeation, diffusion and solution in nickel, Z. Metallkd. (Int. J. Mater. Res.) 64 (1973) 436-443. Range 300-775 K as Steward (1983, UCRL-53441, Table 5) gives for this paper's permeability; the diffusivity is from the same measurements. Converted from the printed row. Table 7.2 heads the column mol(H2) m-1 s-1 Pa-1/2 and kJ/mol, but this row is printed in cgs and calorie units: 13.09 kcal/mol = 54.77 kJ/mol, and the pre-factor (2.30 +/- 0.07) is (2.30 +/- 0.07) x 10^-2 cm3(STP) cm-1 s-1 atm-1/2 with the power of ten missing = (3.22 +/- 0.10) x 10^-7 mol m-1 s-1 Pa-1/2 (1 cm3(STP) = 4.4615e-5 mol, 1 atm^1/2 = 318.3 Pa^1/2). Steward (1983) lists Robertson's law as 3.22 x 10^-7 exp(-6590/T) mol m-1 s-1 Pa-1/2 = 3.22 x 10^-7 exp(-54.8 kJ/mol / RT), which confirms both the units and the missing 10^-2."
+    }
+  ],
 
-  "Fe": [],
+  "Fe": [
+    {
+      "label": "Tanabe et al., 1984 (Tanabe 2026)",
+      "isotope": "H2",
+      "Phi0": 2.88e-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 32.13,
+      "Ep_units": "kJ/mol",
+      "T_C": [147, 827],
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed (Phi0 = (2.88e-8 +/- 0.21e-8); Ep = 32.13 +/- 0.86 kJ/mol). Original source: T. Tanabe, Y. Yamanishi, S. Imoto, Hydrogen transport through highly purified iron, Trans. Jpn. Inst. Met. 25 (1984) 1-10. Range 420-1100 K from the paper's abstract."
+    }
+  ],
 
-  "316L SS": [],
+  "V": [
+    {
+      "label": "Steward, 1983 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 4.0e-9,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": -25,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 300 C and below 1e4 Pa; no upper limit given, so stored, not drawn. D from Volkl & Alefeld (1975), Ks from Veleckis & Edwards (1969). Printed as exp(+25/RT), stored as Ep = -25 for exp(-Ep/RT)."
+    }
+  ],
 
-  "Hastelloy N": [],
+  "Nb": [
+    {
+      "label": "Steward, 1983 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 6.3e-9,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": -25,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 600],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 400 C and below 1e4 Pa; the diffusivity data (Volkl & Alefeld 1975) span -50 to 600 C. Ks from Veleckis & Edwards (1969). Printed as exp(+25/RT), stored as Ep = -25 for exp(-Ep/RT)."
+    }
+  ],
 
-  "Hastelloy C-276": [],
+  "Ta": [
+    {
+      "label": "Steward, 1983 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 5.8e-9,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": -20,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 350 C and below 10 kPa; no upper limit given, so stored, not drawn. D from Volkl & Alefeld (1975), Ks from Veleckis & Edwards (1969). Printed as exp(+20/RT), stored as Ep = -20 for exp(-Ep/RT)."
+    }
+  ],
 
-  "Hastelloy X": [],
+  "W": [
+    {
+      "label": "Ikeda et al., 2011 (Tanabe 2026)",
+      "isotope": "H2",
+      "Phi0": 1.21e-5,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 57.8,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed (Phi0 = (1.21e-5 +/- 0.24e-5); Ep = 57.8 +/- 0.9 kJ/mol). Original source: T. Ikeda, T. Otsuka, T. Tanabe, Application of tritium tracer technique to determination of hydrogen diffusion coefficients and permeation rate near room temperature for tungsten, Fusion Sci. Technol. 60 (2011) 1463-1466, doi:10.13182/FST11-A12707. No range found (measured near room temperature and fitted with higher-temperature data); stored, not drawn. Measured with a tritium tracer technique. Eq. (7.16) gives the uncertainty of the pre-factor as +/-0.42e-5; Table 7.2 gives +/-0.24e-5."
+    }
+  ],
 
-  "Incoloy 800": [],
+  "Cu": [
+    {
+      "label": "Horinouchi et al., 2013 (Tanabe 2026)",
+      "isotope": "H2",
+      "Phi0": 2.8e-6,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 85,
+      "Ep_units": "kJ/mol",
+      "T_C": [27, 727],
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed (Phi0 = (2.8e-6 +/- 0.4e-6); Ep = 85 +/- 2 kJ/mol). Original source: H. Horinouchi, M. Shinohara, T. Otsuka, K. Hashizume, T. Tanabe, Determination of hydrogen diffusion and permeation coefficients in pure copper at near room temperature by means of tritium tracer techniques, J. Alloys Compd. 580 (2013) S73-S75, doi:10.1016/j.jallcom.2013.03.293. Range about 300-1000 K, where the abstract says the law is reliable. Measured with a tritium tracer technique."
+    }
+  ],
 
-  "Inconel 600": [],
+  "Mo": [
+    {
+      "label": "Tanabe et al., 1992 (Tanabe 2026)",
+      "isotope": "H2",
+      "Phi0": 1.4e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 60.3,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: T. Tanabe, Y. Yamanishi, S. Imoto, Hydrogen permeation and diffusion in molybdenum, J. Nucl. Mater. 191-194 (1992) 439-443. No range found for this paper; stored, not drawn."
+    }
+  ],
 
-  "Inconel 625": [],
+  "316L SS": [
+    {
+      "label": "Guo et al., 2025†",
+      "isotope": "D2",
+      "Phi0": 6.79e-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 61.75,
+      "Ep_units": "kJ/mol",
+      "T_C": [200, 550],
+      "as_printed": "Ep = 0.64 eV",
+      "note": "Deuterium (D2) data, gas-driven permeation through 316L membranes tested at 823, 773, 723, 673, 623, 553 and 473 K (Table 1: 550-200 C); from Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864); values as printed. Eq. (29): Phi0 = (6.79 +/- 1.47)e-8 mol m-1 s-1 Pa-0.5, Ep = 0.64 +/- 0.01 eV; from the 0.20 mm membrane (diffusion-controlled)."
+    },
+    {
+      "label": "Xu et al., 2016†",
+      "isotope": "D2",
+      "Phi0": 3.86e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.26,
+      "Ep_units": "kJ/mol",
+      "T_C": [440, 529],
+      "digitised_from": "Guo et al. 2025, Fig. 8(b)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(b), permeability, the line '316L, Xu, Y. P': digitised from the figure, not printed. Original source: Y.P. Xu et al., Deuterium permeation behavior of HTUPS4 steel with thermal oxidation layer, Fusion Eng. Des. 113 (2016) 201-204 (Guo's ref [13]). Isotope as in that paper's title. The line runs over 1000/T = 1.247-1.403 with log10 values -10.60 to -11.12. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor. Guo labels this line 316L; the cited paper is on HTUPS4 steel. A short line (0.16 in 1000/T): the energy is less certain, about +/-0.04 eV."
+    },
+    {
+      "label": "Houben et al., 2019",
+      "isotope": "H2",
+      "Phi0": 7.91e-08,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 57.79,
+      "Ep_units": "kJ/mol",
+      "T_C": [311, 556],
+      "digitised_from": "Guo et al. 2025, Fig. 8(b)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(b), permeability, the line '316L, Houben, A': digitised from the figure, not printed. Original source: A. Houben et al., Comparison of the hydrogen permeation through fusion relevant steels and the influence of oxidized and rough surfaces, Nucl. Mater. Energy 19 (2019) 55-58 (Guo's ref [15]). Isotope as in that paper's title. The line runs over 1000/T = 1.206-1.713 with log10 values -10.74 to -12.27. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor."
+    },
+    {
+      "label": "Forcey et al., 1988",
+      "isotope": "H2",
+      "Phi0": 7.55e-08,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 42.36,
+      "Ep_units": "kJ/mol",
+      "T_C": [252, 639],
+      "digitised_from": "Guo et al. 2025, Fig. 8(b)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(b), permeability, the line '316L, Forcey, K. S': digitised from the figure, not printed. Original source: K.S. Forcey et al., Hydrogen transport and solubility in 316L and 1.4914 steels for fusion reactor applications, J. Nucl. Mater. 160 (1988) 117-124 (Guo's ref [8]). Isotope as in that paper's title. The line runs over 1000/T = 1.096-1.905 with log10 values -9.55 to -11.34. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor. This line and Forcey's diffusivity line in Fig. 8(a) have the same slope and nearly the same values; one may be mis-drawn in Guo's figure: check against Forcey et al. 1988."
+    },
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 8.8e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 67,
+      "Ep_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
 
-  "Inconel 718": [],
+  "316 SS": [
+    {
+      "label": "Tanabe et al., 1984 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 2.86e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 61.8,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 900],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Tanabe': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: T. Tanabe, Y. Yamanishi, K. Sawada, S. Imoto, J. Nucl. Mater. 122-123 (1984) 1568-1572 (ref [38]). The line runs over 1000/T = 0.853-1.791 with log10 Phi = -9.30 to -12.33. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Le Claire, 1983 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 2.89e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.4,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 952],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Le Claire': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: A.D. Le Claire, Defect Diffus. Forum 33 (1983) 1-10 (ref [37]). The line runs over 1000/T = 0.816-1.791 with log10 Phi = -9.29 to -12.56. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Fedorov et al., 2002 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 2.68e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 66.4,
+      "Ep_units": "kJ/mol",
+      "T_C": [688, 880],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Fedorov': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: V.V. Fedorov et al., J. Nucl. Mater. 307-311 (2002) 1498-1501 (ref [44]; the caption says 1995). The line runs over 1000/T = 0.867-1.041 with log10 Phi = -9.58 to -10.19. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Shiraishi et al., 1999 (Tanabe 2026 Fig. 7.12 solid)",
+      "isotope": "H2",
+      "Phi0": 2.81e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 65.0,
+      "Ep_units": "kJ/mol",
+      "T_C": [396, 730],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Shiraishi': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: T. Shiraishi, M. Nishikawa, T. Yamaguchi, K. Kenmotsu, J. Nucl. Mater. 273 (1999) 60-65 (ref [40]). The line runs over 1000/T = 0.997-1.494 with log10 Phi = -9.94 to -11.62. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Shiraishi et al., 1999 (Tanabe 2026 Fig. 7.12 dashed)†",
+      "isotope": "D2",
+      "Phi0": 2.7e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 67.1,
+      "Ep_units": "kJ/mol",
+      "T_C": [457, 701],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the dashed line labelled 'Shiraishi': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: T. Shiraishi, M. Nishikawa, T. Yamaguchi, K. Kenmotsu, J. Nucl. Mater. 273 (1999) 60-65 (ref [40]). The line runs over 1000/T = 1.026-1.371 with log10 Phi = -10.16 to -11.37. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Gromov & Kovneristyi, 1980 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 1.09e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 62.4,
+      "Ep_units": "kJ/mol",
+      "T_C": [354, 640],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Gromov': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: A.I. Gromov, Y.K. Kovneristyi, Metal Sci. Heat Treat. 22 (1980) 321-324 (ref [35]). The line runs over 1000/T = 1.095-1.595 with log10 Phi = -10.53 to -12.16. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Grant et al., 1988 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 1.58e-06,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 70.2,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 558],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Grand': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: D.M. Grant, D.A. Blackburn, D.L. Cummings, Hydrogen in 316 stainless, J. Nucl. Mater. 152 (1988) 139-145 (ref [43]; labelled 'Grand'). The line runs over 1000/T = 1.204-1.791 with log10 Phi = -10.22 to -12.37. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Longhurst & Kratville, 2014 (Tanabe 2026 Fig. 7.12 solid)",
+      "isotope": "H2",
+      "Phi0": 2.19e-06,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 67.2,
+      "Ep_units": "kJ/mol",
+      "T_C": [318, 462],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Longhurst': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: G.R. Longhurst, L. Kratville, Fusion Sci. Technol. 66 (2014) 385-393 (ref [42]). The line runs over 1000/T = 1.360-1.693 with log10 Phi = -10.43 to -11.60. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Longhurst & Kratville, 2014 (Tanabe 2026 Fig. 7.12 dashed)†",
+      "isotope": "D2",
+      "Phi0": 1.66e-06,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 67.8,
+      "Ep_units": "kJ/mol",
+      "T_C": [321, 457],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the dashed line labelled 'Longhurst': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: G.R. Longhurst, L. Kratville, Fusion Sci. Technol. 66 (2014) 385-393 (ref [42]). The line runs over 1000/T = 1.371-1.682 with log10 Phi = -10.63 to -11.74. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Van Deventer & Maroni, 1980 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 3.73e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 66.3,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 726],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Van Deventer': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: E.H. Van Deventer, V.A. Maroni, J. Nucl. Mater. 92 (1980) 103-111 (ref [48]). The line runs over 1000/T = 1.001-1.791 with log10 Phi = -9.90 to -12.63. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Forcey et al., 1997 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 1.06e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 62.8,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 594],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the solid line labelled 'Forcey': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: K.S. Forcey, I. Iordanova, M. Yaneva, J. Nucl. Mater. 240 (1997) 118-123 (ref [45]; the paper's title is on a high-chromium martensitic steel). The line runs over 1000/T = 1.153-1.791 with log10 Phi = -10.76 to -12.85. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Bell et al., 1979 (Tanabe 2026 Fig. 7.12)*",
+      "isotope": "T2",
+      "Phi0": 3.41e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 68.0,
+      "Ep_units": "kJ/mol",
+      "T_C": [300, 694],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the dotted line labelled 'Bell': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: J.T. Bell, J.D. Redman, H.F. Bittner, J. Mater. Energy Syst. 1 (1979) 55-59 (ref [47]). The line runs over 1000/T = 1.034-1.744 with log10 Phi = -10.14 to -12.66. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Changqi et al., 1991 (Tanabe 2026 Fig. 7.12)*",
+      "isotope": "T2",
+      "Phi0": 3.42e-08,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 60.5,
+      "Ep_units": "kJ/mol",
+      "T_C": [305, 597],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(b)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(b) (316 SS H permeability), the dotted line labelled 'Changqi': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: S. Changqi, W. Aiju, C. Qingwang, J. Nucl. Mater. 179-181 (1991) 322-324 (ref [46]; on 316L). The line runs over 1000/T = 1.150-1.729 with log10 Phi = -11.10 to -12.94. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    }
+  ],
+
+  "304 SS": [
+    {
+      "label": "Grant et al., 1987 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 4.8e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 66,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [27]; values as printed. Original source: D.M. Grant, D.L. Cummings, D.A. Blackburn, Hydrogen in 304 steel: diffusion, permeation and surface reaction, J. Nucl. Mater. 149 (1987) 180-191, doi:10.1016/0022-3115(87)90476-4. No range found: the 1987 paper's range could not be confirmed (Grant's 1984 Open University PhD thesis, the same method, covers 502-963 K); stored, not drawn."
+    },
+    {
+      "label": "Braun et al., 1980 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 1.0e-6,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 69,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [28]; values as printed. Original source: M. Braun, B. Emmoth, F. Waelbroeck, P. Wienhold, Determination of deuterium surface recombination rates on stainless steel, J. Nucl. Mater. 93-94 (1980) 861-865, doi:10.1016/0022-3115(80)90219-6. No range found for this paper; stored, not drawn. The table prints H2; the paper's title says deuterium."
+    },
+    {
+      "label": "Le Claire, 1983 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 2.91e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.9,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 952],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the solid line labelled 'Le Claire': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: A.D. Le Claire, Defect Diffus. Forum 33 (1983) 1-10 (ref [37]). The line runs over 1000/T = 0.817-1.791 with log10 Phi = -9.30 to -12.61. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Tanabe et al., 1984 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 5.95e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.9,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 914],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the solid line labelled 'Tanabe': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: T. Tanabe, Y. Yamanishi, K. Sawada, S. Imoto, J. Nucl. Mater. 122-123 (1984) 1568-1572 (ref [38]). The line runs over 1000/T = 0.842-1.791 with log10 Phi = -9.08 to -12.29. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Perkins & Noda, 1978 (Tanabe 2026 Fig. 7.12)†",
+      "isotope": "D2",
+      "Phi0": 2.53e-06,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.5,
+      "Ep_units": "kJ/mol",
+      "T_C": [387, 705],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the dashed line labelled 'Perkins': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: H.K. Perkins, T. Noda, J. Nucl. Mater. 71 (1978) 349-364 (ref [33]). The line runs over 1000/T = 1.022-1.515 with log10 Phi = -9.04 to -10.71. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Grant et al., 1987 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 4.65e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 66.0,
+      "Ep_units": "kJ/mol",
+      "T_C": [370, 684],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the solid line labelled 'Grant': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: D.M. Grant, D.L. Cummings, D.A. Blackburn, J. Nucl. Mater. 149 (1987) 180-191 (ref [39]). The line runs over 1000/T = 1.044-1.556 with log10 Phi = -9.93 to -11.70. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol. Check: the INL 2020 report prints Grant et al. 1987's law as 4.8e-7 exp(-66/RT); this reading gives 4.65e-7 and 66.0 kJ/mol."
+    },
+    {
+      "label": "Boeschoten et al., 1960 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 1.83e-06,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 83.1,
+      "Ep_units": "kJ/mol",
+      "T_C": [327, 549],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the solid line labelled 'Boeschoten': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: F. Boeschoten, W. Van Egmond, H.M.J. Kinderdijk, Appl. Sci. Res. B 8 (1960) 378-386 (Tanabe's ref [29]). The line runs over 1000/T = 1.217-1.666 with log10 Phi = -11.02 to -12.96. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Matsuyama & Redman, 2011 (Tanabe 2026 Fig. 7.12)*",
+      "isotope": "T2",
+      "Phi0": 2.16e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 69.9,
+      "Ep_units": "kJ/mol",
+      "T_C": [452, 727],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the dotted line labelled 'Matsuyama': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: M. Matsuyama, J.D. Redman, Metall. Trans. A 14A (2011) 498-500 as listed (ref [41]; the listing looks garbled). The line runs over 1000/T = 1.000-1.379 with log10 Phi = -10.32 to -11.70. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Gromov & Kovneristyi, 1980 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 7.23e-08,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 58.6,
+      "Ep_units": "kJ/mol",
+      "T_C": [354, 655],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the solid line labelled 'Gromov': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: A.I. Gromov, Y.K. Kovneristyi, Metal Sci. Heat Treat. 22 (1980) 321-324 (ref [35]). The line runs over 1000/T = 1.078-1.596 with log10 Phi = -10.44 to -12.03. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Strehlow & Savage, 1974 (Tanabe 2026 Fig. 7.12)†",
+      "isotope": "D2",
+      "Phi0": 1.93e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 73.0,
+      "Ep_units": "kJ/mol",
+      "T_C": [341, 797],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the dashed line labelled 'Strehlow': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: R.A. Strehlow, H.C. Savage, Nucl. Technol. 22 (1974) 127-137 (ref [32]). The line runs over 1000/T = 0.934-1.629 with log10 Phi = -10.28 to -12.93. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Nelson & Stein, 1973 (Tanabe 2026 Fig. 7.12)",
+      "isotope": "H2",
+      "Phi0": 1.09e-06,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.2,
+      "Ep_units": "kJ/mol",
+      "T_C": [285, 593],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the solid line labelled 'Nelson': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: H.G. Nelson, J.E. Stein, NASA TN D-7265 (1973) (ref [31]). The line runs over 1000/T = 1.155-1.791 with log10 Phi = -9.84 to -11.97. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Braun et al., 1980 (Tanabe 2026 Fig. 7.12)†",
+      "isotope": "D2",
+      "Phi0": 5.97e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.7,
+      "Ep_units": "kJ/mol",
+      "T_C": [287, 587],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the dashed line labelled 'Brown': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: M. Braun (listed as Brawn), B. Emmoth, F. Waelbroeck, P. Wienhold, J. Nucl. Mater. 93-94 (1980) 861-865 (ref [34]). The line runs over 1000/T = 1.162-1.787 with log10 Phi = -10.15 to -12.27. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol. Its red dashes lie on Tanabe et al. 1984's line from 1000/T = 1.16 on, so the two laws read the same."
+    },
+    {
+      "label": "Sugimoto (Tanabe 2026 Fig. 7.12 solid)",
+      "isotope": "H2",
+      "Phi0": 3.23e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 66.1,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 698],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the solid line labelled 'Sugimoto': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: labelled 'Sugimoto' in the figure but not in its caption or reference list. The line runs over 1000/T = 1.030-1.486 with log10 Phi = -10.05 to -11.62. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    },
+    {
+      "label": "Sugimoto (Tanabe 2026 Fig. 7.12 dashed)†",
+      "isotope": "D2",
+      "Phi0": 4.47e-07,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 72.0,
+      "Ep_units": "kJ/mol",
+      "T_C": [454, 691],
+      "digitised_from": "Tanabe 2026, Fig. 7.12(a)",
+      "note": "Read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 7.12(a) (304 SS H permeability), the dashed line labelled 'Sugimoto': digitised, not printed. By the caption, solid, dashed and dotted lines are H, D and T. Source: labelled 'Sugimoto' in the figure but not in its caption or reference list. The line runs over 1000/T = 1.037-1.375 with log10 Phi = -10.25 to -11.52. The panel is about 270 px wide, so ends are good to about 0.005 in 1000/T and energies to about +/-3 kJ/mol."
+    }
+  ],
+
+  "Hastelloy N": [
+    {
+      "label": "Fuerst et al., 2024",
+      "isotope": "H2",
+      "Phi0": 5.7E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 66.2,
+      "Ep_units": "kJ/mol",
+      "T_C": [500, 700],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, this work (doi:10.1016/j.jnucmat.2023.154851); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Fuerst et al., 2024†",
+      "isotope": "D2",
+      "Phi0": 2.4E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 62.3,
+      "Ep_units": "kJ/mol",
+      "T_C": [500, 700],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, this work (doi:10.1016/j.jnucmat.2023.154851); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Zhang et al., 2020",
+      "isotope": "H2",
+      "Phi0": 2.5E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 60.3,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [12] (doi:10.1080/15361055.2020.1725368); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule. Not equal to D Ks from the same row (D0 Ks0 = 2.5e-07, ED + Es = 61.7 kJ/mol): entered as printed."
+    },
+    {
+      "label": "Zhang et al., 2020†",
+      "isotope": "D2",
+      "Phi0": 1.9E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 60.6,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [12] (doi:10.1080/15361055.2020.1725368); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule. Not equal to D Ks from the same row (D0 Ks0 = 1.9e-07, ED + Es = 61.5 kJ/mol): entered as printed."
+    },
+    {
+      "label": "Webb, 1965",
+      "isotope": "H2",
+      "Phi0": 7.4E-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 57.7,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 760],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [13] (doi:10.2172/4583045); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Strehlow & Savage, 1974†",
+      "isotope": "D2",
+      "Phi0": 2.3E-6,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 81.1,
+      "Ep_units": "kJ/mol",
+      "T_C": [605, 688],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [14] (doi:10.13182/NT74-A16282); values as printed. Measured at 605 and 688 C only. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Webb, 1965 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 7.4e-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 58,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 760],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [36]; values as printed. Original source: R.W. Webb, Permeation of hydrogen through metals, Atomics International, NAA-SR-10462 (1965). Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper."
+    },
+    {
+      "label": "Savage et al., 1965 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 2.0e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 56,
+      "Ep_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [37]; values as printed. Original source: H.W. Savage, E.L. Compere, W.R. Huntley, B. Fleischer, R.E. MacPherson, A. Taboada, SNAP-8 Corrosion Program Summary Report, Oak Ridge National Laboratory, ORNL-3898 (1965). No range found for this report; stored, not drawn."
+    },
+    {
+      "label": "Strehlow & Savage, 1974 (INL 2020)†",
+      "isotope": "D2",
+      "Phi0": 7.6e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 73,
+      "Ep_units": "kJ/mol",
+      "T_C": [605, 688],
+      "note": "Deuterium (D2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [38]; values as printed. Original source: R.A. Strehlow, H.C. Savage, The permeation of hydrogen isotopes through structural metals at low pressures and through metals with oxide film barriers, Nucl. Technol. 22 (1974) 127-137, doi:10.13182/NT74-A16282. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. Measured at 605 and 688 C only."
+    },
+    {
+      "label": "Zhang et al., 2020 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 2.5e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 60,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [39]; values as printed. Original source: D. Zhang, W. Liu, W. Liu, Diffusion characterization of hydrogen isotopes in Hastelloy N alloy for the application of fluoride-salt-cooled high-temperature reactors (FHRs), Fusion Sci. Technol. 76 (2020) 543-552, doi:10.1080/15361055.2020.1725368. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper."
+    }
+  ],
+
+  "Hastelloy C-276": [
+    {
+      "label": "Zhang et al., 2015",
+      "isotope": "H2",
+      "Phi0": 2.7E-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 62.4,
+      "Ep_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [16] (doi:10.13182/FST14-T109); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    }
+  ],
+
+  "Hastelloy X": [
+    {
+      "label": "Kishimoto et al., 1985",
+      "isotope": "H2",
+      "Phi0": 8.3E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.3,
+      "Ep_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [15] (doi:10.1016/0022-3115(85)90056-X); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 8.9e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 65,
+      "Ep_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
+
+  "Incoloy 800": [
+    {
+      "label": "Schmidt et al., 1985*",
+      "isotope": "T2",
+      "Phi0": 2.1E-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 56.6,
+      "Ep_units": "kJ/mol",
+      "T_C": [750, 950],
+      "note": "Tritium (T2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [22] (doi:10.1016/0022-3115(85)90461-1); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Esteban et al., 2002†",
+      "isotope": "D2",
+      "Phi0": 3.9E-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 55.6,
+      "Ep_units": "kJ/mol",
+      "T_C": [154, 507],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [23] (doi:10.1016/S0022-3115(01)00715-2); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Esteban et al., 2002 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 3.9e-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 56,
+      "Ep_units": "kJ/mol",
+      "T_C": [154, 507],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [31]; values as printed. Original source: G.A. Esteban, A. Perujo, L.A. Sedano, F. Legarda, B. Mancinelli, K. Douglas, Diffusive transport parameters and surface rate constants of deuterium in Incoloy 800, J. Nucl. Mater. 300 (2002) 1-6, doi:10.1016/S0022-3115(01)00715-2. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. The table prints H2; the paper's title says deuterium."
+    }
+  ],
+
+  "Inconel 600": [
+    {
+      "label": "Kishimoto et al., 1985",
+      "isotope": "H2",
+      "Phi0": 7.4E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64.4,
+      "Ep_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [15] (doi:10.1016/0022-3115(85)90056-X); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule. Not equal to D Ks from the same row (D0 Ks0 = 7.3e-07, ED + Es = 63.3 kJ/mol): entered as printed."
+    },
+    {
+      "label": "Rota et al., 1982",
+      "isotope": "H2",
+      "Phi0": 2.0E-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 55.2,
+      "Ep_units": "kJ/mol",
+      "T_C": [150, 400],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [17] (doi:10.1016/0022-3115(82)90214-8); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Rota et al., 1982†",
+      "isotope": "D2",
+      "Phi0": 2.0E-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 56.9,
+      "Ep_units": "kJ/mol",
+      "T_C": [150, 400],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [17] (doi:10.1016/0022-3115(82)90214-8); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Takeda & Iwatsuki, 2004",
+      "isotope": "H2",
+      "Phi0": 8.5E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 69.1,
+      "Ep_units": "kJ/mol",
+      "T_C": [669, 819],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [18] (doi:10.13182/NT04-A3490); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Takeda & Iwatsuki, 2004†",
+      "isotope": "D2",
+      "Phi0": 1.1E-6,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 74.7,
+      "Ep_units": "kJ/mol",
+      "T_C": [669, 819],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [18] (doi:10.13182/NT04-A3490); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 7.9e-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 64,
+      "Ep_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    },
+    {
+      "label": "Rota et al., 1982 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 2.0e-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 55,
+      "Ep_units": "kJ/mol",
+      "T_C": [150, 400],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [30]; values as printed. Original source: E. Rota, F. Waelbroeck, P. Wienhold, J. Winter, Measurements of surface and bulk properties for the interaction of hydrogen with Inconel 600, J. Nucl. Mater. 111-112 (1982) 233-239, doi:10.1016/0022-3115(82)90214-8. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper."
+    }
+  ],
+
+  "Inconel 625": [
+    {
+      "label": "Van Deventer & Maroni, 1980",
+      "isotope": "H2",
+      "Phi0": 2.6E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 60.1,
+      "Ep_units": "kJ/mol",
+      "T_C": [77, 777],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [19] (doi:10.1016/0022-3115(80)90146-4); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Gervasini et al., 1984",
+      "isotope": "H2",
+      "Phi0": 3.4E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 63.1,
+      "Ep_units": "kJ/mol",
+      "T_C": [377, 627],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [20] (doi:10.13182/FST84-A23218); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Gervasini et al., 1984†",
+      "isotope": "D2",
+      "Phi0": 4.0E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 67.7,
+      "Ep_units": "kJ/mol",
+      "T_C": [377, 627],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [20] (doi:10.13182/FST84-A23218); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    }
+  ],
+
+  "Inconel 718": [
+    {
+      "label": "Van Deventer & Maroni, 1980",
+      "isotope": "H2",
+      "Phi0": 9.6E-8,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 53.4,
+      "Ep_units": "kJ/mol",
+      "T_C": [77, 777],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [19] (doi:10.1016/0022-3115(80)90146-4); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    },
+    {
+      "label": "Robertson, 1977",
+      "isotope": "H2",
+      "Phi0": 1.1E-7,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 55.7,
+      "Ep_units": "kJ/mol",
+      "T_C": [150, 500],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [21] (doi:10.1007/BF02646873); values as printed. Phi in mol Q2 m-1 s-1 Pa-0.5, Q2 the isotope molecule."
+    }
+  ],
+
+  "Inconel 750": [
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 1.0e-6,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 65,
+      "Ep_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
+
+  "Nimonic 80A": [
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "Phi0": 1.0e-6,
+      "Phi0_units": "mol/(m s Pa^0.5)",
+      "Ep": 65,
+      "Ep_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
+
+  "F82H": [],
+
+  "OPTIFER-IVb": [],
 
   "Al2O3": [],
 

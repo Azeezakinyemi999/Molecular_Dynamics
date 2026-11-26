@@ -17,17 +17,32 @@
     "a material.",
     "",
     "Each entry is valid ONLY across its own T_C window - a study measured over",
-    "300-600 C is never extrapolated to meet the MD points."
+    "300-600 C is never extrapolated to meet the MD points.",
+    "",
+    "Isotopes: every entry is drawn. A deuterium (D2) law carries a dagger (†) at",
+    "the end of its label and a tritium (T2) law an asterisk (*); hydrogen is",
+    "unmarked. The 'isotope' field says the same.",
+    "",
+    "Laws read off a published figure (digitised) rather than printed carry",
+    "'digitised_from' with the figure, and their note gives the line's ends.",
+    "",
+    "Units are the same for every entry: energies in kJ/mol, and kd0 in the",
+    "units its schema names. A value printed in other units is converted and the",
+    "printed value kept in 'as_printed'; a law read off a figure is converted from",
+    "the reading."
   ],
 
   "_SCHEMA": {
     "label":    "REQUIRED. Citation as it should appear in the legend, e.g. 'Zhang et al. 2026'.",
+    "isotope":   "OPTIONAL. 'H2' (default), 'D2' or 'T2'. The label marks a D2 law with a dagger (†) and a T2 law with an asterisk (*).",
     "kd0":      "REQUIRED. Pre-exponential factor of the dissociation rate constant, as printed in the source.",
     "kd0_units": "Units of kd0: 'mol/(m2 s Pa)' (default, mol H2) | 'mol H/(m2 s Pa)' | 'atoms/(cm2 s Torr)'; a sticking coefficient goes in 'note'.",
     "Ed":       "REQUIRED. Activation energy of dissociation, as printed in the source.",
-    "Ed_units": "Units of Ed: 'eV' (default) | 'meV' | 'kJ/mol' | 'J/mol' | 'kcal/mol'.",
-    "T_C":      "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius.",
+    "Ed_units": "Units of Ed: always 'kJ/mol' in this file. A value printed in other units is converted, and the printed value is kept in 'as_printed'.",
+    "T_C":      "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius; null when no range is known: the law is stored but not drawn.",
     "T_K":      "Alternative to T_C: validity range [low, high] in Kelvin.",
+    "digitised_from": "OPTIONAL. Set when the law was read off a published figure instead of printed: the figure it came from. Such laws are named as read off a figure in the plot caption.",
+    "as_printed":     "Set when a printed value was converted to this file's units: the value and unit as printed in the source.",
     "note":     "OPTIONAL. Free-text provenance - method, purity, DOI. Not plotted."
   },
 
@@ -49,11 +64,123 @@
 
   "Al": [],
 
-  "Ni": [],
+  "Ni": [
+    {
+      "label": "Altunoglu et al., 1991 (INL 2020)",
+      "isotope": "H2",
+      "kd0": 1.4e-6,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 30,
+      "Ed_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [32]; values as printed. Original source: A.K. Altunoglu, D.A. Blackburn, N.S.J. Braithwaite, D.M. Grant, Permeation of hydrogen through nickel foils: surface reaction rates at low temperatures, J. Less-Common Met. 172-174 (1991) 718-726, doi:10.1016/0022-5088(91)90195-A. No range found (the title says low temperatures); stored, not drawn."
+    }
+  ],
 
   "Fe": [],
 
-  "316L SS": [],
+  "V": [],
+
+  "Nb": [],
+
+  "Ta": [],
+
+  "W": [],
+
+  "Cu": [],
+
+  "Mo": [],
+
+  "316L SS": [
+    {
+      "label": "Guo et al., 2025†",
+      "isotope": "D2",
+      "kd0": 4.88e-7,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 55.0,
+      "Ed_units": "kJ/mol",
+      "T_C": [200, 550],
+      "as_printed": "Ed = 0.57 eV",
+      "note": "Deuterium (D2) data, gas-driven permeation through 316L membranes tested at 823, 773, 723, 673, 623, 553 and 473 K (Table 1: 550-200 C); from Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864); values as printed. Eq. (31): Kdis0 = (4.88 +/- 1.08)e-7 mol m-2 s-1 Pa-1, Ed = 0.57 +/- 0.1 eV; from the 0.05 mm membrane (surface-controlled, flux linear in pressure), eq. (22); the sticking coefficient is absorbed in Kdis."
+    },
+    {
+      "label": "Perujo et al., 1996 (clean; INL 2020)*",
+      "isotope": "T2",
+      "kd0": 1.6e-3,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 48,
+      "Ed_units": "kJ/mol",
+      "T_C": [177, 347],
+      "note": "Tritium (T2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [29]; values as printed. Original source: A. Perujo, K. Douglas, E. Serra, Low pressure tritium interaction with Inconel 625 and AISI 316L stainless steel surfaces: an evaluation of the recombination and adsorption constants, Fusion Eng. Des. 31 (1996) 101-108, doi:10.1016/0920-3796(94)00434-X. Range 450-620 K from the paper's abstract."
+    },
+    {
+      "label": "Perujo et al., 1996 (oxidized; INL 2020)*",
+      "isotope": "T2",
+      "kd0": 1.3e-6,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 69,
+      "Ed_units": "kJ/mol",
+      "T_C": [177, 347],
+      "note": "Tritium (T2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [29]; values as printed. Original source: A. Perujo, K. Douglas, E. Serra, Low pressure tritium interaction with Inconel 625 and AISI 316L stainless steel surfaces: an evaluation of the recombination and adsorption constants, Fusion Eng. Des. 31 (1996) 101-108, doi:10.1016/0920-3796(94)00434-X. Range 450-620 K from the paper's abstract."
+    }
+  ],
+
+  "316 SS": [
+    {
+      "label": "Grant et al., 1988 (ion-beam cleaned)",
+      "isotope": "H2",
+      "kd0": 0.032,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 80.76,
+      "Ed_units": "kJ/mol",
+      "T_C": [232, 447],
+      "digitised_from": "Guo et al. 2025, Fig. 8(d)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(d), whose y-axis is dissociation (the paper's caption swaps (c) and (d)), the line '316 ion beam clean, Grant, D. M.': digitised from the figure, not printed. Original source: D.M. Grant et al., Hydrogen in 316 steel - diffusion, permeation and surface reaction, J. Nucl. Mater. 152 (1988) 139-145 (Guo's ref [32]). Isotope as in that paper's title. The line runs over 1000/T = 1.388-1.981 with log10 values -7.35 to -9.85. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor. The line runs off the top of the plot, so its high-temperature end (above about 450 C) is not visible and the range is cut there. The same law as Grant's recombination line in Fig. 8(c); check against Grant et al. 1988."
+    }
+  ],
+
+  "304 SS": [
+    {
+      "label": "Grant et al., 1987 (clean; INL 2020)",
+      "isotope": "H2",
+      "kd0": 1.1e-2,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 78,
+      "Ed_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [27]; values as printed. Original source: D.M. Grant, D.L. Cummings, D.A. Blackburn, Hydrogen in 304 steel: diffusion, permeation and surface reaction, J. Nucl. Mater. 149 (1987) 180-191, doi:10.1016/0022-3115(87)90476-4. No range found: the 1987 paper's range could not be confirmed (Grant's 1984 Open University PhD thesis, the same method, covers 502-963 K); stored, not drawn."
+    },
+    {
+      "label": "Grant et al., 1987 (activated; INL 2020)",
+      "isotope": "H2",
+      "kd0": 1.2e-1,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 106,
+      "Ed_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [27]; values as printed. Original source: D.M. Grant, D.L. Cummings, D.A. Blackburn, Hydrogen in 304 steel: diffusion, permeation and surface reaction, J. Nucl. Mater. 149 (1987) 180-191, doi:10.1016/0022-3115(87)90476-4. No range found: the 1987 paper's range could not be confirmed (Grant's 1984 Open University PhD thesis, the same method, covers 502-963 K); stored, not drawn."
+    },
+    {
+      "label": "Grant et al., 1987 (oxidized; INL 2020)",
+      "isotope": "H2",
+      "kd0": 1.4e-5,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 64,
+      "Ed_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [27]; values as printed. Original source: D.M. Grant, D.L. Cummings, D.A. Blackburn, Hydrogen in 304 steel: diffusion, permeation and surface reaction, J. Nucl. Mater. 149 (1987) 180-191, doi:10.1016/0022-3115(87)90476-4. No range found: the 1987 paper's range could not be confirmed (Grant's 1984 Open University PhD thesis, the same method, covers 502-963 K); stored, not drawn."
+    },
+    {
+      "label": "Braun et al., 1980 (INL 2020)",
+      "isotope": "H2",
+      "kd0": 5.4e-6,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 80,
+      "Ed_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [28]; values as printed. Original source: M. Braun, B. Emmoth, F. Waelbroeck, P. Wienhold, Determination of deuterium surface recombination rates on stainless steel, J. Nucl. Mater. 93-94 (1980) 861-865, doi:10.1016/0022-3115(80)90219-6. No range found for this paper; stored, not drawn. The table prints H2; the paper's title says deuterium."
+    }
+  ],
 
   "Hastelloy N": [],
 
@@ -61,13 +188,86 @@
 
   "Hastelloy X": [],
 
-  "Incoloy 800": [],
+  "Incoloy 800": [
+    {
+      "label": "Esteban et al., 2002 (clean; INL 2020)",
+      "isotope": "H2",
+      "kd0": 4.1e-6,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 44,
+      "Ed_units": "kJ/mol",
+      "T_C": [154, 507],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [31]; values as printed. Original source: G.A. Esteban, A. Perujo, L.A. Sedano, F. Legarda, B. Mancinelli, K. Douglas, Diffusive transport parameters and surface rate constants of deuterium in Incoloy 800, J. Nucl. Mater. 300 (2002) 1-6, doi:10.1016/S0022-3115(01)00715-2. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. The table prints H2; the paper's title says deuterium."
+    },
+    {
+      "label": "Esteban et al., 2002 (oxidized; INL 2020)",
+      "isotope": "H2",
+      "kd0": 2.7e-10,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 40,
+      "Ed_units": "kJ/mol",
+      "T_C": [154, 507],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [31]; values as printed. Original source: G.A. Esteban, A. Perujo, L.A. Sedano, F. Legarda, B. Mancinelli, K. Douglas, Diffusive transport parameters and surface rate constants of deuterium in Incoloy 800, J. Nucl. Mater. 300 (2002) 1-6, doi:10.1016/S0022-3115(01)00715-2. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. The table prints H2; the paper's title says deuterium."
+    }
+  ],
 
-  "Inconel 600": [],
+  "Inconel 600": [
+    {
+      "label": "Rota et al., 1982 (INL 2020)",
+      "isotope": "H2",
+      "kd0": 4.3e-5,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 53,
+      "Ed_units": "kJ/mol",
+      "T_C": [150, 400],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [30]; values as printed. Original source: E. Rota, F. Waelbroeck, P. Wienhold, J. Winter, Measurements of surface and bulk properties for the interaction of hydrogen with Inconel 600, J. Nucl. Mater. 111-112 (1982) 233-239, doi:10.1016/0022-3115(82)90214-8. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. kd/kr here is 0.011 but Ks^2 from Table 6 for the same paper is 1.4e-4 (energies agree): one pre-factor is probably misprinted in the report."
+    }
+  ],
 
-  "Inconel 625": [],
+  "Inconel 625": [
+    {
+      "label": "Perujo et al., 1996 (clean; INL 2020)*",
+      "isotope": "T2",
+      "kd0": 5.2e-5,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 33,
+      "Ed_units": "kJ/mol",
+      "T_C": [177, 347],
+      "note": "Tritium (T2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [29]; values as printed. Original source: A. Perujo, K. Douglas, E. Serra, Low pressure tritium interaction with Inconel 625 and AISI 316L stainless steel surfaces: an evaluation of the recombination and adsorption constants, Fusion Eng. Des. 31 (1996) 101-108, doi:10.1016/0920-3796(94)00434-X. Range 450-620 K from the paper's abstract."
+    },
+    {
+      "label": "Perujo et al., 1996 (oxidized; INL 2020)*",
+      "isotope": "T2",
+      "kd0": 2.6e-1,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 111,
+      "Ed_units": "kJ/mol",
+      "T_C": [177, 347],
+      "note": "Tritium (T2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [29]; values as printed. Original source: A. Perujo, K. Douglas, E. Serra, Low pressure tritium interaction with Inconel 625 and AISI 316L stainless steel surfaces: an evaluation of the recombination and adsorption constants, Fusion Eng. Des. 31 (1996) 101-108, doi:10.1016/0920-3796(94)00434-X. Range 450-620 K from the paper's abstract."
+    }
+  ],
 
   "Inconel 718": [],
+
+  "Inconel 750": [],
+
+  "Nimonic 80A": [],
+
+  "F82H": [],
+
+  "OPTIFER-IVb": [
+    {
+      "label": "Esteban et al., 2000†",
+      "isotope": "D2",
+      "kd0": 3.02e-08,
+      "kd0_units": "mol/(m2 s Pa)",
+      "Ed": 29.33,
+      "Ed_units": "kJ/mol",
+      "T_C": [249, 453],
+      "digitised_from": "Guo et al. 2025, Fig. 8(d)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(d), whose y-axis is dissociation (the paper's caption swaps (c) and (d)), the line 'OPTIFER-IVb, Esteban, G. A.': digitised from the figure, not printed. Original source: G.A. Esteban et al., The surface rate constants of deuterium in the reduced activating martensitic steel OPTIFER-IVb, J. Nucl. Mater. 282 (2000) 89-96 (Guo's ref [21]). Isotope as in that paper's title. The line runs over 1000/T = 1.378-1.915 with log10 values -9.63 to -10.45. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor."
+    }
+  ],
 
   "Al2O3": [],
 

@@ -16,17 +16,32 @@
     "Each entry is drawn ONLY across its own T_C window - a study measured over",
     "300-600 C is never extrapolated to meet the MD points.",
     "",
-    "A malformed entry is reported on stderr and dropped; the rest still plot."
+    "A malformed entry is reported on stderr and dropped; the rest still plot.",
+    "",
+    "Isotopes: every entry is drawn. A deuterium (D2) law carries a dagger (†) at",
+    "the end of its label and a tritium (T2) law an asterisk (*); hydrogen is",
+    "unmarked. The 'isotope' field says the same.",
+    "",
+    "Laws read off a published figure (digitised) rather than printed carry",
+    "'digitised_from' with the figure, and their note gives the line's ends.",
+    "",
+    "Units are the same for every entry: energies in kJ/mol, and D0 in the",
+    "units its schema names. A value printed in other units is converted and the",
+    "printed value kept in 'as_printed'; a law read off a figure is converted from",
+    "the reading."
   ],
 
   "_SCHEMA": {
     "label":     "REQUIRED. Citation as it should appear in the legend, e.g. 'Zhang et al. 2026'.",
+    "isotope":   "OPTIONAL. 'H2' (default), 'D2' or 'T2'. The label marks a D2 law with a dagger (†) and a T2 law with an asterisk (*).",
     "D0":        "REQUIRED. Pre-exponential factor, as printed in the source.",
     "D0_units":  "Units of D0: 'm2/s' (default) | 'cm2/s' | 'mm2/s'.",
     "Ea":        "REQUIRED. Activation energy, as printed in the source.",
-    "Ea_units":  "Units of Ea: 'eV' (default) | 'meV' | 'kJ/mol' | 'J/mol' | 'kcal/mol'.",
-    "T_C":       "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius.",
+    "Ea_units":  "Units of Ea: always 'kJ/mol' in this file. A value printed in other units is converted, and the printed value is kept in 'as_printed'.",
+    "T_C":       "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius; null when no range is known: the law is stored but not drawn.",
     "T_K":       "Alternative to T_C: validity range [low, high] in Kelvin.",
+    "digitised_from": "OPTIONAL. Set when the law was read off a published figure instead of printed: the figure it came from. Such laws are named as read off a figure in the plot caption.",
+    "as_printed":     "Set when a printed value was converted to this file's units: the value and unit as printed in the source.",
     "note":      "OPTIONAL. Free-text provenance - method, purity, DOI. Not plotted."
   },
 
@@ -50,17 +65,19 @@
 
     {
       "label": "Young & Scully, 1998[61]",
+      "isotope": "H2",
       "D0": 1.2e1,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 140,
       "Ea_units": "kJ/mol",
-      "T_C": [400, 530],    
+      "T_C": [400, 530],
       "note": "Diffusivity at 20 degree celcius is measured to be 1.3e-24 m^2/s (Al, desorption). Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
       "label": "Young & Scully, 1998[1]",
+      "isotope": "H2",
       "D0": 1.1e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 40.98,
       "Ea_units": "kJ/mol",
       "T_C": [360, 600],
@@ -68,8 +85,9 @@
     },
     {
       "label": "Young & Scully, 1998[2]",
+      "isotope": "H2",
       "D0": 2.0e-6,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 50.2,
       "Ea_units": "kJ/mol",
       "T_C": [570, 630],
@@ -77,8 +95,9 @@
     },
     {
       "label": "Young & Scully, 1998[3]",
+      "isotope": "H2",
       "D0": 4.58e-6,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 37.03,
       "Ea_units": "kJ/mol",
       "T_C": [300, 640],
@@ -86,8 +105,9 @@
     },
     {
       "label": "Young & Scully, 1998[4]-a",
+      "isotope": "H2",
       "D0": 1.9e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 40,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
@@ -95,8 +115,9 @@
     },
     {
       "label": "Young & Scully, 1998[35]",
+      "isotope": "H2",
       "D0": 1.3e-3,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 67,
       "Ea_units": "kJ/mol",
       "T_C": [375, 450],
@@ -104,8 +125,9 @@
     },
     {
       "label": "Young & Scully, 1998[5]",
+      "isotope": "H2",
       "D0": 1.01e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 47.7,
       "Ea_units": "kJ/mol",
       "T_C": [450, 625],
@@ -113,8 +135,9 @@
     },
     {
       "label": "Young & Scully, 1998[6]-a",
+      "isotope": "H2",
       "D0": 2.6e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 58.7,
       "Ea_units": "kJ/mol",
       "T_C": [300, 400],
@@ -122,8 +145,9 @@
     },
     {
       "label": "Young & Scully, 1998[8]",
+      "isotope": "H2",
       "D0": 6.1e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 54.8,
       "Ea_units": "kJ/mol",
       "T_C": [173, 408],
@@ -131,18 +155,20 @@
     },
     {
       "label": "Young & Scully, 1998[9]",
+      "isotope": "H2",
       "D0": null,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": null,
       "Ea_units": "kJ/mol",
-      "T_C": [20],
-      "note": "Diffusivity at 20 degree celcius is measured to be 2.2e-11 m^2/s (Al, permeation); single-point value, no D0/Q reported"
+      "T_C": null,
+      "note": "Diffusivity at 20 degree celcius is measured to be 2.2e-11 m^2/s (Al, permeation); single-point value, no D0/Q reported. Measured at 20 C only, so stored but not drawn."
     },
 
     {
       "label": "Young & Scully, 1998",
+      "isotope": "H2",
       "D0": 1.75e-8,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 16.2,
       "Ea_units": "kJ/mol",
       "T_C": [30, 600],
@@ -151,18 +177,20 @@
 
     {
       "label": "Anyalebechi et al., 2003",
+      "isotope": "H2",
       "D0": 4.25e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 53.163,
       "Ea_units": "kJ/mol",
       "T_C": [227, 727],
       "note": "Diffusivity at 20 degree celcius is measured to be 2.3e-11 m^2/s (99.999% Al, desorption)"
     },
-      
+
     {
       "label": "Ransley & Talbot, 1955[5]",
+      "isotope": "H2",
       "D0": 1.2e1,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 140.0,
       "Ea_units": "kJ/mol",
       "T_C": [402, 533],
@@ -170,8 +198,9 @@
     },
     {
       "label": "Eichenauer & Pebler, 1957[7]",
+      "isotope": "H2",
       "D0": 2.5e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 45.6,
       "Ea_units": "kJ/mol",
       "T_C": [470, 590],
@@ -179,8 +208,9 @@
     },
     {
       "label": "Eichenauer et al., 1961[8]",
+      "isotope": "H2",
       "D0": 1.1e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 40.9,
       "Ea_units": "kJ/mol",
       "T_C": [432, 651],
@@ -188,8 +218,9 @@
     },
     {
       "label": "Matsuo & Hirata, 1967[24]",
+      "isotope": "H2",
       "D0": 2.0e-6,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 50.2,
       "Ea_units": "kJ/mol",
       "T_C": [570, 630],
@@ -197,8 +228,9 @@
     },
     {
       "label": "Andrev et al., 1975[25]",
+      "isotope": "H2",
       "D0": 1.2e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 61.0,
       "Ea_units": "kJ/mol",
       "T_C": [500, 600],
@@ -206,8 +238,9 @@
     },
     {
       "label": "Papp & Kovacs-Csetenyi, 1977[24]",
+      "isotope": "H2",
       "D0": 2.5e-2,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 90.0,
       "Ea_units": "kJ/mol",
       "T_C": [454, 589],
@@ -215,116 +248,129 @@
     },
     {
       "label": "Feichtinger, 1977[27]",
+      "isotope": "H2",
       "D0": 5.5e-7,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 33.23,
       "Ea_units": "kJ/mol",
       "T_C": [211, 643],
       "note": "Isothermal saturation, quench & desorption. 99.999% homogenized, grain size not reported. Original range 484-916 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1979[28]",
+      "label": "Ichimura et al., 1979[28] (vacuum cast, columnar)",
+      "isotope": "H2",
       "D0": 4.58e-6,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 37.03,
       "Ea_units": "kJ/mol",
       "T_C": [300, 650],
       "note": "Desorption without saturation. 99.99% as-cast in vacuum (columnar grains), grain size 10-20 mm. Original range 573-923 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1979[28]",
+      "label": "Ichimura et al., 1979[28] (air cast, 0.04% porosity)",
+      "isotope": "H2",
       "D0": 2.1e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 67.0,
       "Ea_units": "kJ/mol",
       "T_C": [350, 640],
       "note": "Desorption without saturation. 99.99% as-cast in air with 0.04% porosity, grain size 1-3 mm. Original range 623-913 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura & Imabayashi, 1980[29]",
+      "label": "Ichimura & Imabayashi, 1980[29] (0.17% porosity)",
+      "isotope": "H2",
       "D0": 1.54e-3,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 81.2,
       "Ea_units": "kJ/mol",
       "T_C": [350, 630],
       "note": "Desorption without saturation. 99.99% as-cast with 0.17% porosity, grain size 1-5 mm. Original range 623-903 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura & Imabayashi, 1980[29]",
+      "label": "Ichimura & Imabayashi, 1980[29] (0.50% porosity)",
+      "isotope": "H2",
       "D0": 4.22e-2,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 106.9,
       "Ea_units": "kJ/mol",
       "T_C": [350, 630],
       "note": "Desorption without saturation. 99.99% as-cast with 0.50% porosity, grain size 1-5 mm. Original range 623-903 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura & Imabayashi, 1980[29]",
+      "label": "Ichimura & Imabayashi, 1980[29] (0.19% porosity)",
+      "isotope": "H2",
       "D0": 6.03e-3,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 88.7,
       "Ea_units": "kJ/mol",
       "T_C": [300, 630],
       "note": "Desorption without saturation. 99.99% as-cast with 0.19% porosity, grain size 2-6 mm. Original range 573-903 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Papp & Kovacs-Csetenyi, 1981[30]",
+      "label": "Papp & Kovacs-Csetenyi, 1981[30] (as-cast)",
+      "isotope": "H2",
       "D0": 1.9e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 40.0,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
       "note": "Desorption without saturation. 99.999% as-cast, grain size 1-3 mm. Original range 723-863 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Papp & Kovacs-Csetenyi, 1981[30]",
+      "label": "Papp & Kovacs-Csetenyi, 1981[30] (water-treated)",
+      "isotope": "H2",
       "D0": 1.27e-3,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 71.0,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
       "note": "Desorption without saturation. 99.999% as-cast, treated with water, grain size 1 mm. Original range 723-863 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Csanady et al., 1981[31]",
+      "label": "Csanady et al., 1981[31] (water-treated)",
+      "isotope": "H2",
       "D0": 1.27e-3,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 71.0,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
       "note": "Desorption without saturation. 99.999% as-cast, treated with water, grain size 1 mm. Original range 723-863 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Csanady et al., 1981[31]",
+      "label": "Csanady et al., 1981[31] (Mg+ implanted)",
+      "isotope": "H2",
       "D0": 8.5e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 63.7,
       "Ea_units": "kJ/mol",
       "T_C": [375, 550],
       "note": "Desorption without saturation. 99.999% as-cast, polished, & 24Mg+ ion implantation, grain size not reported. Original range 648-823 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Csanady et al., 1981[31]",
+      "label": "Csanady et al., 1981[31] (chemically treated)",
+      "isotope": "H2",
       "D0": 2.3e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 58.8,
       "Ea_units": "kJ/mol",
       "T_C": [376, 550],
       "note": "Desorption without saturation. 99.999% as-cast, chemically treated (turned, etched in aqueous HF + CrO3 at 353 K), grain size not reported. Original range 649-823 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Nakashima et al., 1981[32]",
+      "label": "Nakashima et al., 1981[32] (recoil-injected T)*",
+      "isotope": "T2",
       "D0": 9.68e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 40.38,
       "Ea_units": "kJ/mol",
       "T_C": [65, 199],
       "note": "Desorption after recoil injection of tritium. 99.50% purity, grain size not reported. Original range 338-472 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Nakashima et al., 1981[32]",
+      "label": "Nakashima et al., 1981[32] (thermally doped T)*",
+      "isotope": "T2",
       "D0": 9.27e-7,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 52.11,
       "Ea_units": "kJ/mol",
       "T_C": [150, 204],
@@ -332,62 +378,69 @@
     },
     {
       "label": "Outlaw et al., 1982[33]",
+      "isotope": "H2",
       "D0": 1.01e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 47.7,
       "Ea_units": "kJ/mol",
       "T_C": [450, 625],
       "note": "Saturation, quench & desorption. 99.995% vacuum melted as-cast, grain size 4 mm. Original range 723-898 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Papp & Kovacs-Csetenyi, 1982[34]",
+      "label": "Papp & Kovacs-Csetenyi, 1982[34] (99.999%, turned)",
+      "isotope": "H2",
       "D0": 2.0e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 40.0,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
       "note": "Desorption without saturation. 99.999% turned, grain size 1-3 mm. Original range 723-863 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Papp & Kovacs-Csetenyi, 1982[34]",
+      "label": "Papp & Kovacs-Csetenyi, 1982[34] (99.8%, turned)",
+      "isotope": "H2",
       "D0": 2.0e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 90.0,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
       "note": "Desorption without saturation. 99.8% turned, grain size 0.1 mm. Original range 723-863 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Papp & Kovacs-Csetenyi, 1982[34]",
+      "label": "Papp & Kovacs-Csetenyi, 1982[34] (H2O-saturated, turned)",
+      "isotope": "H2",
       "D0": 1.0e-3,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 71.0,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
       "note": "Desorption without saturation. 99.999% saturated by H2O vapor, turned, grain size 1 mm. Original range 723-863 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Papp & Kovacs-Csetenyi, 1982[34]",
+      "label": "Papp & Kovacs-Csetenyi, 1982[34] (H2O-saturated, chemically treated)",
+      "isotope": "H2",
       "D0": 2.0e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 63.0,
       "Ea_units": "kJ/mol",
       "T_C": [450, 590],
       "note": "Desorption without saturation. 99.999% saturated with H2O vapor, chemically treated, grain size 1 mm. Original range 723-863 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Hashimoto et al., 1982 & 1983[15,16]",
+      "label": "Hashimoto et al., 1982 & 1983[15,16] (1st run)",
+      "isotope": "H2",
       "D0": 2.6e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 58.8,
       "Ea_units": "kJ/mol",
       "T_C": [325, 400],
       "note": "Permeation - 1st run. 99.9999% cold rolled, 50-100 um thick discs, grain size not reported. Original range 598-673 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Hashimoto et al., 1982 & 1983[15,16]",
+      "label": "Hashimoto et al., 1982 & 1983[15,16] (2nd run)",
+      "isotope": "H2",
       "D0": 2.1e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 59.8,
       "Ea_units": "kJ/mol",
       "T_C": [325, 400],
@@ -395,8 +448,9 @@
     },
     {
       "label": "Ishikawa & McLellan, 1986[17]",
+      "isotope": "H2",
       "D0": 9.2e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 55.25,
       "Ea_units": "kJ/mol",
       "T_C": [12, 55],
@@ -404,89 +458,89 @@
     },
     {
       "label": "Linderoth, 1988[35]",
+      "isotope": "H2",
       "D0": 8.0e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 50.2,
       "Ea_units": "kJ/mol",
       "T_C": [327, 660],
       "note": "Theoretical calculation for a perfect aluminum lattice; no grain size. Original range 600-933 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Sonobe et al., 1990[36]",
-      "D0": 5.09e-7,
-      "D0_units": "m^2/s",
-      "Ea": 76.90,
-      "Ea_units": "kJ/mol",
-      "T_C": [20, 70],
-      "note": "Deuterium saturation & desorption. 99.9995% ion implanted Al, grain size 0.6 mm. Original range 293-343 K. Temperature is measured in degree celcius i.e Kelvin - 273"
-    },
-    {
-      "label": "Ichimura et al., 1990[37]",
+      "label": "Ichimura et al., 1990[37] (cast in air)",
+      "isotope": "H2",
       "D0": 3.2e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 67.78,
       "Ea_units": "kJ/mol",
       "T_C": [200, 500],
       "note": "Saturation & desorption. 99.99% as-cast in air, grain size not reported. Original range 473-773 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1990[37]",
+      "label": "Ichimura et al., 1990[37] (cast in nitrogen)",
+      "isotope": "H2",
       "D0": 1.0e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 44.44,
       "Ea_units": "kJ/mol",
       "T_C": [200, 500],
       "note": "Saturation & desorption. 99.99% as-cast in nitrogen atmosphere, grain size not reported. Original range 473-773 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1990[37]",
+      "label": "Ichimura et al., 1990[37] (cast in vacuum)",
+      "isotope": "H2",
       "D0": 6.8e-6,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 37.77,
       "Ea_units": "kJ/mol",
       "T_C": [200, 500],
       "note": "Saturation & desorption. 99.99% as-cast in vacuum, grain size not reported. Original range 473-773 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1991[38]",
+      "label": "Ichimura et al., 1991[38] (single crystal)",
+      "isotope": "H2",
       "D0": 9.53e-6,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 44.3,
       "Ea_units": "kJ/mol",
       "T_C": [200, 630],
       "note": "Saturation & desorption. 99.99% as-cast in nitrogen, single crystal, grain size >25 mm. Original range 473-903 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1991[38]",
+      "label": "Ichimura et al., 1991[38] (cast in air)",
+      "isotope": "H2",
       "D0": 1.52e-3,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 53.4,
       "Ea_units": "kJ/mol",
       "T_C": [300, 630],
       "note": "Desorption. 99.99% as-cast in air, grain size 4 mm. Original range 573-903 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1991[38]",
+      "label": "Ichimura et al., 1991[38] (99.7%, cast in vacuum)",
+      "isotope": "H2",
       "D0": 6.95e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 31.30,
       "Ea_units": "kJ/mol",
       "T_C": [300, 600],
       "note": "Desorption. 99.7% as-cast in vacuum, grain size 8 mm. Original range 573-873 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1992[39]",
+      "label": "Ichimura et al., 1992[39] (ingot)",
+      "isotope": "H2",
       "D0": 3.79e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 65.22,
       "Ea_units": "kJ/mol",
       "T_C": [300, 600],
       "note": "Desorption. 99.7% as-cast ingot, grain size 0.4 mm. Original range 573-873 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1992[39]",
+      "label": "Ichimura et al., 1992[39] (cast in air)",
+      "isotope": "H2",
       "D0": 4.83e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 65.22,
       "Ea_units": "kJ/mol",
       "T_C": [300, 600],
@@ -494,74 +548,615 @@
     },
     {
       "label": "Hirohata et al., 1992[40]",
+      "isotope": "H2",
       "D0": 2.0e-7,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 50,
       "Ea_units": "kJ/mol",
       "T_C": [100, 550],
       "note": "Desorption. D0 reported as approximate (~2e-7). 99.99% polished, grain size not reported. Original range 373-823 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1993[41]",
+      "label": "Ichimura et al., 1993[41] (0.1%Ti, cast in air)",
+      "isotope": "H2",
       "D0": 9.10e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 95.4,
       "Ea_units": "kJ/mol",
       "T_C": [300, 600],
       "note": "Desorption. 99.0 + 0.1%Ti, as-cast in air, grain size 0.29 mm. Original range 573-873 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1993[41]",
+      "label": "Ichimura et al., 1993[41] (0.1%Ti, cast in N2)",
+      "isotope": "H2",
       "D0": 1.39e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 66.9,
       "Ea_units": "kJ/mol",
       "T_C": [300, 600],
       "note": "Desorption. 99.0 + 0.1%Ti, as-cast in N atmosphere, grain size 1.29 mm. Original range 573-873 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1993[41]",
+      "label": "Ichimura et al., 1993[41] (0.05%Ti, cast in air)",
+      "isotope": "H2",
       "D0": 2.04e-4,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 65.7,
       "Ea_units": "kJ/mol",
       "T_C": [300, 600],
       "note": "Desorption. 99.9 + 0.05%Ti, as-cast in air, grain size 0.61 mm. Original range 573-873 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     },
     {
-      "label": "Ichimura et al., 1993[41]",
+      "label": "Ichimura et al., 1993[41] (0.05%Ti, cast in N2)",
+      "isotope": "H2",
       "D0": 2.22e-5,
-      "D0_units": "m^2/s",
+      "D0_units": "m2/s",
       "Ea": 37.4,
       "Ea_units": "kJ/mol",
       "T_C": [300, 600],
       "note": "Desorption. 99.9 + 0.05%Ti, as-cast in a N atmosphere, grain size 10 mm. Original range 573-873 K. Temperature is measured in degree celcius i.e Kelvin - 273"
     }
 
-
+,
+    {
+      "label": "Young & Scully, 1998 (Tanabe 2026)",
+      "isotope": "H2",
+      "D0": 4.24e-5,
+      "D0_units": "m2/s",
+      "Ea": 53.163,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: G.A. Young Jr., J.R. Scully, The diffusion and trapping of hydrogen in high purity aluminum, Acta Mater. 46 (1998) 6337-6349. No range found; stored, not drawn. The same law (4.25e-5 m2/s, 53.163 kJ/mol) is in this file attributed to Anyalebechi et al. 2003."
+    }
   ],
 
-  "Ni": [],
+  "Ni": [
+    {
+      "label": "Altunoglu et al., 1991 (INL 2020)",
+      "isotope": "H2",
+      "D0": 7.1e-7,
+      "D0_units": "m2/s",
+      "Ea": 41,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [32]; values as printed. Original source: A.K. Altunoglu, D.A. Blackburn, N.S.J. Braithwaite, D.M. Grant, Permeation of hydrogen through nickel foils: surface reaction rates at low temperatures, J. Less-Common Met. 172-174 (1991) 718-726, doi:10.1016/0022-5088(91)90195-A. No range found (the title says low temperatures); stored, not drawn."
+    },
+    {
+      "label": "Robertson, 1973 (Tanabe 2026)",
+      "isotope": "H2",
+      "D0": 4.02e-07,
+      "D0_units": "m2/s",
+      "Ea": 39.29,
+      "Ea_units": "kJ/mol",
+      "T_C": [27, 502],
+      "as_printed": "D0 = (4.02 +/- 0.37) x 10^-3, Ea = 9.39 +/- 0.08 (Table 7.2 heads m2 s-1 and kJ/mol)",
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7. Original source: W.M. Robertson, Hydrogen permeation, diffusion and solution in nickel, Z. Metallkd. (Int. J. Mater. Res.) 64 (1973) 436-443. Range 300-775 K as Steward (1983, UCRL-53441, Table 5) gives for this paper's permeability; the diffusivity is from the same measurements. Converted from the printed row. Table 7.2 heads the column m2 s-1 and kJ/mol, but this row is printed in cgs and calorie units: D0 = (4.02 +/- 0.37) x 10^-3 cm2/s = (4.02 +/- 0.37) x 10^-7 m2/s, and Ea = 9.39 +/- 0.08 kcal/mol = 39.29 +/- 0.33 kJ/mol. The energy matches the row's permeability energy (13.09 kcal/mol = 54.8 kJ/mol) less the heat of solution, and the result is close to other nickel diffusivities (about 7 x 10^-7 m2/s, 40 kJ/mol)."
+    }
+  ],
 
-  "Fe": [],
+  "Fe": [
+    {
+      "label": "Tanabe et al., 1984 (Tanabe 2026)",
+      "isotope": "H2",
+      "D0": 6.04e-8,
+      "D0_units": "m2/s",
+      "Ea": 6.99,
+      "Ea_units": "kJ/mol",
+      "T_C": [147, 827],
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed (D0 = (6.04e-8 +/- 0.18e-8); Ea = 6.99 +/- 0.11 kJ/mol). Original source: T. Tanabe, Y. Yamanishi, S. Imoto, Hydrogen transport through highly purified iron, Trans. Jpn. Inst. Met. 25 (1984) 1-10. Range 420-1100 K from the paper's abstract."
+    }
+  ],
 
-  "316L SS": [],
+  "V": [
+    {
+      "label": "Steward, 1983 (INL 2020)",
+      "isotope": "H2",
+      "D0": 2.9e-8,
+      "D0_units": "m2/s",
+      "Ea": 4.2,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 300 C and below 1e4 Pa; no upper limit given, so stored, not drawn. D from Volkl & Alefeld (1975), Ks from Veleckis & Edwards (1969)."
+    }
+  ],
 
-  "Hastelloy N": [],
+  "Nb": [
+    {
+      "label": "Steward, 1983 (INL 2020)",
+      "isotope": "H2",
+      "D0": 5.0e-8,
+      "D0_units": "m2/s",
+      "Ea": 10,
+      "Ea_units": "kJ/mol",
+      "T_C": [400, 600],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 400 C and below 1e4 Pa; the diffusivity data (Volkl & Alefeld 1975) span -50 to 600 C. Ks from Veleckis & Edwards (1969)."
+    }
+  ],
 
-  "Hastelloy C-276": [],
+  "Ta": [
+    {
+      "label": "Steward, 1983 (INL 2020)",
+      "isotope": "H2",
+      "D0": 4.4e-8,
+      "D0_units": "m2/s",
+      "Ea": 14,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 350 C and below 10 kPa; no upper limit given, so stored, not drawn. D from Volkl & Alefeld (1975), Ks from Veleckis & Edwards (1969)."
+    }
+  ],
 
-  "Hastelloy X": [],
+  "W": [
+    {
+      "label": "Otsuka & Tanabe, 2017 (Tanabe 2026)",
+      "isotope": "H2",
+      "D0": 3.8e-7,
+      "D0_units": "m2/s",
+      "Ea": 39.8,
+      "Ea_units": "kJ/mol",
+      "T_C": [-3, 2227],
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed (D0 = (3.8e-7 +/- 0.4e-7); Ea = 39.8 +/- 1.5 kJ/mol). Original source: T. Otsuka, T. Tanabe, Application of a tritium imaging plate technique to depth profiling of hydrogen in metals and determination of hydrogen diffusion coefficients, Mater. Trans. 58 (2017) 1364-1372. Range 270-2500 K as printed in the book (Eq. 7.17). Measured with a tritium imaging-plate technique."
+    }
+  ],
 
-  "Incoloy 800": [],
+  "Cu": [
+    {
+      "label": "Magnusson & Frisk, 2017 (Tanabe 2026)",
+      "isotope": "H2",
+      "D0": 1.74e-6,
+      "D0_units": "m2/s",
+      "Ea": 42,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: H. Magnusson, K. Frisk, Diffusion, permeation and solubility of hydrogen in copper, J. Phase Equilib. Diffus. 38 (2017) 65-69. No range found (a regression of all experimental data); stored, not drawn."
+    }
+  ],
 
-  "Inconel 600": [],
+  "Mo": [
+    {
+      "label": "Tanabe et al., 1992 (Tanabe 2026)",
+      "isotope": "H2",
+      "D0": 4.0e-8,
+      "D0_units": "m2/s",
+      "Ea": 22.3,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: T. Tanabe, Y. Yamanishi, S. Imoto, Hydrogen permeation and diffusion in molybdenum, J. Nucl. Mater. 191-194 (1992) 439-443. No range found for this paper; stored, not drawn."
+    }
+  ],
 
-  "Inconel 625": [],
+  "316L SS": [
+    {
+      "label": "Guo et al., 2025†",
+      "isotope": "D2",
+      "D0": 3.10e-7,
+      "D0_units": "m2/s",
+      "Ea": 52.1,
+      "Ea_units": "kJ/mol",
+      "T_C": [200, 550],
+      "as_printed": "Ea = 0.54 eV",
+      "note": "Deuterium (D2) data, gas-driven permeation through 316L membranes tested at 823, 773, 723, 673, 623, 553 and 473 K (Table 1: 550-200 C); from Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864); values as printed. Eq. (28): D0 = (3.10 +/- 0.53)e-7 m2/s, Ea = 0.54 +/- 0.01 eV; from the 0.20 mm membrane (diffusion-controlled), time-lag fit of eq. (24)."
+    },
+    {
+      "label": "Xu et al., 2016†",
+      "isotope": "D2",
+      "D0": 1.33e-07,
+      "D0_units": "m2/s",
+      "Ea": 50.65,
+      "Ea_units": "kJ/mol",
+      "T_C": [439, 529],
+      "digitised_from": "Guo et al. 2025, Fig. 8(a)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(a), diffusivity, the line '316L, Xu, Y. P': digitised from the figure, not printed. Original source: Y.P. Xu et al., Deuterium permeation behavior of HTUPS4 steel with thermal oxidation layer, Fusion Eng. Des. 113 (2016) 201-204 (Guo's ref [13]). Isotope as in that paper's title. The line runs over 1000/T = 1.246-1.405 with log10 values -10.17 to -10.59. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor. Guo labels this line 316L; the cited paper is on HTUPS4 steel. A short line (0.16 in 1000/T): the energy is less certain, about +/-0.03 eV."
+    },
+    {
+      "label": "Houben et al., 2019",
+      "isotope": "H2",
+      "D0": 5.98e-07,
+      "D0_units": "m2/s",
+      "Ea": 51.04,
+      "Ea_units": "kJ/mol",
+      "T_C": [301, 556],
+      "digitised_from": "Guo et al. 2025, Fig. 8(a)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(a), diffusivity, the line '316L, Houben, A': digitised from the figure, not printed. Original source: A. Houben et al., Comparison of the hydrogen permeation through fusion relevant steels and the influence of oxidized and rough surfaces, Nucl. Mater. Energy 19 (2019) 55-58 (Guo's ref [15]). Isotope as in that paper's title. The line runs over 1000/T = 1.206-1.743 with log10 values -9.44 to -10.87. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor."
+    },
+    {
+      "label": "Forcey et al., 1988",
+      "isotope": "H2",
+      "D0": 7.63e-08,
+      "D0_units": "m2/s",
+      "Ea": 42.36,
+      "Ea_units": "kJ/mol",
+      "T_C": [262, 638],
+      "digitised_from": "Guo et al. 2025, Fig. 8(a)",
+      "note": "Read off Guo et al. 2025 (J. Nucl. Mater. 614, 155864; doi:10.1016/j.jnucmat.2025.155864), Fig. 8(a), diffusivity, the line '316L, Forcey, K. S': digitised from the figure, not printed. Original source: K.S. Forcey et al., Hydrogen transport and solubility in 316L and 1.4914 steels for fusion reactor applications, J. Nucl. Mater. 160 (1988) 117-124 (Guo's ref [8]). Isotope as in that paper's title. The line runs over 1000/T = 1.098-1.868 with log10 values -9.55 to -11.26. Reading Guo's own lines the same way gives their printed laws to within 0.003 eV and 7 % in the pre-factor. This line and Forcey's permeability line in Fig. 8(b) have the same slope and nearly the same values; one may be mis-drawn in Guo's figure: check against Forcey et al. 1988."
+    },
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "D0": 1.3e-6,
+      "D0_units": "m2/s",
+      "Ea": 54,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
 
-  "Inconel 718": [],
+  "316 SS": [],
 
-  "Al2O3": [],
+  "304 SS": [
+    {
+      "label": "Grant et al., 1987 (INL 2020)",
+      "isotope": "H2",
+      "D0": 1.2e-6,
+      "D0_units": "m2/s",
+      "Ea": 55,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [27]; values as printed. Original source: D.M. Grant, D.L. Cummings, D.A. Blackburn, Hydrogen in 304 steel: diffusion, permeation and surface reaction, J. Nucl. Mater. 149 (1987) 180-191, doi:10.1016/0022-3115(87)90476-4. No range found: the 1987 paper's range could not be confirmed (Grant's 1984 Open University PhD thesis, the same method, covers 502-963 K); stored, not drawn."
+    },
+    {
+      "label": "Braun et al., 1980 (INL 2020)",
+      "isotope": "H2",
+      "D0": 1.8e-5,
+      "D0_units": "m2/s",
+      "Ea": 62,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [28]; values as printed. Original source: M. Braun, B. Emmoth, F. Waelbroeck, P. Wienhold, Determination of deuterium surface recombination rates on stainless steel, J. Nucl. Mater. 93-94 (1980) 861-865, doi:10.1016/0022-3115(80)90219-6. No range found for this paper; stored, not drawn. The table prints H2; the paper's title says deuterium."
+    }
+  ],
+
+  "Hastelloy N": [
+    {
+      "label": "Fuerst et al., 2024",
+      "isotope": "H2",
+      "D0": 2.9E-6,
+      "D0_units": "m2/s",
+      "Ea": 55.9,
+      "Ea_units": "kJ/mol",
+      "T_C": [500, 700],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, this work (doi:10.1016/j.jnucmat.2023.154851); values as printed."
+    },
+    {
+      "label": "Fuerst et al., 2024†",
+      "isotope": "D2",
+      "D0": 2.0E-6,
+      "D0_units": "m2/s",
+      "Ea": 54.7,
+      "Ea_units": "kJ/mol",
+      "T_C": [500, 700],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, this work (doi:10.1016/j.jnucmat.2023.154851); values as printed."
+    },
+    {
+      "label": "Zhang et al., 2020",
+      "isotope": "H2",
+      "D0": 7.0E-7,
+      "D0_units": "m2/s",
+      "Ea": 44.1,
+      "Ea_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [12] (doi:10.1080/15361055.2020.1725368); values as printed."
+    },
+    {
+      "label": "Zhang et al., 2020†",
+      "isotope": "D2",
+      "D0": 6.1E-7,
+      "D0_units": "m2/s",
+      "Ea": 43.7,
+      "Ea_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [12] (doi:10.1080/15361055.2020.1725368); values as printed."
+    },
+    {
+      "label": "Zhang et al., 2020 (INL 2020)",
+      "isotope": "H2",
+      "D0": 7.0e-7,
+      "D0_units": "m2/s",
+      "Ea": 44,
+      "Ea_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [39]; values as printed. Original source: D. Zhang, W. Liu, W. Liu, Diffusion characterization of hydrogen isotopes in Hastelloy N alloy for the application of fluoride-salt-cooled high-temperature reactors (FHRs), Fusion Sci. Technol. 76 (2020) 543-552, doi:10.1080/15361055.2020.1725368. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper."
+    }
+  ],
+
+  "Hastelloy C-276": [
+    {
+      "label": "Zhang et al., 2015",
+      "isotope": "H2",
+      "D0": 7.2E-7,
+      "D0_units": "m2/s",
+      "Ea": 45.7,
+      "Ea_units": "kJ/mol",
+      "T_C": [400, 800],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [16] (doi:10.13182/FST14-T109); values as printed."
+    }
+  ],
+
+  "Hastelloy X": [
+    {
+      "label": "Kishimoto et al., 1985",
+      "isotope": "H2",
+      "D0": 4.9E-7,
+      "D0_units": "m2/s",
+      "Ea": 43.2,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [15] (doi:10.1016/0022-3115(85)90056-X); values as printed."
+    },
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "D0": 4.9e-7,
+      "D0_units": "m2/s",
+      "Ea": 43,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
+
+  "Incoloy 800": [
+    {
+      "label": "Schmidt et al., 1985*",
+      "isotope": "T2",
+      "D0": 9.7E-7,
+      "D0_units": "m2/s",
+      "Ea": 56.4,
+      "Ea_units": "kJ/mol",
+      "T_C": [750, 950],
+      "note": "Tritium (T2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [22] (doi:10.1016/0022-3115(85)90461-1); values as printed."
+    },
+    {
+      "label": "Esteban et al., 2002†",
+      "isotope": "D2",
+      "D0": 3.9E-7,
+      "D0_units": "m2/s",
+      "Ea": 47.8,
+      "Ea_units": "kJ/mol",
+      "T_C": [154, 507],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [23] (doi:10.1016/S0022-3115(01)00715-2); values as printed."
+    },
+    {
+      "label": "Esteban et al., 2002 (INL 2020)",
+      "isotope": "H2",
+      "D0": 3.9e-7,
+      "D0_units": "m2/s",
+      "Ea": 48,
+      "Ea_units": "kJ/mol",
+      "T_C": [154, 507],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [31]; values as printed. Original source: G.A. Esteban, A. Perujo, L.A. Sedano, F. Legarda, B. Mancinelli, K. Douglas, Diffusive transport parameters and surface rate constants of deuterium in Incoloy 800, J. Nucl. Mater. 300 (2002) 1-6, doi:10.1016/S0022-3115(01)00715-2. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. The table prints H2; the paper's title says deuterium."
+    }
+  ],
+
+  "Inconel 600": [
+    {
+      "label": "Kishimoto et al., 1985",
+      "isotope": "H2",
+      "D0": 4.9E-7,
+      "D0_units": "m2/s",
+      "Ea": 42.2,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [15] (doi:10.1016/0022-3115(85)90056-X); values as printed."
+    },
+    {
+      "label": "Rota et al., 1982",
+      "isotope": "H2",
+      "D0": 1.7E-6,
+      "D0_units": "m2/s",
+      "Ea": 49.8,
+      "Ea_units": "kJ/mol",
+      "T_C": [150, 400],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [17] (doi:10.1016/0022-3115(82)90214-8); values as printed."
+    },
+    {
+      "label": "Rota et al., 1982†",
+      "isotope": "D2",
+      "D0": 2.0E-6,
+      "D0_units": "m2/s",
+      "Ea": 51.9,
+      "Ea_units": "kJ/mol",
+      "T_C": [150, 400],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [17] (doi:10.1016/0022-3115(82)90214-8); values as printed."
+    },
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "D0": 4.9e-7,
+      "D0_units": "m2/s",
+      "Ea": 43,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    },
+    {
+      "label": "Rota et al., 1982 (INL 2020)",
+      "isotope": "H2",
+      "D0": 1.7e-6,
+      "D0_units": "m2/s",
+      "Ea": 50,
+      "Ea_units": "kJ/mol",
+      "T_C": [150, 400],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [30]; values as printed. Original source: E. Rota, F. Waelbroeck, P. Wienhold, J. Winter, Measurements of surface and bulk properties for the interaction of hydrogen with Inconel 600, J. Nucl. Mater. 111-112 (1982) 233-239, doi:10.1016/0022-3115(82)90214-8. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper."
+    }
+  ],
+
+  "Inconel 625": [
+    {
+      "label": "Gervasini et al., 1984",
+      "isotope": "H2",
+      "D0": 1.8E-6,
+      "D0_units": "m2/s",
+      "Ea": 52.6,
+      "Ea_units": "kJ/mol",
+      "T_C": [377, 627],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [20] (doi:10.13182/FST84-A23218); values as printed."
+    },
+    {
+      "label": "Gervasini et al., 1984†",
+      "isotope": "D2",
+      "D0": 2.4E-6,
+      "D0_units": "m2/s",
+      "Ea": 57.2,
+      "Ea_units": "kJ/mol",
+      "T_C": [377, 627],
+      "note": "Deuterium (D2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [20] (doi:10.13182/FST84-A23218); values as printed."
+    }
+  ],
+
+  "Inconel 718": [
+    {
+      "label": "Robertson, 1977",
+      "isotope": "H2",
+      "D0": 1.1E-6,
+      "D0_units": "m2/s",
+      "Ea": 49.8,
+      "Ea_units": "kJ/mol",
+      "T_C": [150, 500],
+      "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [21] (doi:10.1007/BF02646873); values as printed."
+    }
+  ],
+
+  "Inconel 750": [
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "D0": 1.6e-6,
+      "D0_units": "m2/s",
+      "Ea": 53,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
+
+  "Nimonic 80A": [
+    {
+      "label": "Kishimoto et al., 1985 (INL 2020)",
+      "isotope": "H2",
+      "D0": 1.4e-6,
+      "D0_units": "m2/s",
+      "Ea": 53,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 900],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [34]; values as printed. Original source: N. Kishimoto, T. Tanabe, T. Suzuki, H. Yoshida, Hydrogen diffusion and solution at high temperatures in 316L stainless steel and nickel-base heat-resistant alloys, J. Nucl. Mater. 127 (1985) 1-9, doi:10.1016/0022-3115(85)90056-X. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. (its Hastelloy X and Inconel 600 rows), applied to every alloy of the paper."
+    }
+  ],
+
+
+  "Al2O3": [
+    {
+      "label": "Pan et al., 2021 (H atom, simulated)",
+      "isotope": "H2",
+      "D0": 2.96e-06,
+      "D0_units": "m2/s",
+      "Ea": 95.6,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 1723],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Simulated hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'H atom, this work (s)': digitised, not printed. Source: Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156. The series runs over 10000/T = 5.01-17.44 with lg D = -8.03 to -14.23. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol."
+    },
+    {
+      "label": "Pan et al., 2021 (H2 molecule, simulated)",
+      "isotope": "H2",
+      "D0": 3.65e-7,
+      "D0_units": "m2/s",
+      "Ea": 219.0,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 1758],
+      "as_printed": "Ea = 2.27 eV",
+      "note": "Simulated (first-principles) diffusivity of the H2 molecule, printed in the abstract of Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156: D = 3.65e-7 exp(-2.27 eV/kT) m2/s. The range is read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (10000/T = 4.92-17.44); reading the line itself gives 5e-07 m2/s and 217.6 kJ/mol, which checks the reading of this figure."
+    },
+    {
+      "label": "F. Wang (H atom, simulated)",
+      "isotope": "H2",
+      "D0": 1.05e-06,
+      "D0_units": "m2/s",
+      "Ea": 105.1,
+      "Ea_units": "kJ/mol",
+      "T_C": [299, 1732],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Simulated hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'H atom, Fei Wang (s)': digitised, not printed. Source: listed as 'H atom, Fei Wang' (simulated); the reference is in Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156. The series runs over 10000/T = 4.99-17.48 with lg D = -8.72 to -15.57. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol."
+    },
+    {
+      "label": "W. Mao (H atom, simulated)",
+      "isotope": "H2",
+      "D0": 5.51e-07,
+      "D0_units": "m2/s",
+      "Ea": 120.1,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 1732],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Simulated hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'H atom, Wei Mao (s)': digitised, not printed. Source: listed as 'H atom, Wei Mao' (simulated); the reference is in Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156. The series runs over 10000/T = 4.99-17.46 with lg D = -9.39 to -17.21. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol."
+    },
+    {
+      "label": "Fowler et al., 1977 (sintered, T as H)",
+      "isotope": "H2",
+      "D0": 9.69e-06,
+      "D0_units": "m2/s",
+      "Ea": 181.3,
+      "Ea_units": "kJ/mol",
+      "T_C": [597, 876],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Experimental hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'Sintered, Fowler (e,a)': digitised, not printed. Source: Tritium diffusion in Al2O3 and BeO, J. Am. Ceram. Soc. 60 (1977) 155-161, doi:10.1111/j.1151-2916.1977.tb15493.x. Measured with tritium; the figure shows it converted to hydrogen with D_T/D_H = sqrt(m_H/m_T). The series runs over 10000/T = 8.71-11.49 with lg D = -13.26 to -15.90. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol."
+    },
+    {
+      "label": "Belonoshko (H atom, simulated)",
+      "isotope": "H2",
+      "D0": 2.01e-07,
+      "D0_units": "m2/s",
+      "Ea": 119.6,
+      "Ea_units": "kJ/mol",
+      "T_C": [298, 1749],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Simulated hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'H atom, Belonoshko (s)': digitised, not printed. Source: listed as 'H atom, Belonoshko' (simulated); the reference is in Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156. The series runs over 10000/T = 4.95-17.50 with lg D = -9.79 to -17.63. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol."
+    },
+    {
+      "label": "Fowler et al., 1977 (single crystal, T as H)",
+      "isotope": "H2",
+      "D0": 0.000419,
+      "D0_units": "m2/s",
+      "Ea": 236.1,
+      "Ea_units": "kJ/mol",
+      "T_C": [596, 997],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Experimental hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'Single crystal, Fowler (e,a)': digitised, not printed. Source: Tritium diffusion in Al2O3 and BeO, J. Am. Ceram. Soc. 60 (1977) 155-161, doi:10.1111/j.1151-2916.1977.tb15493.x. Measured with tritium; the figure shows it converted to hydrogen with D_T/D_H = sqrt(m_H/m_T). The series runs over 10000/T = 7.88-11.51 with lg D = -13.09 to -17.57. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol."
+    },
+    {
+      "label": "Fowler et al., 1977 (Lucalox, T as H)",
+      "isotope": "H2",
+      "D0": 0.00667,
+      "D0_units": "m2/s",
+      "Ea": 174.9,
+      "Ea_units": "kJ/mol",
+      "T_C": [359, 575],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Experimental hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'Lucalox, Fowler (e,a)': digitised, not printed. Source: Tritium diffusion in Al2O3 and BeO, J. Am. Ceram. Soc. 60 (1977) 155-161, doi:10.1111/j.1151-2916.1977.tb15493.x. Measured with tritium; the figure shows it converted to hydrogen with D_T/D_H = sqrt(m_H/m_T). The series runs over 10000/T = 11.79-15.82 with lg D = -12.95 to -16.63. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol."
+    },
+    {
+      "label": "Ramirez (single crystal)",
+      "isotope": "H2",
+      "D0": 1.94e+05,
+      "D0_units": "m2/s",
+      "Ea": 418.6,
+      "Ea_units": "kJ/mol",
+      "T_C": [1000, 1104],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Experimental hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'Single crystal, Ramirez (e)': digitised, not printed. Source: listed as 'Single crystal, Ramrez' (experimental); the reference is in Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156. The series runs over 10000/T = 7.26-7.86 with lg D = -10.59 to -11.89. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol. Only three points over 0.6 in 10000/T: the energy is uncertain by about +/-80 kJ/mol."
+    },
+    {
+      "label": "Kronenberg (sapphire)",
+      "isotope": "H2",
+      "D0": 2.43e+05,
+      "D0_units": "m2/s",
+      "Ea": 383.1,
+      "Ea_units": "kJ/mol",
+      "T_C": [899, 1028],
+      "digitised_from": "Tanabe 2026, Fig. 10.2",
+      "note": "Experimental hydrogen diffusivity in alpha-Al2O3, read off T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Fig. 10.2 (reproduced from Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156), series 'Sapphire, Kronenberg (e)': digitised, not printed. Source: listed as 'Sapphire, Kronenberg' (experimental); the reference is in Pan et al., First-principles study on the dissolution and diffusion properties of hydrogen in alpha-Al2O3, Ceram. Int. 47 (2021) 5699-5707, doi:10.1016/j.ceramint.2020.10.156. The series runs over 10000/T = 7.69-8.54 with lg D = -9.99 to -11.69. Reading the printed laws back the same way (Guo 2025 Fig. 8; Pan et al. 2021 here) agrees to about 1-2 kJ/mol. Only two points over 0.85 in 10000/T: the energy is uncertain by about +/-60 kJ/mol."
+    }
+  ],
 
   "Cr2O3": [],
 

@@ -374,6 +374,7 @@ class LitEntry:
     Ea_eV:   float
     T_K:     tuple[float, float]
     note:    str = ''
+    digitised: str = ''                 # the figure it was read off, when not printed
 
     @property
     def legend(self) -> str:
@@ -404,6 +405,9 @@ def _parse_lit_entry(raw: dict, material: str) -> LitEntry:
     label = str(raw.get('label') or '').strip()
     if not label:
         raise ValueError('entry is missing "label"')
+    if raw.get('D0') is None and raw.get('Ea') is None and ('T_C' in raw or 'T_K' in raw) \
+            and raw.get('T_C') is None and raw.get('T_K') is None:   # one measured value, no law
+        raise ValueError(f'{label}: a single value with no law, so stored but not drawn')
     for key in ('D0', 'Ea'):
         if raw.get(key) is None:
             raise ValueError(f'{label}: missing "{key}"')
@@ -418,6 +422,8 @@ def _parse_lit_entry(raw: dict, material: str) -> LitEntry:
         span = [float(v) + 273.15 for v in raw['T_C']]
     elif raw.get('T_K') is not None:
         span = [float(v) for v in raw['T_K']]
+    elif 'T_C' in raw or 'T_K' in raw:                 # null on purpose: no range is known
+        raise ValueError(f'{label}: no temperature range known, so stored but not drawn')
     else:
         raise ValueError(f'{label}: needs "T_C" (preferred) or "T_K"')
     if len(span) != 2:
@@ -427,7 +433,8 @@ def _parse_lit_entry(raw: dict, material: str) -> LitEntry:
         raise ValueError(f'{label}: temperature range reaches absolute zero')
 
     return LitEntry(label=label, D0_m2s=D0, Ea_eV=Ea, T_K=T_K,
-                    note=str(raw.get('note') or ''))
+                    note=str(raw.get('note') or ''),
+                    digitised=str(raw.get('digitised_from') or ''))
 
 
 def load_literature(path: str) -> dict[str, list[LitEntry]]:
@@ -723,12 +730,26 @@ def plot_combined(stem: str, runs: list[Run], outfile: str):
 LIT_LINE = dict(color=fs.GREY, lw=2.4, ls=(0, (5, 3)))
 
 
+#: the most first-author names written beside the literature lines; with more, only the caption names them
+LIT_LABELS_MAX = 8
+
+
+def _first_author(label: str) -> str:
+    """'Fuerst et al., 2024†' -> 'Fuerst†'; 'Strehlow & Savage, 1974' -> 'Strehlow'; the isotope mark
+    stays, so a source's H and D lines get separate names."""
+    name = re.split(r',| \(|\[', label, maxsplit=1)[0].replace(' et al.', '').split(' & ')[0].strip()
+    tail = label.rstrip()[-1:]
+    return name + (tail if tail in ('†', '*') else '')
+
+
 def plot_vs_literature(stem: str, runs: list[Run], lit: list[LitEntry],
                        outfile: str, max_decades: float = 10.0):
     """This work's MD data against published Arrhenius laws. Every law is a grey dashed line, drawn
     only across its own validity window, behind this work's points; the sources are listed, with
-    their parameters, in the caption. A source outside the max_decades window is not drawn and is
-    named there too. One figure, PDF, PNG and caption."""
+    their parameters, in the caption. With up to LIT_LABELS_MAX first authors, each line is also
+    named beside it in black (a leader line where the name cannot sit right next to it). A source
+    outside the max_decades window is not drawn and is named in the caption. One figure, PDF, PNG
+    and caption."""
     from matplotlib.lines import Line2D
     runs = sorted(runs, key=lambda r: r.n_H)
     styles = fs.loading_styles([r.n_H for r in runs])
@@ -763,15 +784,30 @@ def plot_vs_literature(stem: str, runs: list[Run], lit: list[LitEntry],
     fs.log_ticks(ax.yaxis, 10 ** y_lo, 10 ** y_hi)
     ax.set_ylabel(r'$D$ (m$^2$ s$^{-1}$)')
     fs.key_below(fig, handles, labels, ncol=1, colours=keycols)
+    # each grey line named by its first author beside it (one name for one author's lines of one isotope),
+    # when there are few enough to read; otherwise the caption alone names them
+    groups: dict[str, list] = {}
+    for entry, T, D in curves:
+        if entry in drawn:
+            groups.setdefault(_first_author(entry.label), []).append(np.column_stack([1000.0 / T, D]))
+    named = fs.line_labels(fig, ax, list(groups.items()), max_labels=LIT_LABELS_MAX)
     mat = fs.material_styles([stem], pretty_material)[stem][0]
 
     def tex(t):
-        return t.replace('&', r'\&').replace('%', r'\%').replace('_', r'\_').replace('#', r'\#')
+        t = t.replace('&', r'\&').replace('%', r'\%').replace('_', r'\_').replace('#', r'\#')
+        return t.replace('†', r'\textsuperscript{\dag}').replace('*', r'\textsuperscript{*}')
     lit_words = '; '.join(f'{tex(e.label)}: $E_a$ = {fs.ev(e.Ea_eV)}~eV, $D_0$ = {fs.tex_num(e.D0_m2s, 3)}~m$^2$~s$^{{-1}}$, '
                           f'{e.T_K[0]:.0f}--{e.T_K[1]:.0f}~K' for e in drawn)
+    # a dagger or an asterisk at the end of a label marks a deuterium or a tritium law (see the literature file)
+    marks = [w for sym, w in (('†', r'\textsuperscript{\dag}~deuterium (D$_2$)'), ('*', r'\textsuperscript{*}~tritium (T$_2$)'))
+             if any(e.label.rstrip().endswith(sym) for e in drawn)]
     text = (rf'Hydrogen diffusivity in bulk {mat} from this work (points and solid lines, one colour per H loading; '
             rf'{_fit_words(runs)}) against {len(drawn)} published Arrhenius laws (grey dashed lines, each drawn only '
-            rf'over its own temperature range): {lit_words}.'
+            rf'over its own temperature range{" and named by its first author" if named else ""}): {lit_words}.'
+            + (f' Laws measured with another isotope: {fs.tex_join(marks)}; the rest are hydrogen.' if marks else '')
+            + (' Read off a published figure, not printed: '
+               + fs.tex_join([f'{tex(e.label)} ({tex(e.digitised)})' for e in drawn if e.digitised]) + '.'
+               if any(e.digitised for e in drawn) else '')
             + (f' Not drawn, outside a {max_decades:.0f}-decade window: {fs.tex_join([tex(o) for o in off_scale])}.'
                if off_scale else ''))
     fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, keyed=True)

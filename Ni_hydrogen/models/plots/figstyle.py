@@ -329,6 +329,166 @@ def label_or_key(fig, ax, items, handles, side="right", ncol=3):
     key_below(fig, handles, [t.replace("\n", " ") for _, _, t, _ in items], ncol=ncol)
     return True
 
+
+# --- labels in free space next to their own lines, with leader lines ---------------------------------
+
+def _frac_box(ax, artist, renderer):
+    return artist.get_window_extent(renderer).transformed(ax.transAxes.inverted())
+
+
+def _fill(pts, step=0.004):
+    """Axes-fraction points of a line, filled in every ``step`` between them, inside the axes."""
+    pts = pts[np.isfinite(pts).all(axis=1)]
+    if len(pts) > 1:
+        out = [pts[:1]]
+        for p, q in zip(pts[:-1], pts[1:]):
+            n = max(1, int(np.ceil(np.hypot(*(q - p)) / step)))
+            out.append(p + (q - p) * np.linspace(0, 1, n + 1)[1:, None])
+        pts = np.vstack(out)
+    return pts[(pts[:, 0] > -0.02) & (pts[:, 0] < 1.02) & (pts[:, 1] > -0.02) & (pts[:, 1] < 1.02)]
+
+
+def _dense_points(ax, xy):
+    """Data points of a line -> axes fractions, filled in along the line."""
+    with np.errstate(all="ignore"):
+        return _fill(ax.transAxes.inverted().transform(ax.transData.transform(np.asarray(xy, float))))
+
+
+def _obstacles(ax, renderer):
+    """Points of every line and mark on the axes (axes fractions), and the boxes of its texts."""
+    pts = []
+    for ln in ax.get_lines():
+        xy = ln.get_xydata()
+        if len(xy):
+            with np.errstate(all="ignore"):
+                p = ax.transAxes.inverted().transform(ln.get_transform().transform(np.asarray(xy, float)))
+            drawn = ln.get_linestyle() not in ("None", "none", "") and ln.get_linewidth() > 0
+            pts.append(_fill(p) if drawn else p[np.isfinite(p).all(axis=1)])
+    for c in ax.collections:
+        off = c.get_offsets()
+        if len(off):
+            pts.append(ax.transAxes.inverted().transform(c.get_offset_transform().transform(off)))
+    boxes = [_frac_box(ax, t, renderer) for t in ax.texts if t.get_visible() and t.get_text().strip()]
+    pts = [p for p in pts if len(p)]
+    return (np.vstack(pts) if pts else np.empty((0, 2))), boxes
+
+
+def line_labels(fig, ax, groups, max_labels=8, margin=0.025, pad=0.012, n=200, step=0.01, keep=400,
+                max_tries=40000, leader_from=0.015, max_leader=0.12):
+    """Name lines in free space beside them, the way review figures label literature lines.
+
+    groups: [(text, [xy, ...]), ...] - one label per group, xy the data points of each of its lines
+    (several lines can share one label, e.g. one source's H and D laws). Each label goes to a spot
+    that covers no line, mark or text; the spots are chosen together for the least total distance
+    to each label's own lines. A label not right beside a line gets a thin black leader to its
+    nearest point. Text is black, never coloured, so colour keeps meaning only the data. Nothing is
+    drawn, and False is returned, when there are more than ``max_labels`` groups or a label has no
+    free spot within ``max_leader`` (axes fraction) of its line - long leaders across a dense bundle
+    read worse than a caption; the caller then names the lines elsewhere (the caption)."""
+    if not groups or len(groups) > max_labels:
+        return False
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    obst, boxes = _obstacles(ax, renderer)
+    occ = np.zeros((n, n))
+    if len(obst):
+        ij = np.clip((obst * n).astype(int), 0, n - 1)
+        occ[ij[:, 1], ij[:, 0]] = 1
+    for b in boxes:
+        occ[int(np.clip(b.y0 * n, 0, n)):int(np.clip(np.ceil(b.y1 * n), 0, n)),
+            int(np.clip(b.x0 * n, 0, n)):int(np.clip(np.ceil(b.x1 * n), 0, n))] = 1
+    sat = np.pad(occ.cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+    texts, homes, spots = [], [], []
+    for text, lines in groups:
+        t = ax.text(0.5, 0.5, text, transform=ax.transAxes, fontsize=ANNOT_PT, fontweight="bold", color="black",
+                    ha="left", va="bottom", zorder=7)
+        texts.append(t)
+        size = _frac_box(ax, t, renderer)
+        w, h = size.width, size.height
+        home = [_dense_points(ax, xy) for xy in lines]
+        homes.append(home)
+        hp = np.vstack([p for p in home if len(p)]) if any(len(p) for p in home) else np.array([[0.5, 0.5]])
+        hp = hp[:: max(1, len(hp) // 400)]
+        L, B = (a.ravel() for a in np.meshgrid(np.arange(margin, 1 - margin - w, step), np.arange(margin, 1 - margin - h, step)))
+        if not len(L):
+            spots.append(np.empty((0, 7)))
+            continue
+        x0, x1, y0, y1 = L - pad, L + w + pad, B - pad, B + h + pad
+        i0, i1 = np.clip(np.floor(x0 * n), 0, n).astype(int), np.clip(np.ceil(x1 * n), 0, n).astype(int)
+        j0, j1 = np.clip(np.floor(y0 * n), 0, n).astype(int), np.clip(np.ceil(y1 * n), 0, n).astype(int)
+        free = (sat[j1, i1] - sat[j0, i1] - sat[j1, i0] + sat[j0, i0]) == 0
+        L, B, x0, x1, y0, y1 = (a[free] for a in (L, B, x0, x1, y0, y1))
+        dx = np.maximum(np.maximum(x0[:, None] - hp[None, :, 0], hp[None, :, 0] - x1[:, None]), 0)
+        dy = np.maximum(np.maximum(y0[:, None] - hp[None, :, 1], hp[None, :, 1] - y1[:, None]), 0)
+        cost = np.hypot(dx, dy).min(axis=1) if len(L) else np.empty(0)
+        near = cost <= max_leader                            # no long leaders across the plot
+        L, B, x0, x1, y0, y1, cost = (a[near] for a in (L, B, x0, x1, y0, y1, cost))
+        mine = []
+        for k in np.argsort(cost, kind="stable"):
+            if any(abs(L[k] - m[0]) < 0.025 and abs(B[k] - m[1]) < 0.025 for m in mine):
+                continue
+            mine.append((L[k], B[k], x0[k], x1[k], y0[k], y1[k], cost[k]))
+            if len(mine) >= keep:
+                break
+        spots.append(np.array(mine) if mine else np.empty((0, 7)))
+    if not all(len(s) for s in spots):
+        for t in texts:
+            t.remove()
+        return False
+    best, tries = [np.inf, None], [0]
+
+    def search(remaining, chosen, total):                   # least total distance, no two labels overlapping
+        if not remaining:
+            best[:] = [total, dict(chosen)]
+            return
+        floor = {j: spots[j][idx[0], 6] for j, idx in remaining.items()}
+        if total + sum(floor.values()) >= best[0] or tries[0] > max_tries:
+            return
+        i = min(remaining, key=lambda j: len(remaining[j]))
+        others = sum(v for j, v in floor.items() if j != i)
+        for m in remaining[i]:
+            tries[0] += 1
+            c = total + spots[i][m, 6]
+            if c + others >= best[0] or tries[0] > max_tries:
+                break
+            bx0, bx1, by0, by1 = spots[i][m, 2:6]
+            left, ok = {}, True
+            for j, idx in remaining.items():
+                if j == i:
+                    continue
+                o = spots[j][idx]
+                kj = idx[(o[:, 3] < bx0) | (o[:, 2] > bx1) | (o[:, 5] < by0) | (o[:, 4] > by1)]
+                if not len(kj):
+                    ok = False
+                    break
+                left[j] = kj
+            if ok:
+                chosen[i] = m
+                search(left, chosen, c)
+                del chosen[i]
+
+    search({i: np.arange(len(s)) for i, s in enumerate(spots)}, {}, 0.0)
+    if best[1] is None:
+        for t in texts:
+            t.remove()
+        return False
+    for i, t in enumerate(texts):
+        x, y = spots[i][best[1][i], :2]
+        t.set_position((x, y))
+        box = _frac_box(ax, t, renderer)
+        for p in homes[i]:
+            if not len(p):
+                continue
+            ex = np.clip(p[:, 0], box.x0, box.x1)             # nearest point of the label box to the line
+            ey = np.clip(p[:, 1], box.y0, box.y1)
+            d = np.hypot(p[:, 0] - ex, p[:, 1] - ey)
+            k = int(d.argmin())
+            if d[k] > leader_from:                     # an annotation, not a data line: thin on purpose
+                ax.annotate("", xy=(p[k, 0], p[k, 1]), xytext=(ex[k], ey[k]), xycoords="axes fraction",
+                            textcoords="axes fraction", zorder=6,
+                            arrowprops=dict(arrowstyle="-", color="black", lw=1.0, shrinkA=1, shrinkB=1))
+    return True
+
 def tex_num(v, sig=2):
     """0.66, 18, 490, or $10^{-7}$ and $2.5\\times10^{4}$ outside 0.01-1000; true minus signs."""
     v = float(v)
