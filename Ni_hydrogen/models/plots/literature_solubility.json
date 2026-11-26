@@ -1,0 +1,77 @@
+{
+  "_README": [
+    "Literature H solubility (Sieverts constant) laws, S = S0 exp(-Es / RT).",
+    "Same layout as literature_diffusivity.json. No plotting script reads this",
+    "file yet; diffusivity_plot.py's loader is the model for one.",
+    "",
+    "Top-level keys are materials, named as in a paper ('316L SS', 'Hastelloy N',",
+    "'NiO'). A run folder finds its key by its name without the H count and",
+    "without the structure words '_supercell', '_bestsqs' and '_sqs': folder",
+    "'Al_supercell_10H' looks for 'Al', 'HastelloyN_bestsqs_5H' for 'Hastelloy N'.",
+    "Matching ignores case, spaces, underscores and hyphens. A run whose name",
+    "differs from its key in more than that (a typo, a seed number, 'oxide' for a",
+    "formula) is listed in _ALIASES: run-folder name -> key (the same table as in",
+    "literature_diffusivity.json).",
+    "",
+    "Any key starting with '_' is documentation (or the alias table) and is not",
+    "a material.",
+    "",
+    "Each entry is valid ONLY across its own T_C window - a study measured over",
+    "300-600 C is never extrapolated to meet the MD points."
+  ],
+
+  "_SCHEMA": {
+    "label":   "REQUIRED. Citation as it should appear in the legend, e.g. 'Zhang et al. 2026'.",
+    "S0":      "REQUIRED. Pre-exponential factor of the Sieverts constant, as printed in the source.",
+    "S0_units": "Units of S0: 'mol/(m3 Pa^0.5)' (default) | 'mol/(m3 MPa^0.5)' | 'appm/Pa^0.5' | 'appm/atm^0.5' | 'cm3(STP)/(cm3 atm^0.5)'.",
+    "Es":      "REQUIRED. Enthalpy (heat) of solution, as printed in the source; negative when solution is exothermic.",
+    "Es_units": "Units of Es: 'eV' (default) | 'meV' | 'kJ/mol' | 'J/mol' | 'kcal/mol'.",
+    "T_C":     "REQUIRED (or T_K). Validity range [low, high] in degrees Celsius.",
+    "T_K":     "Alternative to T_C: validity range [low, high] in Kelvin.",
+    "note":    "OPTIONAL. Free-text provenance - method, purity, DOI. Not plotted."
+  },
+
+  "_ALIASES": {
+    "Hastelloy_N_7":    "Hastelloy N",
+    "Hastelloy_N_42":   "Hastelloy N",
+    "Hastelloy_N_111":  "Hastelloy N",
+    "Hastelloy_N_1234": "Hastelloy N",
+    "Hastelloy_N_12345": "Hastelloy N",
+    "Inconol600":       "Inconel 600",
+    "Inconol625":       "Inconel 625",
+    "Inconol718":       "Inconel 718",
+    "Al2O3_oxide":      "Al2O3",
+    "cr2o3_oxide":      "Cr2O3",
+    "Cr_oxide":         "Cr2O3",
+    "Nickel_oxide":     "NiO",
+    "Ni_oxide":         "NiO"
+  },
+
+  "Al": [],
+
+  "Ni": [],
+
+  "Fe": [],
+
+  "316L SS": [],
+
+  "Hastelloy N": [],
+
+  "Hastelloy C-276": [],
+
+  "Hastelloy X": [],
+
+  "Incoloy 800": [],
+
+  "Inconel 600": [],
+
+  "Inconel 625": [],
+
+  "Inconel 718": [],
+
+  "Al2O3": [],
+
+  "Cr2O3": [],
+
+  "NiO": []
+}

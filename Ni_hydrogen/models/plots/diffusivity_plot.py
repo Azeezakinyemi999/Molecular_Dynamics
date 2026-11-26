@@ -460,18 +460,51 @@ def load_literature(path: str) -> dict[str, list[LitEntry]]:
     return out
 
 
-def literature_for(stem: str, lit: dict[str, list[LitEntry]]) -> list[LitEntry]:
-    """Match a run stem to a literature key, case- and separator-insensitively.
+def load_aliases(path: str) -> dict[str, str]:
+    """The literature file's ``_ALIASES`` table: run-folder name -> material key.
 
-    'Al_supercell' matches a key of 'Al', 'al', or 'Al_supercell'.
+    For runs whose folder name differs from the material's key by more than
+    case, separators and a structure word: a typo ('Inconol600'), a seed
+    number ('Hastelloy_N_7') or 'oxide' instead of a formula ('Nickel_oxide').
     """
-    pretty = pretty_material(stem)
-    candidates = (pretty, stem, pretty.replace(' ', '_'), pretty.replace(' ', ''))
-    lowered = {k.lower().replace(' ', '_'): v for k, v in lit.items()}
-    for cand in candidates:
-        hit = lowered.get(cand.lower().replace(' ', '_'))
+    if not os.path.isfile(path):
+        return {}
+    with open(path) as fh:
+        table = json.load(fh).get('_ALIASES', {})
+    return {str(k): str(v) for k, v in table.items()} if isinstance(table, dict) else {}
+
+
+#: words in a run-folder name that describe the cell, not the material
+_STRUCTURE_WORDS = ('supercell', 'bestsqs', 'sqs')
+
+
+def _match_key(name: str) -> str:
+    """'Hastelloy C-276' and 'HastelloyC-276' -> 'hastelloyc276'."""
+    return ''.join(ch for ch in name.lower() if ch not in ' _-')
+
+
+def literature_for(stem: str, lit: dict[str, list[LitEntry]],
+                   aliases: dict[str, str] | None = None) -> list[LitEntry]:
+    """The literature entries of a run stem's material.
+
+    A stem matches a key ignoring case, spaces, underscores and hyphens, with
+    or without its structure words ('_supercell', '_bestsqs', '_sqs'):
+    'Al_supercell' matches 'Al', 'HastelloyN_bestsqs' matches 'Hastelloy N'.
+    Failing that, ``aliases`` (the file's ``_ALIASES``) maps the run name to
+    its key: 'Nickel_oxide' -> 'NiO'.
+    """
+    bare = '_'.join(w for w in stem.split('_') if w.lower() not in _STRUCTURE_WORDS)
+    names = [stem, bare]
+    keys = {_match_key(k): v for k, v in lit.items()}
+    alias = {_match_key(k): v for k, v in (aliases or {}).items()}
+    for name in names:
+        hit = keys.get(_match_key(name))
         if hit:
             return hit
+    for name in names:
+        target = alias.get(_match_key(name))
+        if target and keys.get(_match_key(target)):
+            return keys[_match_key(target)]
     return []
 
 
@@ -829,10 +862,11 @@ def main(argv: list[str] | None = None) -> int:
 
     print('\nLoading literature data …')
     lit = load_literature(os.path.abspath(args.literature))
+    aliases = load_aliases(os.path.abspath(args.literature))
 
     print('\nLiterature comparison plots:')
     for stem, group in sorted(by_stem.items()):
-        entries = literature_for(stem, lit)
+        entries = literature_for(stem, lit, aliases)
         if not entries:
             print(f'  · {pretty_material(stem)}: no literature entries — '
                   f'add them to {os.path.basename(args.literature)} to enable')
