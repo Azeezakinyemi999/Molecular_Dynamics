@@ -72,8 +72,8 @@
       "kd0_units": "mol/(m2 s Pa)",
       "Ed": 30,
       "Ed_units": "kJ/mol",
-      "T_C": null,
-      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [32]; values as printed. Original source: A.K. Altunoglu, D.A. Blackburn, N.S.J. Braithwaite, D.M. Grant, Permeation of hydrogen through nickel foils: surface reaction rates at low temperatures, J. Less-Common Met. 172-174 (1991) 718-726, doi:10.1016/0022-5088(91)90195-A. No range found (the title says low temperatures); stored, not drawn."
+      "T_K": [373, 623],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 5, ref [32]; values as printed. Original source: A.K. Altunoglu, D.A. Blackburn, N.S.J. Braithwaite, D.M. Grant, Permeation of hydrogen through nickel foils: surface reaction rates at low temperatures, J. Less-Common Met. 172-174 (1991) 718-726, doi:10.1016/0022-5088(91)90195-A. Range 373-623 K from the publisher abstract (doi:10.1016/S0022-5088(06)80312-7, read via Consensus): the experiments ran \"for temperatures between 373 K and 623 K\" by pressure modulation at 5.3 Pa-7.3 kPa. The abstract prints k1 = 1.44e-6 exp(-29.68e3/RT) mol H2 m-2 s-1 Pa-1, which INL rounds to 1.4e-6 and 30 kJ/mol."
     }
   ],
 

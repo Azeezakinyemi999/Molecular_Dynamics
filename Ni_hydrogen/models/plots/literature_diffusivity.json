@@ -618,8 +618,8 @@
       "D0_units": "m2/s",
       "Ea": 41,
       "Ea_units": "kJ/mol",
-      "T_C": null,
-      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [32]; values as printed. Original source: A.K. Altunoglu, D.A. Blackburn, N.S.J. Braithwaite, D.M. Grant, Permeation of hydrogen through nickel foils: surface reaction rates at low temperatures, J. Less-Common Met. 172-174 (1991) 718-726, doi:10.1016/0022-5088(91)90195-A. No range found (the title says low temperatures); stored, not drawn."
+      "T_K": [373, 623],
+      "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [32]; values as printed. Original source: A.K. Altunoglu, D.A. Blackburn, N.S.J. Braithwaite, D.M. Grant, Permeation of hydrogen through nickel foils: surface reaction rates at low temperatures, J. Less-Common Met. 172-174 (1991) 718-726, doi:10.1016/0022-5088(91)90195-A. Range 373-623 K from the publisher abstract (\"temperatures between 373 K and 623 K\", pressure modulation at 5.3 Pa-7.3 kPa), read via Consensus; the abstract prints the law as D = 7.12e-7 exp(-40.64e3/RT), which INL rounds to 7.1e-7 and 41 kJ/mol."
     },
     {
       "label": "Robertson, 1973 (Tanabe 2026)",
@@ -631,6 +631,16 @@
       "T_C": [27, 502],
       "as_printed": "D0 = (4.02 +/- 0.37) x 10^-3, Ea = 9.39 +/- 0.08 (Table 7.2 heads m2 s-1 and kJ/mol)",
       "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7. Original source: W.M. Robertson, Hydrogen permeation, diffusion and solution in nickel, Z. Metallkd. (Int. J. Mater. Res.) 64 (1973) 436-443. Range 300-775 K as Steward (1983, UCRL-53441, Table 5) gives for this paper's permeability; the diffusivity is from the same measurements. Converted from the printed row. Table 7.2 heads the column m2 s-1 and kJ/mol, but this row is printed in cgs and calorie units: D0 = (4.02 +/- 0.37) x 10^-3 cm2/s = (4.02 +/- 0.37) x 10^-7 m2/s, and Ea = 9.39 +/- 0.08 kcal/mol = 39.29 +/- 0.33 kJ/mol. The energy matches the row's permeability energy (13.09 kcal/mol = 54.8 kJ/mol) less the heat of solution, and the result is close to other nickel diffusivities (about 7 x 10^-7 m2/s, 40 kJ/mol)."
+    },
+    {
+      "label": "Hagi, 1986",
+      "isotope": "H2",
+      "D0": 9.2e-7,
+      "D0_units": "m2/s",
+      "Ea": 41.4,
+      "Ea_units": "kJ/mol",
+      "T_K": [260, 980],
+      "note": "Hydrogen (H2) data. Source: H. Hagi, Diffusion coefficients of hydrogen in Ni-Cu and Ni-Co alloys, Trans. JIM 27 (1986) 233-240, doi:10.2320/matertrans1960.27.233. Values as printed in the abstract (\"In nickel, D(m2/s)=9.2x10-7exp(-41.4(kJ/mol)/RT)\"); read at https://openalex.org/W895937987. Electrochemical plus gas permeation. Law checked myself; range from the paper text."
     }
   ],
 
@@ -644,6 +654,38 @@
       "Ea_units": "kJ/mol",
       "T_C": [147, 827],
       "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed (D0 = (6.04e-8 +/- 0.18e-8); Ea = 6.99 +/- 0.11 kJ/mol). Original source: T. Tanabe, Y. Yamanishi, S. Imoto, Hydrogen transport through highly purified iron, Trans. Jpn. Inst. Met. 25 (1984) 1-10. Range 420-1100 K from the paper's abstract."
+    },
+    {
+      "label": "Nagano et al., 1981",
+      "isotope": "H2",
+      "D0": 4.9e-8,
+      "D0_units": "m2/s",
+      "Ea": 4.2,
+      "Ea_units": "kJ/mol",
+      "T_K": [290, 322],
+      "as_printed": "D0 = 4.9e-8 m2/s, Ea = 4200 J/mol",
+      "note": "Hydrogen (H2) data. Source: M. Nagano, Y. Hayashi, N. Ohtani, M. Isshiki, K. Igaki, Diffusion of hydrogen and deuterium in high purity iron between 222 and 322 K, Trans. JIM 22 (1981) 423-429, doi:10.2320/matertrans1960.22.423. Values as printed in the abstract (\"DH(m2/s)=4.90x10-8exp(-4200(J/mol)/RT)\"); read at https://openalex.org/W1976259559. Electrochemical AC permeation, high-purity iron (RRR 5000-6000). Measured 222-322 K (abstract); trapping below about 290 K, so the law is taken as valid above 290 K (paper text). Checked myself (law). Energy converted to kJ/mol from J/mol."
+    },
+    {
+      "label": "Nagano et al., 1981†",
+      "isotope": "D2",
+      "D0": 3.95e-8,
+      "D0_units": "m2/s",
+      "Ea": 4.2,
+      "Ea_units": "kJ/mol",
+      "T_K": [290, 322],
+      "as_printed": "D0 = 3.95e-8 m2/s, Ea = 4200 J/mol",
+      "note": "Deuterium (D2) data. Source: M. Nagano, Y. Hayashi, N. Ohtani, M. Isshiki, K. Igaki, Diffusion of hydrogen and deuterium in high purity iron between 222 and 322 K, Trans. JIM 22 (1981) 423-429, doi:10.2320/matertrans1960.22.423. Values as printed in the abstract (\"activation energies ... equal at 4200 J/mol ... D0H/D0D ... 1.24\"); read at https://openalex.org/W1976259559. D0 = 4.90e-8 / 1.24 from the abstract (printed in full as eq. 9). Checked myself. Energy converted to kJ/mol from J/mol."
+    },
+    {
+      "label": "Hagi, 1994",
+      "isotope": "H2",
+      "D0": 5.8e-8,
+      "D0_units": "m2/s",
+      "Ea": 4.5,
+      "Ea_units": "kJ/mol",
+      "T_K": [278, 318],
+      "note": "Hydrogen (H2) data. Source: H. Hagi, Diffusion coefficient of hydrogen in iron without trapping by dislocations and impurities, Mater. Trans. JIM 35 (1994) 112-117, doi:10.2320/matertrans1989.35.112. Values as printed in the abstract (\"DH(m2/s)=(5.8+/-0.1)x10-8exp(-(4.5+/-0.2)(kJ/mol)/RT)\"); read at https://openalex.org/W1979930449. Electrochemical permeation; the trap-free D derived from the measured D with trapping corrections. Checked myself."
     }
   ],
 
@@ -657,6 +699,61 @@
       "Ea_units": "kJ/mol",
       "T_C": null,
       "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 300 C and below 1e4 Pa; no upper limit given, so stored, not drawn. D from Volkl & Alefeld (1975), Ks from Veleckis & Edwards (1969)."
+    },
+    {
+      "label": "Eguchi & Morozumi, 1977",
+      "isotope": "H2",
+      "D0": 8.8e-4,
+      "D0_units": "cm2/s",
+      "Ea": 10.59,
+      "Ea_units": "kJ/mol",
+      "T_C": [540, 1100],
+      "as_printed": "D0 = 8.8e-4 cm2/s, Ea = 2.53 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: T. Eguchi, S. Morozumi, Diffusion of hydrogen at high temperatures in the Group V transition metals and alloying effect on the diffusion, J. Japan Inst. Metals 41 (1977) 795-802, doi:10.2320/jinstmet1952.41.8_795. Values as printed in the paper (\"8.8x10-4 | 2.53+/-0.07 | 540~1100 | Absorption | Present work\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Gas absorption, 99.9% V; Table 1. The Arrhenius plot bends below about 540 C (surface oxide). Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Schaumann et al., 1970 (Eguchi & Morozumi 1977)",
+      "isotope": "H2",
+      "D0": 3.5e-4,
+      "D0_units": "cm2/s",
+      "Ea": 4.812,
+      "Ea_units": "kJ/mol",
+      "T_C": [0, 330],
+      "as_printed": "D0 = 3.5e-4 cm2/s, Ea = 1.15 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: G. Schaumann, J. Volkl, G. Alefeld, phys. stat. sol. 42 (1970) 401-413, doi:10.1002/pssb.19700420141. Values as printed in a review (\"3.5x10-4 | 1.15 | 0~330 | Gorsky | 16\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Gorsky effect; Eguchi Table 1, ref. 16. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Qi et al., 1983* (Sakamoto et al. 2009)",
+      "isotope": "T2",
+      "D0": 5.6e-8,
+      "D0_units": "m2/s",
+      "Ea": 9.07,
+      "Ea_units": "kJ/mol",
+      "T_K": [133, 373],
+      "as_printed": "D0 = 5.6e-8 m2/s, Ea = 0.094 eV",
+      "note": "Tritium (T2) data. Source: Zh. Qi, J. Volkl, R. Lasser, H. Wenzl, Tritium diffusion in V, Nb and Ta, J. Phys. F 13 (1983) 2053-2062, doi:10.1088/0305-4608/13/10/015. Values as printed in a review (\"Vanadium | 0.094 +/- 0.007 | 5.6 +/- 1.4 | 133-373K | Qi et al.\"); read at https://consensus.app/papers/details/w:a6083e76-5e4d-4b84-b5f9-c51e84766628/. Gorsky effect; Qi abstract: -140 to 100 C. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Sakamoto et al., 2009*",
+      "isotope": "T2",
+      "D0": 4.7e-8,
+      "D0_units": "m2/s",
+      "Ea": 8.684,
+      "Ea_units": "kJ/mol",
+      "T_K": [473, 573],
+      "as_printed": "D0 = 4.7e-8 m2/s, Ea = 0.09 eV",
+      "note": "Tritium (T2) data. Source: K. Sakamoto, K. Hashizume, M. Sugisaki, Effect of coexistent hydrogen isotopes on tracer diffusion of tritium in alpha phase of group-V metal-hydrogen systems, J. Nucl. Sci. Technol. 46 (2009) 26-30, doi:10.1080/18811248.2007.9711503. Values as printed in the paper (\"Vanadium | 0.090 +/- 0.020 | 4.7 +/- 2.4 | 473-573K | Present study\"); read at https://consensus.app/papers/details/w:a6083e76-5e4d-4b84-b5f9-c51e84766628/. Implanted tritium tracer, sectioning; narrow range, large error. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Boes & Zuchner, 1973 (Eguchi & Morozumi 1977)",
+      "isotope": "H2",
+      "D0": 0.0013,
+      "D0_units": "cm2/s",
+      "Ea": 10.46,
+      "Ea_units": "kJ/mol",
+      "T_C": [0, 60],
+      "as_printed": "D0 = 0.0013 cm2/s, Ea = 2.5 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: N. Boes, H. Zuchner, Phys. Status Solidi (a) 17 (1973) K111. Values as printed in a review (\"1.3x10-3 | 2.5 | 0~60 | Electrochem. | 11\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Electrochemical; narrow range near room temperature. Energy converted to kJ/mol from kcal/mol."
     }
   ],
 
@@ -670,6 +767,72 @@
       "Ea_units": "kJ/mol",
       "T_C": [400, 600],
       "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 400 C and below 1e4 Pa; the diffusivity data (Volkl & Alefeld 1975) span -50 to 600 C. Ks from Veleckis & Edwards (1969)."
+    },
+    {
+      "label": "Eguchi & Morozumi, 1977",
+      "isotope": "H2",
+      "D0": 0.0011,
+      "D0_units": "cm2/s",
+      "Ea": 14.06,
+      "Ea_units": "kJ/mol",
+      "T_C": [600, 1100],
+      "as_printed": "D0 = 0.0011 cm2/s, Ea = 3.36 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: T. Eguchi, S. Morozumi, Diffusion of hydrogen at high temperatures in the Group V transition metals and alloying effect on the diffusion, J. Japan Inst. Metals 41 (1977) 795-802, doi:10.2320/jinstmet1952.41.8_795. Values as printed in the paper (\"1.1x10-3 | 3.36+/-0.08 | 600~1100 | Absorption | Present work\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Gas absorption, 99.9% Nb. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Cantelli et al., 1969",
+      "isotope": "H2",
+      "D0": 5.4e-4,
+      "D0_units": "cm2/s",
+      "Ea": 10.52,
+      "Ea_units": "kJ/mol",
+      "T_K": [235, 830],
+      "as_printed": "D0 = 5.4e-4 cm2/s, Ea = 0.109 eV",
+      "note": "Hydrogen (H2) data. Source: R. Cantelli, F.M. Mazzolai, M. Nuovo, Internal friction due to long-range diffusion of hydrogen in niobium (Gorsky effect), phys. stat. sol. 34 (1969) 597-600, doi:10.1002/pssb.19690340221. Values as printed in the abstract (\"D0 = 5.4 x 10-4 cm2/s and W = (0.109 +/- 0.005) eV\"); read at https://consensus.app/papers/details/w:1ade2d35-b36b-4c0f-8688-888f7dee4c3f/. Gorsky effect; range \"about 235 to about 830 K\" in the abstract. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Matusiewicz, 1981†",
+      "isotope": "D2",
+      "D0": 5.92e-4,
+      "D0_units": "cm2/s",
+      "Ea": 12.83,
+      "Ea_units": "kJ/mol",
+      "T_K": [235, 308],
+      "as_printed": "D0 = 5.92e-4 cm2/s, Ea = 0.133 eV",
+      "note": "Deuterium (D2) data. Source: G.R. Matusiewicz, Diffusion of hydrogen, deuterium, and tritium in niobium, PhD thesis, Univ. Illinois (1981), doi:10.2172/6777172. Values as printed in the paper (\"DoD = 5.92 +/- .36 x 10-4cm2/sec, QD = 0.133 +/- .001 eV/atom\"); read at https://www.osti.gov/servlets/purl/6777172. Gorsky effect, Table 4-1d sample 6. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Qi et al., 1983* (Sakamoto et al. 2009)",
+      "isotope": "T2",
+      "D0": 5e-4,
+      "D0_units": "cm2/s",
+      "Ea": 12.83,
+      "Ea_units": "kJ/mol",
+      "T_K": [133, 373],
+      "as_printed": "D0 = 5e-4 cm2/s, Ea = 0.133 eV",
+      "note": "Tritium (T2) data. Source: Zh. Qi, J. Volkl, R. Lasser, H. Wenzl, Tritium diffusion in V, Nb and Ta, J. Phys. F 13 (1983) 2053-2062, doi:10.1088/0305-4608/13/10/015. Values as printed in a review (\"Qi et al. ... (0.133 eV/atom and 5 x 10-4 cm2/s, respectively)\"); read at https://consensus.app/papers/details/w:2f6ac0b7-9105-4f0b-98b6-b709da82a8bb/. Law from Sakamoto 2006; range 133-373 K from Sakamoto 2009 Table 1. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Sakamoto et al., 2006*",
+      "isotope": "T2",
+      "D0": 5e-4,
+      "D0_units": "cm2/s",
+      "Ea": 13.31,
+      "Ea_units": "kJ/mol",
+      "T_K": [473, 553],
+      "as_printed": "D0 = 5e-4 cm2/s, Ea = 0.138 eV",
+      "note": "Tritium (T2) data. Source: K. Sakamoto, K. Hashizume, M. Sugisaki, J. Nucl. Sci. Technol. 43 (2006) 811-815, doi:10.1080/18811248.2006.9711164. Values as printed in the paper (\"Ea and D0 were obtained to be 0.138 eV/atom and 5 x 10-4 cm2/s\"); read at https://consensus.app/papers/details/w:2f6ac0b7-9105-4f0b-98b6-b709da82a8bb/. Implanted tritium tracer; anneals 473-553 K. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Schaumann et al., 1970† (Matusiewicz 1981)",
+      "isotope": "D2",
+      "D0": 5.4e-4,
+      "D0_units": "cm2/s",
+      "Ea": 12.45,
+      "Ea_units": "kJ/mol",
+      "T_K": [270, 600],
+      "as_printed": "D0 = 5.4e-4 cm2/s, Ea = 0.129 eV",
+      "note": "Deuterium (D2) data. Source: G. Schaumann, J. Volkl, G. Alefeld, phys. stat. sol. 42 (1970) 401-413, doi:10.1002/pssb.19700420141. Values as printed in a review (\"Schaumann, Volkl & Alefeld (2) Anelastic (Gorsky) ... 5.4 0.129\"); read at https://www.osti.gov/servlets/purl/6777172. Table header prints 10^4 cm2/sec (misprint for 10^-4). Range from the Schaumann abstract (600 to about 270 K, all three metals). Energy converted to kJ/mol from eV."
     }
   ],
 
@@ -683,6 +846,72 @@
       "Ea_units": "kJ/mol",
       "T_C": null,
       "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [35]; values as printed. Original source: S.A. Steward, Review of Hydrogen Isotope Permeability Through Materials, Lawrence Livermore National Laboratory, UCRL-53441 (1983), osti.gov/servlets/purl/5277693. Steward: use above 350 C and below 10 kPa; no upper limit given, so stored, not drawn. D from Volkl & Alefeld (1975), Ks from Veleckis & Edwards (1969)."
+    },
+    {
+      "label": "Eguchi & Morozumi, 1977",
+      "isotope": "H2",
+      "D0": 0.001,
+      "D0_units": "cm2/s",
+      "Ea": 15.61,
+      "Ea_units": "kJ/mol",
+      "T_C": [700, 1100],
+      "as_printed": "D0 = 0.001 cm2/s, Ea = 3.73 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: T. Eguchi, S. Morozumi, Diffusion of hydrogen at high temperatures in the Group V transition metals and alloying effect on the diffusion, J. Japan Inst. Metals 41 (1977) 795-802, doi:10.2320/jinstmet1952.41.8_795. Values as printed in the paper (\"1.0x10-3 | 3.73+/-0.14 | 700~1100 | Absorption | Present work\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Gas absorption, 99.9% Ta. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Qi et al., 1983* (Sakamoto et al. 2009)",
+      "isotope": "T2",
+      "D0": 3.7e-8,
+      "D0_units": "m2/s",
+      "Ea": 15.63,
+      "Ea_units": "kJ/mol",
+      "T_K": [133, 373],
+      "as_printed": "D0 = 3.7e-8 m2/s, Ea = 0.162 eV",
+      "note": "Tritium (T2) data. Source: Zh. Qi, J. Volkl, R. Lasser, H. Wenzl, Tritium diffusion in V, Nb and Ta, J. Phys. F 13 (1983) 2053-2062, doi:10.1088/0305-4608/13/10/015. Values as printed in a review (\"Tantalum | 0.162 +/- 0.007 | 3.7 +/- 1.4 | 133-373K | Qi et al.\"); read at https://consensus.app/papers/details/w:a6083e76-5e4d-4b84-b5f9-c51e84766628/. Gorsky effect. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Sakamoto et al., 2009*",
+      "isotope": "T2",
+      "D0": 7.6e-8,
+      "D0_units": "m2/s",
+      "Ea": 17.56,
+      "Ea_units": "kJ/mol",
+      "T_K": [298, 623],
+      "as_printed": "D0 = 7.6e-8 m2/s, Ea = 0.182 eV",
+      "note": "Tritium (T2) data. Source: K. Sakamoto, K. Hashizume, M. Sugisaki, Effect of coexistent hydrogen isotopes on tracer diffusion of tritium in alpha phase of group-V metal-hydrogen systems, J. Nucl. Sci. Technol. 46 (2009) 26-30, doi:10.1080/18811248.2007.9711503. Values as printed in the paper (\"Tantalum | 0.182 +/- 0.004 | 7.6 +/- 0.8 | 298-623K | Present study\"); read at https://consensus.app/papers/details/w:a6083e76-5e4d-4b84-b5f9-c51e84766628/. Implanted tritium tracer. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Cantelli et al., 1971 (Eguchi & Morozumi 1977)",
+      "isotope": "H2",
+      "D0": 3e-4,
+      "D0_units": "cm2/s",
+      "Ea": 14.43,
+      "Ea_units": "kJ/mol",
+      "T_C": [-63, 117],
+      "as_printed": "D0 = 3e-4 cm2/s, Ea = 3.45 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: R. Cantelli, F.M. Mazzolai, M. Nuovo, J. Physique 32 (1971) C2-59. Values as printed in a review (\"3 x10-4 | 3.45 | -63~117 | Gorsky | 19\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Gorsky effect. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Merisov et al., 1974 (Eguchi & Morozumi 1977)",
+      "isotope": "H2",
+      "D0": 5e-4,
+      "D0_units": "cm2/s",
+      "Ea": 15.36,
+      "Ea_units": "kJ/mol",
+      "T_C": [0, 302],
+      "as_printed": "D0 = 5e-4 cm2/s, Ea = 3.67 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: B. Merisov, G. Khadzhay, V. Khotkevich, Phys. Met. Metallogr. 37 (1974) 1090. Values as printed in a review (\"5.0x10-4 | 3.67 | 0~302 | Resistivity | 12\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Resistivity relaxation. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Boes & Zuchner, 1973 (Eguchi & Morozumi 1977)",
+      "isotope": "H2",
+      "D0": 5.7e-4,
+      "D0_units": "cm2/s",
+      "Ea": 14.23,
+      "Ea_units": "kJ/mol",
+      "T_C": [0, 60],
+      "as_printed": "D0 = 5.7e-4 cm2/s, Ea = 3.4 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: N. Boes, H. Zuchner, Phys. Status Solidi (a) 17 (1973) K111. Values as printed in a review (\"5.7x10-4 | 3.4 | 0~60 | Electrochem. | 11\"); read at https://consensus.app/papers/details/w:446e3a3a-df9a-4ffe-8472-118babba0f06/. Electrochemical. Energy converted to kJ/mol from kcal/mol."
     }
   ],
 
@@ -696,6 +925,49 @@
       "Ea_units": "kJ/mol",
       "T_C": [-3, 2227],
       "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed (D0 = (3.8e-7 +/- 0.4e-7); Ea = 39.8 +/- 1.5 kJ/mol). Original source: T. Otsuka, T. Tanabe, Application of a tritium imaging plate technique to depth profiling of hydrogen in metals and determination of hydrogen diffusion coefficients, Mater. Trans. 58 (2017) 1364-1372. Range 270-2500 K as printed in the book (Eq. 7.17). Measured with a tritium imaging-plate technique."
+    },
+    {
+      "label": "Frauenfelder, 1969",
+      "isotope": "H2",
+      "D0": 0.0041,
+      "D0_units": "cm2/s",
+      "Ea": 37.66,
+      "Ea_units": "kJ/mol",
+      "T_K": [1100, 2400],
+      "as_printed": "D0 = 0.0041 cm2/s, Ea = 9 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: R. Frauenfelder, Solution and diffusion of hydrogen in tungsten, J. Vac. Sci. Technol. 6 (1969) 388-397, doi:10.1116/1.1492699. Values as printed in the abstract (\"D=4.1x10-3 x exp (-9000/RT) cm2/sec\"); read at https://openalex.org/W2040704247. Degassing of a pre-loaded cylinder. Energy printed as 9000 in exp(-9000/RT), cal/mol implied (0.39 eV in later reviews). Checked myself. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Holzner et al., 2020",
+      "isotope": "H2",
+      "D0": 0.00206,
+      "D0_units": "cm2/s",
+      "Ea": 27.02,
+      "Ea_units": "kJ/mol",
+      "T_K": [1600, 2600],
+      "as_printed": "D0 = 0.00206 cm2/s, Ea = 0.28 eV",
+      "note": "Hydrogen (H2) data. Source: G. Holzner, T. Schwarz-Selinger, T. Durbeck, U. von Toussaint, Solute diffusion of hydrogen isotopes in tungsten - a gas loading experiment, Phys. Scr. T171 (2020) 014034, doi:10.1088/1402-4896/ab4b42. Values as printed in the paper (\"The prefactors are D H 0 = 2.06 . 10-3 cm2/s\"); read at https://consensus.app/papers/details/w:5df9d5b4-2ad0-4b21-ad31-306d7f60d26c/. Gas loading 1600-2200 K, degassing 1600-2600 K; single crystal and polycrystal agree. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Holzner et al., 2020†",
+      "isotope": "D2",
+      "D0": 0.0016,
+      "D0_units": "cm2/s",
+      "Ea": 27.02,
+      "Ea_units": "kJ/mol",
+      "T_K": [1600, 2600],
+      "as_printed": "D0 = 0.0016 cm2/s, Ea = 0.28 eV",
+      "note": "Deuterium (D2) data. Source: G. Holzner, T. Schwarz-Selinger, T. Durbeck, U. von Toussaint, Solute diffusion of hydrogen isotopes in tungsten - a gas loading experiment, Phys. Scr. T171 (2020) 014034, doi:10.1088/1402-4896/ab4b42. Values as printed in the paper (\"D D 0 = 1.60 . 10-3 cm2/s, respectively\"); read at as above. As the H law. Energy converted to kJ/mol from eV."
+    },
+    {
+      "label": "Hoshihira et al., 2011*",
+      "isotope": "T2",
+      "D0": 4.3e-9,
+      "D0_units": "m2/s",
+      "Ea": 38,
+      "Ea_units": "kJ/mol",
+      "T_K": [273, 323],
+      "note": "Tritium (T2) data. Source: as the Mo entry (Hoshihira et al. 2011). Values as printed in the paper; read at https://consensus.app/papers/details/w:2dc4f0d8-dcae-4371-8918-067fb7005a4c/. Apparent D near room temperature, trap-affected. Ikeda et al. 2011 (JNM 417, 568) gives a similar law with no numeric range, so it is left out."
     }
   ],
 
@@ -707,8 +979,39 @@
       "D0_units": "m2/s",
       "Ea": 42,
       "Ea_units": "kJ/mol",
-      "T_C": null,
-      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: H. Magnusson, K. Frisk, Diffusion, permeation and solubility of hydrogen in copper, J. Phase Equilib. Diffus. 38 (2017) 65-69. No range found (a regression of all experimental data); stored, not drawn."
+      "T_C": [25, 1000],
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: H. Magnusson, K. Frisk, Diffusion, permeation and solubility of hydrogen in copper, J. Phase Equilib. Diffus. 38 (2017) 65-69. Range 25-1000 C from the same authors' SKB report TR-13-24 (2013, skb.com/publication/2477839/TR-13-24.pdf), which prints the identical law (eq. 3-1, 1.74e-6 exp(-42000/RT) m2/s) and says \"the whole temperature range 25-1,000 C is quite accurately described\"; the 2017 paper states no range. A regression of all experimental data (D2 and cold-rolled data excluded)."
+    },
+    {
+      "label": "Hagi, 1986",
+      "isotope": "H2",
+      "D0": 9e-7,
+      "D0_units": "m2/s",
+      "Ea": 43.5,
+      "Ea_units": "kJ/mol",
+      "T_K": [320, 930],
+      "note": "Hydrogen (H2) data. Source: H. Hagi, Diffusion coefficients of hydrogen in Ni-Cu and Ni-Co alloys, Trans. JIM 27 (1986) 233-240, doi:10.2320/matertrans1960.27.233. Values as printed in the abstract (\"in copper, D(m2/s)=9.0x10-7exp(-43.5(kJ/mol)/RT)\"); read at https://openalex.org/W895937987. One fit to electrochemical (low T) and gas (high T) permeation. Law checked myself; the 320-930 K range is from the paper text (abstract: 260-1000 K for the whole study)."
+    },
+    {
+      "label": "Sakamoto & Takao, 1982",
+      "isotope": "H2",
+      "D0": 3.69e-7,
+      "D0_units": "m2/s",
+      "Ea": 36.82,
+      "Ea_units": "kJ/mol",
+      "T_K": [292, 339],
+      "as_printed": "D0 = 3.69e-7 m2/s, Ea = 36820 J/mol",
+      "note": "Hydrogen (H2) data. Source: Y. Sakamoto, K. Takao, The electrochemical determination of diffusivity and solubility of hydrogen in copper, J. Japan Inst. Metals 46 (1982) 285-290, doi:10.2320/jinstmet1952.46.3_285. Values as printed in the paper (\"D(m2.s-1) = (3.69+/-0.64)x10-7 exp[-36820+/-460 (J.mol-1)/RT]\"); read at https://openalex.org/W2606979419. Electrochemical permeation at 10 A/m2, annealed 99.9% Cu. Range checked myself (abstract); law confirmed in the Consensus full text. Energy converted to kJ/mol from J/mol."
+    },
+    {
+      "label": "Begeal, 1978 (San Marchi 2012)",
+      "isotope": "H2",
+      "D0": 1.06e-6,
+      "D0_units": "m2/s",
+      "Ea": 38.5,
+      "Ea_units": "kJ/mol",
+      "T_K": [493, 713],
+      "note": "Hydrogen (H2) data. Source: D.R. Begeal, Hydrogen and deuterium permeation in copper alloys ..., J. Vac. Sci. Technol. 15 (1978) 1146-1154; read in Sandia Technical Reference, Cu (4001), Table 2.1. Values as printed in a review (\"OFHC Cu | 493-713 | ... | 1.06 x 10-6 | 38.5\"); read at https://sandia.gov/app/uploads/sites/158/2021/12/4001TechRef_Cu.pdf. Gas permeation, OFHC Cu."
     }
   ],
 
@@ -720,8 +1023,18 @@
       "D0_units": "m2/s",
       "Ea": 22.3,
       "Ea_units": "kJ/mol",
-      "T_C": null,
-      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: T. Tanabe, Y. Yamanishi, S. Imoto, Hydrogen permeation and diffusion in molybdenum, J. Nucl. Mater. 191-194 (1992) 439-443. No range found for this paper; stored, not drawn."
+      "T_K": [500, 1100],
+      "note": "Hydrogen (H2) data, from T. Tanabe, Kinetics of Hydrogen in Metals, Springer Series in Materials Science 357 (Springer, 2026), Ch. 7, Table 7.2 (recommended values), doi:10.1007/978-981-95-1287-4_7; values as printed. Original source: T. Tanabe, Y. Yamanishi, S. Imoto, Hydrogen permeation and diffusion in molybdenum, J. Nucl. Mater. 191-194 (1992) 439-443, doi:10.1016/S0022-3115(09)80083-4. Range 500-1100 K from the paper's abstract (\"temperatures ranging from 500 to 1100 K\", pure H2 at 1 to 1e5 Pa)."
+    },
+    {
+      "label": "Hoshihira et al., 2011*",
+      "isotope": "T2",
+      "D0": 1.5e-7,
+      "D0_units": "m2/s",
+      "Ea": 41,
+      "Ea_units": "kJ/mol",
+      "T_K": [273, 323],
+      "note": "Tritium (T2) data. Source: T. Hoshihira, T. Otsuka, R. Wakabayashi, T. Tanabe, Hydrogen behavior near surface regions in Mo and W studied by tritium tracer technique, J. Nucl. Mater. 417 (2011) 559-563, doi:10.1016/j.jnucmat.2011.01.076. Values as printed in the paper (\"D Mo = 1.5 x 10-7 exp -41 kJ/mol RT m2 s-1\"); read at https://consensus.app/papers/details/w:2dc4f0d8-dcae-4371-8918-067fb7005a4c/. Tritium traced in H2; the authors call it an apparent D near room temperature (trapping or oxide may affect it)."
     }
   ],
 
@@ -782,7 +1095,41 @@
     }
   ],
 
-  "316 SS": [],
+  "316 SS": [
+    {
+      "label": "Grant et al., 1988",
+      "isotope": "H2",
+      "D0": 7.3e-7,
+      "D0_units": "m2/s",
+      "Ea": 52.38,
+      "Ea_units": "kJ/mol",
+      "T_K": [502, 963],
+      "as_printed": "D0 = 7.3e-7 m2/s, Ea/R = 6300 K",
+      "note": "Hydrogen (H2) data. Source: D.M. Grant, D.L. Cummings, D.A. Blackburn, Hydrogen in 316 steel - diffusion, permeation and surface reaction, J. Nucl. Mater. 152 (1988) 139-145, doi:10.1016/0022-3115(88)90319-4. Values as printed in the abstract; read at https://consensus.app/papers/details/w:220518f3-1fd9-4659-a0eb-47411ca40b04/. Pressure-modulation permeation. Energy printed as Ea/R = 6300 K. Range from Grant's 1984 thesis abstract (304 and 316 together). Energy converted to kJ/mol from Ea/R in K."
+    },
+    {
+      "label": "Austin & Elleman, 1972*",
+      "isotope": "T2",
+      "D0": 0.018,
+      "D0_units": "cm2/s",
+      "Ea": 58.58,
+      "Ea_units": "kJ/mol",
+      "T_C": [25, 222],
+      "as_printed": "D0 = 0.018 cm2/s, Ea = 14 kcal/mol",
+      "note": "Tritium (T2) data. Source: as the 304 SS entry. Values as printed in a review (\"D = 0.018 exp (-14,000 cal/RT) cm2 - sec-1\"); read at https://www.osti.gov/servlets/purl/4381546. Same law as the 304 entry: the authors found no difference between 304 and 316. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Hashimoto & Kino, 1985",
+      "isotope": "H2",
+      "D0": 0.0047,
+      "D0_units": "cm2/s",
+      "Ea": 46.31,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 450],
+      "as_printed": "D0 = 0.0047 cm2/s, Ea = 0.48 eV",
+      "note": "Hydrogen (H2) data. Source: E. Hashimoto, T. Kino, Hydrogen permeation through type 316 stainless steels and ferritic steel for a fusion reactor, J. Nucl. Mater. 133-134 (1985) 289-291, doi:10.1016/0022-3115(85)90153-9. Values as printed in the abstract (\"D = 4.7 x 10-3 exp(-0.48 eVkT) cm2/s for type 316 stainless steels\"); read at https://consensus.app/papers/details/w:b80e59fc-126a-4ce9-b3c9-91b51d0c03ed/. One law for SUS316 and JPCA-2 (a modified 316) above 300 C; measured 150-450 C, trapping below 300 C. Energy converted to kJ/mol from eV."
+    }
+  ],
 
   "304 SS": [
     {
@@ -804,6 +1151,39 @@
       "Ea_units": "kJ/mol",
       "T_C": null,
       "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [28]; values as printed. Original source: M. Braun, B. Emmoth, F. Waelbroeck, P. Wienhold, Determination of deuterium surface recombination rates on stainless steel, J. Nucl. Mater. 93-94 (1980) 861-865, doi:10.1016/0022-3115(80)90219-6. No range found for this paper; stored, not drawn. The table prints H2; the paper's title says deuterium."
+    },
+    {
+      "label": "Sakamoto & Katayama, 1982",
+      "isotope": "H2",
+      "D0": 4.41e-7,
+      "D0_units": "m2/s",
+      "Ea": 53.51,
+      "Ea_units": "kJ/mol",
+      "T_K": [311, 332],
+      "as_printed": "D0 = 4.41e-7 m2/s, Ea = 53510 J/mol",
+      "note": "Hydrogen (H2) data. Source: Y. Sakamoto, H.G. Katayama, The electrochemical determination of diffusivity and solubility of hydrogen in an austenitic type 304 steel, J. Japan Inst. Metals 46 (1982) 805-814, doi:10.2320/jinstmet1952.46.8_805. Values as printed in the abstract (\"D(m2.s-1)=(4.41+/-0.92)x10-7exp[-53510+/-750(J.mol-1)/RT]\"); read at https://openalex.org/W2605388449. Electrochemical permeation, annealed 304. Checked myself. Energy converted to kJ/mol from J/mol."
+    },
+    {
+      "label": "Austin & Elleman, 1972*",
+      "isotope": "T2",
+      "D0": 0.018,
+      "D0_units": "cm2/s",
+      "Ea": 58.58,
+      "Ea_units": "kJ/mol",
+      "T_C": [25, 222],
+      "as_printed": "D0 = 0.018 cm2/s, Ea = 14 kcal/mol",
+      "note": "Tritium (T2) data. Source: J.H. Austin, T.S. Elleman, Tritium diffusion in 304- and 316-stainless steels in the temperature range 25 to 222 C, J. Nucl. Mater. 43 (1972) 119-125, doi:10.1016/0022-3115(72)90145-6; read in ORO-3508-9 (same group) and Quick 1976 Table I. Values as printed in a review (\"D = 0.018 exp (-14,000 cal/RT) cm2 - sec-1\"); read at https://www.osti.gov/servlets/purl/4381546. Recoil-injected tritium; one law for 304 and 316. Energy converted to kJ/mol from kcal/mol."
+    },
+    {
+      "label": "Louthan & Derrick, 1975†",
+      "isotope": "D2",
+      "D0": 0.0047,
+      "D0_units": "cm2/s",
+      "Ea": 53.97,
+      "Ea_units": "kJ/mol",
+      "T_C": [112, 440],
+      "as_printed": "D0 = 0.0047 cm2/s, Ea = 12.9 kcal/mol",
+      "note": "Deuterium (D2) data. Source: M.R. Louthan Jr., R.G. Derrick, Hydrogen transport in austenitic stainless steel, Corros. Sci. 15 (1975) 565-577, doi:10.1016/0010-938X(75)90022-0. Values as printed in the abstract (\"D=4.7x10-3 exp(-12,900/RT) cm2/s\"); read at https://consensus.app/papers/details/w:f98ba4f6-7187-42c9-a82c-bc323bbe23e0/. D2 permeation; one law for 304N, 304L, 309S, 310, 21-6-9 and A-286 (not plain 304). Range from Quick 1976 Table I (112-440 C); other reviews give 385-713 K or 400-714 K. Energy converted to kJ/mol from kcal/mol."
     }
   ],
 
@@ -926,6 +1306,17 @@
       "Ea_units": "kJ/mol",
       "T_C": [154, 507],
       "note": "Hydrogen (H2) data, from Humrickhouse & Fuerst 2020, Tritium Transport Phenomena in Molten-Salt Reactors: Validation Data Needs and Research Plan, INL/EXT-20-59927 Rev. 0, Idaho National Laboratory, Table 6, ref [31]; values as printed. Original source: G.A. Esteban, A. Perujo, L.A. Sedano, F. Legarda, B. Mancinelli, K. Douglas, Diffusive transport parameters and surface rate constants of deuterium in Incoloy 800, J. Nucl. Mater. 300 (2002) 1-6, doi:10.1016/S0022-3115(01)00715-2. Range as Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, gives for this paper. The table prints H2; the paper's title says deuterium."
+    },
+    {
+      "label": "Bhattacharyya et al., 1981",
+      "isotope": "H2",
+      "D0": 0.13,
+      "D0_units": "cm2/s",
+      "Ea": 75.73,
+      "Ea_units": "kJ/mol",
+      "T_C": [650, 815],
+      "as_printed": "D0 = 0.13 cm2/s, Ea = 18.1 kcal/mol",
+      "note": "Hydrogen (H2) data. Source: S. Bhattacharyya, E.J. Vesely Jr., V.L. Hill, Determination of hydrogen permeability in uncoated and coated superalloys, NASA CR-165209 / DOE/NASA/0006-1, IIT Research Institute (1981). Values as printed in the paper (\"IN 80[0] 4.1 x 10-2 16.2 1.3 x 10-1 18.1\"); read at https://ntrs.nasa.gov/api/citations/19830003945/downloads/19830003945.pdf. Gas permeation time lag, wrought, annealed 1121 C; Table 4. The law reproduces the measured D at 815 C. Energy converted to kJ/mol from kcal/mol."
     }
   ],
 
@@ -1015,6 +1406,69 @@
       "Ea_units": "kJ/mol",
       "T_C": [150, 500],
       "note": "Hydrogen (H2) data, from Fuerst et al. 2024 (J. Nucl. Mater. 589, 154851), Table 3, ref [21] (doi:10.1007/BF02646873); values as printed."
+    },
+    {
+      "label": "Santos Maldonado et al., 2024 (wrought)",
+      "isotope": "H2",
+      "D0": 1.91e-6,
+      "D0_units": "m2/s",
+      "Ea": 49.1,
+      "Ea_units": "kJ/mol",
+      "T_C": [22, 400],
+      "note": "Hydrogen (H2) data. Source: C.-T. Santos Maldonado, A. Zafra, E. Martinez-Paneda, P. Sandmann, R. Morana, M.-S. Pham, Influence of dislocation cells on hydrogen embrittlement in wrought and additively manufactured Inconel 718, Commun. Mater. (2024), doi:10.1038/s43246-024-00654-6. Values as printed in the paper (\"This work 718 | Wrought ... 1.91x10-6 ... 49.10 ... 22 - 400\"); read at Consensus full text, doi:10.1038/s43246-024-00654-6. Isothermal TDS fitted with a Fick model; annealed wrought sheet."
+    },
+    {
+      "label": "Santos Maldonado et al., 2024 (LPBF)",
+      "isotope": "H2",
+      "D0": 7.51e-7,
+      "D0_units": "m2/s",
+      "Ea": 45.57,
+      "Ea_units": "kJ/mol",
+      "T_C": [22, 400],
+      "note": "Hydrogen (H2) data. Source: C.-T. Santos Maldonado, A. Zafra, E. Martinez-Paneda, P. Sandmann, R. Morana, M.-S. Pham, Influence of dislocation cells on hydrogen embrittlement in wrought and additively manufactured Inconel 718, Commun. Mater. (2024), doi:10.1038/s43246-024-00654-6. Values as printed in the paper (\"... LPBF AM || ... 7.51x10-7 ... 45.57 ... 22 - 400\"); read at as above. Laser powder-bed fusion, likely as-built."
+    },
+    {
+      "label": "Maksimkin et al., 2022",
+      "isotope": "H2",
+      "D0": 1.66e-7,
+      "D0_units": "m2/s",
+      "Ea": 41.9,
+      "Ea_units": "kJ/mol",
+      "T_C": [282, 727],
+      "note": "Hydrogen (H2) data. Source: I.P. Maksimkin et al., Effect of hydrogen on the structure and mechanical properties of 316L steel and Inconel 718 alloy processed by selective laser melting, Materials 15 (2022) 4806, doi:10.3390/ma15144806. Values as printed in the paper (\"Inconel 718 | 1.66 x 10-7 | 41.9\"); read at Consensus full text (MDPI OA). Gas permeation time lag, SLM 718. Range from Santos Maldonado 2024 Table 3 (review)."
+    },
+    {
+      "label": "Rezende et al., 2015 (solution treated; Ebling & Michler 2025)",
+      "isotope": "H2",
+      "D0": 5.39e-8,
+      "D0_units": "m2/s",
+      "Ea": 36.92,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 422],
+      "as_printed": "D0 = 5.39e-8 m2/s, Ea = 36920 J/mol",
+      "note": "Hydrogen (H2) data. Source: M.C. Rezende, L.S. Araujo, S.B. Gabriel, D.S. dos Santos, L.H. de Almeida, Hydrogen embrittlement in nickel-based superalloy 718, Int. J. Hydrogen Energy 40 (2015) 17075-17083, doi:10.1016/j.ijhydene.2015.07.053; read in Ebling & Michler 2025 Table 3. Values as printed in a review (\"Rezende1 [5] | 0.000439 | 59750 | 5.39E-08 | 36920\"); read at Consensus full text of doi:10.1002/mawe.202400192. Gas permeation; range from the original abstract (the review prints it under a K header). Energy converted to kJ/mol from J/mol."
+    },
+    {
+      "label": "Rezende et al., 2015 (aged; Ebling & Michler 2025)",
+      "isotope": "H2",
+      "D0": 1.6e-7,
+      "D0_units": "m2/s",
+      "Ea": 44.48,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 422],
+      "as_printed": "D0 = 1.6e-7 m2/s, Ea = 44480 J/mol",
+      "note": "Hydrogen (H2) data. Source: M.C. Rezende, L.S. Araujo, S.B. Gabriel, D.S. dos Santos, L.H. de Almeida, Hydrogen embrittlement in nickel-based superalloy 718, Int. J. Hydrogen Energy 40 (2015) 17075-17083, doi:10.1016/j.ijhydene.2015.07.053; read in Ebling & Michler 2025 Table 3. Values as printed in a review (\"Rezende2 [5] | ... | 1.60E-07 | 44480\"); read at as above. Solution treated + 5 h/760 C + 70 min/650 C. Energy converted to kJ/mol from J/mol."
+    },
+    {
+      "label": "Rezende et al., 2015 (overaged; Ebling & Michler 2025)",
+      "isotope": "H2",
+      "D0": 2.5e-7,
+      "D0_units": "m2/s",
+      "Ea": 46.34,
+      "Ea_units": "kJ/mol",
+      "T_C": [300, 422],
+      "as_printed": "D0 = 2.5e-7 m2/s, Ea = 46340 J/mol",
+      "note": "Hydrogen (H2) data. Source: M.C. Rezende, L.S. Araujo, S.B. Gabriel, D.S. dos Santos, L.H. de Almeida, Hydrogen embrittlement in nickel-based superalloy 718, Int. J. Hydrogen Energy 40 (2015) 17075-17083, doi:10.1016/j.ijhydene.2015.07.053; read in Ebling & Michler 2025 Table 3. Values as printed in a review (\"Rezende3 [5] | ... | 2.50E-07 | 46340\"); read at as above. Aged + 2 h/800 C. Energy converted to kJ/mol from J/mol."
     }
   ],
 
@@ -1158,7 +1612,19 @@
     }
   ],
 
-  "Cr2O3": [],
+  "Cr2O3": [
+    {
+      "label": "Chen et al., 2011 (computed)",
+      "isotope": "H2",
+      "D0": 1.78e-9,
+      "D0_units": "m2/s",
+      "Ea": 70.43,
+      "Ea_units": "kJ/mol",
+      "T_C": null,
+      "as_printed": "D0 = 1.78e-9 m2/s, Ea = 0.73 eV",
+      "note": "Hydrogen (H2) data, computed, not measured. Source: C.F. Chen, H.B. Yu, S.Q. Zheng, First-principles study of hydrogen diffusion mechanism in Cr2O3, Sci. China Tech. Sci. 54 (2011) 88-94, doi:10.1007/s11431-010-4112-3; values as printed in the paper (\"D(T) = (1.78 x 10-9) exp(-0.73/kT) m2/s\", also given as (1.78 x 10-5) exp(-70313.62/RT) cm2/s). DFT barrier (0.73 eV) with an attempt frequency from molecular dynamics at 1400 K (3.74e10 s-1) and a jump length of 3.63 A. No validity range is given, so it is stored, not drawn. The paper's Table 3 tabulates D at 0-1000 C, but those values fit about 67 kJ/mol rather than the printed 70.3 kJ/mol, so the paper is not self-consistent. Energy converted to kJ/mol from eV."
+    }
+  ],
 
   "NiO": []
 }
