@@ -53,7 +53,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from diffusivity_plot import (            # noqa: E402
-    DEFAULT_RESULTS_DIR, Run, discover_runs, pretty_material,
+    DEFAULT_RESULTS_DIR, PHI_LIT_FILE, Run, _tex, discover_runs, draw_literature, literature_curves,
+    literature_for, literature_notes, literature_window, load_aliases, load_permeability_literature,
+    name_literature, pretty_material,
 )
 import figstyle as fs                     # noqa: E402
 from models.diffusivity_post_processing import KB_EV      # noqa: E402
@@ -67,6 +69,10 @@ from solubility_plot import (             # noqa: E402
 # ---------------------------------------------------------------------------
 
 PHI_UNITS = 'mol H m⁻¹ s⁻¹ Pa⁻⁰·⁵'
+
+# The literature quotes Φ per mol of H2; this work per mol of H atoms, so a literature law is doubled.
+H_PER_H2 = 2.0
+LIT_DECADES = 10.0          # literature laws further than this from the MD values are named, not drawn
 
 # permeability_T<T>K.json names the energy-based routes option1/option2; the
 # Arrhenius fit names them geometric/vibrational.
@@ -231,8 +237,10 @@ def _loading_words(run) -> str:
 
 
 def plot_material(stem: str, fits: dict[str, PhiFit], outfile: str,
-                  sol_flags: dict[str, float | None] | None = None, run=None):
-    """Φ against 1000/T for every route of one material: one figure, written as PDF, PNG and caption."""
+                  sol_flags: dict[str, float | None] | None = None, run=None, lit=None):
+    """Φ against 1000/T for every route of one material: one figure, written as PDF, PNG and caption.
+    ``lit``: the material's published laws (``load_permeability_literature``), drawn as grey dashed
+    lines converted to mol H and named by their first author, as on the diffusivity plots."""
     fig, ax = fs.new_figure()
     ys, xs, items, handles = [], [], [], []
     T_all = np.concatenate([f.T for f in fits.values() if f.T.size]) if any(f.T.size for f in fits.values()) \
@@ -251,13 +259,24 @@ def plot_material(stem: str, fits: dict[str, PhiFit], outfile: str,
             items.append((1000.0 / fit.T[i], fit.Phi[i], fs.ROUTE_STYLE[name][0], fs.ROUTE_STYLE[name][1]))
         else:
             items.append((1000.0 / T_fit[0], fit.curve(T_fit[:1])[0], fs.ROUTE_STYLE[name][0], fs.ROUTE_STYLE[name][1]))
-    fs.inverse_temperature_axis(ax, T_all)
+    lit_curves, left_out = [], []
+    if lit:
+        lo, hi, lit_curves, left_out = literature_window(np.concatenate([np.asarray(v, float) for v in ys]),
+                                                         literature_curves(lit, scale=H_PER_H2), LIT_DECADES)
+        ys += [y[(np.log10(y) >= lo) & (np.log10(y) <= hi)] for _e, _T, y in lit_curves]
+    fs.inverse_temperature_axis(ax, np.concatenate([T_all] + [T for _e, T, _y in lit_curves]))
     fs.set_log_y(ax, np.concatenate([np.asarray(v, float) for v in ys]))
     ax.set_ylabel(r'$\Phi$ (mol H m$^{-1}$ s$^{-1}$ Pa$^{-1/2}$)')
     names = [n for n in fs.ROUTE_STYLE if n in fits]
-    fs.key_below(fig, handles, [f"{fs.ROUTE_STYLE[n][0]}\n$E_\\Phi$ = {fs.energy(fits[n].E_phi, fits[n].E_phi_err)}, "
-                                f"$\\Phi_0$ = {fs.sci(fits[n].Phi0)}" for n in names],
-                 ncol=1, colours=[fs.ROUTE_STYLE[n][1] for n in names])
+    keylabels = [f"{fs.ROUTE_STYLE[n][0]}\n$E_\\Phi$ = {fs.energy(fits[n].E_phi, fits[n].E_phi_err)}, "
+                 f"$\\Phi_0$ = {fs.sci(fits[n].Phi0)}" for n in names]
+    keycols = [fs.ROUTE_STYLE[n][1] for n in names]
+    if lit_curves:
+        handles.append(draw_literature(ax, lit_curves))
+        keylabels.append(f'Literature ({len(lit_curves)})')
+        keycols.append('black')
+    fs.key_below(fig, handles, keylabels, ncol=1, colours=keycols)
+    named = name_literature(fig, ax, lit_curves)
     keyed = True
     mat = fs.material_styles([stem], pretty_material)[stem][0]
     parts = []
@@ -282,6 +301,13 @@ def plot_material(stem: str, fits: dict[str, PhiFit], outfile: str,
             rf'{T_all.min():.0f} to {T_all.max():.0f}~K{_loading_words(run)}. Points are the per-temperature results; '
             r'lines are Arrhenius fits, $\Phi = \Phi_0\,e^{-E_\Phi/k_BT}$, for each solubility route: '
             + '; '.join(parts) + '.' + warn)
+    drawn = [e for e, _T, _y in lit_curves]
+    if drawn:
+        words = '; '.join(f'{_tex(e.label)}: $\\Phi_0$ = {fs.tex_num(H_PER_H2 * e.pre, 3)}~mol~H~m$^{{-1}}$~s$^{{-1}}$~Pa$^{{-1/2}}$, '
+                          f'$E_\\Phi$ = {fs.ev(e.E_eV)}~eV, {e.T_K[0]:.0f}--{e.T_K[1]:.0f}~K' for e in drawn)
+        text += (f' Grey dashed lines are {len(drawn)} published law{"s" if len(drawn) != 1 else ""}, converted from mol H$_2$ to mol H ($\\times 2$) and '
+                 f'each drawn only over its own temperature range{" and named by its first author" if named else ""}: {words}.')
+    text += literature_notes(drawn, left_out, LIT_DECADES) if (drawn or left_out) else ''
     fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text,
               np.concatenate(xs) if xs else None,
               np.concatenate([fits[n].Phi for n in fits if fits[n].T.size]) if xs else None, keyed=keyed)
@@ -423,13 +449,16 @@ def main(argv: list[str] | None = None) -> int:
 
     problems = report(chosen, sol_flags)
 
+    print('\nLoading literature data …')
+    lit_all, aliases = load_permeability_literature(), load_aliases(PHI_LIT_FILE)
+
     print('\nPer-material plots:')
     for stem, (run, fits, _reg) in sorted(chosen.items()):
         material = pretty_material(stem).replace(' ', '_')
         plot_material(stem, fits,
                       os.path.join(outdir,
                                    f'{material}_permeability_arrhenius.png'),
-                      sol_flags=sol_flags.get(stem), run=run)
+                      sol_flags=sol_flags.get(stem), run=run, lit=literature_for(stem, lit_all, aliases))
 
     print('\nCross-material plot:')
     if plot_all_materials(chosen,

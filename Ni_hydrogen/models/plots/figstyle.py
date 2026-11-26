@@ -364,10 +364,13 @@ def _obstacles(ax, renderer):
                 p = ax.transAxes.inverted().transform(ln.get_transform().transform(np.asarray(xy, float)))
             drawn = ln.get_linestyle() not in ("None", "none", "") and ln.get_linewidth() > 0
             pts.append(_fill(p) if drawn else p[np.isfinite(p).all(axis=1)])
-    for c in ax.collections:
-        off = c.get_offsets()
+    from matplotlib.collections import PathCollection
+    for c in ax.collections:                              # scatter marks only (not fills or meshes)
+        off = c.get_offsets() if isinstance(c, PathCollection) else []
         if len(off):
-            pts.append(ax.transAxes.inverted().transform(c.get_offset_transform().transform(off)))
+            with np.errstate(all="ignore"):
+                p = ax.transAxes.inverted().transform(c.get_offset_transform().transform(off))
+            pts.append(p[np.isfinite(p).all(axis=1)])
     boxes = [_frac_box(ax, t, renderer) for t in ax.texts if t.get_visible() and t.get_text().strip()]
     pts = [p for p in pts if len(p)]
     return (np.vstack(pts) if pts else np.empty((0, 2))), boxes
@@ -519,7 +522,7 @@ def points_inside(ax, x, y):
 
 
 def caption_tex(name, module, text):
-    return rf"""% Written by models/plots/{module}. Do not edit the numbers by hand.
+    return rf"""% Written by models/{module}. Do not edit the numbers by hand.
 \begin{{figure}}
   \centering
   \includegraphics[width=180mm]{{{name}.pdf}}

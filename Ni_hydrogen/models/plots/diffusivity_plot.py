@@ -67,6 +67,10 @@ from models.diffusivity_post_processing import arrhenius_D   # noqa: E402
 # moving this package only needs the two paths above to change.
 DEFAULT_RESULTS_DIR = os.path.join(_PROJECT_ROOT, 'calculation', 'results')
 DEFAULT_LIT_FILE    = os.path.join(_HERE, 'literature_diffusivity.json')
+PHI_LIT_FILE        = os.path.join(_HERE, 'literature_permeability.json')
+S_LIT_FILE          = os.path.join(_HERE, 'literature_solubility.json')
+KD_LIT_FILE         = os.path.join(_HERE, 'literature_dissociation.json')
+KR_LIT_FILE         = os.path.join(_HERE, 'literature_recombination.json')
 PER_RUN_FIGNAME     = 'diffusivity_vs_invT.png'   # NOT arrhenius.png — that
                                                   # name belongs to the pipeline
 FIG_DPI             = 150
@@ -364,17 +368,47 @@ _D0_TO_M2S = {
     'mm2s-1': 1e-6,
 }
 
+# The other literature files, each to its SI unit (per mol of H2, as the literature quotes them).
+_CM3STP_MOL = 1.0 / 22414.0                 # mol per cm3 of gas at STP
+_PHI0_TO_SI = {                             # -> mol H2 m-1 s-1 Pa-1/2
+    'mol/(mspa0.5)':  1.0,
+    'mol/(msmpa0.5)': 1e-3,
+    'cm3(stp)/(cmsatm0.5)': _CM3STP_MOL * 100 / 101325 ** 0.5,
+}
+_S0_TO_SI = {                               # -> mol H2 m-3 Pa-1/2
+    'mol/(m3pa0.5)':  1.0,
+    'mol/(m3mpa0.5)': 1e-3,
+}
+_KD0_TO_SI = {'mol/(m2spa)': 1.0}           # -> mol H2 m-2 s-1 Pa-1
+_KR0_TO_SI = {'m4/(mols)': 1.0}             # -> m4 mol-1 s-1
+
 
 @dataclass
 class LitEntry:
-    """One literature Arrhenius law, valid only over ``T_K``."""
+    """One literature Arrhenius law, y = pre * exp(-E/kT), valid only over ``T_K``.
+
+    ``pre`` is in the quantity's SI unit, per mol of H2 as the literature quotes it: m2 s-1 (D),
+    mol H2 m-1 s-1 Pa-1/2 (permeability), mol H2 m-3 Pa-1/2 (solubility), mol H2 m-2 s-1 Pa-1
+    (dissociation), m4 mol-1 s-1 (recombination)."""
 
     label:   str
-    D0_m2s:  float
-    Ea_eV:   float
+    pre:     float
+    E_eV:    float
     T_K:     tuple[float, float]
     note:    str = ''
     digitised: str = ''                 # the figure it was read off, when not printed
+
+    @property
+    def D0_m2s(self) -> float:
+        return self.pre
+
+    @property
+    def Ea_eV(self) -> float:
+        return self.E_eV
+
+    def value(self, T):
+        """The law at temperature(s) T (K), in the SI unit of ``pre``."""
+        return arrhenius_D(np.asarray(T, float), self.E_eV, self.pre)
 
     @property
     def legend(self) -> str:
@@ -400,22 +434,24 @@ def _convert(value: float, units: str, table: dict[str, float], what: str) -> fl
     return float(value) * table[key]
 
 
-def _parse_lit_entry(raw: dict, material: str) -> LitEntry:
-    """Validate one JSON entry and convert it to eV / m² s⁻¹ / K."""
+def _parse_lit_entry(raw: dict, material: str, pre_key: str = 'D0', e_key: str = 'Ea',
+                     table: dict[str, float] = _D0_TO_M2S, default_unit: str = 'm2/s') -> LitEntry:
+    """Validate one JSON entry and convert it to eV / SI / K. ``pre_key`` and ``e_key`` name the
+    pre-factor and energy fields of the file (D0/Ea, Phi0/Ep, S0/Es, kd0/Ed, kr0/Er)."""
     label = str(raw.get('label') or '').strip()
     if not label:
         raise ValueError('entry is missing "label"')
-    if raw.get('D0') is None and raw.get('Ea') is None and ('T_C' in raw or 'T_K' in raw) \
+    if raw.get(pre_key) is None and raw.get(e_key) is None and ('T_C' in raw or 'T_K' in raw) \
             and raw.get('T_C') is None and raw.get('T_K') is None:   # one measured value, no law
         raise ValueError(f'{label}: a single value with no law, so stored but not drawn')
-    for key in ('D0', 'Ea'):
+    for key in (pre_key, e_key):
         if raw.get(key) is None:
             raise ValueError(f'{label}: missing "{key}"')
 
-    D0 = _convert(raw['D0'], raw.get('D0_units', 'm2/s'), _D0_TO_M2S, 'D0')
-    Ea = _convert(raw['Ea'], raw.get('Ea_units', 'eV'), _EA_TO_EV, 'Ea')
+    D0 = _convert(raw[pre_key], raw.get(pre_key + '_units', default_unit), table, pre_key)
+    Ea = _convert(raw[e_key], raw.get(e_key + '_units', 'eV'), _EA_TO_EV, e_key)
     if D0 <= 0:
-        raise ValueError(f'{label}: D0 must be positive, got {D0}')
+        raise ValueError(f'{label}: {pre_key} must be positive, got {D0}')
 
     # Temperature validity window: °C by default, K accepted as an alternative.
     if raw.get('T_C') is not None:
@@ -432,13 +468,14 @@ def _parse_lit_entry(raw: dict, material: str) -> LitEntry:
     if T_K[0] <= 0:
         raise ValueError(f'{label}: temperature range reaches absolute zero')
 
-    return LitEntry(label=label, D0_m2s=D0, Ea_eV=Ea, T_K=T_K,
+    return LitEntry(label=label, pre=D0, E_eV=Ea, T_K=T_K,
                     note=str(raw.get('note') or ''),
                     digitised=str(raw.get('digitised_from') or ''))
 
 
-def load_literature(path: str) -> dict[str, list[LitEntry]]:
-    """Load the literature JSON: ``{material: [entry, …]}``.
+def _load_lit(path: str, pre_key: str, e_key: str, table: dict[str, float],
+              default_unit: str) -> dict[str, list[LitEntry]]:
+    """Load one literature JSON: ``{material: [entry, …]}``.
 
     Top-level keys beginning with ``_`` are documentation (schema notes,
     worked examples) and are ignored. A malformed entry is reported and
@@ -458,13 +495,38 @@ def load_literature(path: str) -> dict[str, list[LitEntry]]:
         parsed: list[LitEntry] = []
         for item in entries:
             try:
-                parsed.append(_parse_lit_entry(item, material))
+                parsed.append(_parse_lit_entry(item, material, pre_key, e_key, table, default_unit))
             except (ValueError, TypeError, KeyError) as exc:
                 print(f'  ! literature[{material}]: {exc} — entry dropped')
         if parsed:
             out[material] = sorted(parsed, key=lambda e: e.label)
             print(f'  · {material}: {len(parsed)} literature source(s)')
     return out
+
+
+def load_literature(path: str = DEFAULT_LIT_FILE) -> dict[str, list[LitEntry]]:
+    """literature_diffusivity.json: D = D0 exp(-Ea/RT), D0 in m2 s-1."""
+    return _load_lit(path, 'D0', 'Ea', _D0_TO_M2S, 'm2/s')
+
+
+def load_permeability_literature(path: str = PHI_LIT_FILE) -> dict[str, list[LitEntry]]:
+    """literature_permeability.json: Phi = Phi0 exp(-Ep/RT), Phi0 in mol H2 m-1 s-1 Pa-1/2."""
+    return _load_lit(path, 'Phi0', 'Ep', _PHI0_TO_SI, 'mol/(m s Pa^0.5)')
+
+
+def load_solubility_literature(path: str = S_LIT_FILE) -> dict[str, list[LitEntry]]:
+    """literature_solubility.json: Ks = S0 exp(-Es/RT), S0 in mol H2 m-3 Pa-1/2."""
+    return _load_lit(path, 'S0', 'Es', _S0_TO_SI, 'mol/(m3 Pa^0.5)')
+
+
+def load_dissociation_literature(path: str = KD_LIT_FILE) -> dict[str, list[LitEntry]]:
+    """literature_dissociation.json: kd = kd0 exp(-Ed/RT), kd0 in mol H2 m-2 s-1 Pa-1."""
+    return _load_lit(path, 'kd0', 'Ed', _KD0_TO_SI, 'mol/(m2 s Pa)')
+
+
+def load_recombination_literature(path: str = KR_LIT_FILE) -> dict[str, list[LitEntry]]:
+    """literature_recombination.json: kr = kr0 exp(-Er/RT), kr0 in m4 mol-1 s-1."""
+    return _load_lit(path, 'kr0', 'Er', _KR0_TO_SI, 'm4/(mol s)')
 
 
 def load_aliases(path: str) -> dict[str, str]:
@@ -742,6 +804,72 @@ def _first_author(label: str) -> str:
     return name + (tail if tail in ('†', '*') else '')
 
 
+def _tex(t: str) -> str:
+    """A label for a LaTeX caption: escapes, and the isotope marks as superscripts."""
+    t = t.replace('&', r'\&').replace('%', r'\%').replace('_', r'\_').replace('#', r'\#')
+    return t.replace('†', r'\textsuperscript{\dag}').replace('*', r'\textsuperscript{*}')
+
+
+# --- literature laws on any Arrhenius plot (D here; Phi and S in their own scripts) -------------------
+
+def literature_curves(entries: list[LitEntry], scale: float = 1.0, n: int = 200) -> list:
+    """Each law over its own temperature range, ``[(entry, T, y)]``, with y in the plot's unit: the
+    law's SI value times ``scale`` (2 turns the literature's per-mol-H2 values into this work's per mol H)."""
+    out = []
+    for e in entries:
+        T = np.linspace(e.T_K[0], e.T_K[1], n)
+        out.append((e, T, scale * e.value(T)))
+    return out
+
+
+def literature_window(md_values, curves: list, max_decades: float = 10.0):
+    """log10 limits that keep this work's values legible (``_y_limits``), the laws that reach inside
+    them, and the labels of those that do not. Returns (lo, hi, drawn, left_out)."""
+    md = np.asarray(md_values, float)
+    lo, hi = _y_limits(np.log10(md[md > 0]), [np.log10(y) for _, _, y in curves], max_decades)
+    drawn, left_out = [], []
+    for c in curves:
+        ly = np.log10(c[2])
+        if np.any((ly >= lo) & (ly <= hi)):
+            drawn.append(c)
+        else:
+            left_out.append(c[0].label)
+    return lo, hi, drawn, left_out
+
+
+def draw_literature(ax, curves: list):
+    """The laws as grey dashed lines behind the data; returns their key handle."""
+    from matplotlib.lines import Line2D
+    for _e, T, y in curves:
+        ax.plot(1000.0 / T, y, zorder=2, **LIT_LINE)
+    return Line2D([], [], **LIT_LINE)
+
+
+def name_literature(fig, ax, curves: list, namer=None) -> bool:
+    """Each grey line named beside it, by its first author unless ``namer`` (label -> name) says
+    otherwise; lines that get the same name share it. Only when there are few enough names to read
+    (``fs.line_labels``). Call after the key is drawn."""
+    namer = namer or _first_author
+    groups: dict[str, list] = {}
+    for e, T, y in curves:
+        groups.setdefault(namer(e.label), []).append(np.column_stack([1000.0 / T, y]))
+    return fs.line_labels(fig, ax, list(groups.items()), max_labels=LIT_LABELS_MAX)
+
+
+def literature_notes(entries: list[LitEntry], left_out: list[str], max_decades: float) -> str:
+    """Caption sentences after the list of laws: isotope marks, laws read off a figure, laws left out."""
+    marks = [w for sym, w in (('†', r'\textsuperscript{\dag}~deuterium (D$_2$)'), ('*', r'\textsuperscript{*}~tritium (T$_2$)'))
+             if any(e.label.rstrip().endswith(sym) for e in entries)]
+    hydrogen = any(not e.label.rstrip().endswith(('†', '*')) for e in entries)
+    return ((f' Laws measured with another isotope: {fs.tex_join(marks)}{"; the rest are hydrogen" if hydrogen else ""}.'
+             if marks else '')
+            + (' Read off a published figure, not printed: '
+               + fs.tex_join([f'{_tex(e.label)} ({_tex(e.digitised)})' for e in entries if e.digitised]) + '.'
+               if any(e.digitised for e in entries) else '')
+            + (f' Not drawn, outside a {max_decades:.0f}-decade window: {fs.tex_join([_tex(o) for o in left_out])}.'
+               if left_out else ''))
+
+
 def plot_vs_literature(stem: str, runs: list[Run], lit: list[LitEntry],
                        outfile: str, max_decades: float = 10.0):
     """This work's MD data against published Arrhenius laws. Every law is a grey dashed line, drawn
@@ -750,32 +878,20 @@ def plot_vs_literature(stem: str, runs: list[Run], lit: list[LitEntry],
     named beside it in black (a leader line where the name cannot sit right next to it). A source
     outside the max_decades window is not drawn and is named in the caption. One figure, PDF, PNG
     and caption."""
-    from matplotlib.lines import Line2D
     runs = sorted(runs, key=lambda r: r.n_H)
     styles = fs.loading_styles([r.n_H for r in runs])
     fig, ax = fs.new_figure()
     xs, ys, items, handles = _draw_loadings(ax, runs, styles)
     labels = _key_labels(runs)
     keycols = [styles[r.n_H][0] for r in runs]
-    curves = []
-    for entry in lit:
-        T_fine = np.linspace(entry.T_K[0], entry.T_K[1], 200)
-        curves.append((entry, T_fine, arrhenius_D(T_fine, entry.Ea_eV, entry.D0_m2s)))
-    y_lo, y_hi = _y_limits(np.log10(np.concatenate(ys)), [np.log10(c[2]) for c in curves], max_decades)
-    off_scale, drawn, temps = [], [], [np.concatenate([r.data['T'] for r in runs])]
-    for entry, T, D in curves:
-        y = np.log10(D)
-        if not np.any((y >= y_lo) & (y <= y_hi)):
-            off_scale.append(entry.label)
-            continue
-        ax.plot(1000.0 / T, D, zorder=2, **LIT_LINE)
-        drawn.append(entry)
-        temps.append(T)
+    y_lo, y_hi, curves, off_scale = literature_window(np.concatenate(ys), literature_curves(lit), max_decades)
+    drawn = [e for e, _T, _y in curves]
+    temps = [np.concatenate([r.data['T'] for r in runs])] + [T for _e, T, _y in curves]
     if off_scale:
         print(f'  ! {pretty_material(stem)}: {len(off_scale)} source(s) fall outside a {max_decades:.0f}-decade window '
               f'and are not drawn: {", ".join(off_scale)}')
-    if drawn:
-        handles.append(Line2D([], [], **LIT_LINE))
+    if curves:
+        handles.append(draw_literature(ax, curves))
         labels.append(f'Literature ({len(drawn)})')
         keycols.append('black')
     fs.inverse_temperature_axis(ax, np.concatenate(temps), min_gap=0.1)
@@ -784,32 +900,14 @@ def plot_vs_literature(stem: str, runs: list[Run], lit: list[LitEntry],
     fs.log_ticks(ax.yaxis, 10 ** y_lo, 10 ** y_hi)
     ax.set_ylabel(r'$D$ (m$^2$ s$^{-1}$)')
     fs.key_below(fig, handles, labels, ncol=1, colours=keycols)
-    # each grey line named by its first author beside it (one name for one author's lines of one isotope),
-    # when there are few enough to read; otherwise the caption alone names them
-    groups: dict[str, list] = {}
-    for entry, T, D in curves:
-        if entry in drawn:
-            groups.setdefault(_first_author(entry.label), []).append(np.column_stack([1000.0 / T, D]))
-    named = fs.line_labels(fig, ax, list(groups.items()), max_labels=LIT_LABELS_MAX)
+    named = name_literature(fig, ax, curves)
     mat = fs.material_styles([stem], pretty_material)[stem][0]
-
-    def tex(t):
-        t = t.replace('&', r'\&').replace('%', r'\%').replace('_', r'\_').replace('#', r'\#')
-        return t.replace('†', r'\textsuperscript{\dag}').replace('*', r'\textsuperscript{*}')
-    lit_words = '; '.join(f'{tex(e.label)}: $E_a$ = {fs.ev(e.Ea_eV)}~eV, $D_0$ = {fs.tex_num(e.D0_m2s, 3)}~m$^2$~s$^{{-1}}$, '
+    lit_words = '; '.join(f'{_tex(e.label)}: $E_a$ = {fs.ev(e.Ea_eV)}~eV, $D_0$ = {fs.tex_num(e.D0_m2s, 3)}~m$^2$~s$^{{-1}}$, '
                           f'{e.T_K[0]:.0f}--{e.T_K[1]:.0f}~K' for e in drawn)
-    # a dagger or an asterisk at the end of a label marks a deuterium or a tritium law (see the literature file)
-    marks = [w for sym, w in (('†', r'\textsuperscript{\dag}~deuterium (D$_2$)'), ('*', r'\textsuperscript{*}~tritium (T$_2$)'))
-             if any(e.label.rstrip().endswith(sym) for e in drawn)]
     text = (rf'Hydrogen diffusivity in bulk {mat} from this work (points and solid lines, one colour per H loading; '
-            rf'{_fit_words(runs)}) against {len(drawn)} published Arrhenius laws (grey dashed lines, each drawn only '
+            rf'{_fit_words(runs)}) against {len(drawn)} published Arrhenius law{"s" if len(drawn) != 1 else ""} (grey dashed lines, each drawn only '
             rf'over its own temperature range{" and named by its first author" if named else ""}): {lit_words}.'
-            + (f' Laws measured with another isotope: {fs.tex_join(marks)}; the rest are hydrogen.' if marks else '')
-            + (' Read off a published figure, not printed: '
-               + fs.tex_join([f'{tex(e.label)} ({tex(e.digitised)})' for e in drawn if e.digitised]) + '.'
-               if any(e.digitised for e in drawn) else '')
-            + (f' Not drawn, outside a {max_decades:.0f}-decade window: {fs.tex_join([tex(o) for o in off_scale])}.'
-               if off_scale else ''))
+            + literature_notes(drawn, off_scale, max_decades))
     fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, keyed=True)
     return fig
 

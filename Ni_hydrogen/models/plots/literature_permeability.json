@@ -1,8 +1,8 @@
 {
   "_README": [
     "Literature H permeability laws, Phi = Phi0 exp(-Ep / RT).",
-    "Same layout as literature_diffusivity.json. No plotting script reads this",
-    "file yet; diffusivity_plot.py's loader is the model for one.",
+    "Same layout as literature_diffusivity.json. permeability_plot.py draws it beside this work;",
+    "diffusivity_plot.load_permeability_literature reads it.",
     "",
     "Top-level keys are materials, named as in a paper ('316L SS', 'Hastelloy N',",
     "'NiO'). A run folder finds its key by its name without the H count and",

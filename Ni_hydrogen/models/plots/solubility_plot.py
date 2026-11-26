@@ -56,8 +56,9 @@ import numpy as np
 
 import figstyle as fs                     # noqa: E402
 from diffusivity_plot import (            # noqa: E402
-    DEFAULT_RESULTS_DIR, Run, discover_runs, pretty_material,
-    _add_temperature_axis, _save,
+    DEFAULT_RESULTS_DIR, S_LIT_FILE, Run, discover_runs, pretty_material,
+    _add_temperature_axis, _save, _tex, draw_literature, literature_curves, literature_for,
+    literature_notes, literature_window, load_aliases, load_solubility_literature, name_literature,
 )
 from models.diffusivity_post_processing import KB_EV                  # noqa: E402
 from models.permeation import solubility_by_environment_saturating    # noqa: E402
@@ -69,6 +70,9 @@ from models.permeation import solubility_by_environment_saturating    # noqa: E4
 
 N_A       = 6.02214076e23
 S_UNITS   = 'mol H m⁻³ Pa⁻⁰·⁵'
+# The literature quotes Ks per mol of H2; this work per mol of H atoms, so a literature law is doubled.
+H_PER_H2    = 2.0
+LIT_DECADES = 10.0          # literature laws further than this from the MD values are named, not drawn
 
 ROUTES = ('geometric', 'vibrational', 'detailed_balance')
 
@@ -273,9 +277,11 @@ SAT_LINE = dict(color='black', lw=2.4, ls=(0, (6, 2, 1, 2)))
 
 def plot_material(stem: str, fits: dict[str, RouteFit],
                   ceiling: tuple[np.ndarray, np.ndarray] | None,
-                  outfile: str, env: dict | None = None, run=None):
+                  outfile: str, env: dict | None = None, run=None, lit=None):
     """S against 1000/T for every route of one material, with octahedral-site saturation: one figure
-    written as PDF, PNG and caption."""
+    written as PDF, PNG and caption. ``lit``: the material's published laws
+    (``load_solubility_literature``), drawn as grey dashed lines converted to mol H and named by
+    their first author, as on the diffusivity plots."""
     from matplotlib.lines import Line2D
     from permeability_plot import _route_line, _loading_words
     fig, ax = fs.new_figure()
@@ -306,7 +312,12 @@ def plot_material(stem: str, fits: dict[str, RouteFit],
         items.append((1000.0 / T_c[i], n_c[i], 'Site saturation', 'black'))
         handles.append(Line2D([], [], **SAT_LINE))
     T_all = np.concatenate([fits[n].T for n in fits])
-    fs.inverse_temperature_axis(ax, T_all)
+    lit_curves, left_out = [], []
+    if lit:
+        lo, hi, lit_curves, left_out = literature_window(np.concatenate([np.asarray(v, float) for v in ys]),
+                                                         literature_curves(lit, scale=H_PER_H2), LIT_DECADES)
+        ys += [y[(np.log10(y) >= lo) & (np.log10(y) <= hi)] for _e, _T, y in lit_curves]
+    fs.inverse_temperature_axis(ax, np.concatenate([T_all] + [T for _e, T, _y in lit_curves]))
     fs.set_log_y(ax, np.concatenate([np.asarray(v, float) for v in ys]))
     if ceiling is not None:
         ax.fill_between(1000.0 / T_c, n_c, ax.get_ylim()[1], color='#EDEDED', zorder=0, lw=0)
@@ -317,7 +328,12 @@ def plot_material(stem: str, fits: dict[str, RouteFit],
     if ceiling is not None:
         keylabels.append('Octahedral-site saturation')
         keycols.append('black')
+    if lit_curves:
+        handles.append(draw_literature(ax, lit_curves))
+        keylabels.append(f'Literature ({len(lit_curves)})')
+        keycols.append('black')
     fs.key_below(fig, handles, keylabels, ncol=1, colours=keycols)
+    named = name_literature(fig, ax, lit_curves)
     keyed = True
     mat = fs.material_styles([stem], pretty_material)[stem][0]
     parts = []
@@ -347,6 +363,13 @@ def plot_material(stem: str, fits: dict[str, RouteFit],
     text = (rf'Hydrogen solubility of {mat} (Sieverts) against inverse temperature, {T_all.min():.0f} to '
             rf'{T_all.max():.0f}~K{_loading_words(run)}. Points are the per-temperature results; lines are Arrhenius '
             r'fits, $S = S_0\,e^{-\Delta H_\mathrm{sol}/k_BT}$, for each route: ' + '; '.join(parts) + '.' + sat_txt + dot_txt)
+    drawn = [e for e, _T, _y in lit_curves]
+    if drawn:
+        words = '; '.join(f'{_tex(e.label)}: $S_0$ = {fs.tex_num(H_PER_H2 * e.pre, 3)}~mol~H~m$^{{-3}}$~Pa$^{{-1/2}}$, '
+                          f'$\\Delta H_\\mathrm{{sol}}$ = {fs.ev(e.E_eV)}~eV, {e.T_K[0]:.0f}--{e.T_K[1]:.0f}~K' for e in drawn)
+        text += (f' Grey dashed lines are {len(drawn)} published law{"s" if len(drawn) != 1 else ""}, converted from mol H$_2$ to mol H ($\\times 2$) and '
+                 f'each drawn only over its own temperature range{" and named by its first author" if named else ""}: {words}.')
+    text += literature_notes(drawn, left_out, LIT_DECADES) if (drawn or left_out) else ''
     fs.finish(fig, ax, fs.panel_stem(outfile, ''), MODULE, text, np.concatenate(xs),
               np.concatenate([fits[n].S for n in fits]), keyed=keyed)
 
@@ -493,12 +516,15 @@ def main(argv: list[str] | None = None) -> int:
     envs     = {stem: load_environments(results_dir, stem) for stem in chosen}
     problems = report(chosen, ceilings, envs)
 
+    print('\nLoading literature data …')
+    lit_all, aliases = load_solubility_literature(), load_aliases(S_LIT_FILE)
+
     print('\nPer-material plots:')
     for stem, (_run, fits) in sorted(chosen.items()):
         material = pretty_material(stem).replace(' ', '_')
         plot_material(stem, fits, ceilings.get(stem),
                       os.path.join(outdir, f'{material}_solubility_arrhenius.png'),
-                      env=envs.get(stem), run=_run)
+                      env=envs.get(stem), run=_run, lit=literature_for(stem, lit_all, aliases))
 
     print('\nCross-material plot:')
     if plot_all_materials(chosen, ceilings, routes,
